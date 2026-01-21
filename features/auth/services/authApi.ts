@@ -1,6 +1,6 @@
+import { apiRequest } from "@/shared/apiRequest";
 import Constants from "expo-constants";
 import * as SecureStore from "expo-secure-store";
-import { apiRequest } from "@/shared/apiRequest";
 
 const baseUrl = Constants.expoConfig?.extra?.API_BASE_URL;
 

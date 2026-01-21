@@ -1,17 +1,7 @@
-import { createApiRequest } from '@/shared/apiRequest';
-import Constants from 'expo-constants';
-import * as SecureStore from 'expo-secure-store';
 import { useCallback, useState } from 'react';
+import { getValidAccessToken } from '../../auth/services/authApi';
 import type { Novedad } from '../models/Novedades';
 import * as novedadesApi from '../services/novedadesApi';
-
-const TOKEN_KEYS = {
-  ACCESS: 'accessToken',
-  REFRESH: 'refreshToken',
-};
-
-const BASE_URL = Constants.expoConfig?.extra?.API_BASE_URL || 'http://localhost:3000';
-const ENTORNO = 'interno';
 
 /**
  * Hook para gestionar las operaciones de Novedades
@@ -28,40 +18,13 @@ export function useNovedad() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  /**
-   * Crear instancia de apiRequest configurada
-   * IMPORTANTE: getTokens siempre lee desde SecureStore
-   */
-  const createApiRequestInstance = useCallback(() => {
-    return createApiRequest({
-      baseUrl: BASE_URL,
-      entorno: ENTORNO,
-      getTokens: async () => {
-        // SIEMPRE leer tokens actuales desde SecureStore
-        const [access, refresh] = await Promise.all([
-          SecureStore.getItemAsync(TOKEN_KEYS.ACCESS),
-          SecureStore.getItemAsync(TOKEN_KEYS.REFRESH),
-        ]);
-        return { access, refresh };
-      },
-      setTokens: async (newAccess: string, newRefresh: string) => {
-        await Promise.all([
-          SecureStore.setItemAsync(TOKEN_KEYS.ACCESS, newAccess),
-          SecureStore.setItemAsync(TOKEN_KEYS.REFRESH, newRefresh),
-        ]);
-      },
-      clearTokens: async () => {
-        await Promise.all([
-          SecureStore.deleteItemAsync(TOKEN_KEYS.ACCESS),
-          SecureStore.deleteItemAsync(TOKEN_KEYS.REFRESH),
-        ]);
-      },
-      onExpired: () => {
-        // Aquí podrías agregar lógica adicional cuando expira la sesión
-        console.warn('Sesión expirada al intentar acceder a novedades');
-      },
-    });
-  }, []);
+  const getAuthenticatedToken = async () => {
+    const token = await getValidAccessToken();
+    if (!token) {
+      throw new Error("Sesión expirada o no iniciada");
+    }
+    return token;
+  };
 
   /**
    * Obtener todas las novedades
@@ -71,8 +34,8 @@ export function useNovedad() {
     setError(null);
 
     try {
-      const apiRequest = createApiRequestInstance();
-      const novedades = await novedadesApi.fetchNovedades(apiRequest);
+      const token = await getAuthenticatedToken();
+      const novedades = await novedadesApi.fetchNovedades(token);
       
       setIsLoading(false);
       return { success: true, data: novedades };
@@ -83,7 +46,7 @@ export function useNovedad() {
       console.error('Error en obtenerNovedades:', err);
       return { success: false, error: errorMsg };
     }
-  }, [createApiRequestInstance]);
+  }, []);
 
   /**
    * Crear una nueva novedad
@@ -94,8 +57,8 @@ export function useNovedad() {
       setError(null);
 
       try {
-        const apiRequest = createApiRequestInstance();
-        const nuevaNovedad = await novedadesApi.crearNovedad(novedadData, apiRequest);
+        const token = await getAuthenticatedToken();
+        const nuevaNovedad = await novedadesApi.crearNovedad(novedadData, token);
         
         setIsLoading(false);
         return { success: true, data: nuevaNovedad };
@@ -107,7 +70,7 @@ export function useNovedad() {
         return { success: false, error: errorMsg };
       }
     },
-    [createApiRequestInstance]
+    []
   );
 
   /**
@@ -119,8 +82,8 @@ export function useNovedad() {
       setError(null);
 
       try {
-        const apiRequest = createApiRequestInstance();
-        const novedadActualizada = await novedadesApi.actualizarNovedad(novedadData, apiRequest);
+        const token = await getAuthenticatedToken();
+        const novedadActualizada = await novedadesApi.actualizarNovedad(novedadData, token);
         
         setIsLoading(false);
         return { success: true, data: novedadActualizada };
@@ -132,7 +95,7 @@ export function useNovedad() {
         return { success: false, error: errorMsg };
       }
     },
-    [createApiRequestInstance]
+    []
   );
 
   /**
@@ -144,8 +107,8 @@ export function useNovedad() {
       setError(null);
 
       try {
-        const apiRequest = createApiRequestInstance();
-        await novedadesApi.eliminarNovedad(id, apiRequest);
+        const token = await getAuthenticatedToken();
+        await novedadesApi.eliminarNovedad(id, token);
         
         setIsLoading(false);
         return { success: true };
@@ -157,7 +120,7 @@ export function useNovedad() {
         return { success: false, error: errorMsg };
       }
     },
-    [createApiRequestInstance]
+    []
   );
 
   return {

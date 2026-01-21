@@ -5,7 +5,7 @@ import { useAuth } from '@/features/auth/context/AuthContext';
 import { StyleSheet, Text, View } from 'react-native';
 
 export default function HomeScreen() {
-  const { user, userContext } = useAuth();
+  const { user } = useAuth();
 
   return (
     <ThemedView style={styles.container}>

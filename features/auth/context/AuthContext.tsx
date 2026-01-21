@@ -22,7 +22,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const token = await getValidAccessToken();
       if (token) {
-        const userData = await getUserContext();
+        const userData = await getUserContext(token);
         setUser(userData);
       } else {
         setUser(null);

@@ -1,16 +1,10 @@
-import Constants from "expo-constants";
+import { apiRequest } from '@/shared/apiRequest';
 import type { NovedadDTO } from '../dto/NovedadesDTO';
 import { mapNovedadDTOToNovedades } from '../mappers/novedadesMapper';
 import type { Novedad } from '../models/Novedades';
 
-const baseUrl = Constants.expoConfig?.extra?.API_BASE_URL;
-
-export async function fetchNovedades(
-  apiRequest: (url: string, options?: RequestInit) => Promise<Response>
-): Promise<Novedad[]> {
-    const response = await apiRequest('/novedades', {
-        method: 'GET',
-    });
+export async function fetchNovedades(accessToken: string): Promise<Novedad[]> {
+    const response = await apiRequest('GET', '/novedades', accessToken);
 
     if (!response.ok) {
         throw new Error(`No se pudo obtener las novedades: ${response.statusText}`);
@@ -20,16 +14,8 @@ export async function fetchNovedades(
     return data.map(mapNovedadDTOToNovedades);
 }
 
-export async function crearNovedad(novedadData: Novedad,
-  apiRequest: (url: string, options?: RequestInit) => Promise<Response>
-): Promise<Novedad> {
-    const response = await apiRequest('/novedades', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(novedadData),
-    });
+export async function crearNovedad(novedadData: Novedad, accessToken: string): Promise<Novedad> {
+    const response = await apiRequest('POST', '/novedades', accessToken, novedadData);
 
     if (!response.ok) {
         throw new Error(`No se pudo crear la novedad: ${response.statusText}`);
@@ -39,17 +25,8 @@ export async function crearNovedad(novedadData: Novedad,
     return mapNovedadDTOToNovedades(data);
 }
 
-export async function actualizarNovedad(
-  novedadData: Novedad,
-  apiRequest: (url: string, options?: RequestInit) => Promise<Response>
-): Promise<Novedad> {
-    const response = await apiRequest(`/novedades/${novedadData.id}`, {
-        method: 'PUT',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(novedadData),
-    });
+export async function actualizarNovedad(novedadData: Novedad, accessToken: string): Promise<Novedad> {
+    const response = await apiRequest('PUT', `/novedades/${novedadData.id}`, accessToken, novedadData);
 
     if (!response.ok) {
         throw new Error(`No se pudo actualizar: ${response.statusText}`);
@@ -59,13 +36,8 @@ export async function actualizarNovedad(
     return mapNovedadDTOToNovedades(data);
 }
 
-export async function eliminarNovedad(
-  id: number,
-  apiRequest: (url: string, options?: RequestInit) => Promise<Response>
-): Promise<void> {
-    const response = await apiRequest(`/novedades/${id}`, {
-        method: 'DELETE',
-    });
+export async function eliminarNovedad(id: number, accessToken: string): Promise<void> {
+    const response = await apiRequest('DELETE', `/novedades/${id}`, accessToken);
 
     if (!response.ok) {
         throw new Error(`No se pudo eliminar: ${response.statusText}`);

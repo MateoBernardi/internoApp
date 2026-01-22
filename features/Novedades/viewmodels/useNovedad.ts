@@ -18,14 +18,6 @@ export function useNovedad() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const getAuthenticatedToken = async () => {
-    const token = await getValidAccessToken();
-    if (!token) {
-      throw new Error("Sesión expirada o no iniciada");
-    }
-    return token;
-  };
-
   /**
    * Obtener todas las novedades
    */
@@ -34,7 +26,7 @@ export function useNovedad() {
     setError(null);
 
     try {
-      const token = await getAuthenticatedToken();
+      const token = await getValidAccessToken();
       const novedades = await novedadesApi.fetchNovedades(token);
       
       setIsLoading(false);
@@ -57,7 +49,7 @@ export function useNovedad() {
       setError(null);
 
       try {
-        const token = await getAuthenticatedToken();
+        const token = await getValidAccessToken();
         const nuevaNovedad = await novedadesApi.crearNovedad(novedadData, token);
         
         setIsLoading(false);
@@ -82,7 +74,7 @@ export function useNovedad() {
       setError(null);
 
       try {
-        const token = await getAuthenticatedToken();
+        const token = await getValidAccessToken();
         const novedadActualizada = await novedadesApi.actualizarNovedad(novedadData, token);
         
         setIsLoading(false);
@@ -107,7 +99,7 @@ export function useNovedad() {
       setError(null);
 
       try {
-        const token = await getAuthenticatedToken();
+        const token = await getValidAccessToken();
         await novedadesApi.eliminarNovedad(id, token);
         
         setIsLoading(false);

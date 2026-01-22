@@ -1,26 +1,15 @@
-import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import TablonNovedades from '@/features/Novedades/views/TablonNovedades';
+import { KanbanBoard } from '@/features/Kanban/views/KanbanBoard';
 import { useAuth } from '@/features/auth/context/AuthContext';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 export default function HomeScreen() {
   const { user } = useAuth();
-
   return (
     <ThemedView style={styles.container}>
-      <View style={styles.header}>
-        <ThemedText type="title" style={styles.title}>
-          Tablón de Novedades
-        </ThemedText>
-        {user && (
-          <Text style={styles.welcomeText}>
-            Bienvenido, {user.nombre || user.username}
-          </Text>
-        )}
-      </View>
-      
       <TablonNovedades />
+      <KanbanBoard />
     </ThemedView>
   );
 }
@@ -28,11 +17,7 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 60,
-  },
-  header: {
-    paddingHorizontal: 20,
-    paddingBottom: 16,
+    paddingTop: '15%',
   },
   title: {
     marginBottom: 4,

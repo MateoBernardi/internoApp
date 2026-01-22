@@ -4,6 +4,6 @@ export interface Novedad {
   descripcion: string;
   id_etiqueta?: number;
   prioridad: number;
-  createdBy: string;
+  createdBy?: number;
   createdAt?: Date;
 }

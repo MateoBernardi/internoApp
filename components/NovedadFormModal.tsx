@@ -1,16 +1,18 @@
 import type { Novedad } from '@/features/Novedades/models/Novedades';
-import { Picker } from '@react-native-picker/picker';
 import React, { useEffect, useState } from 'react';
 import {
-    Modal,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    TouchableWithoutFeedback,
-    View,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  View,
 } from 'react-native';
+import { Dropdown } from 'react-native-element-dropdown';
 
 interface NovedadFormModalProps {
   visible: boolean;
@@ -20,23 +22,24 @@ interface NovedadFormModalProps {
   mode: 'create' | 'edit';
 }
 
+// Adaptamos los datos para la librería (label y value)
 const TIPOS_NOVEDAD = [
-  { id: 1, nombre: 'General' },
-  { id: 2, nombre: 'Eventos' },
-  { id: 3, nombre: 'Supermercado' },
-  { id: 4, nombre: 'Mantenimiento' },
-  { id: 5, nombre: 'Seguridad e Higiene' },
-  { id: 6, nombre: 'Personas y Relaciones' },
-  { id: 7, nombre: 'Capacitación' },
-  { id: 8, nombre: 'Comunicados' },
-  { id: 9, nombre: 'Insumos' },
-  { id: 10, nombre: 'Otros' },
+  { label: 'General', value: 1 },
+  { label: 'Eventos', value: 2 },
+  { label: 'Supermercado', value: 3 },
+  { label: 'Mantenimiento', value: 4 },
+  { label: 'Seguridad e Higiene', value: 5 },
+  { label: 'Personas y Relaciones', value: 6 },
+  { label: 'Capacitación', value: 7 },
+  { label: 'Comunicados', value: 8 },
+  { label: 'Insumos', value: 9 },
+  { label: 'Otros', value: 10 },
 ];
 
 const PRIORIDADES = [
-  { id: 1, nombre: 'Alta' },
-  { id: 2, nombre: 'Media' },
-  { id: 3, nombre: 'Baja' },
+  { label: 'Alta', value: 1 },
+  { label: 'Media', value: 2 },
+  { label: 'Baja', value: 3 },
 ];
 
 export function NovedadFormModal({
@@ -51,18 +54,20 @@ export function NovedadFormModal({
   const [tipo, setTipo] = useState<number>(1);
   const [prioridad, setPrioridad] = useState<number>(2);
   const [loading, setLoading] = useState(false);
-
+  
   useEffect(() => {
-    if (mode === 'edit' && novedad) {
-      setTitulo(novedad.titulo);
-      setDescripcion(novedad.descripcion);
-      setTipo(novedad.id_etiqueta || 1);
-      setPrioridad(novedad.prioridad);
-    } else {
-      setTitulo('');
-      setDescripcion('');
-      setTipo(1);
-      setPrioridad(2);
+    if (visible) {
+      if (mode === 'edit' && novedad) {
+        setTitulo(novedad.titulo);
+        setDescripcion(novedad.descripcion);
+        setTipo(novedad.id_etiqueta || 1);
+        setPrioridad(novedad.prioridad);
+      } else {
+        setTitulo('');
+        setDescripcion('');
+        setTipo(1);
+        setPrioridad(2);
+      }
     }
   }, [mode, novedad, visible]);
 
@@ -76,7 +81,6 @@ export function NovedadFormModal({
         descripcion: descripcion.trim(),
         id_etiqueta: tipo,
         prioridad,
-        createdBy: novedad?.createdBy || 'usuario', // Se puede obtener del contexto si es necesario
       });
       onClose();
     } catch (error) {
@@ -93,137 +97,131 @@ export function NovedadFormModal({
       animationType="fade"
       onRequestClose={onClose}
     >
-      <TouchableWithoutFeedback onPress={onClose}>
-        <View style={styles.overlay}>
-          <TouchableWithoutFeedback>
-            <View style={styles.modalContainer}>
-              <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-                <Text style={styles.headerTitle}>
-                  {mode === 'create' ? 'Crear Nueva Novedad' : 'Editar Novedad'}
-                </Text>
+      {/* Usamos un View simple como overlay para evitar conflictos de gestos */}
+      <View style={styles.overlay}>
+        <TouchableWithoutFeedback onPress={onClose}>
+          <View style={StyleSheet.absoluteFill} />
+        </TouchableWithoutFeedback>
 
-                {/* Título */}
-                <View style={styles.fieldContainer}>
-                  <Text style={styles.label}>Título</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={titulo}
-                    onChangeText={setTitulo}
-                    placeholder="Título de la novedad"
-                    placeholderTextColor="#9ca3af"
-                  />
-                </View>
+        <View style={styles.modalContainer}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={{ width: '100%' }}
+          >
+            {/* Quitamos flex: 1 del ScrollView y usamos flexGrow */}
+            <ScrollView 
+              contentContainerStyle={styles.scrollContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              <Text style={styles.headerTitle}>
+                {mode === 'create' ? 'Crear Nueva Novedad' : 'Editar Novedad'}
+              </Text>
 
-                {/* Descripción */}
-                <View style={styles.fieldContainer}>
-                  <Text style={styles.label}>Descripción</Text>
-                  <TextInput
-                    style={[styles.input, styles.textArea]}
-                    value={descripcion}
-                    onChangeText={setDescripcion}
-                    placeholder="Descripción de la novedad"
-                    placeholderTextColor="#9ca3af"
-                    multiline
-                    numberOfLines={4}
-                    textAlignVertical="top"
-                  />
-                </View>
+              {/* Título */}
+              <View style={styles.fieldContainer}>
+                <Text style={styles.label}>Título</Text>
+                <TextInput
+                  style={styles.input}
+                  value={titulo}
+                  onChangeText={setTitulo}
+                  placeholder="Título"
+                  placeholderTextColor="#9ca3af"
+                />
+              </View>
 
-                {/* Categoría */}
-                <View style={styles.fieldContainer}>
-                  <Text style={styles.label}>Categoría</Text>
-                  <View style={styles.pickerContainer}>
-                    <Picker
-                      selectedValue={tipo}
-                      onValueChange={(value) => setTipo(value)}
-                      style={styles.picker}
-                    >
-                      {TIPOS_NOVEDAD.map((tipoItem) => (
-                        <Picker.Item
-                          key={tipoItem.id}
-                          label={tipoItem.nombre}
-                          value={tipoItem.id}
-                        />
-                      ))}
-                    </Picker>
-                  </View>
-                </View>
+              {/* Descripción */}
+              <View style={styles.fieldContainer}>
+                <Text style={styles.label}>Descripción</Text>
+                <TextInput
+                  style={[styles.input, styles.textArea]}
+                  value={descripcion}
+                  onChangeText={setDescripcion}
+                  placeholder="Descripción"
+                  placeholderTextColor="#9ca3af"
+                  multiline
+                />
+              </View>
 
-                {/* Prioridad */}
-                <View style={styles.fieldContainer}>
-                  <Text style={styles.label}>Prioridad</Text>
-                  <View style={styles.pickerContainer}>
-                    <Picker
-                      selectedValue={prioridad}
-                      onValueChange={(value) => setPrioridad(value)}
-                      style={styles.picker}
-                    >
-                      {PRIORIDADES.map((prioridadItem) => (
-                        <Picker.Item
-                          key={prioridadItem.id}
-                          label={prioridadItem.nombre}
-                          value={prioridadItem.id}
-                        />
-                      ))}
-                    </Picker>
-                  </View>
-                </View>
+              {/* Categoría */}
+              <View style={styles.fieldContainer}>
+                <Text style={styles.label}>Categoría</Text>
+                <Dropdown
+                  style={styles.dropdown}
+                  placeholderStyle={styles.placeholderStyle}
+                  selectedTextStyle={styles.selectedTextStyle}
+                  data={TIPOS_NOVEDAD}
+                  maxHeight={300}
+                  labelField="label"
+                  valueField="value"
+                  value={tipo}
+                  onChange={item => setTipo(item.value)}
+                />
+              </View>
 
-                {/* Botones */}
-                <View style={styles.buttonContainer}>
-                  <TouchableOpacity
-                    style={styles.cancelButton}
-                    onPress={onClose}
-                    disabled={loading}
-                  >
-                    <Text style={styles.cancelButtonText}>Cancelar</Text>
-                  </TouchableOpacity>
+              {/* Prioridad */}
+              <View style={styles.fieldContainer}>
+                <Text style={styles.label}>Prioridad</Text>
+                <Dropdown
+                  style={styles.dropdown}
+                  data={PRIORIDADES}
+                  labelField="label"
+                  valueField="value"
+                  value={prioridad}
+                  onChange={item => setPrioridad(item.value)}
+                />
+              </View>
 
-                  <TouchableOpacity
-                    style={[
-                      styles.submitButton,
-                      (!titulo.trim() || loading) && styles.submitButtonDisabled,
-                    ]}
-                    onPress={handleSubmit}
-                    disabled={!titulo.trim() || loading}
-                  >
-                    <Text style={styles.submitButtonText}>
-                      {loading ? 'Guardando...' : mode === 'create' ? 'Crear' : 'Guardar'}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </ScrollView>
-            </View>
-          </TouchableWithoutFeedback>
+              {/* Botones */}
+              <View style={styles.buttonContainer}>
+                <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
+                  <Text style={styles.cancelButtonText}>Cancelar</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.submitButton, !titulo.trim() && styles.submitButtonDisabled]}
+                  onPress={handleSubmit}
+                  disabled={!titulo.trim() || loading}
+                >
+                  <Text style={styles.submitButtonText}>
+                    {loading ? '...' : 'Guardar'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </KeyboardAvoidingView>
         </View>
-      </TouchableWithoutFeedback>
+      </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  flex: {
+    flex: 1,
+  },
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)', // Un poco más oscuro para ver si el modal resalta
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 16,
   },
   modalContainer: {
     backgroundColor: 'white',
     borderRadius: 16,
-    width: '100%',
-    maxWidth: 500,
-    maxHeight: '85%',
-    padding: 20,
+    width: '90%',
+    maxWidth: 450,
+    // Importante: No uses maxHeight solo, dale un espacio mínimo o deja que crezca
+    maxHeight: '85%', 
+    elevation: 10,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 5 },
     shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowRadius: 10,
   },
-  scrollView: {
-    flex: 1,
+  scrollContent: {
+    padding: 24,
+    flexGrow: 1, // Esto asegura que el contenido empuje las paredes del modal
   },
   headerTitle: {
     fontSize: 20,
@@ -254,26 +252,32 @@ const styles = StyleSheet.create({
     minHeight: 80,
     paddingTop: 10,
   },
-  pickerContainer: {
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 8,
-    overflow: 'hidden',
-    backgroundColor: '#ffffff',
-  },
-  picker: {
+  dropdown: {
     height: 50,
+    borderColor: '#d1d5db',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    backgroundColor: 'white',
+  },
+  placeholderStyle: {
+    fontSize: 15,
+    color: '#9ca3af',
+  },
+  selectedTextStyle: {
+    fontSize: 15,
+    color: '#111827',
   },
   buttonContainer: {
     flexDirection: 'row',
     gap: 10,
-    marginTop: 24,
+    marginTop: 10,
+    paddingBottom: 10,
   },
   cancelButton: {
     flex: 1,
     backgroundColor: '#e5e7eb',
     paddingVertical: 12,
-    paddingHorizontal: 16,
     borderRadius: 8,
     alignItems: 'center',
   },
@@ -286,7 +290,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#3b82f6',
     paddingVertical: 12,
-    paddingHorizontal: 16,
     borderRadius: 8,
     alignItems: 'center',
   },

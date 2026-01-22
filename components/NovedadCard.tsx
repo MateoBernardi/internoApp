@@ -3,7 +3,7 @@ import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface NovedadCardProps {
-  novedad: Novedad & { categoria: string; fecha: string; autor: string };
+  novedad: Novedad & { categoria: string; fecha: string; };
   onPress: () => void;
 }
 
@@ -73,14 +73,14 @@ export function NovedadCard({ novedad, onPress }: NovedadCardProps) {
 
 const styles = StyleSheet.create({
   container: {
-    width: 220,
-    marginHorizontal: 8,
+    width: 100,
+    marginHorizontal: 4,
   },
   card: {
-    height: 130,
+    height: 80,
     borderRadius: 12,
     borderLeftWidth: 4,
-    padding: 12,
+    padding: 5,
     justifyContent: 'space-between',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },

@@ -18,7 +18,9 @@ export async function crearNovedad(novedadData: Novedad, accessToken: string): P
     const response = await apiRequest('POST', '/novedades', accessToken, novedadData);
 
     if (!response.ok) {
-        throw new Error(`No se pudo crear la novedad: ${response.statusText}`);
+        const errorText = await response.text();
+        console.error('Error en crearNovedad:', response.status, errorText);
+        throw new Error(`No se pudo crear la novedad: ${response.status} - ${errorText}`);
     }
 
     const data: NovedadDTO = await response.json();

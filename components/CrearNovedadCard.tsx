@@ -8,36 +8,25 @@ interface CrearNovedadCardProps {
 export function CrearNovedadCard({ onPress }: CrearNovedadCardProps) {
   return (
     <TouchableOpacity style={styles.container} onPress={onPress} activeOpacity={0.7}>
-      <View style={styles.card}>
         <View style={styles.iconContainer}>
           <Text style={styles.plusIcon}>+</Text>
         </View>
-        <Text style={styles.label}>Nueva Novedad</Text>
-      </View>
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    width: 220,
-    marginHorizontal: 8,
-  },
-  card: {
-    height: 130,
-    borderRadius: 12,
-    borderWidth: 3,
-    borderStyle: 'dashed',
-    borderColor: '#d1d5db',
-    backgroundColor: '#fafafa',
+    width: 60,
+    marginHorizontal: 4,
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
   },
   iconContainer: {
     width: 48,
     height: 48,
     borderRadius: 24,
+    borderStyle: 'dashed',
     backgroundColor: '#e5e7eb',
     justifyContent: 'center',
     alignItems: 'center',

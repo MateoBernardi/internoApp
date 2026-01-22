@@ -1,61 +1,48 @@
 import type { Novedad } from '@/features/Novedades/models/Novedades';
 import React from 'react';
 import {
-    Modal,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    TouchableWithoutFeedback,
-    View,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  View,
 } from 'react-native';
 
 interface NovedadModalProps {
   visible: boolean;
-  novedad: (Novedad & { categoria: string; fecha: string; autor: string }) | null;
+  novedad: (Novedad & { categoria: string; fecha: string; }) | null;
   onClose: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
   canEdit?: boolean;
 }
 
+// Helper para iconos de categoría
 const getCategoriaIcon = (categoria: string): string => {
-  switch (categoria.toLowerCase()) {
-    case 'general':
-      return '📋';
-    case 'eventos':
-      return '🎉';
-    case 'supermercado':
-      return '📦';
-    case 'mantenimiento':
-      return '🔧';
-    case 'seguridad e higiene':
-      return '🛡️';
-    case 'personas y relaciones':
-      return '👥';
-    case 'capacitación':
-      return '🎓';
-    case 'comunicados':
-      return '📢';
-    case 'insumos':
-      return '🌱';
-    case 'otros':
-      return '📌';
-    default:
-      return '📌';
+  switch (categoria?.toLowerCase()) {
+    case 'general': return '📋';
+    case 'eventos': return '🎉';
+    case 'supermercado': return '📦';
+    case 'mantenimiento': return '🔧';
+    case 'seguridad e higiene': return '🛡️';
+    case 'personas y relaciones': return '👥';
+    case 'capacitación': return '🎓';
+    case 'comunicados': return '📢';
+    case 'insumos': return '🌱';
+    case 'otros': return '📌';
+    default: return '📌';
   }
 };
 
+// Helper para colores de prioridad
 const getPrioridadColor = (prioridad: number): string => {
   switch (prioridad) {
-    case 1:
-      return '#ef4444';
-    case 2:
-      return '#fbbf24';
-    case 3:
-      return '#22c55e';
-    default:
-      return '#9ca3af';
+    case 1: return '#ef4444'; // Alta - Rojo
+    case 2: return '#fbbf24'; // Media - Ámbar
+    case 3: return '#22c55e'; // Baja - Verde
+    default: return '#9ca3af';
   }
 };
 
@@ -67,6 +54,8 @@ export function NovedadModal({
   onDelete,
   canEdit = false,
 }: NovedadModalProps) {
+  
+  // Si no hay novedad, no renderizamos nada para evitar errores de undefined
   if (!novedad) return null;
 
   return (
@@ -76,59 +65,71 @@ export function NovedadModal({
       animationType="fade"
       onRequestClose={onClose}
     >
-      <TouchableWithoutFeedback onPress={onClose}>
-        <View style={styles.overlay}>
-          <TouchableWithoutFeedback>
-            <View style={styles.modalContainer}>
-              <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-                {/* Header con icono y categoría */}
-                <View style={styles.header}>
-                  <View
-                    style={[
-                      styles.iconContainer,
-                      { borderColor: getPrioridadColor(novedad.prioridad) },
-                    ]}
-                  >
-                    <Text style={styles.headerIcon}>{getCategoriaIcon(novedad.categoria)}</Text>
-                  </View>
-                  <View style={styles.headerInfo}>
-                    <Text style={styles.autor}>{novedad.autor}</Text>
-                    <Text style={styles.categoriaText}>{novedad.categoria}</Text>
-                  </View>
-                </View>
+      <View style={styles.overlay}>
+        {/* Capa para cerrar al tocar fuera del recuadro blanco */}
+        <TouchableWithoutFeedback onPress={onClose}>
+          <View style={StyleSheet.absoluteFill} />
+        </TouchableWithoutFeedback>
 
-                {/* Título */}
-                <Text style={styles.titulo}>{novedad.titulo}</Text>
+        <View style={styles.modalContainer}>
+          <ScrollView 
+            showsVerticalScrollIndicator={false}
+            // flexGrow asegura que el contenido empuje el modal y sea visible
+            contentContainerStyle={styles.scrollContent}
+          >
+            {/* Header con icono y categoría */}
+            <View style={styles.header}>
+              <View
+                style={[
+                  styles.iconContainer,
+                  { borderColor: getPrioridadColor(novedad.prioridad) },
+                ]}
+              >
+                <Text style={styles.headerIcon}>
+                    {getCategoriaIcon(novedad.categoria)}
+                </Text>
+              </View>
+              <View style={styles.headerInfo}>
+                <Text style={styles.categoriaLabel}>CATEGORÍA</Text>
+                <Text style={styles.categoriaText}>{novedad.categoria}</Text>
+              </View>
+            </View>
 
-                {/* Descripción */}
-                <Text style={styles.descripcion}>{novedad.descripcion}</Text>
+            {/* Título */}
+            <Text style={styles.titulo}>{novedad.titulo}</Text>
 
-                {/* Fecha */}
+            {/* Descripción */}
+            <Text style={styles.descripcion}>{novedad.descripcion || 'Sin descripción disponible.'}</Text>
+
+            {/* Fecha */}
+            <View style={styles.fechaContainer}>
                 <Text style={styles.fecha}>📅 {novedad.fecha}</Text>
+            </View>
 
-                {/* Botones */}
-                <View style={styles.buttonContainer}>
-                  <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-                    <Text style={styles.closeButtonText}>Cerrar</Text>
-                  </TouchableOpacity>
+            {/* Botones de acción */}
+            <View style={styles.buttonContainer}>
+              <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+                <Text style={styles.closeButtonText}>Cerrar</Text>
+              </TouchableOpacity>
 
-                  {canEdit && onEdit && (
+              {canEdit && (
+                <View style={styles.editActions}>
+                  {onEdit && (
                     <TouchableOpacity style={styles.editButton} onPress={onEdit}>
                       <Text style={styles.editButtonText}>Modificar</Text>
                     </TouchableOpacity>
                   )}
-
-                  {canEdit && onDelete && (
+                  {onDelete && (
                     <TouchableOpacity style={styles.deleteButton} onPress={onDelete}>
                       <Text style={styles.deleteButtonText}>Eliminar</Text>
                     </TouchableOpacity>
                   )}
                 </View>
-              </ScrollView>
+              )}
             </View>
-          </TouchableWithoutFeedback>
+          </ScrollView>
         </View>
-      </TouchableWithoutFeedback>
+      </View>
     </Modal>
   );
 }
@@ -136,115 +137,128 @@ export function NovedadModal({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)', // Fondo oscurecido
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 16,
+    padding: 20,
   },
   modalContainer: {
-    backgroundColor: 'white',
-    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
     width: '100%',
-    maxWidth: 500,
-    maxHeight: '80%',
-    padding: 20,
+    maxWidth: 450,
+    maxHeight: '80%', // Evita que se salga de la pantalla
+    overflow: 'hidden', // Necesario para bordes redondeados con ScrollView
+    elevation: 10,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 5 },
     shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowRadius: 10,
   },
-  scrollView: {
-    flex: 1,
+  scrollContent: {
+    padding: 24,
+    flexGrow: 1, // Solución al problema del modal "en blanco"
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    marginBottom: 16,
-    paddingBottom: 16,
+    marginBottom: 20,
+    paddingBottom: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    borderBottomColor: '#F3F4F6',
   },
   iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    borderWidth: 3,
-    backgroundColor: 'white',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    borderWidth: 4,
+    backgroundColor: '#F9FAFB',
     justifyContent: 'center',
     alignItems: 'center',
   },
   headerIcon: {
-    fontSize: 24,
+    fontSize: 28,
   },
   headerInfo: {
     flex: 1,
+    marginLeft: 15,
   },
-  autor: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#1f2937',
+  categoriaLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#9CA3AF',
+    letterSpacing: 1,
   },
   categoriaText: {
-    fontSize: 12,
-    color: '#6b7280',
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#4B5563',
   },
   titulo: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: 'bold',
     color: '#111827',
     marginBottom: 12,
   },
   descripcion: {
-    fontSize: 15,
+    fontSize: 16,
     color: '#374151',
-    lineHeight: 22,
-    marginBottom: 16,
+    lineHeight: 24,
+    marginBottom: 20,
+  },
+  fechaContainer: {
+    backgroundColor: '#F3F4F6',
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginBottom: 25,
   },
   fecha: {
     fontSize: 13,
-    color: '#6b7280',
-    marginBottom: 20,
+    color: '#6B7280',
+    fontWeight: '500',
   },
   buttonContainer: {
+    gap: 12,
+  },
+  editActions: {
+    flexDirection: 'row',
     gap: 10,
-    marginTop: 8,
   },
   closeButton: {
-    backgroundColor: '#3b82f6',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    backgroundColor: '#F3F4F6',
+    paddingVertical: 14,
+    borderRadius: 12,
     alignItems: 'center',
   },
   closeButtonText: {
-    color: 'white',
-    fontSize: 15,
-    fontWeight: '600',
+    color: '#374151',
+    fontSize: 16,
+    fontWeight: '700',
   },
   editButton: {
-    backgroundColor: '#eab308',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    flex: 1,
+    backgroundColor: '#3B82F6',
+    paddingVertical: 14,
+    borderRadius: 12,
     alignItems: 'center',
   },
   editButtonText: {
-    color: 'white',
-    fontSize: 15,
-    fontWeight: '600',
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
   },
   deleteButton: {
-    backgroundColor: '#ef4444',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    flex: 1,
+    backgroundColor: '#EF4444',
+    paddingVertical: 14,
+    borderRadius: 12,
     alignItems: 'center',
   },
   deleteButtonText: {
-    color: 'white',
-    fontSize: 15,
-    fontWeight: '600',
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
   },
 });

@@ -11,7 +11,6 @@ import { useNovedad } from '../viewmodels/useNovedad';
 interface NovedadView extends Novedad {
   categoria: string;
   fecha: string;
-  autor: string;
 }
 
 const TIPOS_NOVEDAD = [
@@ -59,7 +58,6 @@ export default function TablonNovedades() {
           ...n,
           categoria: getTipoString(n.id_etiqueta || 1),
           fecha: formatFecha(n.createdAt),
-          autor: n.createdBy,
         }));
       setNovedades(viewData);
     }
@@ -129,7 +127,6 @@ export default function TablonNovedades() {
     if (formMode === 'create') {
       const result = await crearNovedad({
         ...data,
-        createdBy: user?.username || 'usuario',
       });
 
       if (result.success && result.data) {
@@ -137,7 +134,6 @@ export default function TablonNovedades() {
           ...result.data,
           categoria: getTipoString(result.data.id_etiqueta || 1),
           fecha: formatFecha(result.data.createdAt),
-          autor: result.data.createdBy,
         };
         setNovedades((prev) => [newNovedadView, ...prev]);
       } else {
@@ -157,7 +153,6 @@ export default function TablonNovedades() {
                   ...result.data!,
                   categoria: getTipoString(result.data!.id_etiqueta || 1),
                   fecha: formatFecha(result.data!.createdAt),
-                  autor: result.data!.createdBy,
                 }
               : n
           )
@@ -257,22 +252,21 @@ export default function TablonNovedades() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
     backgroundColor: 'transparent',
   },
   scrollView: {
-    flex: 1,
+    flexGrow: 0,
   },
   scrollContent: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
     paddingVertical: 16,
-    gap: 8,
+    gap: 4,
   },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 4,
   },
   loadingText: {
     marginTop: 12,

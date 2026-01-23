@@ -252,7 +252,7 @@ export default function TablonNovedades() {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: 'transparent',
+    backgroundColor: '#ffff',
   },
   scrollView: {
     flexGrow: 0,

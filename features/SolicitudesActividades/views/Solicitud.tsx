@@ -1,0 +1,810 @@
+import { ThemedText } from '@/components/themed-text';
+import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import { Usuario } from '@/shared/users/User';
+import { useSearchUsers } from '@/shared/users/useUser';
+import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { UserSelector } from '../components/UserSelector';
+import { EstadoInvitacionDB, estadoInvitacionMapping, ModificarSolicitudFechasRequest, ReenviarSolicitudRequest } from '../models/Solicitud';
+import {
+  useAceptarModificaciones,
+  useActualizarEstadoInvitacion,
+  useInvitaciones,
+  useModificarSolicitudFechas,
+  useReenviarSolicitud,
+  useSolicitudBitacora,
+  useSolicitudesCreadas
+} from '../viewmodels/useSolicitudes';
+
+// Para este ejemplo, asumimos que obtenemos la solicitud del caché o desde un parámetro
+export function Solicitud() {
+  const router = useRouter();
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
+  const { id, type } = useLocalSearchParams<{ id: string; type: string }>();
+
+  const solicitudId = parseInt(id || '0', 10);
+
+  const { data: bitacora, isLoading: isLoadingBitacora } = useSolicitudBitacora(solicitudId);
+  const { mutate: actualizarEstado, isPending: isUpdatingEstado } = useActualizarEstadoInvitacion();
+  const { mutate: aceptarModificaciones, isPending: isAcceptingMod } = useAceptarModificaciones();
+  const { mutate: modificarSolicitud, isPending: isModifying } = useModificarSolicitudFechas();
+  const { mutate: reenviarSolicitud, isPending: isSharing } = useReenviarSolicitud();
+  
+  const { data: enviadas } = useSolicitudesCreadas();
+  const { data: recibidas } = useInvitaciones();
+
+  // Estados para modales
+  const [showAcceptModal, setShowAcceptModal] = useState(false);
+  const [showModifyModal, setShowModifyModal] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  
+  // Estado para modificación
+  const [modStartDate, setModStartDate] = useState(new Date());
+  const [modEndDate, setModEndDate] = useState(new Date());
+  const [modObservation, setModObservation] = useState('');
+  const [showDatePicker, setShowDatePicker] = useState<{show: boolean, mode: 'date'|'time', target: 'start'|'end'}>({show: false, mode: 'date', target: 'start'});
+
+  // Estado para aceptación
+  const [priority, setPriority] = useState('3');
+
+  // Estado para compartir
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedUsersToShare, setSelectedUsersToShare] = useState<Usuario[]>([]);
+  const { data: searchResults, isLoading: isSearchingUsers } = useSearchUsers(searchQuery);
+
+  const users = useMemo(() => {
+    const list = (searchResults as any)?.data || searchResults;
+    return Array.isArray(list) ? list.map((u: any) => ({
+        ...u,
+        id: u.id_usuario || u.id
+    })) : [];
+  }, [searchResults]);
+
+  const solicitud = useMemo(() => {
+    if (type === 'enviada') {
+        return enviadas?.find(s => s.solicitud_id === solicitudId);
+    }
+    return recibidas?.find(s => s.solicitud_id === solicitudId);
+  }, [type, solicitudId, enviadas, recibidas]);
+
+  // Marcar como visto
+  useEffect(() => {
+    if (!solicitud) return;
+
+    // Para recibidas: SENT, MODIFIED_BY_HOST, ACCEPTED_BY_HOST -> SEEN
+    if (type === 'recibida') {
+        const estadosVistos = ['SENT', 'MODIFIED_BY_HOST', 'ACCEPTED_BY_HOST'];
+        if (estadosVistos.includes(solicitud.estado)) {
+            actualizarEstado({
+                solicitudId: solicitud.solicitud_id,
+                estado: 'SEEN' as EstadoInvitacionDB,
+            });
+        }
+    } 
+    // Para enviadas: MODIFIED -> SEEN (simulado si el backend lo soporta, o simplemente lógica visual futura)
+    else if (type === 'enviada') {
+        if (solicitud.estado === 'MODIFIED') {
+            // Intentamos marcar como SEEN. Si el backend valida rol, esto podría fallar o no tener efecto deseado.
+            // Pero seguimos la instrucción de intentar marcarlo.
+            actualizarEstado({
+                solicitudId: solicitud.solicitud_id,
+                estado: 'SEEN' as EstadoInvitacionDB,
+            });
+        }
+    }
+  }, [type, solicitud, actualizarEstado]);
+
+  const handleAceptarPress = useCallback(() => {
+    setShowAcceptModal(true);
+  }, []);
+  const confirmAceptar = useCallback(() => {
+      // Si es enviada y está en MODIFIED, usamos el endpoint de aceptar modificaciones
+      if (type === 'enviada' && solicitud?.estado === 'MODIFIED') {
+        aceptarModificaciones(solicitudId, {
+            onSuccess: () => {
+                setShowAcceptModal(false);
+                Alert.alert('Éxito', 'Modificaciones aceptadas');
+            },
+            onError: (error) => {
+                Alert.alert('Error', error instanceof Error ? error.message : 'Error al aceptar modificaciones');
+            }
+        });
+        return;
+      }
+      
+      // Lógica normal para recibidas
+      actualizarEstado(
+        {
+          solicitudId,
+          estado: 'ACCEPTED' as EstadoInvitacionDB,
+          prioridad: parseInt(priority, 10),
+        },
+        {
+          onSuccess: () => {
+             setShowAcceptModal(false);
+             Alert.alert('Éxito', 'Solicitud aceptada');
+             // router.back(); // Opcional: volver atrás o quedarse
+          },
+          onError: (error) => {
+            Alert.alert('Error', error instanceof Error ? error.message : 'Error al aceptar');
+          },
+        }
+      );
+  }, [solicitudId, priority, actualizarEstado, aceptarModificaciones, type, solicitud]);
+
+  const handleRechazar = useCallback(() => {
+    Alert.alert('Rechazar solicitud', '¿Deseas rechazar esta solicitud?', [
+      { text: 'Cancelar', onPress: () => {}, style: 'cancel' },
+      {
+        text: 'Rechazar',
+        onPress: () => {
+          actualizarEstado(
+            {
+              solicitudId,
+              estado: 'REJECTED' as EstadoInvitacionDB,
+            },
+            {
+              onSuccess: () => {
+                Alert.alert('Éxito', 'Solicitud rechazada');
+                router.back();
+              },
+            }
+          );
+        },
+        style: 'destructive',
+      },
+    ]);
+  }, [solicitudId, actualizarEstado, router]);
+
+  const handleModificarPress = useCallback(() => {
+      if (solicitud) {
+          setModStartDate(new Date(solicitud.fecha_inicio));
+          setModEndDate(new Date(solicitud.fecha_fin));
+          setModObservation('');
+          setShowModifyModal(true);
+      }
+  }, [solicitud]);
+
+  const confirmModificar = useCallback(() => {
+      const payload: ModificarSolicitudFechasRequest = {
+          solicitudId,
+          nuevaFechaInicio: modStartDate.toISOString(),
+          nuevaFechaFin: modEndDate.toISOString(),
+          observacion: modObservation
+      };
+
+      modificarSolicitud(payload, {
+          onSuccess: () => {
+              setShowModifyModal(false);
+              Alert.alert('Éxito', 'Solicitud modificada');
+          },
+          onError: (error) => {
+              Alert.alert('Error', error instanceof Error ? error.message : 'Error al modificar');
+          }
+      });
+  }, [solicitudId, modStartDate, modEndDate, modObservation, modificarSolicitud]);
+
+  const onDateChange = (event: any, selectedDate?: Date) => {
+      const currentTarget = showDatePicker.target;
+      setShowDatePicker(prev => ({ ...prev, show: Platform.OS === 'ios' })); // En Android se cierra
+      
+      if (selectedDate && event.type !== 'dismissed') {
+          if (currentTarget === 'start') {
+              setModStartDate(selectedDate);
+              // Validar fin
+              if (selectedDate > modEndDate) {
+                  setModEndDate(new Date(selectedDate.getTime() + 3600000));
+              }
+          } else {
+              setModEndDate(selectedDate);
+          }
+      }
+      
+      if (Platform.OS === 'android') {
+           setShowDatePicker(prev => ({...prev, show: false}));
+      }
+  };
+
+  const showPicker = (mode: 'date' | 'time', target: 'start' | 'end') => {
+      setShowDatePicker({ show: true, mode, target });
+  };
+
+  const handleCompartir = useCallback(() => {
+    setSelectedUsersToShare([]);
+    setSearchQuery('');
+    setShowShareModal(true);
+  }, []);
+
+  const confirmCompartir = useCallback(() => {
+    if (selectedUsersToShare.length === 0) {
+      Alert.alert('Error', 'Selecciona al menos un usuario');
+      return;
+    }
+
+    const payload: ReenviarSolicitudRequest = {
+      solicitudId,
+      nuevosInvitadosIds: selectedUsersToShare.map(u => u.id),
+    };
+
+    reenviarSolicitud(payload, {
+      onSuccess: () => {
+        setShowShareModal(false);
+        Alert.alert('Éxito', 'Solicitud reenviada correctamente');
+      },
+      onError: (error) => {
+        Alert.alert('Error', error instanceof Error ? error.message : 'Error al reenviar');
+      },
+    });
+  }, [solicitudId, selectedUsersToShare, reenviarSolicitud]);
+
+  const handleToggleUserShare = useCallback((user: Usuario) => {
+    setSelectedUsersToShare(prev => {
+        const isSelected = prev.some(u => u.id === user.id);
+        if (isSelected) {
+            return prev.filter(u => u.id !== user.id);
+        } else {
+            return [...prev, user];
+        }
+    });
+  }, []);
+
+  const fechaInicio = solicitud ? new Date(solicitud.fecha_inicio) : new Date();
+  const fechaFin = solicitud ? new Date(solicitud.fecha_fin) : new Date();
+  
+  if (!solicitud && !enviadas && !recibidas) {
+       return (
+           <View style={[styles.container, { justifyContent: 'center', alignItems: 'center'}]}>
+               <ActivityIndicator size="large" color="#1a73e8" />
+           </View>
+       )
+  }
+
+  return (
+    <View style={styles.container}>
+      {/* Header sin paddingTop extra */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.iconButton}>
+          <Ionicons name="arrow-back" size={24} color="#5f6368" />
+        </TouchableOpacity>
+        <ThemedText style={styles.headerTitle}>
+            {type === 'enviada' ? 'Enviada' : 'Recibida'}
+        </ThemedText>
+        <View style={{ width: 40 }} />
+      </View>
+
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+      >
+          {/* Detalles */}
+            <View style={styles.dateSection}>
+                <View style={styles.switchRow}>
+                    <Ionicons name="time-outline" size={20} color="#1a73e8" style={{ marginRight: 8 }} />
+                    <ThemedText style={styles.dateSectionTitle}>
+                         Horario
+                    </ThemedText>
+                </View>
+
+                <View style={styles.dateRow}>
+                    <ThemedText style={styles.dateValue}>
+                        {fechaInicio.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short' })}
+                    </ThemedText>
+                    <ThemedText style={styles.timeValue}>
+                        {fechaInicio.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                    </ThemedText>
+                </View>
+
+                <View style={styles.dateRow}>
+                    <ThemedText style={styles.dateValue}>
+                        {fechaFin.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short' })}
+                    </ThemedText>
+                    <ThemedText style={styles.timeValue}>
+                         {fechaFin.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                    </ThemedText>
+                </View>
+            </View>
+
+             <View style={styles.inputSection}>
+                 <ThemedText style={styles.label}>{type === 'enviada' ? 'Para' : 'De'}</ThemedText>
+                 <View style={styles.userChip}>
+                     <ThemedText style={{ color: '#1a73e8' }}>
+                         {type === 'enviada' 
+                            ? 'Destinatarios' 
+                            : `${solicitud?.nombre || ''} ${solicitud?.apellido || ''}`}
+                     </ThemedText>
+                 </View>
+             </View>
+
+            <View style={[styles.inputSection, { borderBottomWidth: 0, paddingVertical: 10 }]}>
+                 <View style={[styles.chip, { borderColor: '#1a73e8', backgroundColor: 'transparent', borderWidth: 1 }]}>
+                    <ThemedText style={[styles.chipText, { color: '#1a73e8', fontWeight: 'bold' }]}>
+                        Reunión
+                    </ThemedText>
+                 </View>
+            </View>
+
+             <View style={styles.inputSection}>
+                 <ThemedText style={styles.label}>Asunto</ThemedText>
+                 <ThemedText style={styles.valueText}>{solicitud?.titulo}</ThemedText>
+             </View>
+
+             <View style={styles.messageSection}>
+                 <ThemedText style={styles.messageText}>{solicitud?.descripcion}</ThemedText>
+             </View>
+
+            {/* Separador Bitácora */}
+            <View style={styles.sectionHeader}>
+                <ThemedText style={styles.sectionTitle}>Actividad</ThemedText>
+            </View>
+
+            {/* Bitácora Integrada */}
+            <View style={styles.bitacoraContainer}>
+                {isLoadingBitacora ? (
+                    <ActivityIndicator size="small" color="#1a73e8" style={{ marginTop: 20 }} />
+                ) : (
+                    bitacora && bitacora.length > 0 ? (
+                        bitacora.map((b) => (
+                        <View key={b.id} style={styles.bitacoraItem}>
+                             <View style={styles.bitacoraHeader}>
+                                <ThemedText style={styles.bitacoraUser}>{b.usuario_nombre} {b.usuario_apellido}</ThemedText>
+                                <ThemedText style={styles.bitacoraDate}>{new Date(b.created_at).toLocaleString()}</ThemedText>
+                             </View>
+                             <View style={styles.bitacoraBody}>
+                                <ThemedText style={styles.bitacoraAction}>
+                                    {estadoInvitacionMapping[b.estado] || b.estado}
+                                </ThemedText>
+                                {b.observacion && (
+                                    <View style={styles.bitacoraBubble}>
+                                        <ThemedText style={styles.bitacoraText}>{b.observacion}</ThemedText>
+                                    </View>
+                                )}
+                                {b.fecha_inicio_nueva && (
+                                    <View style={styles.changeBubble}>
+                                        <ThemedText style={styles.changeText}>
+                                            Propuso cambio:
+                                        </ThemedText>
+                                        <ThemedText style={styles.changeText}>
+                                            Inicio: {new Date(b.fecha_inicio_nueva).toLocaleString()}
+                                        </ThemedText>
+                                        {b.fecha_fin_nueva && (
+                                            <ThemedText style={styles.changeText}>
+                                                Fin: {new Date(b.fecha_fin_nueva).toLocaleString()}
+                                            </ThemedText>
+                                        )}
+                                    </View>
+                                )}
+                             </View>
+                        </View>
+                        ))
+                    ) : (
+                        <ThemedText style={{ color: '#5f6368', textAlign: 'center', marginTop: 20 }}>No hay actividad reciente</ThemedText>
+                    )
+                )}
+            </View>
+      </ScrollView>
+
+      {/* Footer Actions (FABs) */}
+      <View style={styles.fabContainer}>
+          {/* Secondary Actions (Revealed via Menu) */}
+          {menuOpen && (
+              <>
+                {/* Opciones para Recibidas */}
+                {type === 'recibida' && (
+                  <>
+                    <TouchableOpacity style={[styles.fab, { backgroundColor: '#d93025',  marginRight: 16 }]} onPress={handleRechazar}>
+                        <Ionicons name="close" size={24} color="#fff" />
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.fab, { backgroundColor: '#FF9800', marginRight: 16 }]} onPress={handleModificarPress}>
+                        <Ionicons name="pencil" size={24} color="#fff" />
+                    </TouchableOpacity>
+                  </>
+                )}
+                
+                {/* Opciones para Enviadas */}
+                {type === 'enviada' && (
+                  <>
+                    <TouchableOpacity style={[styles.fab, { backgroundColor: '#1a73e8', marginRight: 16 }]} onPress={handleModificarPress}>
+                        <Ionicons name="create-outline" size={24} color="#fff" />
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.fab, { backgroundColor: '#5f6368', marginRight: 16 }]} onPress={handleCompartir}>
+                        <Ionicons name="share-social-outline" size={24} color="#fff" />
+                    </TouchableOpacity>
+                  </>
+                )}
+              </>
+          )}
+
+          {/* Main Action: Accept (Recibida or Enviada[MODIFIED]) */}
+          {((type === 'recibida') || (type === 'enviada' && solicitud?.estado === 'MODIFIED')) && (
+               <TouchableOpacity style={[styles.fab, { backgroundColor: '#1a73e8', marginRight: 16 }]} onPress={handleAceptarPress}>
+                   <Ionicons name="checkmark" size={24} color="#fff" />
+               </TouchableOpacity>
+          )}
+
+          {/* Menu Button */}
+          <TouchableOpacity style={[styles.fab, { backgroundColor: '#5f6368' }]} onPress={() => setMenuOpen(!menuOpen)}>
+               <Ionicons name={menuOpen ? "close" : "ellipsis-horizontal"} size={24} color="#fff" />
+          </TouchableOpacity>
+      </View>
+
+      {/* Modal Aceptar (Prioridad) */}
+      <Modal visible={showAcceptModal} transparent animationType="slide">
+          <View style={styles.modalOverlay}>
+              <View style={styles.modalContent}>
+                  <ThemedText type="subtitle" style={{marginBottom: 16}}>Aceptar Solicitud</ThemedText>
+                  <ThemedText style={{marginBottom: 8}}>Selecciona la prioridad:</ThemedText>
+                  <View style={styles.priorityRow}>
+                       {['1', '2', '3'].map((p) => (
+                           <TouchableOpacity 
+                                key={p} 
+                                style={[styles.priorityBtn, priority === p && styles.priorityBtnActive]}
+                                onPress={() => setPriority(p)}
+                           >
+                               <ThemedText style={[styles.priorityText, priority === p && {color: '#fff'}]}>
+                                   {p === '1' ? 'Alta' : p === '2' ? 'Media' : 'Baja'}
+                               </ThemedText>
+                           </TouchableOpacity>
+                       ))}
+                  </View>
+                  <View style={styles.modalActions}>
+                      <TouchableOpacity onPress={() => setShowAcceptModal(false)} style={styles.modalBtnCancel}>
+                          <ThemedText style={{color: '#d93025'}}>Cancelar</ThemedText>
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={confirmAceptar} style={styles.modalBtnConfirm}>
+                          <ThemedText style={{color: '#fff'}}>Aceptar</ThemedText>
+                      </TouchableOpacity>
+                  </View>
+              </View>
+          </View>
+      </Modal>
+
+      {/* Modal Modificar */}
+      <Modal visible={showModifyModal} transparent animationType="slide">
+          <View style={styles.modalOverlay}>
+              <View style={styles.modalContent}>
+                  <ThemedText type="subtitle" style={{marginBottom: 16}}>Modificar Solicitud</ThemedText>
+                  
+                  <ThemedText style={styles.label}>Nueva Fecha Inicio</ThemedText>
+                  <View style={styles.row}>
+                      <TouchableOpacity onPress={() => showPicker('date', 'start')} style={styles.dateBtn}>
+                          <ThemedText>{modStartDate.toLocaleDateString()}</ThemedText>
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => showPicker('time', 'start')} style={styles.dateBtn}>
+                           <ThemedText>{modStartDate.toLocaleTimeString()}</ThemedText>
+                      </TouchableOpacity>
+                  </View>
+
+                  <ThemedText style={styles.label}>Nueva Fecha Fin</ThemedText>
+                  <View style={styles.row}>
+                      <TouchableOpacity onPress={() => showPicker('date', 'end')} style={styles.dateBtn}>
+                          <ThemedText>{modEndDate.toLocaleDateString()}</ThemedText>
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => showPicker('time', 'end')} style={styles.dateBtn}>
+                           <ThemedText>{modEndDate.toLocaleTimeString()}</ThemedText>
+                      </TouchableOpacity>
+                  </View>
+
+                  <ThemedText style={styles.label}>Observación</ThemedText>
+                  <TextInput 
+                      style={styles.input} 
+                      placeholder="Motivo del cambio" 
+                      value={modObservation} 
+                      onChangeText={setModObservation}
+                  />
+
+                  <View style={styles.modalActions}>
+                      <TouchableOpacity onPress={() => setShowModifyModal(false)} style={styles.modalBtnCancel}>
+                          <ThemedText style={{color: '#d93025'}}>Cancelar</ThemedText>
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={confirmModificar} style={styles.modalBtnConfirm}>
+                          {isModifying ? <ActivityIndicator color="#fff"/> : <ThemedText style={{color: '#fff'}}>Guardar</ThemedText>}
+                      </TouchableOpacity>
+                  </View>
+              </View>
+          </View>
+          {showDatePicker.show && (
+                <DateTimePicker
+                testID="dateTimePicker"
+                value={showDatePicker.target === 'start' ? modStartDate : modEndDate}
+                mode={showDatePicker.mode}
+                is24Hour={true}
+                display="default"
+                onChange={onDateChange}
+                />
+            )}
+      </Modal>
+
+      {/* Modal Compartir */}
+      <Modal visible={showShareModal} transparent animationType="slide" onRequestClose={() => setShowShareModal(false)}>
+        <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { height: '80%' }]}>
+                <ThemedText type="subtitle" style={{marginBottom: 16}}>Compartir Solicitud</ThemedText>
+                <UserSelector 
+                    selectedUsers={selectedUsersToShare}
+                    onSelectUsers={setSelectedUsersToShare}
+                    users={users || []}
+                    onSearch={setSearchQuery}
+                    isLoadingUsers={isSearchingUsers}
+                    roles={[]}
+                    onSelectRole={() => {}}
+                />
+                <View style={styles.modalActions}>
+                    <TouchableOpacity onPress={() => setShowShareModal(false)} style={styles.modalBtnCancel}>
+                        <ThemedText style={{color: '#d93025'}}>Cancelar</ThemedText>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={confirmCompartir} style={styles.modalBtnConfirm}>
+                        {isSharing ? <ActivityIndicator color="#fff"/> : <ThemedText style={{color: '#fff'}}>Compartir</ThemedText>}
+                    </TouchableOpacity>
+                </View>
+            </View>
+        </View>
+      </Modal>
+
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    // Removed marginTop platform specific to avoid double padding if layout handles it
+  },
+  headerTitle: {
+    fontSize: 20,
+    color: '#1a73e8',
+    fontWeight: '500',
+  },
+  iconButton: {
+    padding: 8,
+  },
+  content: {
+    flex: 1,
+  },
+  contentContainer: {
+    paddingBottom: 100,
+  },
+  dateSection: {
+    padding: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#e0e0e0',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#e0e0e0',
+  },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  dateSectionTitle: {
+     fontSize: 16,
+     color: '#202124',
+  },
+  dateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  dateValue: {
+     fontSize: 16,
+     color: '#1a73e8',
+     width: 120,
+  },
+  timeValue: {
+      fontSize: 16,
+      color: '#1a73e8',
+  },
+  inputSection: {
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#e0e0e0',
+  },
+  label: {
+      fontSize: 12,
+      color: '#5f6368',
+      marginBottom: 4,
+  },
+  valueText: {
+      fontSize: 16,
+      color: '#202124',
+  },
+  userChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: 4,
+  },
+  chip: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  chipText: {
+    fontSize: 14,
+  },
+  messageSection: {
+      padding: 16,
+      minHeight: 100,
+  },
+  messageText: {
+      fontSize: 16,
+      color: '#202124',
+      lineHeight: 24,
+  },
+  sectionHeader: {
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      backgroundColor: '#f1f3f4',
+  },
+  sectionTitle: {
+      fontSize: 14,
+      fontWeight: 'bold',
+      color: '#5f6368',
+  },
+  bitacoraContainer: {
+      padding: 16,
+  },
+  bitacoraItem: {
+      marginBottom: 16,
+  },
+  bitacoraHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginBottom: 4,
+  },
+  bitacoraBody: {
+      marginLeft: 8,
+      borderLeftWidth: 2,
+      borderLeftColor: '#e0e0e0',
+      paddingLeft: 12,
+      paddingVertical: 4,
+  },
+  bitacoraUser: {
+      fontWeight: 'bold',
+      color: '#202124',
+      fontSize: 13,
+  },
+  bitacoraDate: {
+      fontSize: 11,
+      color: '#5f6368',
+  },
+  bitacoraAction: {
+      color: '#1a73e8',
+      fontSize: 14,
+      fontWeight: '500',
+  },
+  bitacoraBubble: {
+      marginTop: 6,
+      backgroundColor: '#f1f3f4',
+      padding: 8,
+      borderRadius: 8,
+  },
+  bitacoraText: {
+      fontSize: 14,
+      color: '#3c4043',
+  },
+  changeBubble: {
+      marginTop: 6,
+      backgroundColor: '#e8f0fe',
+      padding: 8,
+      borderRadius: 8,
+  },
+  changeText: {
+      fontSize: 13,
+      color: '#1967d2',
+  },
+  fabContainer: {
+      position: 'absolute',
+      bottom: 80, // Raised up
+      right: 24,
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+  },
+  fab: {
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      justifyContent: 'center',
+      alignItems: 'center',
+      elevation: 6,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 4,
+  },
+  modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      justifyContent: 'center',
+      alignItems: 'center',
+  },
+  modalContent: {
+      width: '85%',
+      backgroundColor: 'white',
+      borderRadius: 16,
+      padding: 24,
+      elevation: 5,
+  },
+  modalActions: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      marginTop: 24,
+  },
+  modalBtnCancel: {
+      padding: 10,
+      marginRight: 10,
+  },
+  modalBtnConfirm: {
+      backgroundColor: '#1a73e8',
+      paddingVertical: 10,
+      paddingHorizontal: 20,
+      borderRadius: 4,
+  },
+  priorityRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginTop: 10,
+  },
+  priorityBtn: {
+      padding: 12,
+      borderWidth: 1,
+      borderColor: '#e0e0e0',
+      borderRadius: 8,
+      flex: 1,
+      marginHorizontal: 4,
+      alignItems: 'center',
+  },
+  priorityBtnActive: {
+      backgroundColor: '#1a73e8',
+      borderColor: '#1a73e8',
+  },
+  priorityText: {
+      color: '#5f6368',
+      fontWeight: 'bold',
+  },
+  row: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginBottom: 16,
+  },
+  dateBtn: {
+      padding: 10,
+      backgroundColor: '#f1f3f4',
+      borderRadius: 8,
+      flex: 0.48,
+      alignItems: 'center',
+  },
+  input: {
+      borderBottomWidth: 1,
+      borderBottomColor: '#ccc',
+      paddingVertical: 8,
+      fontSize: 16,
+  }
+});

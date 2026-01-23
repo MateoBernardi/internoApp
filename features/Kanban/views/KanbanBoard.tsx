@@ -5,25 +5,25 @@
 
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-    View,
-    Text,
-    ScrollView,
-    TouchableOpacity,
-    StyleSheet,
     ActivityIndicator,
-    Modal,
-    TextInput,
     Alert,
+    Modal,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import {
-    useObjetivos,
     useCreateObjetivo,
-    useUpdateObjetivo,
     useDeleteObjetivo,
+    useObjetivos,
+    useUpdateObjetivo,
 } from '../hooks/useObjetivos';
-import type { Objetivo, CreateObjetivoDTO } from '../models/Objetivo';
+import type { CreateObjetivoDTO, Objetivo } from '../models/Objetivo';
 
-const ESTADOS = ['PENDIENTE', 'PROGRESO', 'HECHO', 'PRIORIDAD'];
+const ESTADOS = ['PENDIENTE', 'PROGRESO', 'HECHO', 'PRIORIDAD'] as const;
 
 // ============================================
 // Modal para crear/editar objetivo
@@ -610,7 +610,7 @@ export function KanbanBoard() {
                 await updateMutation.mutateAsync({
                     id: objetivoId,
                     data: {
-                        estado: nuevoEstado,
+                        estado: nuevoEstado as 'PENDIENTE' | 'PROGRESO' | 'HECHO' | 'PRIORIDAD',
                         observacion: observacion,
                     },
                 });
@@ -969,11 +969,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         gap: 8,
         zIndex: 10,
-    },
-    loadingText: {
-        fontSize: 12,
-        fontWeight: '600',
-        color: '#007AFF',
     },
 
     // ============================================

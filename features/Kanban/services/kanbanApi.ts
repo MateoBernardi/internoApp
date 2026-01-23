@@ -1,8 +1,8 @@
 import { apiRequest } from "@/shared/apiRequest";
-import type { Bitacora, Objetivo, CreateObjetivoDTO, UpdateObjetivoDTO } from "../models/Objetivo";
+import type { CreateObjetivoDTO, Objetivo, UpdateObjetivoDTO } from "../models/Objetivo";
 
 export async function fetchObjetivos(accessToken: string): Promise<Objetivo[]> {
-    const response = await apiRequest('GET', '/kanban', accessToken);
+    const response = await apiRequest({method: 'GET', endpoint: '/kanban', token: accessToken});
 
     if (!response.ok) {
         throw new Error(`No se pudo obtener los objetivos: ${response.statusText}`);
@@ -16,7 +16,7 @@ export async function createObjetivo(
     accessToken: string,
     data: CreateObjetivoDTO
 ): Promise<Objetivo> {
-    const response = await apiRequest('POST', '/kanban', accessToken, data);
+    const response = await apiRequest({method: 'POST', endpoint: '/kanban', token: accessToken, body: data});
 
     if (!response.ok) {
         throw new Error(`No se pudo crear el objetivo: ${response.statusText}`);
@@ -30,7 +30,7 @@ export async function updateObjetivo(
     objetivoId: number,
     data: UpdateObjetivoDTO
 ): Promise<Objetivo> {
-    const response = await apiRequest('PUT', `/kanban/${objetivoId}`, accessToken, data);
+    const response = await apiRequest({method: 'PUT', endpoint: `/kanban/${objetivoId}`, token: accessToken, body: data});
 
     if (!response.ok) {
         throw new Error(`No se pudo actualizar el objetivo: ${response.statusText}`);
@@ -43,7 +43,7 @@ export async function deleteObjetivo(
     accessToken: string,
     objetivoId: number
 ): Promise<void> {
-    const response = await apiRequest('DELETE', `/kanban/${objetivoId}`, accessToken);
+    const response = await apiRequest({method: 'DELETE', endpoint: `/kanban/${objetivoId}`, token: accessToken});
 
     if (!response.ok) {
         throw new Error(`No se pudo eliminar el objetivo: ${response.statusText}`);

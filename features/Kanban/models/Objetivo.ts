@@ -31,7 +31,7 @@ export interface CreateObjetivoDTO {
 export interface UpdateObjetivoDTO {
     titulo?: string;
     descripcion?: string;
-    estado?: string;
+    estado?: 'PENDIENTE' | 'PROGRESO' | 'HECHO' | 'PRIORIDAD';
     rank_position?: string;
     observacion?: string;
 }

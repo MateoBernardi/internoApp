@@ -1,12 +1,12 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getValidAccessToken } from '@/features/auth/services/authApi';
+import { useAuth } from '@/features/auth/hooks/useAuthActions';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { CreateObjetivoDTO, Objetivo, UpdateObjetivoDTO } from '../models/Objetivo';
 import {
-    fetchObjetivos,
     createObjetivo,
-    updateObjetivo,
     deleteObjetivo,
+    fetchObjetivos,
+    updateObjetivo,
 } from '../services/kanbanApi';
-import type { Objetivo, CreateObjetivoDTO, UpdateObjetivoDTO } from '../models/Objetivo';
 
 const OBJETIVOS_QUERY_KEY = ['objetivos'];
 
@@ -14,6 +14,8 @@ const OBJETIVOS_QUERY_KEY = ['objetivos'];
  * Hook para obtener todos los objetivos del kanban
  */
 export function useObjetivos() {
+    const { getValidAccessToken } = useAuth();
+    
     return useQuery({
         queryKey: OBJETIVOS_QUERY_KEY,
         queryFn: async () => {
@@ -33,6 +35,7 @@ export function useObjetivos() {
  */
 export function useCreateObjetivo() {
     const queryClient = useQueryClient();
+    const { getValidAccessToken } = useAuth();
 
     return useMutation({
         mutationFn: async (data: CreateObjetivoDTO) => {
@@ -56,6 +59,7 @@ export function useCreateObjetivo() {
  */
 export function useUpdateObjetivo() {
     const queryClient = useQueryClient();
+    const { getValidAccessToken } = useAuth();
 
     return useMutation({
         mutationFn: async ({ id, data }: { id: number; data: UpdateObjetivoDTO }) => {
@@ -85,7 +89,7 @@ export function useUpdateObjetivo() {
                     // Si hay cambio de estado y observación, agregar entrada a bitácora optimista
                     if (data.estado && data.estado !== obj.estado && data.observacion) {
                         const newBitacoraEntry = {
-                            id: Math.random(), // ID temporal
+                            id: Date.now(), // ID temporal
                             estado_anterior: obj.estado,
                             estado_nuevo: data.estado,
                             observacion: data.observacion,
@@ -125,6 +129,7 @@ export function useUpdateObjetivo() {
  */
 export function useDeleteObjetivo() {
     const queryClient = useQueryClient();
+    const { getValidAccessToken } = useAuth();
 
     return useMutation({
         mutationFn: async (id: number) => {

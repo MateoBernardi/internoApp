@@ -1,4 +1,5 @@
 import { apiRequest } from "@/shared/apiRequest";
+import { UserContext } from "@/shared/users/User";
 import Constants from "expo-constants";
 import * as SecureStore from "expo-secure-store";
 
@@ -35,14 +36,14 @@ export async function login(username: string, password: string) {
 export async function refresh(refreshToken: string) {
   console.log("Llamando a /auth/refresh con refreshToken", refreshToken);
   // User requested refreshToken in body
-  const response = await apiRequest("POST", "/auth/refresh", null, { refreshToken });
+  const response = await apiRequest({method: "POST", endpoint: "/auth/refresh", token:'', body: { refreshToken }});
   const data = await response.json();
   console.log("Respuesta de /auth/refresh:", data);
   return data;
 }
 
 export async function logout(refreshToken: string) {
-  return apiRequest("POST", "/auth/logout", null, { refreshToken });
+  return apiRequest({method: "POST", endpoint: "/auth/logout", token:'', body: { refreshToken }});
 }
 
 export async function getValidAccessToken() {
@@ -74,8 +75,8 @@ export async function getValidAccessToken() {
   return accessToken;
 }
 
-export async function getUserContext(accessToken: string) {
-  const response = await apiRequest("GET", "/auth/usuario-contexto", accessToken);
+export async function getUserContext(accessToken: string): Promise<UserContext> {
+  const response = await apiRequest({method: "GET", endpoint: "/auth/usuario-contexto", token: accessToken});
   if (!response.ok) {
     throw new Error('Error al obtener el contexto del usuario');
   }

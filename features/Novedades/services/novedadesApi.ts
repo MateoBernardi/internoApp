@@ -4,7 +4,7 @@ import { mapNovedadDTOToNovedades } from '../mappers/novedadesMapper';
 import type { Novedad } from '../models/Novedades';
 
 export async function fetchNovedades(accessToken: string): Promise<Novedad[]> {
-    const response = await apiRequest('GET', '/novedades', accessToken);
+    const response = await apiRequest({method: 'GET', endpoint: '/novedades', token: accessToken});
 
     if (!response.ok) {
         throw new Error(`No se pudo obtener las novedades: ${response.statusText}`);
@@ -15,7 +15,7 @@ export async function fetchNovedades(accessToken: string): Promise<Novedad[]> {
 }
 
 export async function crearNovedad(novedadData: Novedad, accessToken: string): Promise<Novedad> {
-    const response = await apiRequest('POST', '/novedades', accessToken, novedadData);
+    const response = await apiRequest({method: 'POST', endpoint: '/novedades', token: accessToken, body: novedadData});
 
     if (!response.ok) {
         const errorText = await response.text();
@@ -28,7 +28,7 @@ export async function crearNovedad(novedadData: Novedad, accessToken: string): P
 }
 
 export async function actualizarNovedad(novedadData: Novedad, accessToken: string): Promise<Novedad> {
-    const response = await apiRequest('PUT', `/novedades/${novedadData.id}`, accessToken, novedadData);
+    const response = await apiRequest({method: 'PUT', endpoint: `/novedades/${novedadData.id}`, token: accessToken, body: novedadData});
 
     if (!response.ok) {
         throw new Error(`No se pudo actualizar: ${response.statusText}`);
@@ -39,7 +39,7 @@ export async function actualizarNovedad(novedadData: Novedad, accessToken: strin
 }
 
 export async function eliminarNovedad(id: number, accessToken: string): Promise<void> {
-    const response = await apiRequest('DELETE', `/novedades/${id}`, accessToken);
+    const response = await apiRequest({method: 'DELETE', endpoint: `/novedades/${id}`, token: accessToken});
 
     if (!response.ok) {
         throw new Error(`No se pudo eliminar: ${response.statusText}`);

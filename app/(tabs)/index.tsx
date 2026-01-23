@@ -1,15 +1,23 @@
 import { ThemedView } from '@/components/themed-view';
-import TablonNovedades from '@/features/Novedades/views/TablonNovedades';
-import { KanbanBoard } from '@/features/Kanban/views/KanbanBoard';
 import { useAuth } from '@/features/auth/context/AuthContext';
+import { KanbanBoard } from '@/features/Kanban/views/KanbanBoard';
+import TablonNovedades from '@/features/Novedades/views/TablonNovedades';
+import SolicitudesView from '@/features/SolicitudesActividades/views/Solicitudes';
+import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { StyleSheet } from 'react-native';
 
 export default function HomeScreen() {
   const { user } = useAuth();
+  const { isEmployeeOrEncargado } = useRoleCheck();
+
   return (
     <ThemedView style={styles.container}>
       <TablonNovedades />
-      <KanbanBoard />
+      {isEmployeeOrEncargado() ? (
+        <SolicitudesView />
+      ) : (
+        <KanbanBoard />
+      )}
     </ThemedView>
   );
 }
@@ -17,13 +25,6 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: '15%',
-  },
-  title: {
-    marginBottom: 4,
-  },
-  welcomeText: {
-    fontSize: 14,
-    color: '#6b7280',
+    paddingTop: '10%',
   },
 });

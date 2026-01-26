@@ -1,4 +1,4 @@
-import type { Novedad } from '@/features/Novedades/models/Novedades';
+import type { Novedad } from '@/features/novedades/models/Novedades';
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 

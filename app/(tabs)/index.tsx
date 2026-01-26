@@ -1,8 +1,8 @@
 import { ThemedView } from '@/components/themed-view';
 import { useAuth } from '@/features/auth/context/AuthContext';
-import { KanbanBoard } from '@/features/Kanban/views/KanbanBoard';
-import TablonNovedades from '@/features/Novedades/views/TablonNovedades';
-import SolicitudesView from '@/features/SolicitudesActividades/views/Solicitudes';
+import { KanbanBoard } from '@/features/kanban/views/KanbanBoard';
+import TablonNovedades from '@/features/novedades/views/TablonNovedades';
+import SolicitudesView from '@/features/solicitudesActividades/views/Solicitudes';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { StyleSheet } from 'react-native';
 

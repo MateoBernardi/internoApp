@@ -1,5 +1,5 @@
 import { ThemedView } from '@/components/themed-view';
-import SolicitudesView from '@/features/SolicitudesActividades/views/Solicitudes';
+import SolicitudesView from '@/features/solicitudesActividades/views/Solicitudes';
 import { StyleSheet } from 'react-native';
 
 

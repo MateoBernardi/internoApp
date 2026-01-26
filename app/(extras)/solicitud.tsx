@@ -1,5 +1,5 @@
 import { ThemedView } from "@/components/themed-view";
-import { Solicitud } from "@/features/SolicitudesActividades/views/Solicitud";
+import { Solicitud } from "@/features/solicitudesActividades/views/Solicitud";
 import { StyleSheet } from "react-native";
 
 export default function SolicitudScreen() {

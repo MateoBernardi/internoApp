@@ -1,5 +1,5 @@
 import { AuthProvider, useAuth } from '@/features/auth/context/AuthContext';
-import { KanbanProvider } from '@/features/Kanban/context/KanbanProvider';
+import { KanbanProvider } from '@/features/kanban/context/KanbanProvider';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Redirect, Stack, useSegments } from 'expo-router';

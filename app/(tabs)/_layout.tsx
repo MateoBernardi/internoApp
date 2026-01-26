@@ -39,6 +39,19 @@ export default function TabLayout() {
         />
       )}
       <Tabs.Screen
+        name="area-personal"
+        options={{
+          tabBarIcon: ({ color }) => <IconSymbol size={24} name="person.fill" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="documentos"
+        options={{
+            title: 'Docs',
+            tabBarIcon: ({ color }) => <IconSymbol size={24} name="doc.text.fill" color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="user"
         options={{
           title:(user?.nombre || 'Usuario'),

@@ -42,7 +42,9 @@ export const SearchBar = memo(({
         {
           backgroundColor: isDark
             ? 'rgba(255, 255, 255, 0.1)'
-            : 'rgba(0, 0, 0, 0.08)',
+            : 'rgba(26, 115, 232, 0.08)',
+          borderColor: '#1a73e8',
+          borderWidth: 1,
         },
         style,
       ]}

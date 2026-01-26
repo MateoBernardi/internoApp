@@ -2,12 +2,12 @@ import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import React, { memo } from 'react';
 import {
-  FlatList,
-  FlatListProps,
-  ListRenderItem,
-  StyleSheet,
-  View,
-  ViewStyle,
+    FlatList,
+    FlatListProps,
+    ListRenderItem,
+    StyleSheet,
+    View,
+    ViewStyle,
 } from 'react-native';
 
 type OwnFlatListProps<T> = Omit<FlatListProps<T>, 'renderItem'> & {
@@ -18,8 +18,7 @@ type OwnFlatListProps<T> = Omit<FlatListProps<T>, 'renderItem'> & {
   showSeparators?: boolean;
 };
 
-export const OwnFlatList = memo(
-  <T,>({
+const OwnFlatListInner = <T,>({
     data,
     renderItem,
     containerStyle,
@@ -60,10 +59,11 @@ export const OwnFlatList = memo(
         />
       </View>
     );
-  }
-);
+  };
 
-OwnFlatList.displayName = 'OwnFlatList';
+export const OwnFlatList = memo(OwnFlatListInner) as typeof OwnFlatListInner;
+
+// OwnFlatList.displayName = 'OwnFlatList';
 
 const styles = StyleSheet.create({
   container: {

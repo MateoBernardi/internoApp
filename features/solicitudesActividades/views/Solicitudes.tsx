@@ -67,7 +67,7 @@ export default function SolicitudesView() {
                 styles.tab,
                 activeTab === 'recibidas' && [
                   styles.tabActive,
-                  { borderBottomColor: '#1a73e8' },
+                  { borderBottomColor: '#00054bff' },
                 ],
               ]}
               onPress={() => setActiveTab('recibidas')}
@@ -76,7 +76,7 @@ export default function SolicitudesView() {
                 style={[
                   styles.tabText,
                   activeTab === 'recibidas' && {
-                    color: '#1a73e8',
+                    color: '#00054bff',
                     fontWeight: 'bold',
                   },
                 ]}
@@ -89,7 +89,7 @@ export default function SolicitudesView() {
                 styles.tab,
                 activeTab === 'enviadas' && [
                   styles.tabActive,
-                  { borderBottomColor: '#1a73e8' },
+                  { borderBottomColor: '#00054bff' },
                 ],
               ]}
               onPress={() => setActiveTab('enviadas')}
@@ -98,7 +98,7 @@ export default function SolicitudesView() {
                 style={[
                   styles.tabText,
                   activeTab === 'enviadas' && {
-                    color: '#1a73e8',
+                    color: '#00054bff',
                     fontWeight: 'bold',
                   },
                 ]}

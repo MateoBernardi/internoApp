@@ -1,13 +1,13 @@
-import type { Novedad } from '@/features/Novedades/models/Novedades';
+import type { Novedad } from '@/features/novedades/models/Novedades';
 import React from 'react';
 import {
-  Modal,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  View,
+    Modal,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    TouchableWithoutFeedback,
+    View,
 } from 'react-native';
 
 interface NovedadModalProps {

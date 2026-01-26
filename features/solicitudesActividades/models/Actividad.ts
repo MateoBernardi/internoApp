@@ -1,4 +1,4 @@
-import { RolActividad } from '../models/Solicitud';
+import { RolActividad } from './Solicitud';
 
 // Actividad
 export interface Actividad {

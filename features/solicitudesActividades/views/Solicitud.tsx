@@ -8,26 +8,26 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Modal,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    Modal,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { UserSelector } from '../components/UserSelector';
 import { EstadoInvitacionDB, estadoInvitacionMapping, ModificarSolicitudFechasRequest, ReenviarSolicitudRequest } from '../models/Solicitud';
 import {
-  useAceptarModificaciones,
-  useActualizarEstadoInvitacion,
-  useInvitaciones,
-  useModificarSolicitudFechas,
-  useReenviarSolicitud,
-  useSolicitudBitacora,
-  useSolicitudesCreadas
+    useAceptarModificaciones,
+    useActualizarEstadoInvitacion,
+    useInvitaciones,
+    useModificarSolicitudFechas,
+    useReenviarSolicitud,
+    useSolicitudBitacora,
+    useSolicitudesCreadas
 } from '../viewmodels/useSolicitudes';
 
 // Para este ejemplo, asumimos que obtenemos la solicitud del caché o desde un parámetro

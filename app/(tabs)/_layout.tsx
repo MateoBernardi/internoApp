@@ -39,6 +39,13 @@ export default function TabLayout() {
         />
       )}
       <Tabs.Screen
+        name="solicitudes-licencias"
+        options={{
+          title: 'Licencias',
+          tabBarIcon: ({ color }) => <IconSymbol size={24} name="calendar.fill" color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="area-personal"
         options={{
           tabBarIcon: ({ color }) => <IconSymbol size={24} name="person.fill" color={color} />,

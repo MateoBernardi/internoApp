@@ -1,6 +1,5 @@
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
-import { useAuth } from '@/features/auth/context/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Usuario } from '@/shared/users/User';
 import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
@@ -28,7 +27,6 @@ export function CrearSolicitud() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const { user } = useAuth();
   
   const [titulo, setTitulo] = useState('');
   const [descripcion, setDescripcion] = useState('');
@@ -44,12 +42,10 @@ export function CrearSolicitud() {
   const { data: searchResults, isLoading: isSearchingUsers } = useSearchUsers(searchQuery);
 
   const users = useMemo(() => {
-      // The API returns { data: [...], success: true } or just [...] depending on implementation.
-      // Based on logs it returns { data: [...] }
       const list = (searchResults as any)?.data || searchResults;
       return Array.isArray(list) ? list.map((u: any) => ({
           ...u,
-          id: u.id_usuario || u.id // Map backend id_usuario to frontend id if needed
+          id: u.id_usuario || u.id 
       })) : [];
   }, [searchResults]);
 
@@ -74,10 +70,8 @@ export function CrearSolicitud() {
                setRoleUsers(mappedUsers);
                setShowRoleModal(true);
           }
-           // We don't unset activeRole immediately here because we need it for the hook to keep data
-           // or we can unset it when closing the modal.
       } else if (roleError) {
-          Alert.alert("Error", "No se pudieron obtener usuarios del rol");
+          Alert.alert("No se encontraron usuarios con ese rol");
           setActiveRole('');
       }
   }, [roleUsersData, activeRole, roleError]);
@@ -121,12 +115,10 @@ export function CrearSolicitud() {
   }, []);
 
   const handleRoleSelect = useCallback((role: string) => {
-      // If we are already viewing this role, maybe don't trigger? 
-      // But clearing activeRole in close handles that.
       setActiveRole(role);
   }, []);
 
-  const allRoles = ['admin', 'contable', 'gerencia', 'personasRelaciones', 'consejo', 'encargado', 'empleado'];
+  const allRoles = ['admin', 'contable', 'gerencia', 'personasRelaciones', 'consejo', 'encargado', 'empleado'].map(r => r.charAt(0).toUpperCase() + r.slice(1));
 
   const onDateChange = (event: any, selectedDate?: Date) => {
       const currentDate = selectedDate || (activeDateType === 'start' ? fechaInicio : fechaFin);
@@ -141,16 +133,9 @@ export function CrearSolicitud() {
 
       if (activeDateType === 'start') {
           setFechaInicio(currentDate);
-          // Auto advance if picking start date fully? Maybe no.
       } else {
           setFechaFin(currentDate);
       }
-
-      // If we just picked a date and we are not 'allDay', we might want to pick time? 
-      // The user experience described implies separate clicks or implicit. 
-      // I'll stick to single picker invocation per click for now to match standard behavior unless requested chain.
-      // But typically "Date & Time" might need two pickers on Android.
-      // I will assume for now user clicks date row -> picker appears.
   };
 
   const showDatepicker = (type: 'start' | 'end', mode: 'date' | 'time') => {

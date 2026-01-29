@@ -28,9 +28,9 @@ export interface Encuesta {
   descripcion?: string;
   categoria: 'interna' | 'externa' | 'feedback_empleado';
   es_anonima: boolean;
-  fecha_creacion?: string;
-  fecha_fin?: string;
-  preguntas?: Pregunta[];
+  fecha_creacion: string;
+  fecha_fin: string;
+  preguntas: Pregunta[];
 }
 
 // Encuesta completa con preguntas

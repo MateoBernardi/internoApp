@@ -6,21 +6,12 @@ import type {
     Respuesta
 } from '../models/Encuesta';
 
-export async function fetchEncuestas(accessToken: string, filtros?: {categoria?: 'interna' | 'externa' | 'feedback_empleado'}): Promise<Encuesta[]> {
-    let response;
-    if (filtros) {
-        const queryParams = new URLSearchParams();
-        if (filtros.categoria) {
-            queryParams.append('categoria', filtros.categoria);
-        }
-        const queryString = queryParams.toString();
-        response = await apiRequest({ method: 'GET', endpoint: `/encuestas?${queryString}`, token: accessToken });
-    } else {
-        response = await apiRequest({ method: 'GET', endpoint: '/encuestas', token: accessToken });
+export async function fetchEncuestas(accessToken: string){
+    const response = await apiRequest({ method: 'GET', endpoint: '/encuestas/categoria/interna', token: accessToken });
+    if (!response.ok) {
+        throw new Error('Error al obtener las encuestas');
     }
-
-    const data: Encuesta[] = await response.json();
-    return data;
+    return response.json();
 }   
 
 export async function getRespuestasEncuesta(accessToken: string): Promise<EncuestaConPreguntas[]> {

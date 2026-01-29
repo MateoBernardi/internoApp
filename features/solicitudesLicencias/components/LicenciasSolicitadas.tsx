@@ -7,13 +7,13 @@ import { Ionicons } from '@expo/vector-icons'; // Importar iconos
 import { useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-    ActivityIndicator,
-    FlatList,
-    ListRenderItem,
-    ScrollView,
-    StyleSheet,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  FlatList,
+  ListRenderItem,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SolicitudLicencia } from '../models/SolicitudLicencia';
 import { useGetSolicitudesLicencias } from '../viewmodels/useSolicitudes';
@@ -254,8 +254,8 @@ function LicenciaSolicitadaItem({ solicitud, estadoUI, onPress }: LicenciaSolici
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF' },
   header: { paddingHorizontal: 16, paddingTop: 16, marginBottom: 12 },
-  title: { color: '#00054bff', fontSize: 20, fontWeight: '700' },
-  underline: { height: 3, backgroundColor: '#00054bff', width: 40, marginTop: 4, borderRadius: 2 },
+  title: { color: '#00054bff', fontSize: 14, justifyContent: 'center' },
+  underline: { height: 3, backgroundColor: '#00054bff', width: 100, marginTop: 4, borderRadius: 2 },
   centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
   
   // Buscador y Sugerencias

@@ -8,20 +8,23 @@ import {
     getRespuestasEncuesta
 } from '../services/encuestasApi';
 
-export function useGetEncuestas(filtros?: {categoria?: 'interna' | 'externa' | 'feedback_empleado'}) {
+export function useGetEncuestas() {
     const { getValidAccessToken } = useAuth();
 
     return useQuery({
-        queryKey: ['encuestas', filtros],
+        queryKey: ['encuestas'],
         queryFn: async () => {
             const token = await getValidAccessToken();
             if (!token) {
                 throw new Error('No hay token de acceso');
             }
-            return fetchEncuestas(token, filtros);
+            return fetchEncuestas(token);
         },
+        select: (response) => response.data,
         staleTime: 1000 * 60 * 5, // 5 minutos
-        gcTime: 1000 * 60 * 10, // 10 minutos (antes llamado cacheTime)
+        gcTime: 1000 * 60 * 10, // 10 minutos 
+        retry: 1,
+        refetchOnWindowFocus: false,
     });
 }   
 

@@ -46,7 +46,7 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="area-personal"
+        name="areaPersonal"
         options={{
           tabBarIcon: ({ color }) => <IconSymbol size={24} name="person.fill" color={color} />,
         }}
@@ -62,6 +62,13 @@ export default function TabLayout() {
         name="user"
         options={{
           title:(user?.nombre || 'Usuario'),
+          tabBarIcon: ({ color }) => <IconSymbol size={24} name="person.fill" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="encuestas"
+        options={{
+          title:('Encuestas'),
           tabBarIcon: ({ color }) => <IconSymbol size={24} name="person.fill" color={color} />,
         }}
       />

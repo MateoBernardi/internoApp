@@ -1,6 +1,5 @@
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useRouter } from 'expo-router';
 import React, { useCallback } from 'react';
 import {
@@ -11,13 +10,14 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Solicitud, estadoInvitacionMapping } from '../models/Solicitud';
+import { SolicitudEnviada, estadoInvitacionMapping } from '../models/Solicitud';
 import { useSolicitudesCreadas } from '../viewmodels/useSolicitudes';
+
+const colors = Colors['light'];
+
 
 export function SolicitudesEnviadas() {
   const router = useRouter();
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
   const { data: solicitudes, isLoading, error } = useSolicitudesCreadas();
 
   const handleOpenSolicitud = useCallback((solicitudId: number) => {
@@ -32,14 +32,14 @@ export function SolicitudesEnviadas() {
       <View
         style={{
           height: StyleSheet.hairlineWidth,
-          backgroundColor: colorScheme === 'dark' ? '#333333' : '#CCCCCC',
+          backgroundColor: colors.secondaryText,
           marginHorizontal: 16,
         }}
       />
     );
-  }, [colorScheme]);
+  }, [colors]);
 
-  const renderItem: ListRenderItem<Solicitud> = useCallback(({ item }) => {
+  const renderItem: ListRenderItem<SolicitudEnviada> = useCallback(({ item }) => {
     const estadoUI = estadoInvitacionMapping[item.estado];
     
     return (
@@ -63,7 +63,7 @@ export function SolicitudesEnviadas() {
     return (
       <View style={styles.centerContainer}>
         <ThemedText type="subtitle" style={styles.errorText}>
-          Error al cargar solicitudes
+          No se encontraron solicitudes enviadas por vos.
         </ThemedText>
         <ThemedText style={{ color: colors.icon }}>
           {error instanceof Error ? error.message : 'Intenta nuevamente'}
@@ -75,9 +75,9 @@ export function SolicitudesEnviadas() {
   if (!solicitudes || solicitudes.length === 0) {
     return (
       <View style={styles.centerContainer}>
-        <ThemedText type="subtitle">No hay solicitudes enviadas</ThemedText>
+        <ThemedText type="subtitle">No hay solicitudes enviadas por vos</ThemedText>
         <ThemedText style={{ color: colors.icon, marginTop: 8 }}>
-          Crea una nueva solicitud para comenzar
+          Crea una nueva para comenzar
         </ThemedText>
       </View>
     );
@@ -87,7 +87,7 @@ export function SolicitudesEnviadas() {
     <FlatList
       data={solicitudes}
       renderItem={renderItem}
-      keyExtractor={(item: Solicitud) => item.solicitud_id.toString()}
+      keyExtractor={(item: SolicitudEnviada) => item.solicitud_id.toString()}
       scrollEnabled={true}
       ItemSeparatorComponent={renderSeparator}
     />
@@ -95,15 +95,12 @@ export function SolicitudesEnviadas() {
 }
 
 interface SolicitudEnviadaItemProps {
-  solicitud: Solicitud;
+  solicitud: SolicitudEnviada;
   estadoUI: string;
   onPress: () => void;
 }
 
 function SolicitudEnviadaItem({ solicitud, estadoUI, onPress }: SolicitudEnviadaItemProps) {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
-
   const getEstadoColor = (estado: string): string => {
     switch (estado) {
       case 'Pendiente':
@@ -128,7 +125,7 @@ function SolicitudEnviadaItem({ solicitud, estadoUI, onPress }: SolicitudEnviada
       onPress={onPress}
       style={[
         styles.itemContainer,
-        { backgroundColor: colorScheme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)' },
+        { backgroundColor: colors.componentBackground },
       ]}
     >
       <View style={styles.itemContent}>
@@ -137,12 +134,12 @@ function SolicitudEnviadaItem({ solicitud, estadoUI, onPress }: SolicitudEnviada
         </ThemedText>
         <ThemedText
           numberOfLines={2}
-          style={[styles.description, { color: colors.icon }]}
+          style={[styles.description, { color: colors.secondaryText }]}
         >
           {solicitud.descripcion}
         </ThemedText>
         <View style={styles.footerContainer}>
-          <ThemedText style={[styles.dateText, { color: colors.icon }]}>
+          <ThemedText style={[styles.dateText, { color: colors.secondaryText }]}>
             {new Date(solicitud.fecha_inicio).toLocaleDateString()}
           </ThemedText>
           <View

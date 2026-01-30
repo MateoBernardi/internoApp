@@ -11,13 +11,13 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Solicitud, estadoInvitacionMapping } from '../models/Solicitud';
+import { SolicitudEnviada, estadoInvitacionMapping } from '../models/Solicitud';
 import { useInvitaciones } from '../viewmodels/useSolicitudes';
+
+const colors = Colors['light'];
 
 export function SolicitudesRecibidas() {
   const router = useRouter();
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
   const { data: invitaciones, isLoading, error } = useInvitaciones();
 
   const handleOpenSolicitud = useCallback((solicitudId: number) => {
@@ -32,14 +32,14 @@ export function SolicitudesRecibidas() {
       <View
         style={{
           height: StyleSheet.hairlineWidth,
-          backgroundColor: colorScheme === 'dark' ? '#333333' : '#CCCCCC',
+          backgroundColor: colors.secondaryText,
           marginHorizontal: 16,
         }}
       />
     );
-  }, [colorScheme]);
+  }, [colors]);
 
-  const renderItem: ListRenderItem<Solicitud> = useCallback(({ item }) => {
+  const renderItem: ListRenderItem<SolicitudEnviada> = useCallback(({ item }) => {
     const estadoUI = estadoInvitacionMapping[item.estado];
     
     return (
@@ -63,7 +63,7 @@ export function SolicitudesRecibidas() {
     return (
       <View style={styles.centerContainer}>
         <ThemedText type="subtitle" style={styles.errorText}>
-          Error al cargar invitaciones
+          No se encontró ninguna solicitud recibida.
         </ThemedText>
         <ThemedText style={{ color: colors.icon }}>
           {error instanceof Error ? error.message : 'Intenta nuevamente'}
@@ -75,7 +75,7 @@ export function SolicitudesRecibidas() {
   if (!invitaciones || invitaciones.length === 0) {
     return (
       <View style={styles.centerContainer}>
-        <ThemedText type="subtitle">No hay solicitudes recibidas</ThemedText>
+        <ThemedText type="subtitle">No tenés solicitudes</ThemedText>
         <ThemedText style={{ color: colors.icon, marginTop: 8 }}>
           Aquí aparecerán las invitaciones que recibas
         </ThemedText>
@@ -87,7 +87,7 @@ export function SolicitudesRecibidas() {
     <FlatList
       data={invitaciones}
       renderItem={renderItem}
-      keyExtractor={(item: Solicitud) => item.solicitud_id.toString()}
+      keyExtractor={(item: SolicitudEnviada) => item.solicitud_id.toString()}
       scrollEnabled={true}
       ItemSeparatorComponent={renderSeparator}
     />
@@ -95,7 +95,7 @@ export function SolicitudesRecibidas() {
 }
 
 interface SolicitudRecibidaItemProps {
-  solicitud: Solicitud;
+  solicitud: SolicitudEnviada;
   estadoUI: string;
   onPress: () => void;
 }
@@ -128,24 +128,24 @@ function SolicitudRecibidaItem({ solicitud, estadoUI, onPress }: SolicitudRecibi
       onPress={onPress}
       style={[
         styles.itemContainer,
-        { backgroundColor: colorScheme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)' },
+        { backgroundColor: colors.componentBackground },
       ]}
     >
       <View style={styles.itemContent}>
         <ThemedText type="defaultSemiBold" numberOfLines={1}>
           {solicitud.titulo}
         </ThemedText>
-        <ThemedText style={[styles.creador, { color: colors.icon }]}>
-          De: {solicitud.nombre} {solicitud.apellido}
+        <ThemedText style={[styles.creador, { color: colors.secondaryText }]}>
+          De: {solicitud.creador_nombre} {solicitud.creador_apellido}
         </ThemedText>
         <ThemedText
           numberOfLines={2}
-          style={[styles.description, { color: colors.icon }]}
+          style={[styles.description, { color: colors.secondaryText }]}
         >
           {solicitud.descripcion}
         </ThemedText>
         <View style={styles.footerContainer}>
-          <ThemedText style={[styles.dateText, { color: colors.icon }]}>
+          <ThemedText style={[styles.dateText, { color: colors.secondaryText }]}>
             {new Date(solicitud.fecha_inicio).toLocaleDateString()}
           </ThemedText>
           <View

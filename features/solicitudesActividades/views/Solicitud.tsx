@@ -1,8 +1,7 @@
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import { Usuario } from '@/shared/users/User';
-import { useSearchUsers } from '@/shared/users/useUser';
+import { UserSummary } from '@/shared/users/User';
+import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -18,6 +17,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { RoleUserSelectionModal } from '../components/RoleUserSelectionModal';
 import { UserSelector } from '../components/UserSelector';
 import { EstadoInvitacionDB, estadoInvitacionMapping, ModificarSolicitudFechasRequest, ReenviarSolicitudRequest } from '../models/Solicitud';
 import {
@@ -30,14 +30,14 @@ import {
     useSolicitudesCreadas
 } from '../viewmodels/useSolicitudes';
 
+const colors = Colors['light'];
+
 // Para este ejemplo, asumimos que obtenemos la solicitud del caché o desde un parámetro
 export function Solicitud() {
   const router = useRouter();
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
   const { id, type } = useLocalSearchParams<{ id: string; type: string }>();
 
-  const solicitudId = parseInt(id || '0', 10);
+  const solicitudId = parseInt(id);
 
   const { data: bitacora, isLoading: isLoadingBitacora } = useSolicitudBitacora(solicitudId);
   const { mutate: actualizarEstado, isPending: isUpdatingEstado } = useActualizarEstadoInvitacion();
@@ -65,16 +65,29 @@ export function Solicitud() {
 
   // Estado para compartir
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedUsersToShare, setSelectedUsersToShare] = useState<Usuario[]>([]);
+  const [selectedUsersToShare, setSelectedUsersToShare] = useState<UserSummary[]>([]);
   const { data: searchResults, isLoading: isSearchingUsers } = useSearchUsers(searchQuery);
 
-  const users = useMemo(() => {
-    const list = (searchResults as any)?.data || searchResults;
-    return Array.isArray(list) ? list.map((u: any) => ({
-        ...u,
-        id: u.id_usuario || u.id
-    })) : [];
-  }, [searchResults]);
+  // Role Selection Logic (para compartir)
+  const [activeRole, setActiveRole] = useState('');
+  const [roleUsers, setRoleUsers] = useState<UserSummary[]>([]);
+  const [showRoleModal, setShowRoleModal] = useState(false);
+  const { data: roleUsersData, isLoading: isLoadingRole, error: roleError } = useGetUserByRole(activeRole);
+
+  const users = searchResults || [];
+  const isLoadingUsers = isSearchingUsers || isLoadingRole;
+
+  // Effect para manejar la respuesta de búsqueda por rol
+  useEffect(() => {
+      if (activeRole && roleUsersData) {
+          const roleUsersList = roleUsersData;
+          setRoleUsers(roleUsersList);
+          setShowRoleModal(true);
+      } else if (roleError) {
+          Alert.alert("No se encontraron usuarios con ese rol");
+          setActiveRole('');
+      }
+  }, [roleUsersData, activeRole, roleError]);
 
   const solicitud = useMemo(() => {
     if (type === 'enviada') {
@@ -100,8 +113,6 @@ export function Solicitud() {
     // Para enviadas: MODIFIED -> SEEN (simulado si el backend lo soporta, o simplemente lógica visual futura)
     else if (type === 'enviada') {
         if (solicitud.estado === 'MODIFIED') {
-            // Intentamos marcar como SEEN. Si el backend valida rol, esto podría fallar o no tener efecto deseado.
-            // Pero seguimos la instrucción de intentar marcarlo.
             actualizarEstado({
                 solicitudId: solicitud.solicitud_id,
                 estado: 'SEEN' as EstadoInvitacionDB,
@@ -228,6 +239,7 @@ export function Solicitud() {
   const handleCompartir = useCallback(() => {
     setSelectedUsersToShare([]);
     setSearchQuery('');
+    setActiveRole('');
     setShowShareModal(true);
   }, []);
 
@@ -239,7 +251,7 @@ export function Solicitud() {
 
     const payload: ReenviarSolicitudRequest = {
       solicitudId,
-      nuevosInvitadosIds: selectedUsersToShare.map(u => u.id),
+      nuevosInvitadosIds: selectedUsersToShare.map(u => u.user_context_id),
     };
 
     reenviarSolicitud(payload, {
@@ -253,16 +265,50 @@ export function Solicitud() {
     });
   }, [solicitudId, selectedUsersToShare, reenviarSolicitud]);
 
-  const handleToggleUserShare = useCallback((user: Usuario) => {
+  const handleToggleUserShare = useCallback((user: UserSummary) => {
     setSelectedUsersToShare(prev => {
-        const isSelected = prev.some(u => u.id === user.id);
+        const isSelected = prev.some(u => u.user_context_id === user.user_context_id);
         if (isSelected) {
-            return prev.filter(u => u.id !== user.id);
+            return prev.filter(u => u.user_context_id !== user.user_context_id);
         } else {
             return [...prev, user];
         }
     });
   }, []);
+
+  const handleSelectAllRoleUsers = useCallback((usersToSelect: UserSummary[]) => {
+      setSelectedUsersToShare(prev => {
+          const prevIds = new Set(prev.map(u => u.user_context_id));
+          const newUsers = usersToSelect.filter(u => !prevIds.has(u.user_context_id));
+          return [...prev, ...newUsers];
+      });
+  }, []);
+
+  const handleDeselectAllRoleUsers = useCallback((usersToDeselect: UserSummary[]) => {
+      setSelectedUsersToShare(prev => {
+          const idsToRemove = new Set(usersToDeselect.map(u => u.user_context_id));
+          return prev.filter(u => !idsToRemove.has(u.user_context_id));
+      });
+  }, []);
+
+  const handleCloseRoleModal = useCallback(() => {
+      setShowRoleModal(false);
+      setActiveRole('');
+      setRoleUsers([]);
+  }, []);
+
+  const handleRoleSelect = useCallback((role: string) => {
+      setActiveRole(role);
+  }, []);
+
+  const allRoles = [
+    { label: 'Contable', value: 'contable' },
+    { label: 'Consejo', value: 'consejo' },
+    { label: 'Encargado', value: 'encargado' },
+    { label: 'Gerencia', value: 'gerencia' },
+    { label: 'Personal', value: 'empleado' },
+    { label: 'Personas y Relaciones', value: 'personasRelaciones' },
+  ];
 
   const fechaInicio = solicitud ? new Date(solicitud.fecha_inicio) : new Date();
   const fechaFin = solicitud ? new Date(solicitud.fecha_fin) : new Date();
@@ -270,7 +316,7 @@ export function Solicitud() {
   if (!solicitud && !enviadas && !recibidas) {
        return (
            <View style={[styles.container, { justifyContent: 'center', alignItems: 'center'}]}>
-               <ActivityIndicator size="large" color="#1a73e8" />
+               <ActivityIndicator size="large" color= {colors.lightTint} />
            </View>
        )
   }
@@ -280,7 +326,7 @@ export function Solicitud() {
       {/* Header sin paddingTop extra */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.iconButton}>
-          <Ionicons name="arrow-back" size={24} color="#5f6368" />
+          <Ionicons name="arrow-back" size={24} color={colors.icon} />
         </TouchableOpacity>
         <ThemedText style={styles.headerTitle}>
             {type === 'enviada' ? 'Enviada' : 'Recibida'}
@@ -296,7 +342,7 @@ export function Solicitud() {
           {/* Detalles */}
             <View style={styles.dateSection}>
                 <View style={styles.switchRow}>
-                    <Ionicons name="time-outline" size={20} color="#1a73e8" style={{ marginRight: 8 }} />
+                    <Ionicons name="time-outline" size={20} color={colors.lightTint} style={{ marginRight: 8 }} />
                     <ThemedText style={styles.dateSectionTitle}>
                          Horario
                     </ThemedText>
@@ -324,17 +370,17 @@ export function Solicitud() {
              <View style={styles.inputSection}>
                  <ThemedText style={styles.label}>{type === 'enviada' ? 'Para' : 'De'}</ThemedText>
                  <View style={styles.userChip}>
-                     <ThemedText style={{ color: '#1a73e8' }}>
+                     <ThemedText style={{ color: colors.lightTint }}>
                          {type === 'enviada' 
-                            ? 'Destinatarios' 
-                            : `${solicitud?.nombre || ''} ${solicitud?.apellido || ''}`}
+                            ? `${solicitud?.invitado_nombre || ''} ${solicitud?.invitado_apellido || ''}` 
+                            : `${solicitud?.creador_nombre || ''} ${solicitud?.creador_apellido || ''}`}
                      </ThemedText>
                  </View>
              </View>
 
             <View style={[styles.inputSection, { borderBottomWidth: 0, paddingVertical: 10 }]}>
-                 <View style={[styles.chip, { borderColor: '#1a73e8', backgroundColor: 'transparent', borderWidth: 1 }]}>
-                    <ThemedText style={[styles.chipText, { color: '#1a73e8', fontWeight: 'bold' }]}>
+                 <View style={[styles.chip, { borderColor: colors.lightTint, backgroundColor: 'transparent', borderWidth: 1 }]}>
+                    <ThemedText style={[styles.chipText, { color: colors.lightTint, fontWeight: 'bold' }]}>
                         Reunión
                     </ThemedText>
                  </View>
@@ -346,6 +392,7 @@ export function Solicitud() {
              </View>
 
              <View style={styles.messageSection}>
+                 <ThemedText style={styles.label}>Mensaje</ThemedText>
                  <ThemedText style={styles.messageText}>{solicitud?.descripcion}</ThemedText>
              </View>
 
@@ -357,7 +404,7 @@ export function Solicitud() {
             {/* Bitácora Integrada */}
             <View style={styles.bitacoraContainer}>
                 {isLoadingBitacora ? (
-                    <ActivityIndicator size="small" color="#1a73e8" style={{ marginTop: 20 }} />
+                    <ActivityIndicator size="small" color={colors.lightTint} style={{ marginTop: 20 }} />
                 ) : (
                     bitacora && bitacora.length > 0 ? (
                         bitacora.map((b) => (
@@ -394,7 +441,7 @@ export function Solicitud() {
                         </View>
                         ))
                     ) : (
-                        <ThemedText style={{ color: '#5f6368', textAlign: 'center', marginTop: 20 }}>No hay actividad reciente</ThemedText>
+                        <ThemedText style={{ color: colors.secondaryText, textAlign: 'center', marginTop: 20 }}>No hay actividad reciente</ThemedText>
                     )
                 )}
             </View>
@@ -406,25 +453,25 @@ export function Solicitud() {
           {menuOpen && (
               <>
                 {/* Opciones para Recibidas */}
-                {type === 'recibida' && (
+                {type === 'recibida' && solicitud?.estado !== 'ACCEPTED' && solicitud?.estado !== 'REJECTED' && (
                   <>
-                    <TouchableOpacity style={[styles.fab, { backgroundColor: '#d93025',  marginRight: 16 }]} onPress={handleRechazar}>
-                        <Ionicons name="close" size={24} color="#fff" />
+                    <TouchableOpacity style={[styles.fab, { backgroundColor: colors.error,  marginRight: 16 }]} onPress={handleRechazar}>
+                        <Ionicons name="close" size={24} color={colors.background} />
                     </TouchableOpacity>
-                    <TouchableOpacity style={[styles.fab, { backgroundColor: '#FF9800', marginRight: 16 }]} onPress={handleModificarPress}>
-                        <Ionicons name="pencil" size={24} color="#fff" />
+                    <TouchableOpacity style={[styles.fab, { backgroundColor: colors.warning, marginRight: 16 }]} onPress={handleModificarPress}>
+                        <Ionicons name="pencil" size={24} color={colors.background} />
                     </TouchableOpacity>
                   </>
                 )}
                 
                 {/* Opciones para Enviadas */}
-                {type === 'enviada' && (
+                {type === 'enviada' && solicitud?.estado !== 'ACCEPTED' && solicitud?.estado !== 'REJECTED' && (
                   <>
-                    <TouchableOpacity style={[styles.fab, { backgroundColor: '#1a73e8', marginRight: 16 }]} onPress={handleModificarPress}>
-                        <Ionicons name="create-outline" size={24} color="#fff" />
+                    <TouchableOpacity style={[styles.fab, { backgroundColor: colors.lightTint, marginRight: 16 }]} onPress={handleModificarPress}>
+                        <Ionicons name="create-outline" size={24} color={colors.background} />
                     </TouchableOpacity>
-                    <TouchableOpacity style={[styles.fab, { backgroundColor: '#5f6368', marginRight: 16 }]} onPress={handleCompartir}>
-                        <Ionicons name="share-social-outline" size={24} color="#fff" />
+                    <TouchableOpacity style={[styles.fab, { backgroundColor: colors.icon, marginRight: 16 }]} onPress={handleCompartir}>
+                        <Ionicons name="share-social-outline" size={24} color={colors.background} />
                     </TouchableOpacity>
                   </>
                 )}
@@ -433,14 +480,14 @@ export function Solicitud() {
 
           {/* Main Action: Accept (Recibida or Enviada[MODIFIED]) */}
           {((type === 'recibida') || (type === 'enviada' && solicitud?.estado === 'MODIFIED')) && (
-               <TouchableOpacity style={[styles.fab, { backgroundColor: '#1a73e8', marginRight: 16 }]} onPress={handleAceptarPress}>
-                   <Ionicons name="checkmark" size={24} color="#fff" />
+               <TouchableOpacity style={[styles.fab, { backgroundColor: colors.lightTint, marginRight: 16 }]} onPress={handleAceptarPress}>
+                   <Ionicons name="checkmark" size={24} color={colors.background} />
                </TouchableOpacity>
           )}
 
           {/* Menu Button */}
-          <TouchableOpacity style={[styles.fab, { backgroundColor: '#5f6368' }]} onPress={() => setMenuOpen(!menuOpen)}>
-               <Ionicons name={menuOpen ? "close" : "ellipsis-horizontal"} size={24} color="#fff" />
+          <TouchableOpacity style={[styles.fab, { backgroundColor: colors.icon }]} onPress={() => setMenuOpen(!menuOpen)}>
+               <Ionicons name={menuOpen ? "close" : "ellipsis-horizontal"} size={24} color={colors.background} />
           </TouchableOpacity>
       </View>
 
@@ -457,7 +504,7 @@ export function Solicitud() {
                                 style={[styles.priorityBtn, priority === p && styles.priorityBtnActive]}
                                 onPress={() => setPriority(p)}
                            >
-                               <ThemedText style={[styles.priorityText, priority === p && {color: '#fff'}]}>
+                               <ThemedText style={[styles.priorityText, priority === p && {color: colors.background}]}>
                                    {p === '1' ? 'Alta' : p === '2' ? 'Media' : 'Baja'}
                                </ThemedText>
                            </TouchableOpacity>
@@ -465,10 +512,10 @@ export function Solicitud() {
                   </View>
                   <View style={styles.modalActions}>
                       <TouchableOpacity onPress={() => setShowAcceptModal(false)} style={styles.modalBtnCancel}>
-                          <ThemedText style={{color: '#d93025'}}>Cancelar</ThemedText>
+                          <ThemedText style={{color: colors.error}}>Cancelar</ThemedText>
                       </TouchableOpacity>
                       <TouchableOpacity onPress={confirmAceptar} style={styles.modalBtnConfirm}>
-                          <ThemedText style={{color: '#fff'}}>Aceptar</ThemedText>
+                          <ThemedText style={{color: colors.background}}>Aceptar</ThemedText>
                       </TouchableOpacity>
                   </View>
               </View>
@@ -511,10 +558,10 @@ export function Solicitud() {
 
                   <View style={styles.modalActions}>
                       <TouchableOpacity onPress={() => setShowModifyModal(false)} style={styles.modalBtnCancel}>
-                          <ThemedText style={{color: '#d93025'}}>Cancelar</ThemedText>
+                          <ThemedText style={{color: colors.error}}>Cancelar</ThemedText>
                       </TouchableOpacity>
                       <TouchableOpacity onPress={confirmModificar} style={styles.modalBtnConfirm}>
-                          {isModifying ? <ActivityIndicator color="#fff"/> : <ThemedText style={{color: '#fff'}}>Guardar</ThemedText>}
+                          {isModifying ? <ActivityIndicator color={colors.background}/> : <ThemedText style={{color: colors.background}}>Guardar</ThemedText>}
                       </TouchableOpacity>
                   </View>
               </View>
@@ -534,28 +581,40 @@ export function Solicitud() {
       {/* Modal Compartir */}
       <Modal visible={showShareModal} transparent animationType="slide" onRequestClose={() => setShowShareModal(false)}>
         <View style={styles.modalOverlay}>
-            <View style={[styles.modalContent, { height: '80%' }]}>
+            <View style={[styles.modalContent, { height: '40%' }]}>
                 <ThemedText type="subtitle" style={{marginBottom: 16}}>Compartir Solicitud</ThemedText>
                 <UserSelector 
                     selectedUsers={selectedUsersToShare}
                     onSelectUsers={setSelectedUsersToShare}
                     users={users || []}
                     onSearch={setSearchQuery}
-                    isLoadingUsers={isSearchingUsers}
-                    roles={[]}
-                    onSelectRole={() => {}}
+                    isLoadingUsers={isLoadingUsers}
+                    roles={allRoles}
+                    onSelectRole={handleRoleSelect}
                 />
                 <View style={styles.modalActions}>
                     <TouchableOpacity onPress={() => setShowShareModal(false)} style={styles.modalBtnCancel}>
-                        <ThemedText style={{color: '#d93025'}}>Cancelar</ThemedText>
+                        <ThemedText style={{color: colors.error}}>Cancelar</ThemedText>
                     </TouchableOpacity>
                     <TouchableOpacity onPress={confirmCompartir} style={styles.modalBtnConfirm}>
-                        {isSharing ? <ActivityIndicator color="#fff"/> : <ThemedText style={{color: '#fff'}}>Compartir</ThemedText>}
+                        {isSharing ? <ActivityIndicator color={colors.background}/> : <ThemedText style={{color: colors.background}}>Compartir</ThemedText>}
                     </TouchableOpacity>
                 </View>
             </View>
         </View>
       </Modal>
+
+      {/* Modal de Selección de Usuarios por Rol */}
+      <RoleUserSelectionModal
+        visible={showRoleModal}
+        onClose={handleCloseRoleModal}
+        roleName={activeRole}
+        roleUsers={roleUsers}
+        selectedUsers={selectedUsersToShare}
+        onToggleUser={handleToggleUserShare}
+        onSelectAll={handleSelectAllRoleUsers}
+        onDeselectAll={handleDeselectAllRoleUsers}
+      />
 
     </View>
   );
@@ -564,7 +623,7 @@ export function Solicitud() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.componentBackground,
   },
   header: {
     flexDirection: 'row',
@@ -576,7 +635,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 20,
-    color: '#1a73e8',
+    color: colors.tint,
     fontWeight: '500',
   },
   iconButton: {
@@ -591,9 +650,9 @@ const styles = StyleSheet.create({
   dateSection: {
     padding: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: colors.componentBackground,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#e0e0e0',
+    borderTopColor: colors.componentBackground,
   },
   switchRow: {
     flexDirection: 'row',
@@ -602,7 +661,7 @@ const styles = StyleSheet.create({
   },
   dateSectionTitle: {
      fontSize: 16,
-     color: '#202124',
+     color: colors.text,
   },
   dateRow: {
     flexDirection: 'row',
@@ -611,27 +670,27 @@ const styles = StyleSheet.create({
   },
   dateValue: {
      fontSize: 16,
-     color: '#1a73e8',
+     color: colors.tint,
      width: 120,
   },
   timeValue: {
       fontSize: 16,
-      color: '#1a73e8',
+      color: colors.tint,
   },
   inputSection: {
     paddingVertical: 14,
     paddingHorizontal: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: colors.componentBackground,
   },
   label: {
       fontSize: 12,
-      color: '#5f6368',
+      color: colors.secondaryText,
       marginBottom: 4,
   },
   valueText: {
       fontSize: 16,
-      color: '#202124',
+      color: colors.text,
   },
   userChip: {
       flexDirection: 'row',
@@ -644,7 +703,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: colors.background,
   },
   chipText: {
     fontSize: 14,
@@ -655,18 +714,18 @@ const styles = StyleSheet.create({
   },
   messageText: {
       fontSize: 16,
-      color: '#202124',
+      color: colors.text,
       lineHeight: 24,
   },
   sectionHeader: {
       paddingHorizontal: 16,
       paddingVertical: 8,
-      backgroundColor: '#f1f3f4',
+      backgroundColor: colors.background,
   },
   sectionTitle: {
       fontSize: 14,
       fontWeight: 'bold',
-      color: '#5f6368',
+      color: colors.secondaryText,
   },
   bitacoraContainer: {
       padding: 16,
@@ -682,43 +741,43 @@ const styles = StyleSheet.create({
   bitacoraBody: {
       marginLeft: 8,
       borderLeftWidth: 2,
-      borderLeftColor: '#e0e0e0',
+      borderLeftColor: colors.componentBackground,
       paddingLeft: 12,
       paddingVertical: 4,
   },
   bitacoraUser: {
       fontWeight: 'bold',
-      color: '#202124',
+      color: colors.text,
       fontSize: 13,
   },
   bitacoraDate: {
       fontSize: 11,
-      color: '#5f6368',
+      color: colors.secondaryText,
   },
   bitacoraAction: {
-      color: '#1a73e8',
+      color: colors.lightTint,
       fontSize: 14,
       fontWeight: '500',
   },
   bitacoraBubble: {
       marginTop: 6,
-      backgroundColor: '#f1f3f4',
+      backgroundColor: colors.background,
       padding: 8,
       borderRadius: 8,
   },
   bitacoraText: {
       fontSize: 14,
-      color: '#3c4043',
+      color: colors.secondaryText,
   },
   changeBubble: {
       marginTop: 6,
-      backgroundColor: '#e8f0fe',
+      backgroundColor: colors.background,
       padding: 8,
       borderRadius: 8,
   },
   changeText: {
       fontSize: 13,
-      color: '#1967d2',
+      color: colors.lightTint,
   },
   fabContainer: {
       position: 'absolute',
@@ -762,7 +821,7 @@ const styles = StyleSheet.create({
       marginRight: 10,
   },
   modalBtnConfirm: {
-      backgroundColor: '#1a73e8',
+      backgroundColor: colors.tint,
       paddingVertical: 10,
       paddingHorizontal: 20,
       borderRadius: 4,
@@ -775,18 +834,18 @@ const styles = StyleSheet.create({
   priorityBtn: {
       padding: 12,
       borderWidth: 1,
-      borderColor: '#e0e0e0',
+      borderColor: colors.background,
       borderRadius: 8,
       flex: 1,
       marginHorizontal: 4,
       alignItems: 'center',
   },
   priorityBtnActive: {
-      backgroundColor: '#1a73e8',
-      borderColor: '#1a73e8',
+      backgroundColor: colors.tint,
+      borderColor: colors.tint,
   },
   priorityText: {
-      color: '#5f6368',
+      color: colors.secondaryText,
       fontWeight: 'bold',
   },
   row: {
@@ -796,14 +855,14 @@ const styles = StyleSheet.create({
   },
   dateBtn: {
       padding: 10,
-      backgroundColor: '#f1f3f4',
+      backgroundColor: colors.background,
       borderRadius: 8,
       flex: 0.48,
       alignItems: 'center',
   },
   input: {
       borderBottomWidth: 1,
-      borderBottomColor: '#ccc',
+      borderBottomColor: colors.background,
       paddingVertical: 8,
       fontSize: 16,
   }

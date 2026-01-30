@@ -72,7 +72,7 @@ export async function getSolicitudBitacora(accessToken: string, solicitudId: num
     return await response.json();
 }
 
-export async function getSolicitudesCreadas(accessToken: string): Promise<solicitudes.Solicitud[]> {
+export async function getSolicitudesCreadas(accessToken: string): Promise<solicitudes.SolicitudEnviada[]> {
     const response = await apiRequest({method: 'GET', endpoint: '/solicitudes-actividades/solicitudes/creador', token: accessToken});
 
     if (!response.ok) {
@@ -84,7 +84,7 @@ export async function getSolicitudesCreadas(accessToken: string): Promise<solici
     return await response.json();
 }
 
-export async function obtenerMisInvitaciones(accessToken: string): Promise<solicitudes.Solicitud[]> {
+export async function obtenerMisInvitaciones(accessToken: string): Promise<solicitudes.SolicitudEnviada[]> {
     const response = await apiRequest({method: 'GET', endpoint: '/solicitudes-actividades/solicitudes/invitados', token: accessToken});
 
     if (!response.ok) {

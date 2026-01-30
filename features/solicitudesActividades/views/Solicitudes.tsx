@@ -2,47 +2,24 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { CreateButton } from '@/components/ui/CreateButton';
 import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useRouter } from 'expo-router';
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import {
-  Animated,
-  NativeScrollEvent,
-  NativeSyntheticEvent,
   StyleSheet,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import { SolicitudesEnviadas } from '../components/SolicitudesEnviadas';
 import { SolicitudesRecibidas } from '../components/SolicitudesRecibidas';
 
 type TabType = 'enviadas' | 'recibidas';
+const colors = Colors['light'];
+
 
 export default function SolicitudesView() {
   const router = useRouter();
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
 
   const [activeTab, setActiveTab] = useState<TabType>('recibidas');
-  const scrollOffset = useRef(new Animated.Value(0)).current;
-  const [isButtonVisible, setIsButtonVisible] = useState(true);
-
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const offset = event.nativeEvent.contentOffset.y;
-
-    // Mostrar/ocultar botón según la dirección del scroll
-    if (offset > 50) {
-      // Scrolling hacia abajo
-      if (isButtonVisible) {
-        setIsButtonVisible(false);
-      }
-    } else if (offset < 50) {
-      // Scrolling hacia arriba
-      if (!isButtonVisible) {
-        setIsButtonVisible(true);
-      }
-    }
-  };
 
   const handleCreatePress = () => {
     router.push('/(extras)/crear-solicitud');
@@ -52,12 +29,7 @@ export default function SolicitudesView() {
     <ThemedView style={styles.container}>
       {/* Header con tabs */}
       <View
-        style={[
-          styles.header,
-          {
-            backgroundColor: '#fafafa',
-          },
-        ]}
+        style={styles.header}
       >
         <View style={styles.headerContent}>
           {/* Tabs */}
@@ -65,10 +37,7 @@ export default function SolicitudesView() {
             <TouchableOpacity
               style={[
                 styles.tab,
-                activeTab === 'recibidas' && [
-                  styles.tabActive,
-                  { borderBottomColor: '#00054bff' },
-                ],
+                activeTab === 'recibidas' && styles.tabActive,
               ]}
               onPress={() => setActiveTab('recibidas')}
             >
@@ -76,7 +45,7 @@ export default function SolicitudesView() {
                 style={[
                   styles.tabText,
                   activeTab === 'recibidas' && {
-                    color: '#00054bff',
+                    color: colors.tint,
                     fontWeight: 'bold',
                   },
                 ]}
@@ -87,10 +56,7 @@ export default function SolicitudesView() {
             <TouchableOpacity
               style={[
                 styles.tab,
-                activeTab === 'enviadas' && [
-                  styles.tabActive,
-                  { borderBottomColor: '#00054bff' },
-                ],
+                activeTab === 'enviadas' && styles.tabActive,
               ]}
               onPress={() => setActiveTab('enviadas')}
             >
@@ -98,7 +64,7 @@ export default function SolicitudesView() {
                 style={[
                   styles.tabText,
                   activeTab === 'enviadas' && {
-                    color: '#00054bff',
+                    color: colors.tint,
                     fontWeight: 'bold',
                   },
                 ]}
@@ -120,7 +86,7 @@ export default function SolicitudesView() {
       </View>
 
       {/* Botón flotante */}
-      {isButtonVisible && (
+      {
         <View style={styles.floatingButtonContainer}>
           <CreateButton
             onPress={handleCreatePress}
@@ -128,7 +94,7 @@ export default function SolicitudesView() {
             accessibilityLabel="Crear nueva solicitud"
           />
         </View>
-      )}
+      }
     </ThemedView>
   );
 }
@@ -136,14 +102,14 @@ export default function SolicitudesView() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fafafa',
-  },
-  header: {
-    // Removed border
+    backgroundColor: colors.componentBackground,
   },
   headerContent: {
     paddingHorizontal: 16,
     paddingVertical: 12,
+  },
+  header: {
+    backgroundColor: colors.componentBackground,
   },
   title: {
     marginBottom: 12,
@@ -159,17 +125,18 @@ const styles = StyleSheet.create({
   },
   tab: {
     flex: 1,
-    paddingVertical: 12,
     paddingHorizontal: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
   tabActive: {
     borderBottomWidth: 2,
+    borderBottomColor: colors.tint,
   },
   tabText: {
-    fontSize: 14,
+    fontSize: 18,
     fontWeight: '500',
+    paddingBottom: 10
   },
   content: {
     flex: 1,

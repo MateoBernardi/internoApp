@@ -19,11 +19,12 @@ export interface UserContext {
 
 export interface UserSummary {
   user_context_id: number;
-  id_usuario: number;
+  id_usuario?: number;
   username: string;
   nombre: string;
   apellido: string;
   email: string;
   role?: string[];
 }
+
 

@@ -1,7 +1,6 @@
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import { Usuario } from '@/shared/users/User';
+import { UserSummary } from '@/shared/users/User';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
@@ -21,15 +20,18 @@ if (Platform.OS === 'android') {
 }
 
 interface UserSelectorProps {
-  selectedUsers: Usuario[];
-  onSelectUsers: (users: Usuario[]) => void;
-  users: Usuario[]; // Search Results
-  roles: string[];
+  selectedUsers: UserSummary[];
+  onSelectUsers: (users: UserSummary[]) => void;
+  users: UserSummary[]; // Search Results
+  roles: { label: string; value: string }[];
   isLoadingUsers?: boolean;
   isLoadingRoles?: boolean;
   onSearch: (query: string) => void;
   onSelectRole: (role: string) => void;
 }
+
+const colors = Colors['light'];
+
 
 export function UserSelector({
   selectedUsers,
@@ -41,8 +43,6 @@ export function UserSelector({
   onSearch,
   onSelectRole
 }: UserSelectorProps) {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
   const [searchQuery, setSearchQuery] = useState('');
   
   // States for Modals/Popups
@@ -60,10 +60,10 @@ export function UserSelector({
     }
   };
 
-  const toggleUserSelection = (user: Usuario) => {
-    const isSelected = selectedUsers.some((u) => u.id === user.id);
+  const toggleUserSelection = (user: UserSummary) => {
+    const isSelected = selectedUsers.some((u) => u.user_context_id === user.user_context_id);
     if (isSelected) {
-      onSelectUsers(selectedUsers.filter((u) => u.id !== user.id));
+      onSelectUsers(selectedUsers.filter((u) => u.user_context_id !== user.user_context_id));
     } else {
       onSelectUsers([...selectedUsers, user]);
       setSearchQuery('');
@@ -84,8 +84,8 @@ export function UserSelector({
         <View style={styles.inputWrapper}>
              <TextInput
                 style={[styles.input, { color: colors.text }]}
-                placeholder="Escribe nombre o email..."
-                placeholderTextColor="#9aa0a6"
+                placeholder="Para"
+                placeholderTextColor= {colors.secondaryText}
                 value={searchQuery}
                 onChangeText={handleSearch}
                 onFocus={() => {
@@ -100,7 +100,7 @@ export function UserSelector({
              onPress={() => setIsRolesVisible(true)}
          >
              <ThemedText style={styles.rolesButtonText}>Roles</ThemedText>
-             <Ionicons name="chevron-down" size={16} color="#5f6368" style={{ marginLeft: 4 }} />
+             <Ionicons name="chevron-down" size={16} color={colors.icon} style={{ marginLeft: 4 }} />
         </TouchableOpacity>
       </View>
 
@@ -119,18 +119,18 @@ export function UserSelector({
                         {roles && roles.length > 0 ? (
                                 roles.map(role => (
                                     <TouchableOpacity 
-                                        key={role} 
+                                        key={role.value} 
                                         style={styles.modalItem} 
-                                        onPress={() => handleSelectRole(role)}
+                                        onPress={() => handleSelectRole(role.value)}
                                     >
-                                        <ThemedText style={styles.roleText}>{role}</ThemedText>
+                                        <ThemedText style={styles.roleText}>{role.label}</ThemedText>
                                         <Ionicons name="people-outline" size={20} color={colors.tint} />
                                     </TouchableOpacity>
                                 ))
                         ) : (
                              isLoadingRoles ? 
                              <ActivityIndicator color={colors.tint} /> :
-                            <ThemedText style={{ color: '#5f6368', padding: 10 }}>No hay roles disponibles</ThemedText>
+                            <ThemedText style={{ color: colors.secondaryText, padding: 10 }}>No se encontraron roles</ThemedText>
                         )}
                     </View>
                   </TouchableWithoutFeedback>
@@ -140,11 +140,11 @@ export function UserSelector({
 
       {/* Search Results Dropdown (In-Flow but looks overlay) */}
       {showResults && searchQuery.length > 0 && (
-          <View style={[styles.resultsContainer, { borderColor: '#e0e0e0' }]}>
+          <View style={[styles.resultsContainer, { borderColor: colors.componentBackground }]}>
                <View style={styles.resultsHeader}>
-                   <ThemedText style={{ fontSize: 12, color: '#5f6368' }}>Resultados</ThemedText>
+                   <ThemedText style={{ fontSize: 12, color: colors.secondaryText }}>Resultados</ThemedText>
                    <TouchableOpacity onPress={() => setShowResults(false)}>
-                       <Ionicons name="close" size={16} color="#5f6368" />
+                       <Ionicons name="close" size={16} color={colors.icon} />
                    </TouchableOpacity>
                </View>
 
@@ -153,10 +153,10 @@ export function UserSelector({
                ) : (
                    users && users.length > 0 ? (
                         users.map((item) => {
-                            const isSelected = selectedUsers.some((u) => u.id === item.id);
+                            const isSelected = selectedUsers.some((u) => u.user_context_id === item.user_context_id);
                             return (
                                 <TouchableOpacity
-                                    key={item.id}
+                                    key={item.user_context_id}
                                     style={styles.resultItem}
                                     onPress={() => toggleUserSelection(item)}
                                 >
@@ -170,7 +170,7 @@ export function UserSelector({
                         })
                    ) : (
                         <View style={{ padding: 16, alignItems: 'center' }}>
-                            <ThemedText style={{ color: '#5f6368' }}>No se encontraron usuarios</ThemedText>
+                            <ThemedText style={{ color: colors.secondaryText }}>No se encontraron usuarios</ThemedText>
                         </View>
                    )
                )}
@@ -181,14 +181,13 @@ export function UserSelector({
       <View style={styles.selectedChipsContainer}>
           {selectedUsers.map((user) => (
             <TouchableOpacity
-              key={user.id}
+              key={user.user_context_id}
               onPress={() => toggleUserSelection(user)}
-              style={[styles.userChip, { borderColor: '#e0e0e0', backgroundColor: '#fff' }]}
-            >
-              <ThemedText style={[styles.userChipText, { color: '#202124' }]}>
+              style={[styles.userChip, { borderColor: colors.lightTint, backgroundColor: colors.componentBackground }]}>
+              <ThemedText style={[styles.userChipText, { color: colors.text }]}>
                 {user.nombre} {user.apellido}
               </ThemedText>
-              <Ionicons name="close" size={16} color="#5f6368" style={{ marginLeft: 6 }} />
+              <Ionicons name="close" size={16} color={colors.secondaryText} style={{ marginLeft: 6 }} />
             </TouchableOpacity>
           ))}
       </View>
@@ -207,7 +206,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: colors.componentBackground,
     paddingBottom: 8,
   },
   inputWrapper: {
@@ -218,7 +217,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 16,
-    color: '#5f6368',
+    color: colors.secondaryText,
     marginRight: 8,
   },
   input: {
@@ -232,12 +231,12 @@ const styles = StyleSheet.create({
       alignItems: 'center',
       paddingVertical: 6,
       paddingHorizontal: 12,
-      backgroundColor: '#f1f3f4',
+      backgroundColor: colors.componentBackground,
       borderRadius: 16, // Pill shape
   },
   rolesButtonText: {
      fontSize: 14,
-     color: '#5f6368',
+     color: colors.secondaryText,
      fontWeight: '500',
   },
   modalOverlay: {
@@ -248,7 +247,7 @@ const styles = StyleSheet.create({
   },
   modalContent: {
       width: '80%',
-      backgroundColor: '#fff',
+      backgroundColor: colors.componentBackground,
       borderRadius: 12,
       padding: 16,
       maxHeight: '60%',
@@ -260,15 +259,15 @@ const styles = StyleSheet.create({
       alignItems: 'center',
       paddingVertical: 14,
       borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: '#f0f0f0',
+      borderBottomColor: colors.componentBackground,
   },
   roleText: {
       fontSize: 16,
-      color: '#202124',
+      color: colors.text,
   },
   resultsContainer: {
     marginTop: 8,
-    backgroundColor: '#fff',
+    backgroundColor: colors.componentBackground,
     borderWidth: 1,
     borderRadius: 8,
     maxHeight: 250,
@@ -290,7 +289,7 @@ const styles = StyleSheet.create({
       paddingTop: 8,
       paddingBottom: 4,
       borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: '#f0f0f0',
+      borderBottomColor: colors.componentBackground,
   },
   resultItem: {
     flexDirection: 'row',
@@ -298,7 +297,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: colors.componentBackground,
   },
   resultInfo: {
     flex: 1,
@@ -306,11 +305,11 @@ const styles = StyleSheet.create({
   resultName: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#202124',
+    color: colors.text,
   },
   resultEmail: {
     fontSize: 12,
-    color: '#5f6368',
+    color: colors.secondaryText,
   },
   selectedChipsContainer: {
     flexDirection: 'row',
@@ -325,6 +324,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 16,
     borderWidth: 1,
+    borderColor: colors.componentBackground,
   },
   userChipText: {
     fontSize: 14,

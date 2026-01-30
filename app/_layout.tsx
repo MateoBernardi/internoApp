@@ -1,3 +1,4 @@
+import { Colors } from '@/constants/theme';
 import { AuthProvider, useAuth } from '@/features/auth/context/AuthContext';
 import { KanbanProvider } from '@/features/kanban/context/KanbanProvider';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -11,6 +12,8 @@ export const unstable_settings = {
   anchor: '(tabs)',
 };
 
+const colors = Colors['light']; // Usar siempre el tema claro
+
 function RootNavigator() {
   const colorScheme = useColorScheme();
   const { isAuthenticated, isLoading } = useAuth();
@@ -20,7 +23,7 @@ function RootNavigator() {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
+        <ActivityIndicator size="large" color= {colors.lightTint} />
       </View>
     );
   }
@@ -65,6 +68,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.background,
   },
 });

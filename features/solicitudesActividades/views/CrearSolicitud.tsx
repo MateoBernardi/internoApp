@@ -1,7 +1,6 @@
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import { Usuario } from '@/shared/users/User';
+import { UserSummary } from '@/shared/users/User';
 import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -23,10 +22,10 @@ import { RoleUserSelectionModal } from '../components/RoleUserSelectionModal';
 import { UserSelector } from '../components/UserSelector';
 import { useCrearSolicitud } from '../viewmodels/useSolicitudes';
 
+const colors = Colors['light'];
+
 export function CrearSolicitud() {
   const router = useRouter();
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
   
   const [titulo, setTitulo] = useState('');
   const [descripcion, setDescripcion] = useState('');
@@ -41,35 +40,24 @@ export function CrearSolicitud() {
   const [searchQuery, setSearchQuery] = useState('');
   const { data: searchResults, isLoading: isSearchingUsers } = useSearchUsers(searchQuery);
 
-  const users = useMemo(() => {
-      const list = (searchResults as any)?.data || searchResults;
-      return Array.isArray(list) ? list.map((u: any) => ({
-          ...u,
-          id: u.id_usuario || u.id 
-      })) : [];
-  }, [searchResults]);
+  const users = searchResults || [];
+  console.log('users:', users);
 
   // Role Selection Logic
   const [activeRole, setActiveRole] = useState('');
-  const [roleUsers, setRoleUsers] = useState<Usuario[]>([]);
+  const [roleUsers, setRoleUsers] = useState<UserSummary[]>([]);
   const [showRoleModal, setShowRoleModal] = useState(false);
   const { data: roleUsersData, isLoading: isLoadingRole, error: roleError } = useGetUserByRole(activeRole);
 
-  const [selectedUsers, setSelectedUsers] = useState<Usuario[]>([]);
+  const [selectedUsers, setSelectedUsers] = useState<UserSummary[]>([]);
   const isLoadingUsers = isSearchingUsers || isLoadingRole;
 
   React.useEffect(() => {
       // Logic: if new role data comes in, prepare it for the modal and open it.
       if (activeRole && roleUsersData) {
-          const roleUsersList = (roleUsersData as any)?.data || roleUsersData;
-          if (Array.isArray(roleUsersList)) {
-               const mappedUsers = roleUsersList.map((u: any) => ({
-                   ...u,
-                   id: u.id_usuario || u.id
-               }));
-               setRoleUsers(mappedUsers);
-               setShowRoleModal(true);
-          }
+          const roleUsersList = roleUsersData;
+          setRoleUsers(roleUsersList);
+          setShowRoleModal(true);
       } else if (roleError) {
           Alert.alert("No se encontraron usuarios con ese rol");
           setActiveRole('');
@@ -82,29 +70,29 @@ export function CrearSolicitud() {
       setRoleUsers([]);
   };
 
-  const handleToggleUser = useCallback((user: Usuario) => {
+  const handleToggleUser = useCallback((user: UserSummary) => {
       setSelectedUsers(prev => {
-          const isSelected = prev.some(u => u.id === user.id);
+          const isSelected = prev.some(u => u.user_context_id === user.user_context_id);
           if (isSelected) {
-              return prev.filter(u => u.id !== user.id);
+              return prev.filter(u => u.user_context_id !== user.user_context_id);
           } else {
               return [...prev, user];
           }
       });
   }, []);
 
-  const handleSelectAllRoleUsers = useCallback((usersToSelect: Usuario[]) => {
+  const handleSelectAllRoleUsers = useCallback((usersToSelect: UserSummary[]) => {
       setSelectedUsers(prev => {
-          const prevIds = new Set(prev.map(u => u.id));
-          const newUsers = usersToSelect.filter(u => !prevIds.has(u.id));
+          const prevIds = new Set(prev.map(u => u.user_context_id));
+          const newUsers = usersToSelect.filter(u => !prevIds.has(u.user_context_id));
           return [...prev, ...newUsers];
       });
   }, []);
 
-  const handleDeselectAllRoleUsers = useCallback((usersToDeselect: Usuario[]) => {
+  const handleDeselectAllRoleUsers = useCallback((usersToDeselect: UserSummary[]) => {
       setSelectedUsers(prev => {
-          const idsToRemove = new Set(usersToDeselect.map(u => u.id));
-          return prev.filter(u => !idsToRemove.has(u.id));
+          const idsToRemove = new Set(usersToDeselect.map(u => u.user_context_id));
+          return prev.filter(u => !idsToRemove.has(u.user_context_id));
       });
   }, []);
 
@@ -118,7 +106,14 @@ export function CrearSolicitud() {
       setActiveRole(role);
   }, []);
 
-  const allRoles = ['admin', 'contable', 'gerencia', 'personasRelaciones', 'consejo', 'encargado', 'empleado'].map(r => r.charAt(0).toUpperCase() + r.slice(1));
+  const allRoles = [
+  { label: 'Contable', value: 'contable' },
+  { label: 'Consejo', value: 'consejo' },
+  { label: 'Encargado', value: 'encargado' },
+  { label: 'Gerencia', value: 'gerencia' },
+  { label: 'Personal', value: 'empleado' },
+  { label: 'Personas y Relaciones', value: 'personasRelaciones' },
+  ];
 
   const onDateChange = (event: any, selectedDate?: Date) => {
       const currentDate = selectedDate || (activeDateType === 'start' ? fechaInicio : fechaFin);
@@ -188,7 +183,7 @@ export function CrearSolicitud() {
         fecha_inicio: start.toISOString(),
         fecha_fin: end.toISOString(),
         tipo_actividad: tipoActividad,
-        invitados: selectedUsers.map((u: any) => u.user_context_id || u.id_entidad || u.id),
+        invitados: selectedUsers.map((u: UserSummary) => u.user_context_id),
       },
       {
         onSuccess: () => {
@@ -228,13 +223,13 @@ export function CrearSolicitud() {
     <View style={styles.container}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 30} // Adjust based on header
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 100} // Adjust based on header
         style={styles.container}
       >
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={handleCancel} style={styles.iconButton}>
-            <Ionicons name="close" size={24} color="#5f6368" />
+            <Ionicons name="close" size={24} color={colors.icon} />
           </TouchableOpacity>
           <ThemedText style={styles.headerTitle}>Redactar invitación</ThemedText>
           <View style={{ width: 40 }} />
@@ -248,14 +243,14 @@ export function CrearSolicitud() {
           {/* Dates Section (Moved to Top) */}
           <View style={styles.dateSection}>
              <View style={styles.switchRow}>
-                <Ionicons name="time-outline" size={20} color="#1a73e8" style={{ marginRight: 8 }} />
+                <Ionicons name="time-outline" size={20} color={colors.lightTint} style={{ marginRight: 8 }} />
                 <ThemedText style={styles.dateSectionTitle}>Todo el día</ThemedText>
                 <View style={{ flex: 1 }} />
                 <Switch 
                     value={allDay} 
                     onValueChange={setAllDay} 
-                    trackColor={{ false: '#767577', true: '#4CAF50' }} 
-                    thumbColor={allDay ? "#fff" : "#f4f3f4"} 
+                    trackColor={{ false: colors.secondaryText, true: colors.success }} 
+                    thumbColor={colors.componentBackground} 
                 />
              </View>
 
@@ -290,7 +285,7 @@ export function CrearSolicitud() {
              </View>
 
             {fechaInicio >= fechaFin && (
-              <ThemedText style={{ color: '#F44336', fontSize: 12, marginTop: 8 }}>
+              <ThemedText style={{ color: colors.error, fontSize: 12, marginTop: 8 }}>
                 La fecha de fin debe ser posterior a la de inicio
               </ThemedText>
             )}
@@ -323,31 +318,31 @@ export function CrearSolicitud() {
              onDeselectAll={handleDeselectAllRoleUsers}
           />
 
-          {/* Tipo de actividad (Chips) */}
+          {/* Tipo de actividad */}
           <View style={[styles.inputSection, { borderBottomWidth: 0, paddingVertical: 10, alignItems: 'center' }]}>
              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 <TouchableOpacity
                     style={[
                         styles.chip,
-                        tipoActividad === 'REUNION' && { borderColor: '#1a73e8', backgroundColor: 'transparent', borderWidth: 1 }
+                        tipoActividad === 'REUNION' && { borderColor: colors.lightTint, backgroundColor: 'transparent', borderWidth: 1 }
                     ]}
                     onPress={() => setTipoActividad('REUNION')}
                 >
                     <ThemedText style={[
                         styles.chipText,
-                        tipoActividad === 'REUNION' ? { color: '#1a73e8', fontWeight: 'bold' } : { color: '#5f6368' }
+                        tipoActividad === 'REUNION' ? { color: colors.lightTint, fontWeight: 'bold' } : { color: colors.secondaryText }
                     ]}>Reunión</ThemedText>
                 </TouchableOpacity>
                 <TouchableOpacity
                     style={[
                         styles.chip,
-                        tipoActividad === 'MANDATO' && { borderColor: '#1a73e8', backgroundColor: 'transparent', borderWidth: 1 }
+                        tipoActividad === 'MANDATO' && { borderColor: colors.lightTint, backgroundColor: 'transparent', borderWidth: 1 }
                     ]}
                     onPress={() => setTipoActividad('MANDATO')}
                 >
                     <ThemedText style={[
                          styles.chipText,
-                        tipoActividad === 'MANDATO' ? { color: '#1a73e8', fontWeight: 'bold' } : { color: '#5f6368' }
+                        tipoActividad === 'MANDATO' ? { color: colors.lightTint, fontWeight: 'bold' } : { color: colors.secondaryText }
                     ]}>Pedido</ThemedText>
                 </TouchableOpacity>
              </ScrollView>
@@ -358,7 +353,7 @@ export function CrearSolicitud() {
             <TextInput
               style={styles.input}
               placeholder="Asunto"
-              placeholderTextColor="#5f6368"
+              placeholderTextColor={colors.secondaryText}
               value={titulo}
               onChangeText={setTitulo}
               maxLength={100}
@@ -369,7 +364,7 @@ export function CrearSolicitud() {
           <TextInput
             style={styles.messageInput}
             placeholder="Escribe un mensaje"
-            placeholderTextColor="#5f6368"
+            placeholderTextColor={colors.secondaryText}
             value={descripcion}
             onChangeText={setDescripcion}
             multiline
@@ -378,22 +373,23 @@ export function CrearSolicitud() {
 
         </ScrollView>
 
-        {/* Floating Send Button */}
+      </KeyboardAvoidingView>
+
+      {/* Floating Send Button */}
         <TouchableOpacity 
             style={[
                 styles.fab, 
-                { backgroundColor: !isFormValid || isPending ? '#ccc' : '#1a73e8' }
+                { backgroundColor: !isFormValid || isPending ? colors.icon : colors.lightTint }
             ]}
             onPress={handleCrearSolicitud}
             disabled={!isFormValid || isPending}
         >
             {isPending ? (
-                <ActivityIndicator size="small" color="#fff" />
+                <ActivityIndicator size="small" color={colors.componentBackground} />
             ) : (
-                <Ionicons name="send" size={24} color="#fff" />
+                <Ionicons name="send" size={24} color={colors.componentBackground} />
             )}
         </TouchableOpacity>
-      </KeyboardAvoidingView>
 
       {/* Date Picker Component */}
       {(showDatePicker) && (
@@ -413,7 +409,7 @@ export function CrearSolicitud() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.componentBackground,
   },
   header: {
     flexDirection: 'row',
@@ -425,7 +421,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 20,
-    color: '#1a73e8',
+    color: colors.lightTint,
     fontWeight: '500',
   },
   iconButton: {
@@ -442,12 +438,12 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: colors.componentBackground,
   },
   input: {
     flex: 1,
     fontSize: 16,
-    color: '#202124',
+    color: colors.text,
     padding: 0,
   },
   chip: {
@@ -455,18 +451,19 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: colors.componentBackground,
     marginRight: 8,
   },
   chipText: {
     fontSize: 14,
+    color: colors.text,
   },
   dateSection: {
     padding: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: colors.componentBackground,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#e0e0e0',
+    borderTopColor: colors.componentBackground,
   },
   switchRow: {
     flexDirection: 'row',
@@ -475,7 +472,7 @@ const styles = StyleSheet.create({
   },
   dateSectionTitle: {
      fontSize: 16,
-     color: '#202124',
+     color: colors.text,
   },
   dateRow: {
     flexDirection: 'row',
@@ -485,17 +482,17 @@ const styles = StyleSheet.create({
   },
   dateValue: {
      fontSize: 16,
-     color: '#1a73e8',
+     color: colors.lightTint,
   },
   timeValue: {
       fontSize: 16,
-      color: '#1a73e8',
+      color: colors.lightTint,
       marginLeft: 16,
   },
   messageInput: {
       flex: 1,
       fontSize: 16,
-      color: '#202124',
+      color: colors.text,
       padding: 16,
       minHeight: 250, 
   },

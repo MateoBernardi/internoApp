@@ -1,19 +1,15 @@
-import { Tabs } from 'expo-router';
-import React from 'react';
-
 import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
+import { Tabs } from 'expo-router';
+import React from 'react';
 
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
   const { user } = useAuth();
   const { isEmployeeOrEncargado } = useRoleCheck();
-  const userInitial = user?.nombre?.[0]?.toUpperCase();
 
   return (
     <Tabs

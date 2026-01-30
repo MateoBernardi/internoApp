@@ -1,7 +1,6 @@
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import { Usuario } from '@/shared/users/User';
+import { UserSummary } from '@/shared/users/User';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useMemo } from 'react';
 import {
@@ -26,12 +25,15 @@ interface RoleUserSelectionModalProps {
   visible: boolean;
   onClose: () => void;
   roleName: string;
-  roleUsers: Usuario[];
-  selectedUsers: Usuario[]; // Global selected users
-  onToggleUser: (user: Usuario) => void;
-  onSelectAll: (users: Usuario[]) => void;
-  onDeselectAll: (users: Usuario[]) => void;
+  roleUsers: UserSummary[];
+  selectedUsers: UserSummary[]; // Global selected users
+  onToggleUser: (user: UserSummary) => void;
+  onSelectAll: (users: UserSummary[]) => void;
+  onDeselectAll: (users: UserSummary[]) => void;
 }
+
+const colors = Colors['light'];
+
 
 export function RoleUserSelectionModal({
   visible,
@@ -43,24 +45,21 @@ export function RoleUserSelectionModal({
   onSelectAll,
   onDeselectAll
 }: RoleUserSelectionModalProps) {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
-
   const [searchQuery, setSearchQuery] = React.useState('');
 
   const displayedUsers = React.useMemo(() => {
-     if (!searchQuery) return roleUsers;
-     const lower = searchQuery.toLowerCase();
-     return roleUsers.filter(u => 
-         u.nombre.toLowerCase().includes(lower) || 
-         u.apellido.toLowerCase().includes(lower) ||
-         u.email.toLowerCase().includes(lower)
-     );
+    if (!searchQuery) return roleUsers;
+    const lower = searchQuery.toLowerCase();
+    return roleUsers.filter(u => 
+        u.nombre.toLowerCase().includes(lower) || 
+        u.apellido.toLowerCase().includes(lower) ||
+        u.email.toLowerCase().includes(lower)
+    );
   }, [roleUsers, searchQuery]);
 
   const allSelected = useMemo(() => {
       if (displayedUsers.length === 0) return false;
-      return displayedUsers.every(rUser => selectedUsers.some(sUser => sUser.id === rUser.id));
+      return displayedUsers.every(rUser => selectedUsers.some(sUser => sUser.user_context_id === rUser.user_context_id));
   }, [displayedUsers, selectedUsers]);
 
   const handleHeaderToggle = () => {
@@ -72,8 +71,8 @@ export function RoleUserSelectionModal({
     }
   };
 
-  const renderItem = ({ item }: { item: Usuario }) => {
-    const isSelected = selectedUsers.some(u => u.id === item.id);
+  const renderItem = ({ item }: { item: UserSummary }) => {
+    const isSelected = selectedUsers.some(u => u.user_context_id === item.user_context_id);
     return (
         <TouchableOpacity 
             style={styles.userRow} 
@@ -86,7 +85,7 @@ export function RoleUserSelectionModal({
             <Ionicons 
                 name={isSelected ? "checkbox" : "square-outline"} 
                 size={24} 
-                color={isSelected ? colors.tint : '#5f6368'} 
+                color={isSelected ? colors.tint : colors.secondaryText} 
             />
         </TouchableOpacity>
     );
@@ -102,16 +101,16 @@ export function RoleUserSelectionModal({
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={styles.modalOverlay}>
             <TouchableWithoutFeedback>
-                <View style={[styles.modalContent, { backgroundColor: '#fff' }]}>
+                <View style={[styles.modalContent, { backgroundColor: colors.componentBackground }]}>
                     
                     {/* Header */}
                     <View style={styles.header}>
                         <View style={{ flex: 1 }}>
                             <ThemedText type="defaultSemiBold" style={{ fontSize: 18 }}>Rol: {roleName}</ThemedText>
-                            <ThemedText style={{ fontSize: 12, color: '#5f6368' }}>{roleUsers.length} usuarios</ThemedText>
+                            <ThemedText style={{ fontSize: 12, color: colors.secondaryText }}>{roleUsers.length} usuarios</ThemedText>
                         </View>
                         <TouchableOpacity onPress={onClose} style={{ padding: 4 }}>
-                            <Ionicons name="close" size={24} color="#5f6368" />
+                            <Ionicons name="close" size={24} color={colors.secondaryText} />
                         </TouchableOpacity>
                     </View>
                     
@@ -129,7 +128,7 @@ export function RoleUserSelectionModal({
                              <Ionicons 
                                 name={allSelected ? "checkbox" : "square-outline"} 
                                 size={22} 
-                                color={allSelected ? colors.tint : '#5f6368'} 
+                                color={allSelected ? colors.tint : colors.secondaryText} 
                                 style={{ marginRight: 8 }}
                              />
                              <ThemedText style={{ fontWeight: '500' }}>{allSelected ? "Deseleccionar todos" : "Seleccionar todos"}</ThemedText>
@@ -139,15 +138,15 @@ export function RoleUserSelectionModal({
                     {/* List */}
                     <FlatList
                         data={displayedUsers}
-                        keyExtractor={(item) => item.id.toString()}
+                        keyExtractor={(item) => item.user_context_id.toString()}
                         renderItem={renderItem}
                         style={styles.list}
                         contentContainerStyle={{ paddingBottom: 20 }}
                         keyboardShouldPersistTaps="handled" 
                     />
                     
-                     <TouchableOpacity style={[styles.confirmButton, { backgroundColor: colors.tint }]} onPress={onClose}>
-                        <ThemedText style={{ color: '#fff', fontWeight: 'bold' }}>OK</ThemedText>
+                     <TouchableOpacity style={[styles.confirmButton, { backgroundColor: colors.componentBackground, borderColor: colors.lightTint, borderWidth: 1 }]} onPress={onClose}>
+                        <ThemedText style={{ color: colors.lightTint, fontWeight: 'bold' }}>OK</ThemedText>
                      </TouchableOpacity>
 
                 </View>
@@ -184,7 +183,7 @@ const styles = StyleSheet.create({
       marginBottom: 12,
   },
   roleSearchInput: {
-      backgroundColor: '#f1f3f4',
+      backgroundColor: colors.componentBackground,
       borderRadius: 8,
       paddingHorizontal: 12,
       paddingVertical: 8,
@@ -196,7 +195,7 @@ const styles = StyleSheet.create({
       alignItems: 'center',
       paddingBottom: 12,
       borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: '#f0f0f0',
+      borderBottomColor: colors.componentBackground,
       marginBottom: 8,
   },
   actionButton: {
@@ -213,19 +212,19 @@ const styles = StyleSheet.create({
       alignItems: 'center',
       paddingVertical: 12,
       borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: '#f0f0f0',
+      borderBottomColor: colors.componentBackground,
   },
   userInfo: {
       flex: 1,
   },
   userName: {
       fontSize: 16,
-      color: '#202124',
+      color: colors.text,
       marginBottom: 2,
   },
   userEmail: {
       fontSize: 12,
-      color: '#5f6368',
+      color: colors.secondaryText,
   },
   confirmButton: {
       paddingVertical: 12,

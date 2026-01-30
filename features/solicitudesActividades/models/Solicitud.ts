@@ -48,6 +48,8 @@ export interface SolicitudEnviada{
   fecha_inicio: string; // ISO 8601 UTC
   fecha_fin: string; // ISO 8601 UTC
   estado: EstadoInvitacionDB; // Estado de la invitación
+  creador_nombre: string; // Opcional: nombre del creador de la solicitud
+  creador_apellido: string; // Opcional: apellido del creador de la solicitud
   invitado_nombre: string; // Opcional: nombre del creador de la solicitud
   invitado_apellido: string; // Opcional: apellido del creador de la solicitud
 }

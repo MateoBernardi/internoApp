@@ -1,6 +1,5 @@
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import React, { useState } from 'react';
 import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { EstadoReporte, Reporte } from '../models/Reporte';
@@ -20,9 +19,9 @@ const estadoOptions: { value: EstadoReporte; label: string }[] = [
 	{ value: 'DESESTIMADO', label: 'Desestimado' },
 ];
 
+const colors = Colors['light'];
+
 export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModalProps) {
-	const colorScheme = useColorScheme();
-	const colors = Colors[colorScheme ?? 'light'];
 	const { mutate: updateReporte, isPending } = useUpdateReporte();
 
 	// Estado para controles
@@ -86,7 +85,7 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 						multiline
 					/>
 					<TouchableOpacity style={styles.confirmBtn} onPress={handleAccion} disabled={isPending}>
-						{isPending ? <ActivityIndicator color="#fff" /> : <ThemedText style={{ color: '#fff' }}>Confirmar</ThemedText>}
+						{isPending ? <ActivityIndicator color={colors.componentBackground} /> : <ThemedText style={{ color: colors.componentBackground }}>Confirmar</ThemedText>}
 					</TouchableOpacity>
 				</View>
 			);
@@ -114,7 +113,7 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 						multiline
 					/>
 					<TouchableOpacity style={styles.confirmBtn} onPress={handleAccion} disabled={isPending}>
-						{isPending ? <ActivityIndicator color="#fff" /> : <ThemedText style={{ color: '#fff' }}>Confirmar</ThemedText>}
+						{isPending ? <ActivityIndicator color={colors.componentBackground} /> : <ThemedText style={{ color: colors.text }}>Confirmar</ThemedText>}
 					</TouchableOpacity>
 				</View>
 			);
@@ -124,7 +123,7 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 	return (
 		<Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
 			<View style={styles.overlay}>
-				<View style={[styles.modal, { backgroundColor: colors.background }]}>  
+				<View style={[styles.modal, { backgroundColor: colors.componentBackground }]}>  
 					<ScrollView contentContainerStyle={styles.scrollContent}>
 						<TouchableOpacity style={styles.closeBtn} onPress={onClose}>
 							<ThemedText style={{ fontSize: 18, color: colors.icon }}>Cerrar</ThemedText>
@@ -180,7 +179,7 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 const styles = StyleSheet.create({
 	overlay: {
 		flex: 1,
-		backgroundColor: 'rgba(0,0,0,0.3)',
+		backgroundColor: colors.componentBackground,
 		justifyContent: 'center',
 		alignItems: 'center',
 	},
@@ -229,7 +228,7 @@ const styles = StyleSheet.create({
 	},
 	bitacoraItem: {
 		marginBottom: 10,
-		backgroundColor: 'rgba(0,0,0,0.04)',
+		backgroundColor: colors.componentBackground,
 		borderRadius: 8,
 		padding: 8,
 	},
@@ -243,7 +242,7 @@ const styles = StyleSheet.create({
 	},
 	bitacoraDate: {
 		fontSize: 12,
-		color: '#888',
+		color: colors.secondaryText,
 	},
 	bitacoraBody: {
 		marginTop: 4,
@@ -253,13 +252,14 @@ const styles = StyleSheet.create({
 		marginBottom: 2,
 	},
 	bitacoraBubble: {
-		backgroundColor: 'rgba(0,0,0,0.08)',
+		backgroundColor: colors.componentBackground,
 		borderRadius: 6,
 		padding: 6,
 		marginTop: 2,
 	},
 	bitacoraText: {
 		fontSize: 14,
+		color: colors.text,
 	},
 	accionesContainer: {
 		marginTop: 18,
@@ -279,18 +279,18 @@ const styles = StyleSheet.create({
 		paddingHorizontal: 14,
 		paddingVertical: 8,
 		borderRadius: 6,
-		backgroundColor: '#e0e0e0',
+		backgroundColor: colors.componentBackground,
 	},
 	accionBtnActive: {
-		backgroundColor: '#1a73e8',
+		backgroundColor: colors.lightTint,
 	},
 	accionBtnText: {
-		color: '#222',
+		color: colors.text,
 		fontWeight: '600',
 	},
 	input: {
 		borderWidth: 1,
-		borderColor: '#ccc',
+		borderColor: colors.background,
 		borderRadius: 6,
 		padding: 8,
 		minHeight: 40,
@@ -299,7 +299,7 @@ const styles = StyleSheet.create({
 		fontSize: 15,
 	},
 	confirmBtn: {
-		backgroundColor: '#1a73e8',
+		backgroundColor: colors.lightTint,
 		borderRadius: 6,
 		paddingVertical: 10,
 		alignItems: 'center',

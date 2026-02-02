@@ -1,8 +1,6 @@
-
 import { OwnFlatList } from '@/components/FlatList';
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import React from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { SolicitudLicencia } from '../models/SolicitudLicencia';
@@ -12,9 +10,9 @@ interface VacacionesPorEmpleadoProps {
 	usuarioId: number;
 }
 
+const colors = Colors['light'];
+
 export function VacacionesPorEmpleado({ usuarioId }: VacacionesPorEmpleadoProps) {
-	const colorScheme = useColorScheme();
-	const colors = Colors[colorScheme ?? 'light'];
 	const { data, isLoading, error } = useGetSolicitudesLicencias({ usuario_id: usuarioId, tipo_licencia_id: 1 });
 
 	if (isLoading) {
@@ -59,8 +57,6 @@ export function VacacionesPorEmpleado({ usuarioId }: VacacionesPorEmpleadoProps)
 }
 
 function VacacionItem({ item }: { item: SolicitudLicencia }) {
-	const colorScheme = useColorScheme();
-	const colors = Colors[colorScheme ?? 'light'];
 	return (
 		<View style={styles.card}>
 			<View style={styles.row}>
@@ -91,7 +87,7 @@ const styles = StyleSheet.create({
 		paddingHorizontal: 16,
 		paddingVertical: 14,
 		borderRadius: 12,
-		backgroundColor: '#fff',
+		backgroundColor: colors.componentBackground,
 		shadowColor: '#000',
 		shadowOffset: { width: 0, height: 1 },
 		shadowOpacity: 0.08,
@@ -113,7 +109,7 @@ const styles = StyleSheet.create({
 		textTransform: 'capitalize',
 	},
 	label: {
-		color: '#888',
+		color: colors.secondaryText,
 		fontSize: 13,
 		marginBottom: 2,
 	},
@@ -123,7 +119,7 @@ const styles = StyleSheet.create({
 	},
 	separator: {
 		height: StyleSheet.hairlineWidth,
-		backgroundColor: '#ccc',
+		backgroundColor: colors.icon,
 		marginHorizontal: 16,
 	},
 });

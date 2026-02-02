@@ -1,4 +1,5 @@
 import { ThemedText } from '@/components/themed-text';
+import { Colors } from '@/constants/theme';
 import React, { useState } from 'react';
 import {
   FlatList,
@@ -10,6 +11,8 @@ import {
 import { Encuesta } from '../models/Encuesta';
 import { useGetEncuestas } from '../viewmodels/useEncuestas';
 import { ResponderEncuesta } from '../views/ResponderEncuesta';
+
+const colors = Colors['light'];
 
 export function EncuestasPendientes() {
   const { data: encuestas, error } = useGetEncuestas();
@@ -104,7 +107,7 @@ export function EncuestasPendientes() {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#F5F5F5',
+    backgroundColor: colors.componentBackground,
   },
   centerContainer: {
     flex: 1,
@@ -113,26 +116,26 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   header: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.componentBackground,
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+    borderBottomColor: colors.background,
   },
   headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
+    color: colors.text,
     marginBottom: 5,
   },
   headerSubtitle: {
     fontSize: 14,
-    color: '#666',
+    color: colors.secondaryText,
   },
   listContent: {
     padding: 15,
   },
   encuestaCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.componentBackground,
     borderRadius: 12,
     padding: 16,
     marginBottom: 15,
@@ -148,36 +151,36 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   alertBadge: {
-    backgroundColor: '#FFF3CD',
+    backgroundColor: colors.componentBackground,
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 6,
   },
   alertText: {
     fontSize: 12,
-    color: '#856404',
+    color: colors.text,
     fontWeight: '600',
   },
   anonimaBadge: {
-    backgroundColor: '#E3F2FD',
+    backgroundColor: colors.componentBackground,
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 6,
   },
   anonimaText: {
     fontSize: 12,
-    color: '#1565C0',
+    color: colors.text,
     fontWeight: '600',
   },
   titulo: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: colors.text,
     marginBottom: 8,
   },
   descripcion: {
     fontSize: 14,
-    color: '#666',
+    color: colors.secondaryText,
     lineHeight: 20,
     marginBottom: 15,
   },
@@ -187,19 +190,19 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     paddingTop: 15,
     borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
+    borderTopColor: colors.background,
   },
   categoriaContainer: {
     flex: 1,
   },
   categoriaLabel: {
     fontSize: 12,
-    color: '#999',
+    color: colors.secondaryText,
     marginBottom: 3,
   },
   categoriaValue: {
     fontSize: 14,
-    color: '#333',
+    color: colors.text,
     fontWeight: '600',
   },
   fechaContainer: {
@@ -208,44 +211,44 @@ const styles = StyleSheet.create({
   },
   fechaLabel: {
     fontSize: 12,
-    color: '#999',
+    color: colors.secondaryText,
     marginBottom: 3,
   },
   fechaValue: {
     fontSize: 14,
-    color: '#D32F2F',
+    color: colors.error,
     fontWeight: '600',
   },
   buttonContainer: {
-    backgroundColor: '#007AFF',
+    backgroundColor: colors.lightTint,
     paddingVertical: 12,
     borderRadius: 8,
     alignItems: 'center',
   },
   buttonText: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 16,
     fontWeight: '600',
   },
   loadingText: {
     marginTop: 10,
     fontSize: 16,
-    color: '#666',
+    color: colors.secondaryText,
   },
   errorText: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#D32F2F',
+    color: colors.error,
     marginBottom: 5,
   },
   errorSubtext: {
     fontSize: 14,
-    color: '#666',
+    color: colors.secondaryText,
     textAlign: 'center',
   },
   emptyText: {
     fontSize: 16,
-    color: '#666',
+    color: colors.secondaryText,
     textAlign: 'center',
   },
 });

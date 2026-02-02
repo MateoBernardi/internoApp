@@ -1,7 +1,6 @@
 import { ThemedText } from '@/components/themed-text';
 import { SearchBar } from '@/components/ui/SearchBar';
 import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useSearchUsers } from '@/shared/users/useUser';
 import { Ionicons } from '@expo/vector-icons'; // Importar iconos
 import { useRouter } from 'expo-router';
@@ -29,10 +28,10 @@ const estadoMapping: Record<string, string> = {
   'CANCELADA': 'Cancelada',
 };
 
+const colors = Colors['light'];
+
 export function LicenciasSolicitadas() {
   const router = useRouter();
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
   
   // Estados
   const [searchQuery, setSearchQuery] = useState('');
@@ -42,7 +41,7 @@ export function LicenciasSolicitadas() {
   const [selectedEstado, setSelectedEstado] = useState<string>('ALL'); // "Todos" por defecto
   const [showFilters, setShowFilters] = useState(false);
 
-  const { data: solicitudes, isLoading, error } = useGetSolicitudesLicencias({});
+  const { data: solicitudes, isLoading } = useGetSolicitudesLicencias({});
   const { data: searchResults, isLoading: isSearching } = useSearchUsers(searchQuery);
 
   const handleOpenSolicitud = useCallback((solicitudId: number) => {
@@ -80,14 +79,11 @@ export function LicenciasSolicitadas() {
     return filtered;
   }, [solicitudes, selectedUserId, selectedEstado]);
 
-  const users = useMemo(() => {
-    const list = (searchResults as any)?.data || searchResults;
-    return Array.isArray(list) ? list : [];
-  }, [searchResults]);
+  const users = searchResults || [];
 
   const renderSeparator = useCallback(() => (
-    <View style={[styles.separator, { backgroundColor: colorScheme === 'light' ? '#E0E0E0' : '#333333' }]} />
-  ), [colorScheme]);
+    <View style={[styles.separator, { backgroundColor: colors.icon }]} />
+  ), []);
 
   const renderItem: ListRenderItem<SolicitudLicencia> = useCallback(({ item }) => {
     // Obtenemos el texto del mapeo (excluimos 'ALL' aquí)
@@ -117,7 +113,7 @@ export function LicenciasSolicitadas() {
       </View>
 
       <SearchBar
-        placeholder="Buscar por usuario..."
+        placeholder="Buscar un usuario..."
         value={searchQuery}
         onChangeText={(text) => {
           setSearchQuery(text);
@@ -161,7 +157,7 @@ export function LicenciasSolicitadas() {
           onPress={() => setShowFilters(!showFilters)}
           style={styles.filterToggle}
         >
-          <Ionicons name={showFilters ? "chevron-up" : "options-outline"} size={18} color="#00054bff" />
+          <Ionicons name={showFilters ? "chevron-up" : "options-outline"} size={18} color={colors.tint} />
           <ThemedText style={styles.filterToggleText}>
             Estado: {estadoMapping[selectedEstado]}
           </ThemedText>
@@ -179,7 +175,7 @@ export function LicenciasSolicitadas() {
                     selectedEstado === key && styles.chipSelected
                   ]}
                 >
-                  <ThemedText style={[styles.chipText, selectedEstado === key && styles.chipTextSelected]}>
+                  <ThemedText style={[styles.chipText, selectedEstado === key && styles.chipTextSelected, { color: selectedEstado === key ? colors.tint : colors.text }]}>
                     {value}
                   </ThemedText>
                 </TouchableOpacity>
@@ -192,7 +188,7 @@ export function LicenciasSolicitadas() {
       {/* Lista o Mensaje Vacío Personalizado */}
       {filteredSolicitudes.length === 0 ? (
         <View style={styles.centerContainer}>
-          <Ionicons name="document-text-outline" size={48} color="#ccc" />
+          <Ionicons name="document-text-outline" size={48} color={colors.icon} />
           <ThemedText style={styles.emptyTitle}>
             {selectedUserId 
               ? `No hay solicitudes de ${selectedUserName}` 
@@ -223,13 +219,10 @@ interface LicenciaSolicitadaItemProps {
 
 // --- Componente del Item ---
 function LicenciaSolicitadaItem({ solicitud, estadoUI, onPress }: LicenciaSolicitadaItemProps) {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
-
   const getEstadoColor = (estado: string) => {
-    if (estado.includes('Aprobada')) return '#4CAF50';
-    if (estado.includes('Rechazada')) return '#F44336';
-    if (estado.includes('Pendiente')) return '#FF9800';
+    if (estado.includes('Aprobada')) return colors.success;
+    if (estado.includes('Rechazada')) return colors.error;
+    if (estado.includes('Pendiente')) return colors.warning;
     return colors.icon;
   };
 
@@ -252,15 +245,15 @@ function LicenciaSolicitadaItem({ solicitud, estadoUI, onPress }: LicenciaSolici
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: colors.componentBackground },
   header: { paddingHorizontal: 16, paddingTop: 16, marginBottom: 12 },
-  title: { color: '#00054bff', fontSize: 14, justifyContent: 'center' },
-  underline: { height: 3, backgroundColor: '#00054bff', width: 100, marginTop: 4, borderRadius: 2 },
+  title: { color: colors.tint, fontSize: 14, justifyContent: 'center' },
+  underline: { height: 3, backgroundColor: colors.tint, width: 100, marginTop: 4, borderRadius: 2 },
   centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
   
   // Buscador y Sugerencias
   suggestionsContainer: {
-    backgroundColor: '#FFF',
+    backgroundColor: colors.componentBackground,
     marginHorizontal: 16,
     borderRadius: 8,
     elevation: 5,
@@ -273,10 +266,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 12,
     borderBottomWidth: 0.5,
-    borderBottomColor: '#eee',
+    borderBottomColor: colors.background,
     gap: 10
   },
-  suggestionText: { fontSize: 14, color: '#333' },
+  suggestionText: { fontSize: 14, color: colors.text },
 
   // Filtros Collapsible
   filtersSection: { marginHorizontal: 16, marginBottom: 10 },
@@ -286,32 +279,32 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     gap: 6
   },
-  filterToggleText: { color: '#00054bff', fontWeight: '600', fontSize: 14 },
+  filterToggleText: { color: colors.tint, fontWeight: '600', fontSize: 14 },
   collapsibleContent: { marginTop: 5 },
   chipsScroll: { flexDirection: 'row', paddingVertical: 5 },
   chip: {
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: colors.componentBackground,
     marginRight: 8,
     borderWidth: 1,
-    borderColor: '#e0e0e0'
+    borderColor: colors.background
   },
-  chipSelected: { backgroundColor: '#00054bff', borderColor: '#00054bff' },
-  chipText: { fontSize: 13, color: '#666' },
-  chipTextSelected: { color: '#FFF', fontWeight: '600' },
+  chipSelected: { backgroundColor: colors.tint, borderColor: colors.tint },
+  chipText: { fontSize: 13, color: colors.secondaryText },
+  chipTextSelected: { color: colors.componentBackground, fontWeight: '600' },
 
   // Lista
-  itemContainer: { padding: 16, marginHorizontal: 16, marginVertical: 4, backgroundColor: '#f9f9f9', borderRadius: 12 },
+  itemContainer: { padding: 16, marginHorizontal: 16, marginVertical: 4, backgroundColor: colors.componentBackground, borderRadius: 12 },
   itemContent: { gap: 4 },
   footerContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 },
-  dateText: { fontSize: 12, color: '#888' },
+  dateText: { fontSize: 12, color: colors.secondaryText },
   estadoBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
-  estadoText: { fontSize: 11, fontWeight: '700' },
+  estadoText: { fontSize: 11, fontWeight: '700', color: colors.text },
   separator: { height: 1, marginHorizontal: 16 },
 
   // Empty State
-  emptyTitle: { fontSize: 16, fontWeight: '600', color: '#333', marginTop: 12, textAlign: 'center' },
-  emptySubtitle: { fontSize: 13, color: '#888', marginTop: 4, textAlign: 'center' }
+  emptyTitle: { fontSize: 16, fontWeight: '600', color: colors.text, marginTop: 12, textAlign: 'center' },
+  emptySubtitle: { fontSize: 13, color: colors.secondaryText, marginTop: 4, textAlign: 'center' }
 });

@@ -2,7 +2,6 @@
 import { OwnFlatList } from '@/components/FlatList';
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import React from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { SolicitudLicencia } from '../models/SolicitudLicencia';
@@ -12,9 +11,10 @@ interface PermisosPorEmpleadoProps {
 	usuarioId: number;
 }
 
+const colors = Colors['light'];
+
+
 export function PermisosPorEmpleado({ usuarioId }: PermisosPorEmpleadoProps) {
-	const colorScheme = useColorScheme();
-	const colors = Colors[colorScheme ?? 'light'];
 	const { data, isLoading, error } = useGetSolicitudesLicencias({ usuario_id: usuarioId, tipo_licencia_id: 3 });
 
 	if (isLoading) {
@@ -41,7 +41,7 @@ export function PermisosPorEmpleado({ usuarioId }: PermisosPorEmpleadoProps) {
 	if (!data || data.length === 0) {
 		return (
 			<View style={styles.centerContainer}>
-				<ThemedText type="subtitle">No hay permisos solicitados</ThemedText>
+				<ThemedText type="subtitle">No hay permisos solicitados por este usuario.</ThemedText>
 			</View>
 		);
 	}
@@ -59,8 +59,6 @@ export function PermisosPorEmpleado({ usuarioId }: PermisosPorEmpleadoProps) {
 }
 
 function PermisoItem({ item }: { item: SolicitudLicencia }) {
-	const colorScheme = useColorScheme();
-	const colors = Colors[colorScheme ?? 'light'];
 	return (
 		<View style={styles.card}>
 			<View style={styles.row}>
@@ -91,7 +89,7 @@ const styles = StyleSheet.create({
 		paddingHorizontal: 16,
 		paddingVertical: 14,
 		borderRadius: 12,
-		backgroundColor: '#fff',
+		backgroundColor: colors.componentBackground,
 		shadowColor: '#000',
 		shadowOffset: { width: 0, height: 1 },
 		shadowOpacity: 0.08,
@@ -113,7 +111,7 @@ const styles = StyleSheet.create({
 		textTransform: 'capitalize',
 	},
 	label: {
-		color: '#888',
+		color: colors.secondaryText,
 		fontSize: 13,
 		marginBottom: 2,
 	},
@@ -123,7 +121,7 @@ const styles = StyleSheet.create({
 	},
 	separator: {
 		height: StyleSheet.hairlineWidth,
-		backgroundColor: '#ccc',
+		backgroundColor: colors.icon,
 		marginHorizontal: 16,
 	},
 });

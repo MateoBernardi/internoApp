@@ -1,14 +1,13 @@
 
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useTopEmployee } from '../viewmodels/useReportes';
 
+const colors = Colors['light'];
+
 export function TopEmployee() {
-	const colorScheme = useColorScheme();
-	const colors = Colors[colorScheme ?? 'light'];
 	const { data, isLoading, error } = useTopEmployee();
 
 	if (isLoading) {
@@ -47,7 +46,7 @@ const styles = StyleSheet.create({
 	card: {
 		width: 180,
 		height: 180,
-		backgroundColor: '#E0F7FA', // celeste claro, asociado a lo bueno
+		backgroundColor: colors.componentBackground,
 		borderRadius: 20,
 		alignItems: 'center',
 		justifyContent: 'center',
@@ -63,31 +62,31 @@ const styles = StyleSheet.create({
 		width: 56,
 		height: 56,
 		borderRadius: 28,
-		backgroundColor: '#4CAF50', // verde positivo
+		backgroundColor: colors.icon, // verde positivo
 		alignItems: 'center',
 		justifyContent: 'center',
 		marginBottom: 10,
 	},
 	iconText: {
-		color: '#fff',
+		color: colors.secondaryText,
 		fontSize: 28,
 		fontWeight: 'bold',
 	},
 	title: {
 		fontSize: 16,
 		fontWeight: '600',
-		color: '#388E3C',
+		color: colors.text,
 		marginBottom: 2,
 	},
 	positiveCount: {
 		fontSize: 22,
 		fontWeight: 'bold',
-		color: '#388E3C',
+		color: colors.success,
 		marginBottom: 2,
 	},
 	name: {
 		fontSize: 15,
-		color: '#222',
+		color: colors.text,
 		marginTop: 4,
 		fontWeight: '500',
 		textAlign: 'center',

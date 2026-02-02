@@ -52,32 +52,21 @@ export const getSolicitudesLicencias = async (accessToken: string, filters?: sol
         throw new Error(`No se pudieron obtener las solicitudes de licencias: ${error.message}`);
     }
 
-    const raw = await response.json();
-    console.log('raw data: ', raw)
-    const data: solicitudLicencia.SolicitudLicencia[] = raw.map((item: solicitudLicencia.SolicitudLicencia) => ({
-        id: item.id,
-        usuario_id: item.usuario_id,
-        tipo_licencia_id: item.tipo_licencia_id,
-        fecha_inicio: item.fecha_inicio,
-        fecha_fin: item.fecha_fin,
-        cantidad_dias: item.cantidad_dias,
-        estado: item.estado,
-        aprobador_id: item.aprobador_id,
-        fecha_respuesta: item.fecha_respuesta,
-        observacion_solicitud: item.observacion_solicitud,
-        observacion_respuesta: item.observacion_respuesta,
-        created_at: item.created_at,
-        usuario_nombre: item.usuario_nombre,
-        usuario_apellido: item.usuario_apellido,
-        tipo_nombre: item.tipo_nombre,
-        archivos_adjuntos: item.archivos_adjuntos,
-        archivos: item.archivos,
-        aprobador_nombre: item.aprobador_nombre,
-        aprobador_apellido: item.aprobador_apellido,
-    }));
-    console.log('Solicitudes Licencias fetched:', data);
+    const data = await response.json();
     return data;
 };
+
+export const getSolicitudesUsuario = async (accessToken: string): Promise<solicitudLicencia.SolicitudLicencia[]> => {
+    const response = await apiRequest({method: 'GET', endpoint: '/licencias/solicitudes/usuario', token: accessToken});
+
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(`No se pudieron obtener las solicitudes de licencias del usuario: ${error.message}`);
+    }
+
+    const data = await response.json();
+    return data;
+};    
 
 export const createSolicitudLicencia = async (accessToken: string, data: solicitudLicencia.CreateSolicitudDTO): Promise<solicitudLicencia.SolicitudLicencia> => {
     const response = await apiRequest({method: 'POST', endpoint: '/licencias/solicitudes', token: accessToken, body: data});
@@ -87,29 +76,7 @@ export const createSolicitudLicencia = async (accessToken: string, data: solicit
         throw new Error(`No se pudo crear la solicitud de licencia: ${error.message}`);
     }
 
-    const raw = await response.json();;
-    const solicitud : solicitudLicencia.SolicitudLicencia = raw.map((item: solicitudLicencia.SolicitudLicencia) => ({
-        id: item.id,
-        usuario_id: item.usuario_id,
-        tipo_licencia_id: item.tipo_licencia_id,
-        fecha_inicio: item.fecha_inicio,
-        fecha_fin: item.fecha_fin,
-        cantidad_dias: item.cantidad_dias,
-        estado: item.estado,
-        aprobador_id: item.aprobador_id,
-        fecha_respuesta: item.fecha_respuesta,
-        observacion_solicitud: item.observacion_solicitud,
-        observacion_respuesta: item.observacion_respuesta,
-        created_at: item.created_at,
-        usuario_nombre: item.usuario_nombre,
-        usuario_apellido: item.usuario_apellido,
-        tipo_nombre: item.tipo_nombre,
-        archivos_adjuntos: item.archivos_adjuntos,
-        archivos: item.archivos,
-        aprobador_nombre: item.aprobador_nombre,
-        aprobador_apellido: item.aprobador_apellido,
-    }));
-
+    const solicitud = await response.json();
     return solicitud;
 };
 

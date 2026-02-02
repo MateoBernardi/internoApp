@@ -1,12 +1,14 @@
 import { OwnFlatList } from '@/components/FlatList';
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useRouter } from 'expo-router';
 import React, { useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { ReporteStats } from '../models/Reporte';
 import { useReporteStats } from '../viewmodels/useReportes';
+
+const colors = Colors['light'];
+
 
 const zonaLabels: Record<'rojo' | 'amarillo' | 'verde', string> = {
 	rojo: 'Zona Roja',
@@ -15,14 +17,12 @@ const zonaLabels: Record<'rojo' | 'amarillo' | 'verde', string> = {
 };
 
 const zonaColors: Record<'rojo' | 'amarillo' | 'verde', string> = {
-	rojo: '#F44336',
-	amarillo: '#FFEB3B',
-	verde: '#4CAF50',
+	rojo: colors.error,
+	amarillo: colors.warning,
+	verde: colors.success,
 };
 
 export function Semaforo() {
-	const colorScheme = useColorScheme();
-	const colors = Colors[colorScheme ?? 'light'];
 	const { data: stats, isLoading, error } = useReporteStats();
 
 	// Agrupar por zona
@@ -50,7 +50,7 @@ export function Semaforo() {
 				<ThemedText type="subtitle" style={styles.errorText}>
 					Error al cargar el semáforo
 				</ThemedText>
-				<ThemedText style={{ color: colors.icon }}>
+				<ThemedText style={{ color: colors.secondaryText }}>
 					{error instanceof Error ? error.message : 'Intenta nuevamente'}
 				</ThemedText>
 			</View>
@@ -77,8 +77,6 @@ export function Semaforo() {
 }
 
 function SemaforoItem({ item }: { item: ReporteStats }) {
-	const colorScheme = useColorScheme();
-	const colors = Colors[colorScheme ?? 'light'];
 	const router = useRouter();
 	const handlePress = () => {
 		router.push({
@@ -92,8 +90,8 @@ function SemaforoItem({ item }: { item: ReporteStats }) {
 				{item.nombre} {item.apellido}
 			</ThemedText>
 			<View style={styles.statsRow}>
-				<ThemedText style={[styles.stat, { color: '#4CAF50' }]}>+{item.positivos}</ThemedText>
-				<ThemedText style={[styles.stat, { color: '#F44336' }]}>-{item.negativos}</ThemedText>
+				<ThemedText style={[styles.stat, { color: colors.success }]}>+{item.positivos}</ThemedText>
+				<ThemedText style={[styles.stat, { color: colors.error }]}>-{item.negativos}</ThemedText>
 				<ThemedText style={[styles.stat, { color: colors.icon }]}>Puntos: {item.puntos}</ThemedText>
 			</View>
 		</View>
@@ -127,7 +125,7 @@ const styles = StyleSheet.create({
 	},
 	emptyText: {
 		textAlign: 'center',
-		color: '#999',
+		color: colors.secondaryText,
 		fontSize: 14,
 		marginVertical: 8,
 	},

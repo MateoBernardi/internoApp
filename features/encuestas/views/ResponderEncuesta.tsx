@@ -1,14 +1,15 @@
+import { Colors } from '@/constants/theme';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { Encuesta, Pregunta, Respuesta } from '../models/Encuesta';
 import { useEnviarRespuestasEncuesta } from '../viewmodels/useEncuestas';
@@ -17,6 +18,8 @@ interface ResponderEncuestaProps {
   encuesta: Encuesta;
   onCancelar: () => void;
 }
+
+const colors = Colors['light'];
 
 export const ResponderEncuesta: React.FC<ResponderEncuestaProps> = ({
   encuesta,
@@ -327,28 +330,28 @@ export const ResponderEncuesta: React.FC<ResponderEncuestaProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: colors.componentBackground,
   },
   header: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.componentBackground,
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+    borderBottomColor: colors.background,
   },
   headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
+    color: colors.text,
     marginBottom: 8,
   },
   headerDescripcion: {
     fontSize: 14,
-    color: '#666',
+    color: colors.secondaryText,
     lineHeight: 20,
     marginBottom: 10,
   },
   anonimaBadge: {
-    backgroundColor: '#E3F2FD',
+    backgroundColor: colors.componentBackground,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 6,
@@ -356,7 +359,7 @@ const styles = StyleSheet.create({
   },
   anonimaText: {
     fontSize: 12,
-    color: '#1565C0',
+    color: colors.lightTint,
     fontWeight: '600',
   },
   scrollView: {
@@ -364,7 +367,7 @@ const styles = StyleSheet.create({
     padding: 15,
   },
   preguntaCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.componentBackground,
     borderRadius: 12,
     padding: 16,
     marginBottom: 15,
@@ -380,15 +383,15 @@ const styles = StyleSheet.create({
   preguntaTitulo: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    color: colors.text,
     marginBottom: 5,
   },
   obligatorio: {
-    color: '#D32F2F',
+    color: colors.error,
   },
   tipoPregunta: {
     fontSize: 12,
-    color: '#999',
+    color: colors.secondaryText,
   },
   ratingContainer: {
     flexDirection: 'row',
@@ -399,31 +402,31 @@ const styles = StyleSheet.create({
     height: 50,
     borderRadius: 25,
     borderWidth: 2,
-    borderColor: '#E0E0E0',
+    borderColor: colors.background,
     justifyContent: 'center',
     alignItems: 'center',
   },
   ratingButtonSelected: {
-    borderColor: '#007AFF',
-    backgroundColor: '#007AFF',
+    borderColor: colors.lightTint,
+    backgroundColor: colors.componentBackground,
   },
   ratingText: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#666',
+    color: colors.secondaryText,
   },
   ratingTextSelected: {
-    color: '#FFFFFF',
+    color: colors.text,
   },
   textInput: {
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: colors.background,
     borderRadius: 8,
     padding: 12,
     fontSize: 14,
     minHeight: 100,
     textAlignVertical: 'top',
-    color: '#333',
+    color: colors.text,
   },
   opcionesContainer: {
     gap: 10,
@@ -434,34 +437,34 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: colors.background,
   },
   opcionButtonSelected: {
-    borderColor: '#007AFF',
-    backgroundColor: '#E3F2FD',
+    borderColor: colors.lightTint,
+    backgroundColor: colors.componentBackground,
   },
   radioCircle: {
     width: 20,
     height: 20,
     borderRadius: 10,
     borderWidth: 2,
-    borderColor: '#999',
+    borderColor: colors.secondaryText,
     marginRight: 10,
     justifyContent: 'center',
     alignItems: 'center',
   },
   radioCircleSelected: {
-    borderColor: '#007AFF',
+    borderColor: colors.lightTint,
   },
   radioInner: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#007AFF',
+    backgroundColor: colors.lightTint,
   },
   opcionText: {
     fontSize: 14,
-    color: '#333',
+    color: colors.text,
     flex: 1,
   },
   siNoContainer: {
@@ -473,27 +476,27 @@ const styles = StyleSheet.create({
     padding: 15,
     borderRadius: 8,
     borderWidth: 2,
-    borderColor: '#E0E0E0',
+    borderColor: colors.background,
     alignItems: 'center',
   },
   siNoButtonSelected: {
-    borderColor: '#007AFF',
-    backgroundColor: '#E3F2FD',
+    borderColor: colors.lightTint,
+    backgroundColor: colors.componentBackground,
   },
   siNoText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#666',
+    color: colors.secondaryText,
   },
   siNoTextSelected: {
-    color: '#007AFF',
+    color: colors.lightTint,
   },
   footer: {
     flexDirection: 'row',
     padding: 15,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.componentBackground,
     borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
+    borderTopColor: colors.background,
     gap: 10,
   },
   cancelarButton: {
@@ -501,32 +504,32 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#999',
+    borderColor: colors.secondaryText,
     alignItems: 'center',
   },
   cancelarButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#666',
+    color: colors.secondaryText,
   },
   enviarButton: {
     flex: 2,
     paddingVertical: 15,
     borderRadius: 8,
-    backgroundColor: '#007AFF',
+    backgroundColor: colors.lightTint,
     alignItems: 'center',
   },
   enviarButtonDisabled: {
-    backgroundColor: '#CCCCCC',
+    backgroundColor: colors.background,
   },
   enviarButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: colors.background,
   },
   emptyText: {
     fontSize: 16,
-    color: '#666',
+    color: colors.secondaryText,
     textAlign: 'center',
     marginTop: 50,
   },

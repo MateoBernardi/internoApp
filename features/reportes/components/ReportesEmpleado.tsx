@@ -1,7 +1,6 @@
 import { OwnFlatList } from '@/components/FlatList';
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { EstadoReporte, Reporte } from '../models/Reporte';
@@ -17,12 +16,11 @@ const estadoMapping: Record<EstadoReporte, string> = {
 
 interface ReportesEmpleadoProps {
 	userId: string;
-}
+}	
+
+const colors = Colors['light'];
 
 export function ReportesEmpleado({ userId }: ReportesEmpleadoProps) {
-	const colorScheme = useColorScheme();
-	const colors = Colors[colorScheme ?? 'light'];
-
 	const { data: reportes, isLoading, error } = useReportes(userId);
 
 	const [modalVisible, setModalVisible] = useState(false);
@@ -52,7 +50,7 @@ export function ReportesEmpleado({ userId }: ReportesEmpleadoProps) {
 				<ThemedText type="subtitle" style={styles.errorText}>
 					Error al cargar reportes
 				</ThemedText>
-				<ThemedText style={{ color: colors.icon }}>
+				<ThemedText style={{ color: colors.text }}>
 					{error instanceof Error ? error.message : 'Intenta nuevamente'}
 				</ThemedText>
 			</View>
@@ -63,7 +61,7 @@ export function ReportesEmpleado({ userId }: ReportesEmpleadoProps) {
 		<View style={styles.container}>
 			{(!reportes || reportes.length === 0) ? (
 				<View style={styles.centerContainer}>
-					<ThemedText type="subtitle">No hay reportes para este usuario</ThemedText>
+					<ThemedText type="subtitle" style={{ color: colors.secondaryText }}>No hay reportes para este usuario</ThemedText>
 				</View>
 			) : (
 				<OwnFlatList
@@ -98,9 +96,6 @@ interface MiReporteItemProps {
 }
 
 function MiReporteItem({ reporte, estadoUI, onPress }: MiReporteItemProps) {
-	const colorScheme = useColorScheme();
-	const colors = Colors[colorScheme ?? 'light'];
-
 	const getEstadoColor = (estado: string): string => {
 		switch (estado) {
 			case 'Pendiente':
@@ -121,7 +116,7 @@ function MiReporteItem({ reporte, estadoUI, onPress }: MiReporteItemProps) {
 			onPress={onPress}
 			style={[
 				styles.itemContainer,
-				{ backgroundColor: colorScheme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' },
+				{ backgroundColor: colors.componentBackground },
 			]}
 		>
 			<View style={styles.itemContent}>
@@ -130,7 +125,7 @@ function MiReporteItem({ reporte, estadoUI, onPress }: MiReporteItemProps) {
 					{reporte.creador_nombre} {reporte.creador_apellido}
 				</ThemedText>
 				{/* Fecha incidente */}
-				<ThemedText style={[styles.description, { color: colors.icon }]}>Incidente: {new Date(reporte.fecha_incidente).toLocaleDateString()}</ThemedText>
+				<ThemedText style={[styles.description, { color: colors.text }]}>Incidente: {new Date(reporte.fecha_incidente).toLocaleDateString()}</ThemedText>
 				{/* Estado */}
 				<View style={styles.footerContainer}>
 					<View style={[
@@ -139,14 +134,14 @@ function MiReporteItem({ reporte, estadoUI, onPress }: MiReporteItemProps) {
 					]}>
 						<ThemedText style={[styles.estadoText, { color: getEstadoColor(estadoUI) }]}>{estadoUI}</ThemedText>
 					</View>
-					<ThemedText style={[styles.dateText, { color: colors.icon }]}>Creado: {new Date(reporte.created_at).toLocaleDateString()}</ThemedText>
+					<ThemedText style={[styles.dateText, { color: colors.text }]}>Creado: {new Date(reporte.created_at).toLocaleDateString()}</ThemedText>
 				</View>
 				{/* Título */}
 				<ThemedText numberOfLines={1} style={{ marginTop: 4 }}>{reporte.titulo}</ThemedText>
 				{/* Descripción */}
-				<ThemedText numberOfLines={2} style={[styles.description, { color: colors.icon }]}>{reporte.descripcion}</ThemedText>
+				<ThemedText numberOfLines={2} style={[styles.description, { color: colors.text }]}>{reporte.descripcion}</ThemedText>
 				{/* Categoría */}
-				<ThemedText style={[styles.categoriaText, { color: reporte.categoria === 'POSITIVO' ? '#4CAF50' : '#F44336' }]}>Categoría: {reporte.categoria}</ThemedText>
+				<ThemedText style={[styles.categoriaText, { color: reporte.categoria === 'POSITIVO' ? colors.success : colors.error }]}>Categoría: {reporte.categoria}</ThemedText>
 			</View>
 		</TouchableOpacity>
 	);

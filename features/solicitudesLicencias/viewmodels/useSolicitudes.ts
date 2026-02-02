@@ -61,8 +61,72 @@ export function useGetSolicitudesLicencias(filters?: solicitudesLicencias.GetSol
             }
             return getSolicitudesLicencias(token, filters);
         },
+        select: (response: solicitudesLicencias.SolicitudLicencia[]): solicitudesLicencias.SolicitudLicencia[] => {
+            // Aquí podrías transformar los datos si es necesario
+            return response.map((solicitud): solicitudesLicencias.SolicitudLicencia => ({
+                id: solicitud.id,
+                usuario_id: solicitud.usuario_id,
+                tipo_licencia_id: solicitud.tipo_licencia_id,
+                fecha_inicio: solicitud.fecha_inicio,
+                fecha_fin: solicitud.fecha_fin,
+                cantidad_dias: solicitud.cantidad_dias,
+                estado: solicitud.estado,
+                aprobador_id: solicitud.aprobador_id,
+                fecha_respuesta: solicitud.fecha_respuesta,
+                observacion_solicitud: solicitud.observacion_solicitud,
+                observacion_respuesta: solicitud.observacion_respuesta,
+                created_at: solicitud.created_at,
+                usuario_nombre: solicitud.usuario_nombre,
+                usuario_apellido: solicitud.usuario_apellido,
+                tipo_nombre: solicitud.tipo_nombre,
+                archivos_adjuntos: solicitud.archivos_adjuntos,
+                archivos: solicitud.archivos,
+                aprobador_nombre: solicitud.aprobador_nombre,
+                aprobador_apellido: solicitud.aprobador_apellido,
+            }));
+        },
         staleTime: 1000 * 60 * 5, // 5 minutos
         gcTime: 1000 * 60 * 10, // 10 minutos
+    });
+}
+
+export function useGetSolicitudesUsuario() {
+    const { getValidAccessToken } = useAuth();
+
+    return useQuery({
+        queryKey: ['solicitudes-licencias', 'usuario'],
+        queryFn: async () => {
+            const token = await getValidAccessToken();
+            if (!token) {
+                throw new Error('No hay token de acceso');
+            }
+            return getSolicitudesLicencias(token, { });
+        },
+        select: (response: solicitudesLicencias.SolicitudLicencia[]): solicitudesLicencias.SolicitudLicencia[] => {
+            return response.map((solicitud): solicitudesLicencias.SolicitudLicencia => ({
+                id: solicitud.id,
+                usuario_id: solicitud.usuario_id,
+                tipo_licencia_id: solicitud.tipo_licencia_id,
+                fecha_inicio: solicitud.fecha_inicio,
+                fecha_fin: solicitud.fecha_fin,
+                cantidad_dias: solicitud.cantidad_dias,
+                estado: solicitud.estado,
+                aprobador_id: solicitud.aprobador_id,
+                fecha_respuesta: solicitud.fecha_respuesta,
+                observacion_solicitud: solicitud.observacion_solicitud,
+                observacion_respuesta: solicitud.observacion_respuesta,
+                created_at: solicitud.created_at,
+                usuario_nombre: solicitud.usuario_nombre,
+                usuario_apellido: solicitud.usuario_apellido,
+                tipo_nombre: solicitud.tipo_nombre,
+                archivos_adjuntos: solicitud.archivos_adjuntos,
+                archivos: solicitud.archivos,
+                aprobador_nombre: solicitud.aprobador_nombre,
+                aprobador_apellido: solicitud.aprobador_apellido,
+            }));
+        },
+        staleTime: 1000 * 60 * 5, // 5 minutos
+        gcTime: 1000 * 60 * 10, // 10 minutos  
     });
 }
 

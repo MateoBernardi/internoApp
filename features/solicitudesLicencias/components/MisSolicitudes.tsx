@@ -1,21 +1,19 @@
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
-import { useAuth } from '@/features/auth/context/AuthContext';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useRouter } from 'expo-router';
 import React, { useCallback } from 'react';
 import {
-    ActivityIndicator,
-    FlatList,
-    ListRenderItem,
-    StyleSheet,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  FlatList,
+  ListRenderItem,
+  StyleSheet,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 // Componentes y Hooks propios
 import { CreateButton } from '@/components/ui/CreateButton';
 import { EstadoSolicitud, SolicitudLicencia } from '../models/SolicitudLicencia';
-import { useGetSolicitudesLicencias } from '../viewmodels/useSolicitudes';
+import { useGetSolicitudesUsuario } from '../viewmodels/useSolicitudes';
 
 const estadoMapping: Record<EstadoSolicitud, string> = {
   'PENDIENTE': 'Pendiente',
@@ -27,16 +25,14 @@ const estadoMapping: Record<EstadoSolicitud, string> = {
   'CONSUMIDA': 'Consumida',
 };
 
+const colors = Colors['light'];
+
+
 export function MisSolicitudes() {
   const router = useRouter();
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
-  const { user } = useAuth();
 
   // 1. Obtención de datos
-  const { data: solicitudes, isLoading, error } = useGetSolicitudesLicencias(
-    user ? { usuario_id: user.user_context_id } : undefined
-  );
+  const { data: solicitudes, isLoading, error } = useGetSolicitudesUsuario();
 
   // 2. Navegación
   const handleOpenSolicitud = useCallback(
@@ -59,11 +55,11 @@ export function MisSolicitudes() {
       <View
         style={[
           styles.separator,
-          { backgroundColor: colorScheme === 'dark' ? '#333333' : '#CCCCCC' }
+          { backgroundColor: colors.icon }
         ]}
       />
     );
-  }, [colorScheme]);
+  }, [colors]);
 
   const renderItem: ListRenderItem<SolicitudLicencia> = useCallback(
     ({ item }) => {
@@ -140,9 +136,6 @@ interface MiSolicitudItemProps {
 }
 
 function MiSolicitudItem({ solicitud, estadoUI, onPress }: MiSolicitudItemProps) {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
-
   const getEstadoColor = (estado: string): string => {
     switch (estado) {
       case 'Pendiente':
@@ -170,13 +163,13 @@ function MiSolicitudItem({ solicitud, estadoUI, onPress }: MiSolicitudItemProps)
       onPress={onPress}
       style={[
         styles.itemContainer,
-        { backgroundColor: colorScheme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)' },
+        { backgroundColor: colors.componentBackground },
       ]}
     >
       <View style={styles.itemContent}>
         {/* Título: Tipo de Licencia */}
         <ThemedText type="defaultSemiBold" numberOfLines={1}>
-          {solicitud.tipo_nombre || 'Licencia'}
+          {solicitud.tipo_nombre}
         </ThemedText>
 
         {/* Descripción: Rango de fechas */}

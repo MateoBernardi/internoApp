@@ -1,31 +1,30 @@
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import {
-    useCreateSolicitudLicencia,
-    useGetSaldosLicencias,
-    useGetTiposLicencias,
+  useCreateSolicitudLicencia,
+  useGetSaldosLicencias,
+  useGetTiposLicencias,
 } from '../viewmodels/useSolicitudes';
+
+const colors = Colors['light'];
 
 export function CrearSolicitudesLicencias() {
   const router = useRouter();
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
 
   // --- Estados ---
   const [fechaInicio, setFechaInicio] = useState<Date>(new Date());
@@ -119,7 +118,7 @@ export function CrearSolicitudesLicencias() {
         {/* Header Estilo Limpio */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.iconButton}>
-            <Ionicons name="close" size={24} color="#5f6368" />
+            <Ionicons name="close" size={24} color={colors.icon} />
           </TouchableOpacity>
           <ThemedText style={styles.headerTitle}>Nueva Solicitud</ThemedText>
           <View style={{ width: 40 }} />
@@ -130,7 +129,7 @@ export function CrearSolicitudesLicencias() {
           {/* Selección de Fechas (Sin "Todo el día") */}
           <View style={styles.sectionCard}>
             <View style={styles.rowInfo}>
-              <Ionicons name="calendar-outline" size={20} color="#1a73e8" />
+              <Ionicons name="calendar-outline" size={20} color={colors.lightTint} />
               <ThemedText style={styles.sectionLabel}>Periodo</ThemedText>
             </View>
 
@@ -150,7 +149,7 @@ export function CrearSolicitudesLicencias() {
 
             <View style={styles.summaryContainer}>
                <ThemedText style={styles.summaryText}>
-                 Duración: <ThemedText type="defaultSemiBold" style={{ color: '#1a73e8' }}>{diasSolicitados} días</ThemedText>
+                 Duración: <ThemedText type="defaultSemiBold" style={{ color: colors.lightTint }}>{diasSolicitados} días</ThemedText>
                </ThemedText>
             </View>
           </View>
@@ -158,17 +157,17 @@ export function CrearSolicitudesLicencias() {
           {/* Selector de Tipo de Licencia */}
           <View style={styles.sectionCard}>
             <TouchableOpacity onPress={() => setShowTipoLicenciaModal(!showTipoLicenciaModal)} style={styles.selectInput}>
-              <Ionicons name="ribbon-outline" size={20} color="#5f6368" />
-              <ThemedText style={[styles.selectText, !tipoLicenciaId && { color: '#80868b' }]}>
+              <Ionicons name="ribbon-outline" size={20} color={colors.icon} />
+              <ThemedText style={[styles.selectText, !tipoLicenciaId && { color: colors.icon }]}>
                 {selectedTipo?.nombre || 'Seleccionar tipo de licencia'}
               </ThemedText>
-              <Ionicons name={showTipoLicenciaModal ? "chevron-up" : "chevron-down"} size={20} color="#5f6368" />
+              <Ionicons name={showTipoLicenciaModal ? "chevron-up" : "chevron-down"} size={20} color={colors.icon} />
             </TouchableOpacity>
 
             {showTipoLicenciaModal && (
               <View style={styles.dropdownList}>
                 {isLoadingTipos ? (
-                  <ActivityIndicator size="small" color="#1a73e8" style={{ margin: 20 }} />
+                  <ActivityIndicator size="small" color={colors.lightTint} style={{ margin: 20 }} />
                 ) : isErrorTipos ? (
                   <ThemedText style={styles.errorText}>Error al cargar tipos</ThemedText>
                 ) : (
@@ -179,7 +178,7 @@ export function CrearSolicitudesLicencias() {
                       style={[styles.dropdownItem, tipoLicenciaId === tipo.id && styles.activeItem]}
                     >
                       <ThemedText style={tipoLicenciaId === tipo.id ? styles.activeItemText : {}}>{tipo.nombre}</ThemedText>
-                      {tipo.requiere_saldo && <Ionicons name="pie-chart" size={14} color="#1a73e8" />}
+                      {tipo.requiere_saldo && <Ionicons name="pie-chart" size={14} color={colors.lightTint} />}
                     </TouchableOpacity>
                   ))
                 )}
@@ -190,7 +189,7 @@ export function CrearSolicitudesLicencias() {
           {/* Información de Saldo (Condicional) */}
           {selectedTipo?.requiere_saldo && (
             <View style={[styles.sectionCard, styles.saldoCard, saldoDisponible < diasSolicitados && styles.saldoError]}>
-              <Ionicons name="information-circle" size={20} color={saldoDisponible < diasSolicitados ? "#d93025" : "#1a73e8"} />
+              <Ionicons name="information-circle" size={20} color={saldoDisponible < diasSolicitados ? colors.error : colors.lightTint} />
               <View style={{ flex: 1, marginLeft: 12 }}>
                 <ThemedText style={styles.saldoTitle}>Saldo Disponible</ThemedText>
                 <ThemedText style={styles.saldoSubtitle}>
@@ -206,10 +205,10 @@ export function CrearSolicitudesLicencias() {
           {/* Observaciones */}
           <View style={styles.sectionCard}>
             <View style={styles.obsContainer}>
-              <Ionicons name="chatbubble-ellipses-outline" size={20} color="#5f6368" style={{ marginTop: 4 }} />
+              <Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.icon} style={{ marginTop: 4 }} />
               <TextInput
                 placeholder="Añadir una nota u observación..."
-                placeholderTextColor="#80868b"
+                placeholderTextColor={colors.secondaryText}
                 value={observacion}
                 onChangeText={setObservacion}
                 multiline
@@ -226,7 +225,7 @@ export function CrearSolicitudesLicencias() {
           onPress={handleCrearSolicitud}
           disabled={!isFormValid}
         >
-          {isPending ? <ActivityIndicator color="#fff" /> : <Ionicons name="checkmark-sharp" size={28} color="#fff" />}
+          {isPending ? <ActivityIndicator color={colors.componentBackground} /> : <Ionicons name="checkmark-sharp" size={28} color={colors.componentBackground} />}
         </TouchableOpacity>
 
         {showDatePicker && (
@@ -244,7 +243,10 @@ export function CrearSolicitudesLicencias() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8f9fa' },
+  container: { 
+    flex: 1, 
+    backgroundColor: colors.componentBackground 
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -252,52 +254,88 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 12,
-    backgroundColor: '#fff',
+    backgroundColor: colors.componentBackground,
   },
-  headerTitle: { fontSize: 18, fontWeight: '500', color: '#202124' },
+  headerTitle: { fontSize: 18, fontWeight: '500', color: colors.text },
   iconButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
   content: { flex: 1 },
   sectionCard: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.componentBackground,
     marginHorizontal: 16,
     marginTop: 16,
     borderRadius: 12,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: colors.background,
   },
   rowInfo: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-  sectionLabel: { marginLeft: 8, fontSize: 14, color: '#1a73e8', fontWeight: '600' },
+  sectionLabel: { marginLeft: 8, fontSize: 14, color: colors.lightTint, fontWeight: '600' },
   datePickerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#f1f3f4',
+    borderBottomColor: colors.background,
   },
-  dateLabel: { fontSize: 15, color: '#5f6368' },
-  dateValue: { fontSize: 15, color: '#202124', fontWeight: '500' },
+  dateLabel: { fontSize: 15, color: colors.lightTint },
+  dateValue: { fontSize: 15, color: colors.text, fontWeight: '500' },
   summaryContainer: { marginTop: 12, alignItems: 'flex-end' },
-  summaryText: { fontSize: 14, color: '#5f6368' },
+  summaryText: { fontSize: 14, color: colors.secondaryText },
   selectInput: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4 },
   selectText: { flex: 1, marginLeft: 12, fontSize: 16 },
-  dropdownList: { marginTop: 12, borderTopWidth: 1, borderTopColor: '#f1f3f4' },
+  dropdownList: { marginTop: 12, borderTopWidth: 1, borderTopColor: colors.background },
   dropdownItem: { 
     flexDirection: 'row', 
     justifyContent: 'space-between', 
     paddingVertical: 14, 
     borderBottomWidth: StyleSheet.hairlineWidth, 
-    borderBottomColor: '#f1f3f4' 
+    borderBottomColor: colors.background
   },
-  activeItem: { backgroundColor: '#e8f0fe', marginHorizontal: -16, paddingHorizontal: 16 },
-  activeItemText: { color: '#1a73e8', fontWeight: '600' },
-  saldoCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#e8f0fe', borderColor: '#d2e3fc' },
-  saldoError: { backgroundColor: '#fce8e6', borderColor: '#fad2cf' },
-  saldoTitle: { fontSize: 14, fontWeight: '600', color: '#202124' },
-  saldoSubtitle: { fontSize: 13, color: '#5f6368' },
-  warningText: { fontSize: 12, color: '#d93025', marginTop: 4, fontWeight: '500' },
-  obsContainer: { flexDirection: 'row', alignItems: 'flex-start' },
-  textInput: { flex: 1, marginLeft: 12, fontSize: 16, minHeight: 80, textAlignVertical: 'top' },
+  activeItem: { 
+    backgroundColor: colors.componentBackground, 
+    marginHorizontal: -16, 
+    paddingHorizontal: 16 
+  },
+  activeItemText: { 
+    color: colors.lightTint, 
+    fontWeight: '600' 
+  },
+  saldoCard: { 
+    flexDirection: 'row',
+    alignItems: 'center', 
+    backgroundColor: colors.componentBackground, 
+    borderColor: colors.background 
+  },
+  saldoError: { 
+    backgroundColor: colors.componentBackground, 
+    borderColor: colors.background 
+  },
+  saldoTitle: { 
+    fontSize: 14, 
+    fontWeight: '600', 
+    color: colors.text
+  },
+  saldoSubtitle: { 
+    fontSize: 13, 
+    color: colors.secondaryText, 
+  },
+  warningText: { 
+    fontSize: 12, 
+    color: colors.error, 
+    marginTop: 4, 
+    fontWeight: '500' 
+  },
+  obsContainer: { 
+    flexDirection: 'row', 
+    alignItems: 'flex-start' 
+  },
+  textInput: { 
+    flex: 1, 
+    marginLeft: 12, 
+    fontSize: 16, 
+    minHeight: 80, 
+    textAlignVertical: 'top' 
+  },
   fab: {
     position: 'absolute',
     right: 24,
@@ -305,7 +343,7 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#1a73e8',
+    backgroundColor: colors.lightTint,
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 6,
@@ -313,6 +351,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 8,
   },
-  fabDisabled: { backgroundColor: '#dadce0' },
-  errorText: { color: '#d93025', padding: 10, textAlign: 'center' }
+  fabDisabled: { 
+    backgroundColor: colors.background 
+  },
+  errorText: { 
+    color: colors.error, 
+    padding: 10, 
+    textAlign: 'center' 
+  }
 });

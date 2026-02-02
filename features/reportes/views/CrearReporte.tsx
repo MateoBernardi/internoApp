@@ -1,7 +1,6 @@
 
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useRouter } from 'expo-router';
@@ -9,9 +8,9 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { useCreateReporte } from '../viewmodels/useReportes';
 
+const colors = Colors['light'];
+
 export default function CrearReporte() {
-	const colorScheme = useColorScheme();
-	const colors = Colors[colorScheme ?? 'light'];
 	const router = useRouter();
 	const { mutate: crearReporte, isPending } = useCreateReporte();
 
@@ -68,7 +67,7 @@ export default function CrearReporte() {
 				{/* Header */}
 				<View style={styles.header}>
 					<TouchableOpacity onPress={() => router.back()} style={styles.iconButton}>
-						<Ionicons name="close" size={24} color="#5f6368" />
+						<Ionicons name="close" size={24} color={colors.icon} />
 					</TouchableOpacity>
 					<ThemedText style={styles.headerTitle}>Nuevo Reporte</ThemedText>
 					<View style={{ width: 40 }} />
@@ -80,7 +79,7 @@ export default function CrearReporte() {
 						<TextInput
 							style={styles.input}
 							placeholder="ID usuario reportado"
-							placeholderTextColor="#5f6368"
+							placeholderTextColor={colors.secondaryText}
 							value={usuarioId}
 							onChangeText={setUsuarioId}
 							keyboardType="numeric"
@@ -91,7 +90,7 @@ export default function CrearReporte() {
 						<TextInput
 							style={styles.input}
 							placeholder="Título"
-							placeholderTextColor="#5f6368"
+							placeholderTextColor={colors.secondaryText}
 							value={titulo}
 							onChangeText={setTitulo}
 							maxLength={100}
@@ -101,7 +100,7 @@ export default function CrearReporte() {
 					<TextInput
 						style={styles.messageInput}
 						placeholder="Descripción"
-						placeholderTextColor="#5f6368"
+						placeholderTextColor={colors.secondaryText}
 						value={descripcion}
 						onChangeText={setDescripcion}
 						multiline
@@ -110,22 +109,22 @@ export default function CrearReporte() {
 					{/* Categoría */}
 					<View style={[styles.inputSection, { borderBottomWidth: 0, paddingVertical: 10, alignItems: 'center' }]}> 
 						<TouchableOpacity
-							style={[styles.chip, categoria === 'NEGATIVO' && { borderColor: '#F44336', backgroundColor: 'transparent', borderWidth: 1 }]}
+							style={[styles.chip, categoria === 'NEGATIVO' && { borderColor: colors.error, backgroundColor: 'transparent', borderWidth: 1 }]}
 							onPress={() => setCategoria('NEGATIVO')}
 						>
-							<ThemedText style={[styles.chipText, categoria === 'NEGATIVO' ? { color: '#F44336', fontWeight: 'bold' } : { color: '#5f6368' }]}>Negativo</ThemedText>
+							<ThemedText style={[styles.chipText, categoria === 'NEGATIVO' ? { color: colors.error, fontWeight: 'bold' } : { color: colors.secondaryText }]}>Negativo</ThemedText>
 						</TouchableOpacity>
 						<TouchableOpacity
-							style={[styles.chip, categoria === 'POSITIVO' && { borderColor: '#4CAF50', backgroundColor: 'transparent', borderWidth: 1 }]}
+							style={[styles.chip, categoria === 'POSITIVO' && { borderColor: colors.success, backgroundColor: 'transparent', borderWidth: 1 }]}
 							onPress={() => setCategoria('POSITIVO')}
 						>
-							<ThemedText style={[styles.chipText, categoria === 'POSITIVO' ? { color: '#4CAF50', fontWeight: 'bold' } : { color: '#5f6368' }]}>Positivo</ThemedText>
+							<ThemedText style={[styles.chipText, categoria === 'POSITIVO' ? { color: colors.success, fontWeight: 'bold' } : { color: colors.secondaryText }]}>Positivo</ThemedText>
 						</TouchableOpacity>
 					</View>
 					{/* Fecha incidente */}
 					<View style={styles.inputSection}>
 						<TouchableOpacity onPress={() => setShowDatePicker(true)} style={{ flex: 1 }}>
-							<ThemedText style={styles.dateValue}>
+							<ThemedText style={[styles.dateValue, { color: colors.text }]}>
 								{fechaIncidente.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}
 							</ThemedText>
 						</TouchableOpacity>
@@ -136,15 +135,15 @@ export default function CrearReporte() {
 				<TouchableOpacity
 					style={[
 						styles.fab,
-						{ backgroundColor: !isFormValid || isPending ? '#ccc' : '#1a73e8' },
+						{ backgroundColor: !isFormValid || isPending ? colors.secondaryText : colors.lightTint },
 					]}
 					onPress={handleCrearReporte}
 					disabled={!isFormValid || isPending}
 				>
 					{isPending ? (
-						<ActivityIndicator size="small" color="#fff" />
+						<ActivityIndicator size="small" color={colors.componentBackground} />
 					) : (
-						<Ionicons name="send" size={24} color="#fff" />
+						<Ionicons name="send" size={24} color={colors.componentBackground} />
 					)}
 				</TouchableOpacity>
 
@@ -172,7 +171,7 @@ export default function CrearReporte() {
 const styles = StyleSheet.create({
 	container: {
 		flex: 1,
-		backgroundColor: '#FFFFFF',
+		backgroundColor: colors.componentBackground,
 	},
 	header: {
 		flexDirection: 'row',
@@ -184,7 +183,7 @@ const styles = StyleSheet.create({
 	},
 	headerTitle: {
 		fontSize: 20,
-		color: '#1a73e8',
+		color: colors.text,
 		fontWeight: '500',
 	},
 	iconButton: {
@@ -201,12 +200,12 @@ const styles = StyleSheet.create({
 		paddingVertical: 14,
 		paddingHorizontal: 16,
 		borderBottomWidth: StyleSheet.hairlineWidth,
-		borderBottomColor: '#e0e0e0',
+		borderBottomColor: colors.background,
 	},
 	input: {
 		flex: 1,
 		fontSize: 16,
-		color: '#202124',
+		color: colors.text,
 		padding: 0,
 	},
 	chip: {
@@ -214,7 +213,7 @@ const styles = StyleSheet.create({
 		paddingVertical: 8,
 		borderRadius: 20,
 		borderWidth: 1,
-		borderColor: '#e0e0e0',
+		borderColor: colors.background,
 		marginRight: 8,
 	},
 	chipText: {
@@ -222,12 +221,12 @@ const styles = StyleSheet.create({
 	},
 	dateValue: {
 		fontSize: 16,
-		color: '#1a73e8',
+		color: colors.lightTint,
 	},
 	messageInput: {
 		flex: 1,
 		fontSize: 16,
-		color: '#202124',
+		color: colors.text,
 		padding: 16,
 		minHeight: 120,
 	},

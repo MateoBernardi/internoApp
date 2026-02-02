@@ -1,15 +1,14 @@
 
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useUpgradedEmployee } from '../viewmodels/useReportes';
 
+const colors = Colors['light'];
+
 export function UpgradedEmployee() {
-	const colorScheme = useColorScheme();
-	const colors = Colors[colorScheme ?? 'light'];
 	const { data, isLoading, error } = useUpgradedEmployee();
 
 	if (isLoading) {
@@ -41,7 +40,7 @@ export function UpgradedEmployee() {
 				Más mejoras en los últimos 3 meses
 			</ThemedText>
 			<View style={styles.upRow}>
-				<Ionicons name="arrow-up" size={22} color="#1976D2" style={{ marginRight: 4 }} />
+				<Ionicons name="arrow-up" size={22} color={colors.lightTint} style={{ marginRight: 4 }} />
 				<ThemedText style={styles.upCount}>{empleado.puntos}</ThemedText>
 			</View>
 			<ThemedText style={styles.name}>{empleado.nombre} {empleado.apellido}</ThemedText>
@@ -53,7 +52,7 @@ const styles = StyleSheet.create({
 	card: {
 		width: 180,
 		height: 180,
-		backgroundColor: '#E3F2FD', // azul claro, mejora
+		backgroundColor: colors.componentBackground,
 		borderRadius: 20,
 		alignItems: 'center',
 		justifyContent: 'center',
@@ -69,20 +68,20 @@ const styles = StyleSheet.create({
 		width: 56,
 		height: 56,
 		borderRadius: 28,
-		backgroundColor: '#1976D2', // azul fuerte
+		backgroundColor: colors.icon, 
 		alignItems: 'center',
 		justifyContent: 'center',
 		marginBottom: 10,
 	},
 	iconText: {
-		color: '#fff',
+		color: colors.secondaryText,
 		fontSize: 28,
 		fontWeight: 'bold',
 	},
 	title: {
 		fontSize: 15,
 		fontWeight: '600',
-		color: '#1976D2',
+		color: colors.text,
 		marginBottom: 2,
 		textAlign: 'center',
 	},
@@ -94,11 +93,11 @@ const styles = StyleSheet.create({
 	upCount: {
 		fontSize: 22,
 		fontWeight: 'bold',
-		color: '#1976D2',
+		color: colors.lightTint,
 	},
 	name: {
 		fontSize: 15,
-		color: '#222',
+		color: colors.text,
 		marginTop: 4,
 		fontWeight: '500',
 		textAlign: 'center',

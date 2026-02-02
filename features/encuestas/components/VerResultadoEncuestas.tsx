@@ -1,3 +1,4 @@
+import { Colors } from '@/constants/theme';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
@@ -22,6 +23,8 @@ interface RespuestaAgrupada {
   }[];
 }
 
+const colors = Colors['light'];
+
 export const VerResultadosEncuestas: React.FC = () => {
   // Usamos useGetEncuestas que devuelve las encuestas con sus preguntas
   const { data: encuestas, isLoading, error } = useGetEncuestas();
@@ -30,7 +33,7 @@ export const VerResultadosEncuestas: React.FC = () => {
   if (isLoading) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
+        <ActivityIndicator size="large" color={colors.lightTint} />
         <Text style={styles.loadingText}>Cargando resultados...</Text>
       </View>
     );
@@ -379,7 +382,7 @@ const getTipoPreguntaLabel = (tipo: string): string => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: colors.componentBackground,
   },
   centerContainer: {
     flex: 1,
@@ -388,27 +391,27 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   header: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.componentBackground,
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+    borderBottomColor: colors.background,
   },
   headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
+    color: colors.text,
     marginBottom: 5,
   },
   headerSubtitle: {
     fontSize: 14,
-    color: '#666',
+    color: colors.secondaryText,
   },
   volverButton: {
     marginBottom: 15,
   },
   volverText: {
     fontSize: 16,
-    color: '#007AFF',
+    color: colors.lightTint,
     fontWeight: '600',
   },
   listContent: {
@@ -419,7 +422,7 @@ const styles = StyleSheet.create({
     padding: 15,
   },
   encuestaCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.componentBackground,
     borderRadius: 12,
     padding: 16,
     marginBottom: 15,
@@ -432,12 +435,12 @@ const styles = StyleSheet.create({
   encuestaTitulo: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: colors.text,
     marginBottom: 8,
   },
   encuestaDescripcion: {
     fontSize: 14,
-    color: '#666',
+    color: colors.secondaryText,
     marginBottom: 15,
   },
   statsContainer: {
@@ -446,34 +449,34 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     paddingTop: 15,
     borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
+    borderTopColor: colors.background,
   },
   statItem: {
     flex: 1,
   },
   statLabel: {
     fontSize: 12,
-    color: '#999',
+    color: colors.secondaryText,
     marginBottom: 3,
   },
   statValue: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#007AFF',
+    color: colors.lightTint,
   },
   verDetalleButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: colors.lightTint,
     paddingVertical: 10,
     borderRadius: 8,
     alignItems: 'center',
   },
   verDetalleText: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 14,
     fontWeight: '600',
   },
   preguntaResultadoCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.componentBackground,
     borderRadius: 12,
     padding: 16,
     marginBottom: 15,
@@ -492,12 +495,12 @@ const styles = StyleSheet.create({
   preguntaNumero: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#007AFF',
+    color: colors.lightTint,
   },
   tipoPreguntaBadge: {
     fontSize: 12,
-    color: '#666',
-    backgroundColor: '#F0F0F0',
+    color: colors.secondaryText,
+    backgroundColor: colors.componentBackground,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
@@ -505,38 +508,38 @@ const styles = StyleSheet.create({
   preguntaTitulo: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    color: colors.text,
     marginBottom: 15,
   },
   respuestasContainer: {
     paddingTop: 15,
     borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
+    borderTopColor: colors.background,
   },
   respuestasHeader: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#666',
+    color: colors.secondaryText,
     marginBottom: 15,
   },
   promedioContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFF9E6',
+    backgroundColor: colors.componentBackground,
     padding: 15,
     borderRadius: 8,
     marginBottom: 15,
   },
   promedioLabel: {
     fontSize: 16,
-    color: '#666',
+    color: colors.secondaryText,
     marginRight: 10,
   },
   promedioValor: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#FFA000',
+    color: colors.warning,
   },
   distribucionContainer: {
     gap: 8,
@@ -549,36 +552,36 @@ const styles = StyleSheet.create({
   distribucionValor: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#666',
+    color: colors.secondaryText,
     width: 30,
   },
   barraContainer: {
     flex: 1,
     height: 24,
-    backgroundColor: '#F0F0F0',
+    backgroundColor: colors.componentBackground,
     borderRadius: 4,
     overflow: 'hidden',
   },
   barra: {
     height: '100%',
-    backgroundColor: '#FFA000',
+    backgroundColor: colors.warning,
   },
   distribucionCantidad: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#333',
+    color: colors.text,
     width: 30,
     textAlign: 'right',
   },
   respuestaTextoCard: {
-    backgroundColor: '#F9F9F9',
+    backgroundColor: colors.componentBackground,
     borderRadius: 8,
     padding: 12,
     marginBottom: 10,
   },
   respuestaTextoContenido: {
     fontSize: 14,
-    color: '#333',
+    color: colors.text,
     marginBottom: 10,
     lineHeight: 20,
   },
@@ -587,16 +590,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
+    borderTopColor: colors.background,
   },
   respuestaAutor: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#007AFF',
+    color: colors.lightTint,
   },
   respuestaFecha: {
     fontSize: 12,
-    color: '#999',
+    color: colors.secondaryText,
   },
   opcionResultadoCard: {
     marginBottom: 12,
@@ -604,7 +607,7 @@ const styles = StyleSheet.create({
   opcionTexto: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#333',
+    color: colors.text,
     marginBottom: 8,
   },
   opcionStats: {
@@ -614,13 +617,13 @@ const styles = StyleSheet.create({
   },
   opcionBarra: {
     height: 24,
-    backgroundColor: '#007AFF',
+    backgroundColor: colors.lightTint,
     borderRadius: 4,
   },
   opcionPorcentaje: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#666',
+    color: colors.secondaryText,
     minWidth: 60,
   },
   siNoResultadosContainer: {
@@ -629,7 +632,7 @@ const styles = StyleSheet.create({
   },
   siNoItem: {
     flex: 1,
-    backgroundColor: '#F9F9F9',
+    backgroundColor: colors.componentBackground,
     padding: 15,
     borderRadius: 8,
     alignItems: 'center',
@@ -637,38 +640,38 @@ const styles = StyleSheet.create({
   siNoLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#666',
+    color: colors.secondaryText,
     marginBottom: 8,
   },
   siNoValor: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#007AFF',
+    color: colors.lightTint,
   },
   loadingText: {
     marginTop: 10,
     fontSize: 16,
-    color: '#666',
+    color: colors.secondaryText,
   },
   errorText: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#D32F2F',
+    color: colors.error,
     marginBottom: 5,
   },
   errorSubtext: {
     fontSize: 14,
-    color: '#666',
+    color: colors.secondaryText,
     textAlign: 'center',
   },
   emptyText: {
     fontSize: 16,
-    color: '#666',
+    color: colors.secondaryText,
     textAlign: 'center',
   },
   emptySubtext: {
     fontSize: 14,
-    color: '#999',
+    color: colors.secondaryText,
     textAlign: 'center',
     marginTop: 5,
   },

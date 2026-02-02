@@ -2,7 +2,6 @@ import { OwnFlatList } from '@/components/FlatList';
 import { ThemedText } from '@/components/themed-text';
 import { SearchBar } from '@/components/ui/SearchBar';
 import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
@@ -20,6 +19,8 @@ type ReporteStatsAPI = ReporteStats & {
 	positivos_puros?: number;
 };
 
+const colors = Colors['light'];
+
 const zonaLabels: Record<'rojo' | 'amarillo' | 'verde', string> = {
 	rojo: 'Zona Roja',
 	amarillo: 'Zona Amarilla',
@@ -27,9 +28,9 @@ const zonaLabels: Record<'rojo' | 'amarillo' | 'verde', string> = {
 };
 
 const zonaColors: Record<'rojo' | 'amarillo' | 'verde', string> = {
-	rojo: '#F44336',
-	amarillo: '#FFC107',
-	verde: '#4CAF50',
+	rojo: colors.error,
+	amarillo: colors.warning,
+	verde: colors.success,
 };
 
 // Type guard para validar zona
@@ -40,16 +41,14 @@ const isZonaValida = (zona: any): zona is ZonaValida => {
 
 // Exportación nombrada como "Reportes"
 export function Reportes() {
-	const colorScheme = useColorScheme();
-	const colors = Colors[colorScheme ?? 'light'];
 	const router = useRouter();
 	const params = useLocalSearchParams();
 	
 	const [searchQuery, setSearchQuery] = useState('');
 
-	const { data: stats, isLoading: statsLoading, error: statsError } = useReporteStats();
-	const { data: topEmployee, isLoading: topLoading, error: topError } = useTopEmployee();
-	const { data: upgradedEmployee, isLoading: upgradedLoading, error: upgradedError } = useUpgradedEmployee();
+	const { data: stats, error: statsError } = useReporteStats();
+	const { data: topEmployee, error: topError } = useTopEmployee();
+	const { data: upgradedEmployee, error: upgradedError } = useUpgradedEmployee();
 
 	// Filtrar datos del semáforo por búsqueda
 	const filteredStats = useMemo(() => {
@@ -87,17 +86,6 @@ export function Reportes() {
 		return byZona;
 	}, [filteredStats]);
 
-	const isLoading = statsLoading || topLoading || upgradedLoading;
-
-	if (isLoading) {
-		return (
-			<View style={styles.centerContainer}>
-				<ActivityIndicator size="large" color={colors.tint} />
-				<ThemedText style={styles.loadingText}>Cargando dashboard...</ThemedText>
-			</View>
-		);
-	}
-
 	return (
 		<ScrollView 
 			style={styles.container}
@@ -115,8 +103,8 @@ export function Reportes() {
 
 			{/* Tarjetas de empleados destacados */}
 			<View style={styles.cardsContainer}>
-				<TopEmployeeCard data={topEmployee} isLoading={topLoading} error={topError} />
-				<UpgradedEmployeeCard data={upgradedEmployee} isLoading={upgradedLoading} error={upgradedError} />
+				<TopEmployeeCard data={topEmployee} error={topError} />
+				<UpgradedEmployeeCard data={upgradedEmployee} error={upgradedError} />
 			</View>
 
 			{/* Título del semáforo */}
@@ -143,7 +131,7 @@ export function Reportes() {
 								<ThemedText type="subtitle" style={styles.zonaTitle}>
 									{zonaLabels[zona]}
 								</ThemedText>
-								<ThemedText style={[styles.zonaCount, { color: colors.icon }]}>
+								<ThemedText style={[styles.zonaCount, { color: colors.secondaryText }]}>
 									({grouped[zona].length})
 								</ThemedText>
 							</View>
@@ -176,7 +164,7 @@ function TopEmployeeCard({ data, isLoading, error }: any) {
 	if (isLoading) {
 		return (
 			<View style={[styles.card, styles.topCard]}>
-				<ActivityIndicator size="small" color="#388E3C" />
+				<ActivityIndicator size="small" color={colors.success} />
 			</View>
 		);
 	}
@@ -184,14 +172,14 @@ function TopEmployeeCard({ data, isLoading, error }: any) {
 	if (error || !data || data.length === 0) {
 		return (
 			<View style={[styles.card, styles.topCard]}>
-				<Ionicons name="trophy-outline" size={40} color="#B0BEC5" />
+				<Ionicons name="trophy-outline" size={40} color={colors.icon} />
 				<ThemedText style={styles.emptyCardText}>Sin datos</ThemedText>
 			</View>
 		);
 	}
 
 	const empleado = data[0];
-	const iniciales = `${empleado.nombre?.[0] ?? ''}${empleado.apellido?.[0] ?? ''}`.toUpperCase();
+	const iniciales = `${empleado.nombre}${empleado.apellido}`.toUpperCase();
 	const positivos = empleado.positivos_puros ?? empleado.positivos ?? 0;
 
 	return (
@@ -215,7 +203,7 @@ function UpgradedEmployeeCard({ data, isLoading, error }: any) {
 	if (isLoading) {
 		return (
 			<View style={[styles.card, styles.upgradedCard]}>
-				<ActivityIndicator size="small" color="#1976D2" />
+				<ActivityIndicator size="small" color={colors.lightTint} />
 			</View>
 		);
 	}
@@ -223,14 +211,14 @@ function UpgradedEmployeeCard({ data, isLoading, error }: any) {
 	if (error || !data || data.length === 0) {
 		return (
 			<View style={[styles.card, styles.upgradedCard]}>
-				<Ionicons name="trending-up-outline" size={40} color="#B0BEC5" />
+				<Ionicons name="trending-up-outline" size={40} color={colors.icon} />
 				<ThemedText style={styles.emptyCardText}>Sin datos</ThemedText>
 			</View>
 		);
 	}
 
 	const empleado = data[0];
-	const iniciales = `${empleado.nombre?.[0] ?? ''}${empleado.apellido?.[0] ?? ''}`.toUpperCase();
+	const iniciales = `${empleado.nombre}${empleado.apellido}`.toUpperCase();
 	const puntos = empleado.cantidad_neta ?? empleado.puntos ?? 0;
 
 	return (
@@ -242,7 +230,7 @@ function UpgradedEmployeeCard({ data, isLoading, error }: any) {
 				Más mejoras (3 meses)
 			</ThemedText>
 			<View style={styles.upRow}>
-				<Ionicons name="arrow-up" size={24} color="#1976D2" />
+				<Ionicons name="arrow-up" size={24} color={colors.lightTint} />
 				<ThemedText style={styles.upgradedCount}>{puntos}</ThemedText>
 			</View>
 			<ThemedText style={styles.cardName} numberOfLines={1}>
@@ -254,8 +242,6 @@ function UpgradedEmployeeCard({ data, isLoading, error }: any) {
 
 // Componente de item del semáforo
 function SemaforoItem({ item }: { item: ReporteStats }) {
-	const colorScheme = useColorScheme();
-	const colors = Colors[colorScheme ?? 'light'];
 	const router = useRouter();
 	
 	// Mapear campos de la API a los esperados
@@ -277,7 +263,7 @@ function SemaforoItem({ item }: { item: ReporteStats }) {
 	};
 
 	return (
-		<View style={[styles.itemContainer, { backgroundColor: colors.background }]}>
+		<View style={[styles.itemContainer, { backgroundColor: colors.componentBackground }]}>
 			<ThemedText
 				type="defaultSemiBold"
 				onPress={handlePress}
@@ -287,15 +273,15 @@ function SemaforoItem({ item }: { item: ReporteStats }) {
 			</ThemedText>
 			<View style={styles.statsRow}>
 				<View style={styles.statBadge}>
-					<Ionicons name="arrow-up" size={14} color="#4CAF50" />
+					<Ionicons name="arrow-up" size={14} color={colors.success} />
 					<ThemedText style={[styles.stat, styles.positiveText]}>{positivos}</ThemedText>
 				</View>
 				<View style={styles.statBadge}>
-					<Ionicons name="arrow-down" size={14} color="#F44336" />
+					<Ionicons name="arrow-down" size={14} color={colors.error} />
 					<ThemedText style={[styles.stat, styles.negativeText]}>{negativos}</ThemedText>
 				</View>
 				<View style={styles.statBadge}>
-					<Ionicons name="star" size={14} color="#FFA726" />
+					<Ionicons name="star" size={14} color={colors.warning} />
 					<ThemedText style={[styles.stat, { color: colors.text }]}>{puntos}</ThemedText>
 				</View>
 			</View>
@@ -322,7 +308,7 @@ const styles = StyleSheet.create({
 	},
 	errorText: {
 		marginBottom: 8,
-		color: '#F44336',
+		color: colors.error,
 	},
 	searchBar: {
 		marginHorizontal: 12,
@@ -352,10 +338,10 @@ const styles = StyleSheet.create({
 		elevation: 5,
 	},
 	topCard: {
-		backgroundColor: '#E8F5E9',
+		backgroundColor: colors.componentBackground,
 	},
 	upgradedCard: {
-		backgroundColor: '#E3F2FD',
+		backgroundColor: colors.componentBackground,
 	},
 	iconCircle: {
 		width: 60,
@@ -371,13 +357,13 @@ const styles = StyleSheet.create({
 		elevation: 3,
 	},
 	topIconCircle: {
-		backgroundColor: '#4CAF50',
+		backgroundColor: colors.success,
 	},
 	upgradedIconCircle: {
-		backgroundColor: '#1976D2',
+		backgroundColor: colors.lightTint,
 	},
 	iconText: {
-		color: '#fff',
+		color: colors.text,
 		fontSize: 26,
 		fontWeight: 'bold',
 	},
@@ -386,12 +372,12 @@ const styles = StyleSheet.create({
 		fontWeight: '600',
 		textAlign: 'center',
 		marginBottom: 8,
-		color: '#455A64',
+		color: colors.text,
 	},
 	positiveCount: {
 		fontSize: 28,
 		fontWeight: 'bold',
-		color: '#2E7D32',
+		color: colors.success,
 		marginBottom: 4,
 	},
 	upRow: {
@@ -403,18 +389,18 @@ const styles = StyleSheet.create({
 	upgradedCount: {
 		fontSize: 28,
 		fontWeight: 'bold',
-		color: '#1565C0',
+		color: colors.lightTint,
 	},
 	cardName: {
 		fontSize: 14,
-		color: '#37474F',
+		color: colors.text,
 		fontWeight: '600',
 		textAlign: 'center',
 		marginTop: 4,
 	},
 	emptyCardText: {
 		fontSize: 13,
-		color: '#90A4AE',
+		color: colors.text,
 		marginTop: 8,
 	},
 	semaforoTitle: {
@@ -456,7 +442,7 @@ const styles = StyleSheet.create({
 	},
 	emptyText: {
 		textAlign: 'center',
-		color: '#9E9E9E',
+		color: colors.text,
 		fontSize: 14,
 		marginVertical: 12,
 		fontStyle: 'italic',
@@ -468,7 +454,7 @@ const styles = StyleSheet.create({
 		paddingVertical: 12,
 		borderRadius: 10,
 		borderWidth: 1,
-		borderColor: 'rgba(0,0,0,0.06)',
+		borderColor: colors.background,
 		shadowColor: '#000',
 		shadowOffset: { width: 0, height: 1 },
 		shadowOpacity: 0.08,
@@ -492,16 +478,16 @@ const styles = StyleSheet.create({
 		paddingHorizontal: 8,
 		paddingVertical: 4,
 		borderRadius: 12,
-		backgroundColor: 'rgba(0,0,0,0.03)',
+		backgroundColor: colors.componentBackground,
 	},
 	stat: {
 		fontSize: 14,
 		fontWeight: '600',
 	},
 	positiveText: {
-		color: '#2E7D32',
+		color: colors.success,
 	},
 	negativeText: {
-		color: '#C62828',
+		color: colors.error,
 	},
 });

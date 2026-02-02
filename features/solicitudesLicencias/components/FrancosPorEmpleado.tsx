@@ -1,7 +1,6 @@
 import { OwnFlatList } from '@/components/FlatList';
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import React from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { SolicitudLicencia } from '../models/SolicitudLicencia';
@@ -11,16 +10,16 @@ interface FrancosPorEmpleadoProps {
   usuarioId: number;
 }
 
+const colors = Colors['light'];
+
+
 export function FrancosPorEmpleado({ usuarioId }: FrancosPorEmpleadoProps) {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
-  const result2 = useGetSolicitudesLicencias({ usuario_id: usuarioId, tipo_licencia_id: 2 });
-  const result4 = useGetSolicitudesLicencias({ usuario_id: usuarioId, tipo_licencia_id: 4 });
+  const francos = useGetSolicitudesLicencias({ usuario_id: usuarioId, tipo_licencia_id: 2 });
+  const diasEspeciales = useGetSolicitudesLicencias({ usuario_id: usuarioId, tipo_licencia_id: 4 });
 
-  const isLoading = result2.isLoading || result4.isLoading;
-  const error = result2.error || result4.error;
-  const data = [ ...(result2.data ?? []), ...(result4.data ?? []) ];
-
+  const isLoading = francos.isLoading || diasEspeciales.isLoading;
+  const error = francos.error || diasEspeciales.error;
+  const data = [ ...(francos.data ?? []), ...(diasEspeciales.data ?? []) ];
   if (isLoading) {
     return (
       <View style={styles.centerContainer}>
@@ -63,8 +62,6 @@ export function FrancosPorEmpleado({ usuarioId }: FrancosPorEmpleadoProps) {
 }
 
 function FrancoItem({ item }: { item: SolicitudLicencia }) {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
   return (
     <View style={styles.card}>
       <View style={styles.row}>
@@ -95,7 +92,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderRadius: 12,
-    backgroundColor: '#fff',
+    backgroundColor: colors.componentBackground,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.08,
@@ -117,7 +114,7 @@ const styles = StyleSheet.create({
     textTransform: 'capitalize',
   },
   label: {
-    color: '#888',
+    color: colors.icon,
     fontSize: 13,
     marginBottom: 2,
   },
@@ -127,7 +124,7 @@ const styles = StyleSheet.create({
   },
   separator: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: '#ccc',
+    backgroundColor: colors.icon,
     marginHorizontal: 16,
   },
 });

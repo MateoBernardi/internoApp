@@ -1,13 +1,16 @@
+import { Colors } from '@/constants/theme';
 import React, { useState } from 'react';
 import {
-    SafeAreaView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { CrearEncuesta } from '../components/CrearEncuesta';
 import { VerResultadosEncuestas } from '../components/VerResultadoEncuestas';
+
+const colors = Colors['light'];
 
 type OpcionSeleccionada = 'crear' | 'resultados' | null;
 
@@ -88,23 +91,23 @@ export const Encuestas: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: colors.componentBackground,
   },
   header: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.componentBackground,
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+    borderBottomColor: colors.background,
   },
   headerTitle: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#333',
+    color: colors.text,
     marginBottom: 5,
   },
   headerSubtitle: {
     fontSize: 14,
-    color: '#666',
+    color: colors.secondaryText,
   },
   content: {
     flex: 1,
@@ -112,7 +115,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   optionCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.componentBackground,
     borderRadius: 16,
     padding: 24,
     marginBottom: 20,
@@ -126,7 +129,7 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: '#E3F2FD',
+    backgroundColor: colors.componentBackground,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
@@ -137,12 +140,12 @@ const styles = StyleSheet.create({
   optionTitle: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: '#333',
+    color: colors.text,
     marginBottom: 8,
   },
   optionDescription: {
     fontSize: 14,
-    color: '#666',
+    color: colors.secondaryText,
     lineHeight: 20,
     marginBottom: 16,
   },
@@ -151,24 +154,24 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#007AFF',
+    backgroundColor: colors.lightTint,
     justifyContent: 'center',
     alignItems: 'center',
   },
   arrow: {
     fontSize: 20,
-    color: '#FFFFFF',
+    color: colors.componentBackground,
     fontWeight: 'bold',
   },
   footer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.componentBackground,
     padding: 20,
     borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
+    borderTopColor: colors.background,
   },
   footerText: {
     fontSize: 13,
-    color: '#666',
+    color: colors.secondaryText,
     textAlign: 'center',
     lineHeight: 18,
   },

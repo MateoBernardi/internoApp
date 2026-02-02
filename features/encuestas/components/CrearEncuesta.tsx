@@ -1,14 +1,15 @@
+import { Colors } from '@/constants/theme';
 import React, { useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    ScrollView,
-    StyleSheet,
-    Switch,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { Encuesta, Pregunta, TipoPregunta } from '../models/Encuesta';
 import { useCreateEncuestaCompleta } from '../viewmodels/useEncuestas';
@@ -16,6 +17,8 @@ import { useCreateEncuestaCompleta } from '../viewmodels/useEncuestas';
 interface CrearEncuestaProps {
   onEncuestaCreada: () => void;
 }
+
+const colors = Colors['light'];
 
 export const CrearEncuesta: React.FC<CrearEncuestaProps> = ({ onEncuestaCreada }) => {
   const [titulo, setTitulo] = useState('');
@@ -180,8 +183,8 @@ export const CrearEncuesta: React.FC<CrearEncuestaProps> = ({ onEncuestaCreada }
             <Switch
               value={esAnonima}
               onValueChange={setEsAnonima}
-              trackColor={{ false: '#D0D0D0', true: '#4CAF50' }}
-              thumbColor={esAnonima ? '#FFFFFF' : '#F4F3F4'}
+              trackColor={{ false: colors.icon, true: colors.success }}
+              thumbColor={esAnonima ? colors.icon : colors.icon}
             />
           </View>
         </View>
@@ -248,7 +251,7 @@ export const CrearEncuesta: React.FC<CrearEncuestaProps> = ({ onEncuestaCreada }
           disabled={isPending}
         >
           {isPending ? (
-            <ActivityIndicator color="#FFFFFF" />
+            <ActivityIndicator color={colors.componentBackground} />
           ) : (
             <Text style={styles.crearButtonText}>Crear Encuesta</Text>
           )}
@@ -390,8 +393,8 @@ const FormularioPregunta: React.FC<FormularioPreguntaProps> = ({
             <Switch
               value={esObligatoria}
               onValueChange={setEsObligatoria}
-              trackColor={{ false: '#D0D0D0', true: '#4CAF50' }}
-              thumbColor={esObligatoria ? '#FFFFFF' : '#F4F3F4'}
+              trackColor={{ false: colors.icon, true: colors.success }}
+              thumbColor={esObligatoria ? colors.icon : colors.icon}
             />
           </View>
         </View>
@@ -412,36 +415,36 @@ const FormularioPregunta: React.FC<FormularioPreguntaProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: colors.componentBackground,
   },
   header: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.componentBackground,
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+    borderBottomColor: colors.background,
   },
   headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
+    color: colors.text,
   },
   headerSubtitle: {
     fontSize: 14,
-    color: '#666',
+    color: colors.secondaryText,
     marginTop: 5,
   },
   scrollView: {
     flex: 1,
   },
   section: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.componentBackground,
     padding: 20,
     marginBottom: 10,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: colors.text,
     marginBottom: 15,
   },
   sectionHeader: {
@@ -453,21 +456,21 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#333',
+    color: colors.text,
     marginBottom: 8,
     marginTop: 15,
   },
   obligatorio: {
-    color: '#D32F2F',
+    color: colors.error,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: colors.background,
     borderRadius: 8,
     padding: 12,
     fontSize: 14,
-    color: '#333',
-    backgroundColor: '#FFFFFF',
+    color: colors.text,
+    backgroundColor: colors.componentBackground,
   },
   textArea: {
     minHeight: 80,
@@ -481,19 +484,19 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: colors.background,
     alignItems: 'center',
   },
   categoriaButtonSelected: {
-    borderColor: '#007AFF',
-    backgroundColor: '#E3F2FD',
+    borderColor: colors.lightTint,
+    backgroundColor: colors.componentBackground,
   },
   categoriaText: {
     fontSize: 14,
-    color: '#666',
+    color: colors.secondaryText,
   },
   categoriaTextSelected: {
-    color: '#007AFF',
+    color: colors.lightTint,
     fontWeight: '600',
   },
   switchContainer: {
@@ -506,16 +509,16 @@ const styles = StyleSheet.create({
   switchLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#333',
+    color: colors.text,
   },
   agregarPreguntaButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: colors.lightTint,
     paddingHorizontal: 15,
     paddingVertical: 8,
     borderRadius: 6,
   },
   agregarPreguntaText: {
-    color: '#FFFFFF',
+    color: colors.componentBackground,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -525,15 +528,15 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    color: '#999',
+    color: colors.secondaryText,
     marginBottom: 5,
   },
   emptySubtext: {
     fontSize: 12,
-    color: '#BBB',
+    color: colors.secondaryText,
   },
   preguntaCard: {
-    backgroundColor: '#F9F9F9',
+    backgroundColor: colors.componentBackground,
     borderRadius: 8,
     padding: 15,
     marginBottom: 10,
@@ -547,7 +550,7 @@ const styles = StyleSheet.create({
   preguntaNumero: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#007AFF',
+    color: colors.lightTint,
   },
   eliminarButton: {
     fontSize: 18,
@@ -555,7 +558,7 @@ const styles = StyleSheet.create({
   preguntaTitulo: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#333',
+    color: colors.text,
     marginBottom: 8,
   },
   preguntaInfo: {
@@ -565,12 +568,12 @@ const styles = StyleSheet.create({
   },
   preguntaTipo: {
     fontSize: 12,
-    color: '#666',
+    color: colors.secondaryText,
   },
   obligatoriaTag: {
     fontSize: 10,
-    color: '#D32F2F',
-    backgroundColor: '#FFEBEE',
+    color: colors.error,
+    backgroundColor: colors.componentBackground,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 4,
@@ -579,17 +582,17 @@ const styles = StyleSheet.create({
     marginTop: 10,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
+    borderTopColor: colors.background,
   },
   opcionesLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#666',
+    color: colors.secondaryText,
     marginBottom: 5,
   },
   opcionItem: {
     fontSize: 12,
-    color: '#666',
+    color: colors.secondaryText,
     marginLeft: 10,
   },
   tiposContainer: {
@@ -599,19 +602,19 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: colors.background,
     alignItems: 'center',
   },
   tipoButtonSelected: {
-    borderColor: '#007AFF',
-    backgroundColor: '#E3F2FD',
+    borderColor: colors.lightTint,
+    backgroundColor: colors.componentBackground,
   },
   tipoText: {
     fontSize: 14,
-    color: '#666',
+    color: colors.secondaryText,
   },
   tipoTextSelected: {
-    color: '#007AFF',
+    color: colors.lightTint,
     fontWeight: '600',
   },
   opcionesSection: {
@@ -623,7 +626,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   addButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: colors.lightTint,
     width: 44,
     height: 44,
     borderRadius: 8,
@@ -631,26 +634,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   addButtonText: {
-    color: '#FFFFFF',
+    color: colors.componentBackground,
     fontSize: 24,
     fontWeight: 'bold',
   },
   opcionText: {
     fontSize: 14,
-    color: '#333',
+    color: colors.text,
     flex: 1,
   },
   eliminarOpcion: {
     fontSize: 18,
-    color: '#D32F2F',
+    color: colors.error,
     paddingHorizontal: 10,
   },
   footer: {
     flexDirection: 'row',
     padding: 15,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.componentBackground,
     borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
+    borderTopColor: colors.background,
     gap: 10,
   },
   cancelarButton: {
@@ -658,39 +661,39 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#999',
+    borderColor: colors.secondaryText,
     alignItems: 'center',
   },
   cancelarButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#666',
+    color: colors.secondaryText,
   },
   guardarButton: {
     flex: 2,
     paddingVertical: 15,
     borderRadius: 8,
-    backgroundColor: '#007AFF',
+    backgroundColor: colors.lightTint,
     alignItems: 'center',
   },
   guardarButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: colors.componentBackground,
   },
   crearButton: {
     flex: 1,
     paddingVertical: 15,
     borderRadius: 8,
-    backgroundColor: '#4CAF50',
+    backgroundColor: colors.success,
     alignItems: 'center',
   },
   crearButtonDisabled: {
-    backgroundColor: '#CCCCCC',
+    backgroundColor: colors.secondaryText,
   },
   crearButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: colors.componentBackground,
   },
 });

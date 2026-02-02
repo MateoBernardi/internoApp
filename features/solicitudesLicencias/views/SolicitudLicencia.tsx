@@ -2,7 +2,6 @@ import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { useArchivoUrl } from '@/features/docs/viewmodels/useArchivos';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
@@ -54,14 +53,15 @@ const getEstadoColor = (estado: string): string => {
   }
 };
 
+ const colors = Colors['light'];
+
+
 export function SolicitudLicencia() {
   const router = useRouter();
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
   const { id, type } = useLocalSearchParams<{ id: string; type: string }>();
   const { user } = useAuth();
 
-  const solicitudId = parseInt(id || '0', 10);
+  const solicitudId = parseInt(id);
 
   // Fetch solicitudes
   const { data: solicitudes } = useGetSolicitudesLicencias({});
@@ -203,7 +203,7 @@ export function SolicitudLicencia() {
   if (!solicitud) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color="#1a73e8" />
+        <ActivityIndicator size="large" color={colors.lightTint} />
       </View>
     );
   }
@@ -217,7 +217,7 @@ export function SolicitudLicencia() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.iconButton}>
-          <Ionicons name="arrow-back" size={24} color="#5f6368" />
+          <Ionicons name="arrow-back" size={24} color={colors.secondaryText} />
         </TouchableOpacity>
         <ThemedText style={styles.headerTitle}>
           {type === 'enviada' ? 'Enviada' : 'Recibida'}
@@ -252,7 +252,7 @@ export function SolicitudLicencia() {
         {/* Horario */}
         <View style={styles.dateSection}>
           <View style={styles.switchRow}>
-            <Ionicons name="time-outline" size={20} color="#1a73e8" style={{ marginRight: 8 }} />
+            <Ionicons name="time-outline" size={20} color={colors.lightTint} style={{ marginRight: 8 }} />
             <ThemedText style={styles.dateSectionTitle}>
               Período Solicitado
             </ThemedText>
@@ -277,7 +277,7 @@ export function SolicitudLicencia() {
             {type === 'enviada' ? 'Solicitante' : 'De'}
           </ThemedText>
           <View style={styles.userChip}>
-            <ThemedText style={{ color: '#1a73e8' }}>
+            <ThemedText style={{ color: colors.lightTint }}>
               {solicitud.usuario_nombre} {solicitud.usuario_apellido}
             </ThemedText>
           </View>
@@ -285,8 +285,8 @@ export function SolicitudLicencia() {
 
         {/* Tipo de Licencia */}
         <View style={[styles.inputSection, { borderBottomWidth: 0, paddingVertical: 10 }]}>
-          <View style={[styles.chip, { borderColor: '#1a73e8', backgroundColor: 'transparent', borderWidth: 1 }]}>
-            <ThemedText style={[styles.chipText, { color: '#1a73e8', fontWeight: 'bold' }]}>
+          <View style={[styles.chip, { borderColor: colors.lightTint, backgroundColor: 'transparent', borderWidth: 1 }]}>
+            <ThemedText style={[styles.chipText, { color: colors.lightTint, fontWeight: 'bold' }]}>
               {solicitud.tipo_nombre}
             </ThemedText>
           </View>
@@ -328,7 +328,7 @@ export function SolicitudLicencia() {
                     {new Date(solicitud.fecha_respuesta).toLocaleDateString('es-ES')}
                   </ThemedText>
                   {solicitud.aprobador_nombre && (
-                    <ThemedText style={[styles.historySubValue, { color: '#5f6368' }]}>
+                    <ThemedText style={[styles.historySubValue, { color: colors.secondaryText }]}>
                       por {solicitud.aprobador_nombre} {solicitud.aprobador_apellido}
                     </ThemedText>
                   )}
@@ -362,17 +362,17 @@ export function SolicitudLicencia() {
                   disabled={isLoadingUrl && selectedArchivoId === archivo.id}
                 >
                   {isLoadingUrl && selectedArchivoId === archivo.id ? (
-                    <ActivityIndicator size="small" color="#1a73e8" />
+                    <ActivityIndicator size="small" color={colors.lightTint} />
                   ) : (
-                    <Ionicons name="document-outline" size={20} color="#1a73e8" />
+                    <Ionicons name="document-outline" size={20} color={colors.lightTint} />
                   )}
                   <View style={{ flex: 1, marginHorizontal: 8 }}>
                     <ThemedText numberOfLines={1}>{archivo.nombre}</ThemedText>
-                    <ThemedText style={[styles.smallText, { color: '#5f6368' }]}>
+                    <ThemedText style={[styles.smallText, { color: colors.secondaryText }]}>
                       {(archivo.tamaño / 1024).toFixed(2)} KB
                     </ThemedText>
                   </View>
-                  <Ionicons name="open-outline" size={18} color="#5f6368" />
+                  <Ionicons name="open-outline" size={18} color={colors.secondaryText} />
                 </TouchableOpacity>
               ))}
             </View>
@@ -389,25 +389,25 @@ export function SolicitudLicencia() {
               {canTakeAction && (
                 <>
                   <TouchableOpacity
-                    style={[styles.fab, { backgroundColor: '#d93025', marginRight: 16 }]}
+                    style={[styles.fab, { backgroundColor: colors.error, marginRight: 16 }]}
                     onPress={handleRejectPress}
                     disabled={isRejecting}
                   >
                     {isRejecting ? (
-                      <ActivityIndicator size="small" color="#fff" />
+                      <ActivityIndicator size="small" color={colors.componentBackground} />
                     ) : (
-                      <Ionicons name="close" size={24} color="#fff" />
+                      <Ionicons name="close" size={24} color={colors.componentBackground} />
                     )}
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.fab, { backgroundColor: '#4CAF50', marginRight: 16 }]}
+                    style={[styles.fab, { backgroundColor: colors.success, marginRight: 16 }]}
                     onPress={handleApprovePress}
                     disabled={isApproving}
                   >
                     {isApproving ? (
-                      <ActivityIndicator size="small" color="#fff" />
+                      <ActivityIndicator size="small" color={colors.componentBackground} />
                     ) : (
-                      <Ionicons name="checkmark" size={24} color="#fff" />
+                      <Ionicons name="checkmark" size={24} color={colors.componentBackground} />
                     )}
                   </TouchableOpacity>
                 </>
@@ -415,14 +415,14 @@ export function SolicitudLicencia() {
 
               {canCancel && (
                 <TouchableOpacity
-                  style={[styles.fab, { backgroundColor: '#d93025', marginRight: 16 }]}
+                  style={[styles.fab, { backgroundColor: colors.error, marginRight: 16 }]}
                   onPress={handleCancel}
                   disabled={isCanceling}
                 >
                   {isCanceling ? (
-                    <ActivityIndicator size="small" color="#fff" />
+                    <ActivityIndicator size="small" color={colors.componentBackground} />
                   ) : (
-                    <Ionicons name="close-circle-outline" size={24} color="#fff" />
+                    <Ionicons name="close-circle-outline" size={24} color={colors.componentBackground} />
                   )}
                 </TouchableOpacity>
               )}
@@ -431,10 +431,10 @@ export function SolicitudLicencia() {
 
           {/* Menu Button */}
           <TouchableOpacity
-            style={[styles.fab, { backgroundColor: '#5f6368' }]}
+            style={[styles.fab, { backgroundColor: colors.secondaryText }]}
             onPress={() => setMenuOpen(!menuOpen)}
           >
-            <Ionicons name={menuOpen ? "close" : "ellipsis-horizontal"} size={24} color="#fff" />
+            <Ionicons name={menuOpen ? "close" : "ellipsis-horizontal"} size={24} color={colors.componentBackground} />
           </TouchableOpacity>
         </View>
       )}
@@ -452,7 +452,7 @@ export function SolicitudLicencia() {
               {actionType === 'approve' ? 'Aprobar Solicitud' : 'Rechazar Solicitud'}
             </ThemedText>
 
-            <ThemedText style={{ marginBottom: 8, color: '#5f6368' }}>
+            <ThemedText style={{ marginBottom: 8, color: colors.secondaryText }}>
               {actionType === 'approve' 
                 ? 'Agregar observación (opcional)' 
                 : 'Agregar observación (obligatorio)'}
@@ -462,7 +462,7 @@ export function SolicitudLicencia() {
               placeholder={actionType === 'approve' 
                 ? "Observación..." 
                 : "Motivo del rechazo..."}
-              placeholderTextColor="#5f6368"
+              placeholderTextColor={colors.secondaryText}
               value={observationText}
               onChangeText={setObservationText}
               multiline
@@ -475,7 +475,7 @@ export function SolicitudLicencia() {
                 onPress={() => setShowObservationModal(false)}
                 style={styles.modalBtnCancel}
               >
-                <ThemedText style={{ color: '#d93025' }}>Cancelar</ThemedText>
+                <ThemedText style={{ color: colors.error }}>Cancelar</ThemedText>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -483,13 +483,13 @@ export function SolicitudLicencia() {
                 disabled={isApproving || isRejecting}
                 style={[
                   styles.modalBtnConfirm,
-                  { backgroundColor: actionType === 'approve' ? '#4CAF50' : '#d93025' }
+                  { backgroundColor: actionType === 'approve' ? colors.success : colors.error }
                 ]}
               >
                 {(isApproving || isRejecting) ? (
-                  <ActivityIndicator size="small" color="white" />
+                  <ActivityIndicator size="small" color={colors.componentBackground} />
                 ) : (
-                  <ThemedText style={{ color: '#fff', fontWeight: '600' }}>
+                  <ThemedText style={{ color: colors.componentBackground, fontWeight: '600' }}>
                     {actionType === 'approve' ? 'Aprobar' : 'Rechazar'}
                   </ThemedText>
                 )}
@@ -505,7 +505,7 @@ export function SolicitudLicencia() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.componentBackground,
   },
   header: {
     flexDirection: 'row',
@@ -516,7 +516,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 20,
-    color: '#1a73e8',
+    color: colors.lightTint,
     fontWeight: '500',
   },
   iconButton: {
@@ -544,9 +544,9 @@ const styles = StyleSheet.create({
   dateSection: {
     padding: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: colors.background,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#e0e0e0',
+    borderTopColor: colors.background,
   },
   switchRow: {
     flexDirection: 'row',
@@ -555,7 +555,7 @@ const styles = StyleSheet.create({
   },
   dateSectionTitle: {
     fontSize: 16,
-    color: '#202124',
+    color: colors.text,
   },
   dateRow: {
     flexDirection: 'row',
@@ -564,22 +564,22 @@ const styles = StyleSheet.create({
   },
   dateValue: {
     fontSize: 16,
-    color: '#1a73e8',
+    color: colors.lightTint,
   },
   inputSection: {
     paddingVertical: 14,
     paddingHorizontal: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: colors.background,
   },
   label: {
     fontSize: 12,
-    color: '#5f6368',
+    color: colors.secondaryText,
     marginBottom: 4,
   },
   valueText: {
     fontSize: 16,
-    color: '#202124',
+    color: colors.text,
   },
   userChip: {
     flexDirection: 'row',
@@ -592,7 +592,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: colors.background,
   },
   chipText: {
     fontSize: 14,
@@ -600,23 +600,23 @@ const styles = StyleSheet.create({
   messageSection: {
     padding: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: colors.background,
   },
   messageText: {
     fontSize: 16,
-    color: '#202124',
+    color: colors.text,
     lineHeight: 24,
     marginTop: 8,
   },
   sectionHeader: {
     paddingHorizontal: 16,
     paddingVertical: 8,
-    backgroundColor: '#f1f3f4',
+    backgroundColor: colors.componentBackground,
   },
   sectionTitle: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#5f6368',
+    color: colors.secondaryText,
   },
   historyContainer: {
     padding: 16,
@@ -629,12 +629,12 @@ const styles = StyleSheet.create({
   },
   historyLabel: {
     fontSize: 13,
-    color: '#5f6368',
+    color: colors.secondaryText,
     fontWeight: '500',
   },
   historyValue: {
     fontSize: 13,
-    color: '#202124',
+    color: colors.text,
     fontWeight: '600',
     textAlign: 'right',
   },
@@ -644,20 +644,20 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   observationBox: {
-    backgroundColor: '#f1f3f4',
+    backgroundColor: colors.componentBackground,
     padding: 12,
     borderRadius: 8,
     marginTop: 8,
   },
   observationLabel: {
     fontSize: 11,
-    color: '#5f6368',
+    color: colors.secondaryText,
     fontWeight: '600',
     marginBottom: 4,
   },
   observationValue: {
     fontSize: 13,
-    color: '#202124',
+    color: colors.text,
     lineHeight: 18,
   },
   filesContainer: {
@@ -668,7 +668,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: colors.background,
   },
   smallText: {
     fontSize: 11,
@@ -701,7 +701,7 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: '85%',
-    backgroundColor: 'white',
+    backgroundColor: colors.componentBackground,
     borderRadius: 16,
     padding: 24,
     elevation: 5,
@@ -716,14 +716,14 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   modalBtnConfirm: {
-    backgroundColor: '#1a73e8',
+    backgroundColor: colors.lightTint,
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 4,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: colors.background,
     borderRadius: 8,
     paddingVertical: 8,
     paddingHorizontal: 12,

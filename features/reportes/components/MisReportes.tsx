@@ -1,7 +1,6 @@
 import { OwnFlatList } from '@/components/FlatList';
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { EstadoReporte, Reporte } from '../models/Reporte';
@@ -15,9 +14,9 @@ const estadoMapping: Record<EstadoReporte, string> = {
 	'DESESTIMADO': 'Desestimado',
 };
 
+const colors = Colors['light'];
+
 export function MisReportes() {
-	const colorScheme = useColorScheme();
-	const colors = Colors[colorScheme ?? 'light'];
 
 	// No se pasa usuarioId, el backend lo resuelve
 	const { data: reportes, isLoading, error } = useReportes();
@@ -95,9 +94,6 @@ interface MiReporteItemProps {
 }
 
 function MiReporteItem({ reporte, estadoUI, onPress }: MiReporteItemProps) {
-	const colorScheme = useColorScheme();
-	const colors = Colors[colorScheme ?? 'light'];
-
 	const getEstadoColor = (estado: string): string => {
 		switch (estado) {
 			case 'Pendiente':
@@ -118,7 +114,7 @@ function MiReporteItem({ reporte, estadoUI, onPress }: MiReporteItemProps) {
 			onPress={onPress}
 			style={[
 				styles.itemContainer,
-				{ backgroundColor: colorScheme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' },
+				{ backgroundColor: colors.componentBackground },
 			]}
 		>
 			<View style={styles.itemContent}>
@@ -143,7 +139,7 @@ function MiReporteItem({ reporte, estadoUI, onPress }: MiReporteItemProps) {
 				{/* Descripción */}
 				<ThemedText numberOfLines={2} style={[styles.description, { color: colors.icon }]}>{reporte.descripcion}</ThemedText>
 				{/* Categoría */}
-				<ThemedText style={[styles.categoriaText, { color: reporte.categoria === 'POSITIVO' ? '#4CAF50' : '#F44336' }]}>Categoría: {reporte.categoria}</ThemedText>
+				<ThemedText style={[styles.categoriaText, { color: reporte.categoria === 'POSITIVO' ? colors.success : colors.error }]}>Categoría: {reporte.categoria}</ThemedText>
 			</View>
 		</TouchableOpacity>
 	);

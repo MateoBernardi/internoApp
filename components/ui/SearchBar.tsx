@@ -1,5 +1,4 @@
 import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import React, { memo } from 'react';
 import {
   StyleSheet,
@@ -31,19 +30,15 @@ export const SearchBar = memo(({
   style,
   accessibilityLabel = 'Buscador',
 }: SearchBarProps) => {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
-  const isDark = colorScheme === 'dark';
+  const colors = Colors['light'];
 
   return (
     <View
       style={[
         styles.container,
         {
-          backgroundColor: isDark
-            ? 'rgba(255, 255, 255, 0.1)'
-            : 'rgba(26, 115, 232, 0.08)',
-          borderColor: '#1a73e8',
+          backgroundColor: colors.componentBackground,
+          borderColor: colors.lightTint,
           borderWidth: 1,
         },
         style,
@@ -57,7 +52,7 @@ export const SearchBar = memo(({
           },
         ]}
         placeholder={placeholder}
-        placeholderTextColor={isDark ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.5)'}
+        placeholderTextColor={colors.secondaryText}
         value={value}
         onChangeText={onChangeText}
         onFocus={onFocus}

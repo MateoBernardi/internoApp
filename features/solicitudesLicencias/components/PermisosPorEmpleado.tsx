@@ -1,9 +1,14 @@
 
-import { OwnFlatList } from '@/components/FlatList';
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
-import React from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import React, { useCallback } from 'react';
+import {
+  ActivityIndicator,
+  FlatList,
+  ListRenderItem,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { SolicitudLicencia } from '../models/SolicitudLicencia';
 import { useGetSolicitudesLicencias } from '../viewmodels/useSolicitudes';
 
@@ -16,6 +21,22 @@ const colors = Colors['light'];
 
 export function PermisosPorEmpleado({ usuarioId }: PermisosPorEmpleadoProps) {
 	const { data, isLoading, error } = useGetSolicitudesLicencias({ usuario_id: usuarioId, tipo_licencia_id: 3 });
+
+	const renderSeparator = useCallback(() => {
+		return (
+			<View
+				style={{
+					height: StyleSheet.hairlineWidth,
+					backgroundColor: colors.secondaryText,
+					marginHorizontal: 16,
+				}}
+			/>
+		);
+	}, []);
+
+	const renderItem: ListRenderItem<SolicitudLicencia> = useCallback(({ item }) => {
+		return <PermisoItem item={item} />;
+	}, []);
 
 	if (isLoading) {
 		return (
@@ -47,14 +68,15 @@ export function PermisosPorEmpleado({ usuarioId }: PermisosPorEmpleadoProps) {
 	}
 
 	return (
-		<OwnFlatList
-			data={data}
-			keyExtractor={item => item.id.toString()}
-			renderItem={({ item }) => <PermisoItem item={item} />}
-			ListEmptyComponent={null}
-			contentContainerStyle={styles.listContent}
-			ItemSeparatorComponent={() => <View style={styles.separator} />}
-		/>
+		<View style={styles.container}>
+			<FlatList
+				data={data}
+				keyExtractor={item => item.id.toString()}
+				renderItem={renderItem}
+				scrollEnabled={false}
+				ItemSeparatorComponent={renderSeparator}
+			/>
+		</View>
 	);
 }
 
@@ -65,7 +87,7 @@ function PermisoItem({ item }: { item: SolicitudLicencia }) {
 				<ThemedText type="defaultSemiBold" style={styles.title}>
 					{item.fecha_inicio} a {item.fecha_fin}
 				</ThemedText>
-				<ThemedText style={[styles.estado, { color: colors.text }]}>{item.estado}</ThemedText>
+				<ThemedText style={[styles.estado, { color: colors.icon }]}>{item.estado}</ThemedText>
 			</View>
 			<ThemedText style={styles.label}>Días: <ThemedText>{item.cantidad_dias}</ThemedText></ThemedText>
 			<ThemedText style={styles.label}>Solicitada el: <ThemedText>{new Date(item.created_at).toLocaleDateString()}</ThemedText></ThemedText>
@@ -74,6 +96,9 @@ function PermisoItem({ item }: { item: SolicitudLicencia }) {
 }
 
 const styles = StyleSheet.create({
+	container: {
+		flex: 1,
+	},
 	centerContainer: {
 		flex: 1,
 		justifyContent: 'center',
@@ -84,17 +109,9 @@ const styles = StyleSheet.create({
 		marginBottom: 8,
 	},
 	card: {
-		marginHorizontal: 16,
-		marginVertical: 8,
 		paddingHorizontal: 16,
-		paddingVertical: 14,
-		borderRadius: 12,
+		paddingVertical: 8,
 		backgroundColor: colors.componentBackground,
-		shadowColor: '#000',
-		shadowOffset: { width: 0, height: 1 },
-		shadowOpacity: 0.08,
-		shadowRadius: 2,
-		elevation: 1,
 	},
 	row: {
 		flexDirection: 'row',
@@ -107,21 +124,12 @@ const styles = StyleSheet.create({
 	},
 	estado: {
 		fontWeight: 'bold',
-		fontSize: 14,
+		fontSize: 13,
 		textTransform: 'capitalize',
 	},
 	label: {
 		color: colors.secondaryText,
 		fontSize: 13,
 		marginBottom: 2,
-	},
-	listContent: {
-		paddingTop: 8,
-		paddingBottom: 24,
-	},
-	separator: {
-		height: StyleSheet.hairlineWidth,
-		backgroundColor: colors.icon,
-		marginHorizontal: 16,
 	},
 });

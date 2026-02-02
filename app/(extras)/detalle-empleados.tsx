@@ -5,8 +5,8 @@ import { StyleSheet } from "react-native";
 
 export default function DetalleEmpleadosScreen(props: any) {
   return (
-    <ThemedView style={styles.container}
->      <DetalleEmpleado {...props} />
+    <ThemedView style={styles.container}>
+      <DetalleEmpleado {...props} />
     </ThemedView>
   );
 }
@@ -14,6 +14,6 @@ export default function DetalleEmpleadosScreen(props: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: '10%',
+    paddingTop: 40,
   },    
 });

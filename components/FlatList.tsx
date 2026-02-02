@@ -1,13 +1,12 @@
 import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import React, { memo } from 'react';
 import {
-    FlatList,
-    FlatListProps,
-    ListRenderItem,
-    StyleSheet,
-    View,
-    ViewStyle,
+  FlatList,
+  FlatListProps,
+  ListRenderItem,
+  StyleSheet,
+  View,
+  ViewStyle,
 } from 'react-native';
 
 type OwnFlatListProps<T> = Omit<FlatListProps<T>, 'renderItem'> & {
@@ -26,12 +25,10 @@ const OwnFlatListInner = <T,>({
     showSeparators = true,
     ...flatListProps
   }: OwnFlatListProps<T>) => {
-    const colorScheme = useColorScheme();
-    const backgroundColor = Colors[colorScheme ?? 'light'].background;
-    const textColor = Colors[colorScheme ?? 'light'].text;
+    const colors = Colors['light'];
 
     return (
-      <View style={[styles.container, { backgroundColor }, containerStyle]}>
+      <View style={[styles.container, { backgroundColor: colors.componentBackground }, containerStyle]}>
         <FlatList
           data={data}
           renderItem={renderItem}
@@ -43,10 +40,7 @@ const OwnFlatListInner = <T,>({
                     style={[
                       styles.separator,
                       {
-                        backgroundColor:
-                          colorScheme === 'dark'
-                            ? 'rgba(255, 255, 255, 0.1)'
-                            : 'rgba(0, 0, 0, 0.08)',
+                        backgroundColor: colors.secondaryText,
                       },
                       itemSeparatorStyle,
                     ]}

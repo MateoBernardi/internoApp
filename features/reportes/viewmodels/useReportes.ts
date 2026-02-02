@@ -23,14 +23,21 @@ export function useReportes(usuarioId?: string) {
     return useQuery({
         queryKey: [...REPORTES_QUERY_KEY, usuarioId],
         queryFn: async () => {
+            console.log('[useReportes] Iniciando query con usuarioId:', usuarioId);
             const token = await getValidAccessToken();
             if (!token) {
+                console.error('[useReportes] No hay token de acceso');
                 throw new Error('No hay token de acceso');
             }
-            return fetchReportes(token, usuarioId);
+            console.log('[useReportes] Token obtenido, llamando fetchReportes');
+            const result = await fetchReportes(token, usuarioId);
+            console.log('[useReportes] Datos obtenidos:', result);
+            return result;
         },
         staleTime: 1000 * 60 * 5, // 5 minutos
         gcTime: 1000 * 60 * 10, // 10 minutos (antes llamado cacheTime)
+        retry: 2,
+        retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
     });
 }
 
@@ -90,10 +97,14 @@ export function useReporteStats() {
             if (!token) {
                 throw new Error('No hay token de acceso');
             }
-            return getReporteStats(token);
+            console.log('Fetching reporte stats with token');
+            const result = await getReporteStats(token);
+            console.log('Reporte stats result:', result);
+            return result;
         },
         staleTime: 1000 * 60 * 10, // 10 minutos
         gcTime: 1000 * 60 * 20, // 20 minutos
+        retry: 2,
     });
 }
 

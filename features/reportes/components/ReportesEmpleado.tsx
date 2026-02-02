@@ -1,8 +1,14 @@
-import { OwnFlatList } from '@/components/FlatList';
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, StyleSheet, TouchableOpacity, View } from 'react-native';
+import {
+	ActivityIndicator,
+	FlatList,
+	ListRenderItem,
+	StyleSheet,
+	TouchableOpacity,
+	View
+} from 'react-native';
 import { EstadoReporte, Reporte } from '../models/Reporte';
 import { useReportes } from '../viewmodels/useReportes';
 import { ReporteModal } from './ReporteModal';
@@ -21,20 +27,47 @@ interface ReportesEmpleadoProps {
 const colors = Colors['light'];
 
 export function ReportesEmpleado({ userId }: ReportesEmpleadoProps) {
+	console.log('[ReportesEmpleado] Componente montado con userId:', userId);
 	const { data: reportes, isLoading, error } = useReportes(userId);
 
 	const [modalVisible, setModalVisible] = useState(false);
 	const [selectedReporte, setSelectedReporte] = useState<Reporte | null>(null);
 
 	const handleOpenReporte = useCallback((reporte: Reporte) => {
+		console.log('[ReportesEmpleado] Abriendo reporte:', reporte.id);
 		setSelectedReporte(reporte);
 		setModalVisible(true);
 	}, []);
 
 	const handleCloseModal = useCallback(() => {
+		console.log('[ReportesEmpleado] Cerrando modal');
 		setModalVisible(false);
 		setSelectedReporte(null);
 	}, []);
+
+	const renderSeparator = useCallback(() => {
+		return (
+			<View
+				style={{
+					height: StyleSheet.hairlineWidth,
+					backgroundColor: colors.secondaryText,
+					marginHorizontal: 16,
+				}}
+			/>
+		);
+	}, []);
+
+	const renderItem: ListRenderItem<Reporte> = useCallback(({ item }) => {
+		return (
+			<MiReporteItem
+				reporte={item}
+				estadoUI={estadoMapping[item.estado] || item.estado}
+				onPress={() => handleOpenReporte(item)}
+			/>
+		);
+	}, [handleOpenReporte]);
+
+	console.log('[ReportesEmpleado] Estado: isLoading=', isLoading, 'error=', error?.message, 'reportes=', reportes?.length);
 
 	if (isLoading) {
 		return (
@@ -45,38 +78,36 @@ export function ReportesEmpleado({ userId }: ReportesEmpleadoProps) {
 	}
 
 	if (error) {
+		console.error('[ReportesEmpleado] Error detallado:', error);
 		return (
 			<View style={styles.centerContainer}>
 				<ThemedText type="subtitle" style={styles.errorText}>
 					Error al cargar reportes
 				</ThemedText>
-				<ThemedText style={{ color: colors.text }}>
+				<ThemedText style={{ color: colors.icon }}>
 					{error instanceof Error ? error.message : 'Intenta nuevamente'}
 				</ThemedText>
 			</View>
 		);
 	}
 
+	if (!reportes || reportes.length === 0) {
+		return (
+			<View style={styles.centerContainer}>
+				<ThemedText type="subtitle">No hay reportes para este usuario</ThemedText>
+			</View>
+		);
+	}
+
 	return (
 		<View style={styles.container}>
-			{(!reportes || reportes.length === 0) ? (
-				<View style={styles.centerContainer}>
-					<ThemedText type="subtitle" style={{ color: colors.secondaryText }}>No hay reportes para este usuario</ThemedText>
-				</View>
-			) : (
-				<OwnFlatList
-					data={reportes}
-					renderItem={({ item }) => (
-						<MiReporteItem
-							reporte={item}
-							estadoUI={estadoMapping[item.estado] || item.estado}
-							onPress={() => handleOpenReporte(item)}
-						/>
-					)}
-					keyExtractor={(item) => item.id.toString()}
-					showSeparators={true}
-				/>
-			)}
+			<FlatList
+				data={reportes}
+				renderItem={renderItem}
+				keyExtractor={(item) => item.id.toString()}
+				scrollEnabled={false}
+				ItemSeparatorComponent={renderSeparator}
+			/>
 			{selectedReporte && (
 				<ReporteModal
 					visible={modalVisible}
@@ -150,6 +181,7 @@ function MiReporteItem({ reporte, estadoUI, onPress }: MiReporteItemProps) {
 const styles = StyleSheet.create({
 	container: {
 		flex: 1,
+		backgroundColor: colors.componentBackground,
 	},
 	centerContainer: {
 		flex: 1,
@@ -161,11 +193,9 @@ const styles = StyleSheet.create({
 		marginBottom: 8,
 	},
 	itemContainer: {
-		marginHorizontal: 16,
-		marginVertical: 4,
-		paddingHorizontal: 12,
-		paddingVertical: 12,
-		borderRadius: 8,
+		paddingHorizontal: 16,
+		paddingVertical: 8,
+		backgroundColor: colors.componentBackground,
 	},
 	itemContent: {
 		flexDirection: 'column',
@@ -173,6 +203,7 @@ const styles = StyleSheet.create({
 	description: {
 		fontSize: 13,
 		marginTop: 4,
+		color: colors.secondaryText,
 	},
 	categoriaText: {
 		fontSize: 12,
@@ -184,9 +215,11 @@ const styles = StyleSheet.create({
 		justifyContent: 'space-between',
 		alignItems: 'center',
 		marginTop: 8,
+		gap: 8,
 	},
 	dateText: {
 		fontSize: 12,
+		color: colors.secondaryText,
 	},
 	estadoBadge: {
 		paddingHorizontal: 8,

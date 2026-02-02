@@ -156,3 +156,16 @@ export function useArchivoUrl(id?: number) {
         staleTime: 1000 * 60 * 5, // URL signed might be valid for some time, e.g. 5 minutes
     });
 }
+
+export function useGetArchivoUrlFirmada() {
+    const { getValidAccessToken } = useAuth();
+
+    const getArchivoUrlFirmada = async (id: number) => {
+        const token = await getValidAccessToken();
+        if (!token) throw new Error("No se identificó al usuario");
+        return archivosApi.getArchivoUrlFirmada(token, id);
+    };
+
+    return { getArchivoUrlFirmada };
+}   
+ 

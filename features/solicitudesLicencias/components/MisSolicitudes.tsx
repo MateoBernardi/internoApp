@@ -212,14 +212,11 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 16,
   },
   listContent: {
-    paddingBottom: 100, // Espacio para que el FAB no tape el último item
   },
   separator: {
     height: StyleSheet.hairlineWidth,
-    marginHorizontal: 16,
   },
   errorText: {
     marginBottom: 8,

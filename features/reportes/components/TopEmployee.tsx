@@ -8,22 +8,10 @@ import { useTopEmployee } from '../viewmodels/useReportes';
 const colors = Colors['light'];
 
 export function TopEmployee() {
-	const { data, isLoading, error } = useTopEmployee();
-
-	if (isLoading) {
-		return (
-			<View style={styles.centerContainer}>
-				<ThemedText>Cargando...</ThemedText>
-			</View>
-		);
-	}
+	const { data, error } = useTopEmployee();
 
 	if (error || !data || data.length === 0) {
-		return (
-			<View style={styles.centerContainer}>
-				<ThemedText>No hay empleados destacados</ThemedText>
-			</View>
-		);
+		return null;
 	}
 
 	// Tomar el primero como el top
@@ -48,6 +36,8 @@ const styles = StyleSheet.create({
 		height: 180,
 		backgroundColor: colors.componentBackground,
 		borderRadius: 20,
+		borderWidth: 3,
+		borderColor: colors.lightTint,
 		alignItems: 'center',
 		justifyContent: 'center',
 		shadowColor: '#000',

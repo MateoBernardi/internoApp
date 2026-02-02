@@ -9,22 +9,10 @@ import { useUpgradedEmployee } from '../viewmodels/useReportes';
 const colors = Colors['light'];
 
 export function UpgradedEmployee() {
-	const { data, isLoading, error } = useUpgradedEmployee();
-
-	if (isLoading) {
-		return (
-			<View style={styles.centerContainer}>
-				<ThemedText>Cargando...</ThemedText>
-			</View>
-		);
-	}
+	const { data, error } = useUpgradedEmployee();
 
 	if (error || !data || data.length === 0) {
-		return (
-			<View style={styles.centerContainer}>
-				<ThemedText>No hay mejoras recientes</ThemedText>
-			</View>
-		);
+		return null;
 	}
 
 	// Tomar el primero como el top mejorado
@@ -54,6 +42,8 @@ const styles = StyleSheet.create({
 		height: 180,
 		backgroundColor: colors.componentBackground,
 		borderRadius: 20,
+		borderWidth: 3,
+		borderColor: '#9C27B0',
 		alignItems: 'center',
 		justifyContent: 'center',
 		shadowColor: '#000',

@@ -1,11 +1,11 @@
 import { ThemedView } from '@/components/themed-view';
-import { MisSolicitudes } from '@/features/solicitudesLicencias/components/MisSolicitudes';
+import { MisReportes } from '@/features/reportes/components/MisReportes';
 import { StyleSheet } from 'react-native';
 
-export default function MisSolicitudesLicenciasScreen() {
+export default function DocumentosScreen() {
   return (
         <ThemedView style={styles.container}>
-          <MisSolicitudes />
+          <MisReportes />
         </ThemedView>
     );
 }

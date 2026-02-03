@@ -1,6 +1,7 @@
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
-import React, { useState } from 'react';
+import { useRouter } from 'expo-router';
+import React from 'react';
 import {
   FlatList,
   StyleSheet,
@@ -10,23 +11,19 @@ import {
 } from 'react-native';
 import { Encuesta } from '../models/Encuesta';
 import { useGetEncuestas } from '../viewmodels/useEncuestas';
-import { ResponderEncuesta } from '../views/ResponderEncuesta';
 
 const colors = Colors['light'];
 
 export function EncuestasPendientes() {
+  const router = useRouter();
   const { data: encuestas, error } = useGetEncuestas();
-  const [encuestaSeleccionada, setEncuestaSeleccionada] = useState<Encuesta | null>(null);
 
-  // Si hay una encuesta seleccionada, mostrar el formulario para responderla
-  if (encuestaSeleccionada) {
-    return (
-      <ResponderEncuesta
-        encuesta={encuestaSeleccionada}
-        onCancelar={() => setEncuestaSeleccionada(null)}
-      />
-    );
-  }
+  const handleResponderEncuesta = (encuesta: Encuesta) => {
+    router.push({
+      pathname: '/(extras)/responder-encuesta',
+      params: { encuesta: JSON.stringify(encuesta) }
+    });
+  };
 
   if (error) {
     console.error(error);
@@ -48,7 +45,7 @@ export function EncuestasPendientes() {
     return (
       <TouchableOpacity
         style={styles.encuestaCard}
-        onPress={() => setEncuestaSeleccionada(item)}
+        onPress={() => handleResponderEncuesta(item)}
         activeOpacity={0.7}
       >
         <View style={styles.cardHeader}>
@@ -78,7 +75,7 @@ export function EncuestasPendientes() {
         </View>
 
         <View style={styles.buttonContainer}>
-          <Text style={styles.buttonText}>Responder ahora →</Text>
+          <Text style={styles.buttonText}>Responder ahora</Text>
         </View>
       </TouchableOpacity>
     );
@@ -226,7 +223,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   buttonText: {
-    color: colors.text,
+    color: colors.componentBackground,
     fontSize: 16,
     fontWeight: '600',
   },

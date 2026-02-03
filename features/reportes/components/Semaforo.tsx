@@ -40,17 +40,6 @@ export function Semaforo({ query = '', filteredData }: SemaforoProps = {}) {
 		verde: true,
 	});
 	
-	// Debug logging
-	React.useEffect(() => {
-		console.log('[Semaforo] Hook state:', { 
-			isLoading, 
-			hasError: !!error, 
-			statsLength: stats?.length, 
-			filteredDataLength: filteredData?.length,
-			hasFilteredData: !!filteredData
-		});
-	}, [isLoading, error, stats, filteredData]);
-	
 	// Usar datos filtrados si se proporcionan, de lo contrario usar stats
 	const dataToUse = filteredData ?? stats ?? [];
 
@@ -109,16 +98,22 @@ export function Semaforo({ query = '', filteredData }: SemaforoProps = {}) {
 
 	return (
 		<View style={styles.container}>
-			{(['rojo', 'amarillo', 'verde'] as const).map((zona) => (
-				<ZonaSection
-					key={zona}
-					zona={zona}
-					items={grouped[zona]}
-					isExpanded={expandedZones[zona]}
-					onToggle={() => toggleZone(zona)}
-					searchQuery={query}
-				/>
-			))}
+			{(['rojo', 'amarillo', 'verde'] as const).map((zona) => {
+				// Si hay búsqueda activa, mostrar solo las zonas que tengan items
+				if (query && grouped[zona].length === 0) {
+					return null;
+				}
+				return (
+					<ZonaSection
+						key={zona}
+						zona={zona}
+						items={grouped[zona]}
+						isExpanded={expandedZones[zona]}
+						onToggle={() => toggleZone(zona)}
+						searchQuery={query}
+					/>
+				);
+			})}
 		</View>
 	);
 }
@@ -189,7 +184,6 @@ function SemaforoItem({ item }: { item: ReporteStats }) {
 			<View style={styles.statsRow}>
 				<ThemedText style={[styles.stat, { color: colors.success }]}>+{item.positivos}</ThemedText>
 				<ThemedText style={[styles.stat, { color: colors.error }]}>-{item.negativos}</ThemedText>
-				<ThemedText style={[styles.stat, { color: colors.icon }]}>Puntos: {item.puntos}</ThemedText>
 			</View>
 		</View>
 	);

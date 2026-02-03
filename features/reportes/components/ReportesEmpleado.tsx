@@ -1,5 +1,7 @@
 import { ThemedText } from '@/components/themed-text';
+import { CreateButton } from '@/components/ui/CreateButton';
 import { Colors } from '@/constants/theme';
+import { useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
 	ActivityIndicator,
@@ -9,6 +11,7 @@ import {
 	TouchableOpacity,
 	View
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EstadoReporte, Reporte } from '../models/Reporte';
 import { useReportes } from '../viewmodels/useReportes';
 import { ReporteModal } from './ReporteModal';
@@ -22,28 +25,40 @@ const estadoMapping: Record<EstadoReporte, string> = {
 
 interface ReportesEmpleadoProps {
 	userId: string;
+	userNombre?: string;
+	userApellido?: string;
 }	
 
 const colors = Colors['light'];
 
-export function ReportesEmpleado({ userId }: ReportesEmpleadoProps) {
-	console.log('[ReportesEmpleado] Componente montado con userId:', userId);
+export function ReportesEmpleado({ userId, userNombre = '', userApellido = '' }: ReportesEmpleadoProps) {
+	const router = useRouter();
+	const insets = useSafeAreaInsets();
 	const { data: reportes, isLoading, error } = useReportes(userId);
 
 	const [modalVisible, setModalVisible] = useState(false);
 	const [selectedReporte, setSelectedReporte] = useState<Reporte | null>(null);
 
 	const handleOpenReporte = useCallback((reporte: Reporte) => {
-		console.log('[ReportesEmpleado] Abriendo reporte:', reporte.id);
 		setSelectedReporte(reporte);
 		setModalVisible(true);
 	}, []);
 
 	const handleCloseModal = useCallback(() => {
-		console.log('[ReportesEmpleado] Cerrando modal');
 		setModalVisible(false);
 		setSelectedReporte(null);
 	}, []);
+
+	const handleCrearReporte = useCallback(() => {
+		router.push({
+			pathname: '/(extras)/crear-reporte',
+			params: {
+				user_context_id: userId,
+				user_nombre: userNombre,
+				user_apellido: userApellido,
+			},
+		});
+	}, [router, userId, userNombre, userApellido]);
 
 	const renderSeparator = useCallback(() => {
 		return (
@@ -67,8 +82,6 @@ export function ReportesEmpleado({ userId }: ReportesEmpleadoProps) {
 		);
 	}, [handleOpenReporte]);
 
-	console.log('[ReportesEmpleado] Estado: isLoading=', isLoading, 'error=', error?.message, 'reportes=', reportes?.length);
-
 	if (isLoading) {
 		return (
 			<View style={styles.centerContainer}>
@@ -78,7 +91,6 @@ export function ReportesEmpleado({ userId }: ReportesEmpleadoProps) {
 	}
 
 	if (error) {
-		console.error('[ReportesEmpleado] Error detallado:', error);
 		return (
 			<View style={styles.centerContainer}>
 				<ThemedText type="subtitle" style={styles.errorText}>
@@ -116,6 +128,11 @@ export function ReportesEmpleado({ userId }: ReportesEmpleadoProps) {
 					origen="empleado"
 				/>
 			)}
+			<CreateButton
+				onPress={handleCrearReporte}
+				style={{ ...styles.createButton, bottom: insets.bottom + 16, right: 36 }}
+				accessibilityLabel="Crear nuevo reporte"
+			/>
 		</View>
 	);
 }
@@ -153,7 +170,7 @@ function MiReporteItem({ reporte, estadoUI, onPress }: MiReporteItemProps) {
 			<View style={styles.itemContent}>
 				{/* Nombre y apellido del creador */}
 				<ThemedText type="defaultSemiBold" numberOfLines={1}>
-					{reporte.creador_nombre} {reporte.creador_apellido}
+					Creado por: {reporte.creador_nombre} {reporte.creador_apellido}
 				</ThemedText>
 				{/* Fecha incidente */}
 				<ThemedText style={[styles.description, { color: colors.text }]}>Incidente: {new Date(reporte.fecha_incidente).toLocaleDateString()}</ThemedText>
@@ -191,6 +208,10 @@ const styles = StyleSheet.create({
 	},
 	errorText: {
 		marginBottom: 8,
+	},
+	createButton: {
+		position: 'absolute',
+		right: 36,
 	},
 	itemContainer: {
 		paddingHorizontal: 16,

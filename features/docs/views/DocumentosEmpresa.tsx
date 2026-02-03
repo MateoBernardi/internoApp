@@ -97,15 +97,6 @@ export default function DocumentosEmpresa({ query = '' }: { query?: string }) {
                   text: "Descargar",
                   onPress: () => handleDownloadFile(file)
               },
-              {
-                  text: "Editar",
-                  onPress: () => setFileToEdit(file)
-              },
-              {
-                  text: "Eliminar",
-                  style: "destructive",
-                  onPress: () => confirmDelete(file)
-              }
           ]
       );
   };
@@ -133,6 +124,10 @@ export default function DocumentosEmpresa({ query = '' }: { query?: string }) {
     />
   );
 
+  const renderSeparator = () => (
+    <View style={[styles.separator, { backgroundColor: colors.secondaryText }]} />
+  );
+
   return (
     <ThemedView style={styles.container}>
       {isSearching ? loadingSearch : loadingAll ? (
@@ -145,6 +140,7 @@ export default function DocumentosEmpresa({ query = '' }: { query?: string }) {
             renderItem={renderItem}
             keyExtractor={(item) => item.id.toString()}
             contentContainerStyle={styles.listContent}
+            ItemSeparatorComponent={renderSeparator}
             ListEmptyComponent={
                 <View style={styles.center}>
                     <ThemedText>No se encontraron documentos</ThemedText>
@@ -182,5 +178,8 @@ const styles = StyleSheet.create({
   listContent: {
     paddingBottom: 80,
     flexGrow: 1,
+  },
+  separator: {
+    height: StyleSheet.hairlineWidth,
   },
 });

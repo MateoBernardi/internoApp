@@ -16,7 +16,6 @@ import {
 
 export function useGetTiposLicencias() {
     const { getValidAccessToken } = useAuth();
-    console.log('me llamaron');
     return useQuery({
         queryKey: ['tipos-licencias'],
         queryFn: async () => {
@@ -24,7 +23,6 @@ export function useGetTiposLicencias() {
             if (!token) {
                 throw new Error('No hay token de acceso');
             }
-            console.log('tengo token');
             return getTiposLicencia(token);
         },
         staleTime: 1000 * 60 * 5, // 5 minutos

@@ -9,14 +9,19 @@ import { useUpgradedEmployee } from '../viewmodels/useReportes';
 const colors = Colors['light'];
 
 export function UpgradedEmployee() {
-	const { data, error } = useUpgradedEmployee();
+	const { data, error, isLoading } = useUpgradedEmployee();
 
-	if (error || !data || data.length === 0) {
+	if (error || isLoading || !data) {
 		return null;
 	}
 
 	// Tomar el primero como el top mejorado
-	const empleado = data[0];
+	const empleado = data;
+	
+	if (!empleado) {
+		return null;
+	}
+
 	const iniciales = `${empleado.nombre?.[0] ?? ''}${empleado.apellido?.[0] ?? ''}`.toUpperCase();
 
 	return (
@@ -29,7 +34,7 @@ export function UpgradedEmployee() {
 			</ThemedText>
 			<View style={styles.upRow}>
 				<Ionicons name="arrow-up" size={22} color={colors.lightTint} style={{ marginRight: 4 }} />
-				<ThemedText style={styles.upCount}>{empleado.puntos}</ThemedText>
+				<ThemedText style={styles.upCount}>{empleado.positivos_recientes}</ThemedText>
 			</View>
 			<ThemedText style={styles.name}>{empleado.nombre} {empleado.apellido}</ThemedText>
 		</View>
@@ -38,7 +43,7 @@ export function UpgradedEmployee() {
 
 const styles = StyleSheet.create({
 	card: {
-		width: 180,
+		width: 120,
 		height: 180,
 		backgroundColor: colors.componentBackground,
 		borderRadius: 20,
@@ -58,13 +63,13 @@ const styles = StyleSheet.create({
 		width: 56,
 		height: 56,
 		borderRadius: 28,
-		backgroundColor: colors.icon, 
+		backgroundColor: '#9C27B0', 
 		alignItems: 'center',
 		justifyContent: 'center',
 		marginBottom: 10,
 	},
 	iconText: {
-		color: colors.secondaryText,
+		color: colors.componentBackground,
 		fontSize: 28,
 		fontWeight: 'bold',
 	},

@@ -8,14 +8,20 @@ import { useTopEmployee } from '../viewmodels/useReportes';
 const colors = Colors['light'];
 
 export function TopEmployee() {
-	const { data, error } = useTopEmployee();
+	const { data, error, isLoading } = useTopEmployee();
 
-	if (error || !data || data.length === 0) {
+	if (error || isLoading || !data) {
 		return null;
 	}
 
-	// Tomar el primero como el top
-	const empleado = data[0];
+	// Tomar el top
+	const empleado = data;
+	
+	if (!empleado) {
+		return null;
+	}
+
+	console.log('[TopEmployee] empleado:', empleado);
 	const iniciales = `${empleado.nombre?.[0] ?? ''}${empleado.apellido?.[0] ?? ''}`.toUpperCase();
 
 	return (
@@ -24,7 +30,7 @@ export function TopEmployee() {
 				<ThemedText style={styles.iconText}>{iniciales}</ThemedText>
 			</View>
 			<ThemedText type="subtitle" style={styles.title}>Más comentarios positivos</ThemedText>
-			<ThemedText style={styles.positiveCount}>+{empleado.positivos}</ThemedText>
+			<ThemedText style={styles.positiveCount}>{empleado.total_positivos}</ThemedText>
 			<ThemedText style={styles.name}>{empleado.nombre} {empleado.apellido}</ThemedText>
 		</View>
 	);
@@ -32,7 +38,7 @@ export function TopEmployee() {
 
 const styles = StyleSheet.create({
 	card: {
-		width: 180,
+		width: 120,
 		height: 180,
 		backgroundColor: colors.componentBackground,
 		borderRadius: 20,
@@ -52,13 +58,13 @@ const styles = StyleSheet.create({
 		width: 56,
 		height: 56,
 		borderRadius: 28,
-		backgroundColor: colors.icon, // verde positivo
+		backgroundColor: colors.success, // verde positivo
 		alignItems: 'center',
 		justifyContent: 'center',
 		marginBottom: 10,
 	},
 	iconText: {
-		color: colors.secondaryText,
+		color: colors.componentBackground,
 		fontSize: 28,
 		fontWeight: 'bold',
 	},
@@ -67,6 +73,7 @@ const styles = StyleSheet.create({
 		fontWeight: '600',
 		color: colors.text,
 		marginBottom: 2,
+		textAlign: 'center',
 	},
 	positiveCount: {
 		fontSize: 22,

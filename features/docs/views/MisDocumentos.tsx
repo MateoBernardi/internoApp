@@ -95,10 +95,6 @@ export default function MisDocumentos({ query = '' }: { query?: string }) {
                   style: "cancel"
               },
               {
-                  text: "Abrir",
-                  onPress: () => setFileToOpen(file)
-              },
-              {
                   text: "Descargar",
                   onPress: () => handleDownloadFile(file)
               },
@@ -106,11 +102,6 @@ export default function MisDocumentos({ query = '' }: { query?: string }) {
                   text: "Editar",
                   onPress: () => setFileToEdit(file)
               },
-              {
-                  text: "Eliminar",
-                  style: "destructive",
-                  onPress: () => confirmDelete(file)
-              }
           ]
       );
   };
@@ -135,7 +126,12 @@ export default function MisDocumentos({ query = '' }: { query?: string }) {
       archivo={item}
       onPress={() => setFileToOpen(item)}
       onOptions={() => showOptions(item)}
+      onDelete={() => confirmDelete(item)}
     />
+  );
+
+  const renderSeparator = () => (
+    <View style={[styles.separator, { backgroundColor: colors.secondaryText }]} />
   );
 
   return (
@@ -150,6 +146,7 @@ export default function MisDocumentos({ query = '' }: { query?: string }) {
             renderItem={renderItem}
             keyExtractor={(item) => item.id.toString()}
             contentContainerStyle={styles.listContent}
+            ItemSeparatorComponent={renderSeparator}
             ListEmptyComponent={
                 <View style={styles.center}>
                     <ThemedText>No hay documentos</ThemedText>
@@ -185,5 +182,8 @@ const styles = StyleSheet.create({
   listContent: {
     paddingBottom: 80,
     flexGrow: 1,
+  },
+  separator: {
+    height: StyleSheet.hairlineWidth,
   },
 });

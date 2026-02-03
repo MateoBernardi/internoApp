@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 // Componentes y Hooks propios
 import { CreateButton } from '@/components/ui/CreateButton';
 import { EstadoSolicitud, SolicitudLicencia } from '../models/SolicitudLicencia';
@@ -30,6 +31,7 @@ const colors = Colors['light'];
 
 export function MisSolicitudes() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   // 1. Obtención de datos
   const { data: solicitudes, isLoading, error } = useGetSolicitudesUsuario();
@@ -99,6 +101,8 @@ export function MisSolicitudes() {
 
   return (
     <View style={styles.container}>
+      <ThemedText type="title" style={styles.pageTitle}>Mis Solicitudes</ThemedText>
+      
       {(!solicitudes || solicitudes.length === 0) ? (
         <View style={styles.centerContainer}>
           <ThemedText type="subtitle">No hay solicitudes enviadas</ThemedText>
@@ -113,14 +117,14 @@ export function MisSolicitudes() {
           keyExtractor={(item) => item.id.toString()}
           scrollEnabled={true}
           ItemSeparatorComponent={renderSeparator}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { paddingBottom: 80 }]}
         />
       )}
 
       {/* Botón flotante de creación */}
       <CreateButton 
         onPress={handleCreateNew} 
-        style={styles.fab} 
+        style={{ ...styles.fab, bottom: insets.bottom + 16, right: 36 }}
         accessibilityLabel="Crear solicitud de licencia"
       />
     </View>
@@ -207,6 +211,19 @@ function MiSolicitudItem({ solicitud, estadoUI, onPress }: MiSolicitudItemProps)
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: colors.componentBackground,
+  },
+  pageTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    backgroundColor: colors.componentBackground,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 12,
+    borderRadius: 8,
   },
   centerContainer: {
     flex: 1,
@@ -255,7 +272,6 @@ const styles = StyleSheet.create({
   },
   fab: {
     position: 'absolute',
-    bottom: 24,
-    right: 24,
+    right: 36,
   },
 });

@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Encuesta, Pregunta, Respuesta } from '../models/Encuesta';
 import { useEnviarRespuestasEncuesta } from '../viewmodels/useEncuestas';
 
@@ -25,6 +26,7 @@ export const ResponderEncuesta: React.FC<ResponderEncuestaProps> = ({
   encuesta,
   onCancelar,
 }) => {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const [respuestas, setRespuestas] = useState<Map<number, Respuesta>>(new Map());
   const { mutate: enviarRespuestas, isPending } = useEnviarRespuestasEncuesta();
@@ -123,7 +125,7 @@ export const ResponderEncuesta: React.FC<ResponderEncuestaProps> = ({
     const respuestasArray = Array.from(respuestas.values());
 
     enviarRespuestas(
-      { respuesta: respuestasArray },
+      { respuestas: respuestasArray },
       {
         onSuccess: () => {
           Alert.alert(
@@ -294,7 +296,7 @@ export const ResponderEncuesta: React.FC<ResponderEncuestaProps> = ({
         )}
       </View>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
         {encuesta.preguntas && encuesta.preguntas.length > 0 ? (
           encuesta.preguntas.map((pregunta) => renderPregunta(pregunta))
         ) : (
@@ -302,7 +304,7 @@ export const ResponderEncuesta: React.FC<ResponderEncuestaProps> = ({
         )}
       </ScrollView>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
         <TouchableOpacity
           style={styles.cancelarButton}
           onPress={onCancelar}

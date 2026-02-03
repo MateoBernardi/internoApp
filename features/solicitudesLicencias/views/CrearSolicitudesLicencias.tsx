@@ -31,6 +31,7 @@ export function CrearSolicitudesLicencias() {
   const [fechaFin, setFechaFin] = useState<Date>(new Date());
   const [tipoLicenciaId, setTipoLicenciaId] = useState<number | null>(null);
   const [observacion, setObservacion] = useState('');
+  const [archivoAdjunto, setArchivoAdjunto] = useState<{ name: string; uri: string } | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [activeDateType, setActiveDateType] = useState<'start' | 'end' | null>(null);
   const [showTipoLicenciaModal, setShowTipoLicenciaModal] = useState(false);
@@ -92,6 +93,29 @@ export function CrearSolicitudesLicencias() {
   const handleCrearSolicitud = useCallback(() => {
     if (!isFormValid) return;
 
+    // Aviso si falta adjunto requerido
+    if (selectedTipo?.requiere_adjunto && !archivoAdjunto) {
+      Alert.alert(
+        'Adjunto Requerido',
+        'Esta solicitud requiere documentación. Si continúas sin adjuntarla, la solicitud quedará en estado "Pendiente Documentación" hasta que adjuntes el archivo.',
+        [
+          {
+            text: 'Cancelar',
+            style: 'cancel',
+          },
+          {
+            text: 'Crear sin Adjunto',
+            style: 'destructive',
+            onPress: () => procederCrearSolicitud(),
+          },
+        ]
+      );
+    } else {
+      procederCrearSolicitud();
+    }
+  }, [isFormValid, selectedTipo, archivoAdjunto]);
+
+  const procederCrearSolicitud = useCallback(() => {
     crearSolicitud(
       {
         tipo_licencia_id: tipoLicenciaId!,
@@ -109,7 +133,7 @@ export function CrearSolicitudesLicencias() {
         },
       }
     );
-  }, [isFormValid, crearSolicitud, tipoLicenciaId, fechaInicio, fechaFin, observacion, router]);
+  }, [crearSolicitud, tipoLicenciaId, fechaInicio, fechaFin, observacion, router]);
 
   return (
     <View style={styles.container}>
@@ -217,6 +241,49 @@ export function CrearSolicitudesLicencias() {
             </View>
           </View>
 
+          {/* Sección de Adjuntos (Condicional) */}
+          {selectedTipo?.requiere_adjunto && (
+            <View style={[styles.sectionCard, !archivoAdjunto && styles.adjuntoRequerido]}>
+              <View style={styles.rowInfo}>
+                <Ionicons name="document-attach-outline" size={20} color={!archivoAdjunto ? colors.lightTint : colors.lightTint} />
+                <ThemedText style={[styles.sectionLabel, !archivoAdjunto && { color: colors.lightTint }]}>
+                  {!archivoAdjunto ? 'Adjunto Requerido' : 'Adjunto'}
+                </ThemedText>
+              </View>
+              
+              {!archivoAdjunto ? (
+                <TouchableOpacity 
+                  style={styles.adjuntoButton}
+                  onPress={() => {
+                    Alert.alert(
+                      'Cargar Archivo',
+                      'Esta funcionalidad estará disponible en la próxima versión.\nPor ahora, puedes adjuntar el documento después de crear la solicitud.',
+                      [{ text: 'OK' }]
+                    );
+                  }}
+                >
+                  <Ionicons name="cloud-upload-outline" size={32} color={colors.lightTint} style={{ marginBottom: 8 }} />
+                  <ThemedText style={{ color: colors.lightTint, fontWeight: '600', fontSize: 14, textAlign: 'center' }}>
+                    Cargar archivo requerido
+                  </ThemedText>
+                  <ThemedText style={{ color: colors.secondaryText, fontSize: 12, marginTop: 4, textAlign: 'center' }}>
+                    PDF, DOC, DOCX, JPG o PNG
+                  </ThemedText>
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.adjuntoSeleccionado}>
+                  <Ionicons name="document" size={24} color={colors.lightTint} />
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <ThemedText style={styles.adjuntoNombre}>{archivoAdjunto.name}</ThemedText>
+                  </View>
+                  <TouchableOpacity onPress={() => setArchivoAdjunto(null)}>
+                    <Ionicons name="close-circle" size={24} color={colors.error} />
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          )}
+
         </ScrollView>
 
         {/* Botón de Acción (FAB) */}
@@ -321,7 +388,7 @@ const styles = StyleSheet.create({
   },
   warningText: { 
     fontSize: 12, 
-    color: colors.error, 
+    color: colors.lightTint, 
     marginTop: 4, 
     fontWeight: '500' 
   },
@@ -335,6 +402,36 @@ const styles = StyleSheet.create({
     fontSize: 16, 
     minHeight: 80, 
     textAlignVertical: 'top' 
+  },
+  adjuntoRequerido: {
+    borderColor: colors.lightTint,
+    borderWidth: 2,
+    backgroundColor: colors.lightTint + '08',
+  },
+  adjuntoButton: {
+    marginTop: 12,
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+    borderStyle: 'dashed',
+    borderWidth: 2,
+    borderColor: colors.lightTint,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  adjuntoSeleccionado: {
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    backgroundColor: colors.background,
+    borderRadius: 8,
+  },
+  adjuntoNombre: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.text,
   },
   fab: {
     position: 'absolute',

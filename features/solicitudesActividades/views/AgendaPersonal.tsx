@@ -1,26 +1,29 @@
+import { ThemedText } from '@/components/themed-text';
+import { Colors } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import React, { useMemo, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    FlatList,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Actividad, Licencia } from '../models/Actividad';
 import {
-    useActividadesSemanaAnterior,
-    useActividadesSemanales,
-    useCancelarActividad,
-    useCrearActividad,
+  useActividadesSemanaAnterior,
+  useActividadesSemanales,
+  useCancelarActividad,
+  useCrearActividad,
 } from '../viewmodels/useActividades';
 
 interface Activity {
@@ -45,6 +48,7 @@ const AgendaPersonal: React.FC = () => {
   // Queries
   const actividadesSemanalesQuery = useActividadesSemanales();
   const actividadesSemanaAnteriorQuery = useActividadesSemanaAnterior();
+  const insets = useSafeAreaInsets();
 
   // Mutations
   const crearActividadMutation = useCrearActividad();
@@ -507,6 +511,9 @@ const AgendaPersonal: React.FC = () => {
 
   return (
     <View style={styles.container}>
+      {/* Título */}
+      <ThemedText type="title" style={styles.pageTitle}>Agenda Personal</ThemedText>
+      
       {/* Header */}
       <View style={styles.header}>
         <View>
@@ -564,7 +571,7 @@ const AgendaPersonal: React.FC = () => {
       </View>
 
       {/* Activities */}
-      <ScrollView style={styles.activitiesContainer}>
+      <ScrollView style={styles.activitiesContainer} contentContainerStyle={{ paddingBottom: 80 }}>
         {isLoading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#1a73e8" />
@@ -583,7 +590,7 @@ const AgendaPersonal: React.FC = () => {
       </ScrollView>
 
       {/* Floating Menu Button */}
-      <View style={styles.fabContainer}>
+      <View style={[styles.fabContainer, { bottom: insets.bottom + 16, right: 36 }]}>
         {showFloatingMenu && (
           <>
             <TouchableOpacity
@@ -953,6 +960,19 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
+  pageTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    backgroundColor: Colors['light'].componentBackground,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 12,
+    borderRadius: 8,
+    color: Colors['light'].text,
+  },
   header: {
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -1193,8 +1213,7 @@ const styles = StyleSheet.create({
   // Floating Action Button
   fabContainer: {
     position: 'absolute',
-    bottom: 20,
-    right: 20,
+    right: 36,
     alignItems: 'flex-end',
   },
   fab: {

@@ -1,12 +1,13 @@
+import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
 import React, { useState } from 'react';
 import {
-  SafeAreaView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { CrearEncuesta } from '../components/CrearEncuesta';
 import { VerResultadosEncuestas } from '../components/VerResultadoEncuestas';
 
@@ -33,13 +34,8 @@ export const Encuestas: React.FC = () => {
 
   // Pantalla de selección de opciones
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Gestión de Encuestas</Text>
-        <Text style={styles.headerSubtitle}>
-          Selecciona una opción para continuar
-        </Text>
-      </View>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+      <ThemedText type="title" style={styles.pageTitle}>Gestión de Encuestas</ThemedText>
 
       <View style={styles.content}>
         <TouchableOpacity
@@ -77,13 +73,6 @@ export const Encuestas: React.FC = () => {
           </View>
         </TouchableOpacity>
       </View>
-
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>
-          💡 Tip: Las encuestas te ayudan a obtener feedback valioso de tus
-          usuarios
-        </Text>
-      </View>
     </SafeAreaView>
   );
 };
@@ -92,6 +81,18 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.componentBackground,
+  },
+  pageTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    backgroundColor: colors.componentBackground,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 16,
+    borderRadius: 8,
   },
   header: {
     backgroundColor: colors.componentBackground,

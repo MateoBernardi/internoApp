@@ -2,11 +2,11 @@ import { apiRequest } from '../../../shared/apiRequest';
 import * as solicitudLicencia from '../models/SolicitudLicencia';
 
 export const getTiposLicencia = async (accessToken: string): Promise<solicitudLicencia.TipoLicencia[]> => {
-    const response = await apiRequest({method: 'GET', endpoint: '/solicitudes-licencias/tipos', token: accessToken});
+    const response = await apiRequest({method: 'GET', endpoint: '/licencias/tipos', token: accessToken});
 
     if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        throw new Error(`No se pudieron obtener los tipos de licencia: ${error.message}`);
+        console.error('Error fetching tipos de licencia:', response.status, response.statusText);
+        throw new Error(`No se pudieron obtener los tipos de licencia: ${response.statusText}`);
     }
 
     const data = await response.json();
@@ -15,11 +15,11 @@ export const getTiposLicencia = async (accessToken: string): Promise<solicitudLi
 };
 
 export const getSaldosLicencia = async (accessToken: string): Promise<solicitudLicencia.SaldoLicencia[]> => {
-    const response = await apiRequest({method: 'GET', endpoint: '/solicitudes-licencias/saldos', token: accessToken});
+    const response = await apiRequest({method: 'GET', endpoint: '/licencias/saldos', token: accessToken});
 
     if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        throw new Error(`No se pudieron obtener los saldos de licencia: ${error.message}`);
+        console.error('Error fetching saldos de licencia:', response.status, response.statusText);
+        throw new Error(`No se pudieron obtener los saldos de licencia: ${response.statusText}`);
     }
 
     const raw = await response.json();

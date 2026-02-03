@@ -1,6 +1,5 @@
 import { useAuth } from '@/features/auth/hooks/useAuthActions';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Encuesta } from '../models/Encuesta';
 import {
     createEncuestaCompleta,
     enviarRespuestas,
@@ -20,7 +19,6 @@ export function useGetEncuestas() {
             }
             return fetchEncuestas(token);
         },
-        select: (response) => response.data,
         staleTime: 1000 * 60 * 5, // 5 minutos
         gcTime: 1000 * 60 * 10, // 10 minutos 
         retry: 1,
@@ -33,7 +31,7 @@ export function useEnviarRespuestasEncuesta() {
     const { getValidAccessToken } = useAuth();  
 
     return useMutation({    
-        mutationFn: async (data: {respuesta: import('../models/Encuesta').Respuesta[]}) => {
+        mutationFn: async (data: {respuestas: import('../models/Encuesta').Respuesta[]}) => {
             const token = await getValidAccessToken();
             if (!token) {
                 throw new Error('No hay token de acceso');
@@ -60,7 +58,7 @@ export function useGetRespuestasEncuesta() {
             return getRespuestasEncuesta(token);
         },
         staleTime: 1000 * 60 * 5, // 5 minutos
-        gcTime: 1000 * 60 * 10, // 10 minutos (antes llamado cacheTime)
+        gcTime: 1000 * 60 * 10, // 10 minutos
     });
 }
 
@@ -76,11 +74,9 @@ export function useCreateEncuestaCompleta() {
             }
             return createEncuestaCompleta(token, data);
         },
-        onSuccess: (newEncuesta) => {
-            // Actualizar el cache agregando la nueva encuesta
-            queryClient.setQueryData(['encuestas'], (old: Encuesta[] | undefined) => {
-                return old ? [...old, newEncuesta] : [newEncuesta];
-            });
+        onSuccess: () => {
+            // Invalidar la query para refrescar desde el servidor
+            queryClient.invalidateQueries({ queryKey: ['encuestas'] });
         },
     });
 }

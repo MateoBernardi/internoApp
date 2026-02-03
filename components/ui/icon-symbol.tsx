@@ -21,6 +21,7 @@ const MAPPING = {
   'doc.text.fill': 'description',
   'chart.bar.fill': 'bar-chart',
   'pencil.fill': 'edit',
+  'xmark': 'close',
 } as const;
 
 type IconSymbolName = keyof typeof MAPPING;

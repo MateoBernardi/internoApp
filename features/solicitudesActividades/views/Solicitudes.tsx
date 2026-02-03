@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SolicitudesEnviadas } from '../components/SolicitudesEnviadas';
 import { SolicitudesRecibidas } from '../components/SolicitudesRecibidas';
 
@@ -18,6 +19,7 @@ const colors = Colors['light'];
 
 export default function SolicitudesView() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const [activeTab, setActiveTab] = useState<TabType>('recibidas');
 
@@ -87,7 +89,7 @@ export default function SolicitudesView() {
 
       {/* Botón flotante */}
       {
-        <View style={styles.floatingButtonContainer}>
+        <View style={[styles.floatingButtonContainer, { bottom: insets.bottom + 8, right: 36 }]}>
           <CreateButton
             onPress={handleCreatePress}
             size={56}
@@ -143,7 +145,6 @@ const styles = StyleSheet.create({
   },
   floatingButtonContainer: {
     position: 'absolute',
-    bottom: 32,
-    right: 24,
+    right: 36,
   },
 });

@@ -1,5 +1,7 @@
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
+import { useRoleCheck } from '@/hooks/useRoleCheck';
+import { Picker } from '@react-native-picker/picker';
 import React, { useState } from 'react';
 import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { EstadoReporte, Reporte } from '../models/Reporte';
@@ -23,10 +25,21 @@ const colors = Colors['light'];
 
 export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModalProps) {
 	const { mutate: updateReporte, isPending } = useUpdateReporte();
+	const { hasRole } = useRoleCheck();
 
 	// Estado para controles
 	const [nuevoEstado, setNuevoEstado] = useState<EstadoReporte | null>(null);
 	const [observacion, setObservacion] = useState('');
+
+	// Verificar si el reporte está en un estado final (no editable)
+	const isReporteFinal = reporte.estado === 'ASENTADO' || reporte.estado === 'DESESTIMADO';
+	
+	// Verificar si el usuario tiene rol 'gerencia'
+	const isGerencia = hasRole('gerencia');
+	
+	// Solo gerencia puede modificar si está en estado final
+	// En otros estados (DISPUTA, PENDIENTE), cualquiera puede modificar
+	const canModify = !isReporteFinal || isGerencia;
 
 	// Para MisReportes: solo puede aceptar (ASENTADO, obs opcional) o responder (DISPUTA, obs obligatoria)
 	// Para ReportesEmpleado: puede cambiar a cualquier estado, obs obligatoria
@@ -59,23 +72,34 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 
 	// Renderiza controles según origen
 	const renderControles = () => {
+		// Si está en estado final y el usuario no es gerencia, mostrar mensaje de permisos
+		if (isReporteFinal && !isGerencia) {
+			return (
+				<View style={styles.accionesContainer}>
+					<ThemedText style={[styles.accionesTitle, { color: colors.error }]}>
+						Permisos insuficientes
+					</ThemedText>
+					<ThemedText style={{ color: colors.secondaryText, marginTop: 8 }}>
+						Solo usuarios con rol Gerencia pueden modificar reportes en estado {reporte.estado}.
+					</ThemedText>
+				</View>
+			);
+		}
+
 		if (origen === 'mis') {
 			return (
 				<View style={styles.accionesContainer}>
 					<ThemedText style={styles.accionesTitle}>Acciones</ThemedText>
-					<View style={styles.accionesRow}>
-						<TouchableOpacity
-							style={[styles.accionBtn, nuevoEstado === 'ASENTADO' && styles.accionBtnActive]}
-							onPress={() => setNuevoEstado('ASENTADO')}
+					<View style={styles.selectorContainer}>
+						<Picker
+							selectedValue={nuevoEstado || ''}
+							onValueChange={(value: string) => setNuevoEstado(value as EstadoReporte)}
+							style={styles.picker}
 						>
-							<ThemedText style={styles.accionBtnText}>Aceptar</ThemedText>
-						</TouchableOpacity>
-						<TouchableOpacity
-							style={[styles.accionBtn, nuevoEstado === 'DISPUTA' && styles.accionBtnActive]}
-							onPress={() => setNuevoEstado('DISPUTA')}
-						>
-							<ThemedText style={styles.accionBtnText}>Responder</ThemedText>
-						</TouchableOpacity>
+							<Picker.Item label="Selecciona un estado..." value="" />
+							<Picker.Item label="Aceptar (Asentado)" value="ASENTADO" />
+							<Picker.Item label="Responder (En disputa)" value="DISPUTA" />
+						</Picker>
 					</View>
 					<TextInput
 						style={styles.input}
@@ -94,16 +118,18 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 			return (
 				<View style={styles.accionesContainer}>
 					<ThemedText style={styles.accionesTitle}>Modificar estado</ThemedText>
-					<View style={styles.accionesRow}>
-						{estadoOptions.map(opt => (
-							<TouchableOpacity
-								key={opt.value}
-								style={[styles.accionBtn, nuevoEstado === opt.value && styles.accionBtnActive]}
-								onPress={() => setNuevoEstado(opt.value)}
-							>
-								<ThemedText style={styles.accionBtnText}>{opt.label}</ThemedText>
-							</TouchableOpacity>
-						))}
+					<View style={styles.selectorContainer}>
+						<Picker
+							selectedValue={nuevoEstado || ''}
+							onValueChange={(value: string) => setNuevoEstado(value as EstadoReporte)}
+							style={styles.picker}
+						>
+							<Picker.Item label="Selecciona un estado..." value="" />
+							<Picker.Item label="Pendiente" value="PENDIENTE" />
+							<Picker.Item label="En disputa" value="DISPUTA" />
+							<Picker.Item label="Asentado" value="ASENTADO" />
+							<Picker.Item label="Desestimar" value="DESESTIMADO" />
+						</Picker>
 					</View>
 					<TextInput
 						style={styles.input}
@@ -113,7 +139,7 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 						multiline
 					/>
 					<TouchableOpacity style={styles.confirmBtn} onPress={handleAccion} disabled={isPending}>
-						{isPending ? <ActivityIndicator color={colors.componentBackground} /> : <ThemedText style={{ color: colors.text }}>Confirmar</ThemedText>}
+						{isPending ? <ActivityIndicator color={colors.componentBackground} /> : <ThemedText style={{ color: colors.secondaryText }}>Confirmar</ThemedText>}
 					</TouchableOpacity>
 				</View>
 			);
@@ -126,7 +152,7 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 				<View style={[styles.modal, { backgroundColor: colors.componentBackground }]}>  
 					<ScrollView contentContainerStyle={styles.scrollContent}>
 						<TouchableOpacity style={styles.closeBtn} onPress={onClose}>
-							<ThemedText style={{ fontSize: 18, color: colors.icon }}>Cerrar</ThemedText>
+							<ThemedText style={{ fontSize: 18, color: colors.error }}>Cerrar</ThemedText>
 						</TouchableOpacity>
 						<ThemedText type="title" style={styles.title}>{reporte.titulo}</ThemedText>
 						<ThemedText style={styles.label}>Descripción</ThemedText>
@@ -205,15 +231,18 @@ const styles = StyleSheet.create({
 		fontSize: 22,
 		fontWeight: 'bold',
 		marginBottom: 8,
+		color: colors.text,
 	},
 	label: {
 		fontWeight: '600',
 		marginTop: 10,
 		fontSize: 15,
+		color: colors.lightTint,
 	},
 	value: {
 		fontSize: 15,
 		marginTop: 2,
+		color: colors.secondaryText
 	},
 	sectionHeader: {
 		marginTop: 18,
@@ -222,6 +251,7 @@ const styles = StyleSheet.create({
 	sectionTitle: {
 		fontSize: 17,
 		fontWeight: 'bold',
+		color: colors.text,
 	},
 	bitacoraContainer: {
 		marginBottom: 12,
@@ -239,6 +269,7 @@ const styles = StyleSheet.create({
 	},
 	bitacoraUser: {
 		fontWeight: '600',
+		color: colors.text,
 	},
 	bitacoraDate: {
 		fontSize: 12,
@@ -250,6 +281,7 @@ const styles = StyleSheet.create({
 	bitacoraAction: {
 		fontWeight: '500',
 		marginBottom: 2,
+		color: colors.lightTint,
 	},
 	bitacoraBubble: {
 		backgroundColor: colors.componentBackground,
@@ -275,6 +307,17 @@ const styles = StyleSheet.create({
 		gap: 12,
 		marginBottom: 8,
 	},
+	selectorContainer: {
+		borderWidth: 1,
+		borderColor: colors.background,
+		borderRadius: 6,
+		marginBottom: 8,
+		overflow: 'hidden',
+	},
+	picker: {
+		height: 50,
+		color: colors.text,
+	},
 	accionBtn: {
 		paddingHorizontal: 14,
 		paddingVertical: 8,
@@ -299,7 +342,7 @@ const styles = StyleSheet.create({
 		fontSize: 15,
 	},
 	confirmBtn: {
-		backgroundColor: colors.lightTint,
+		backgroundColor: colors.success,
 		borderRadius: 6,
 		paddingVertical: 10,
 		alignItems: 'center',

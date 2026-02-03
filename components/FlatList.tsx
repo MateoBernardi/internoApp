@@ -1,20 +1,21 @@
 import { Colors } from '@/constants/theme';
 import React, { memo } from 'react';
 import {
-  FlatList,
-  FlatListProps,
-  ListRenderItem,
-  StyleSheet,
-  View,
-  ViewStyle,
+    FlatList,
+    FlatListProps,
+    ListRenderItem,
+    StyleSheet,
+    View,
+    ViewStyle,
 } from 'react-native';
 
-type OwnFlatListProps<T> = Omit<FlatListProps<T>, 'renderItem'> & {
+type OwnFlatListProps<T> = Omit<FlatListProps<T>, 'renderItem' | 'contentContainerStyle'> & {
   data: T[];
   renderItem: ListRenderItem<T>;
   containerStyle?: ViewStyle;
   itemSeparatorStyle?: ViewStyle;
   showSeparators?: boolean;
+  contentContainerStyle?: ViewStyle;
 };
 
 const OwnFlatListInner = <T,>({
@@ -23,6 +24,7 @@ const OwnFlatListInner = <T,>({
     containerStyle,
     itemSeparatorStyle,
     showSeparators = true,
+    contentContainerStyle,
     ...flatListProps
   }: OwnFlatListProps<T>) => {
     const colors = Colors['light'];
@@ -48,7 +50,7 @@ const OwnFlatListInner = <T,>({
                 )
               : undefined
           }
-          contentContainerStyle={styles.contentContainer}
+          contentContainerStyle={[styles.contentContainer, contentContainerStyle]}
           {...flatListProps}
         />
       </View>

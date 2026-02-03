@@ -20,16 +20,18 @@ export function Reportes() {
 		if (!searchQuery.trim()) return stats;
 
 		const query = searchQuery.toLowerCase().trim();
-		return stats.filter((item) => {
+		const result = stats.filter((item) => {
 			const fullName = `${item.nombre} ${item.apellido}`.toLowerCase();
-			return fullName.includes(query);
+			const matches = fullName.includes(query);
+			return matches;
 		});
+		return result;
 	}, [stats, searchQuery]);
 
 	return (
 		<View style={styles.container}>
 			<View style={styles.header}>
-				<ThemedText type="title" style={{ fontWeight: 'bold' }}>
+				<ThemedText type="title" style={styles.headerTitle}>
 					Métricas de empleados
 				</ThemedText>
 			</View>
@@ -77,6 +79,15 @@ const styles = StyleSheet.create({
 		paddingTop: 24,
 		paddingBottom: 8,
 	},
+	headerTitle: {
+		fontSize: 20,
+		fontWeight: 'bold',
+		textAlign: 'center',
+		backgroundColor: colors.componentBackground,
+		paddingVertical: 12,
+		paddingHorizontal: 16,
+		borderRadius: 8,
+	},
 	searchBarContainer: {
 		paddingHorizontal: 12,
 		paddingTop: 12,
@@ -91,7 +102,7 @@ const styles = StyleSheet.create({
 		flex: 1,
 	},
 	scrollContentContainer: {
-		paddingBottom: 20,
+		paddingBottom: 80,
 	},
 	cardsContainer: {
 		flexDirection: 'row',

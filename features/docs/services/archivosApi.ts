@@ -9,6 +9,37 @@ const uriToBlob = async (uri: string) => {
   return blob;
 };
 
+// Helper to get MIME type from file extension
+const getMimeType = (fileName: string, providedType?: string): string => {
+  // If a type is provided and it looks like a MIME type, use it
+  if (providedType && providedType.includes('/')) {
+    return providedType;
+  }
+
+  // Fallback: map by file extension
+  const extension = fileName.toLowerCase().split('.').pop() || '';
+  const mimeTypes: Record<string, string> = {
+    pdf: 'application/pdf',
+    doc: 'application/msword',
+    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    xls: 'application/vnd.ms-excel',
+    xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    ppt: 'application/vnd.ms-powerpoint',
+    pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    txt: 'text/plain',
+    csv: 'text/csv',
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    png: 'image/png',
+    gif: 'image/gif',
+    zip: 'application/zip',
+    mp3: 'audio/mpeg',
+    mp4: 'video/mp4',
+  };
+
+  return mimeTypes[extension] || 'application/octet-stream';
+};
+
 export async function fetchArchivos(accessToken: string) : Promise<archivos.Archivo[]> {   
     const response = await apiRequest({method: 'GET', endpoint: '/archivos', token: accessToken})
 
@@ -25,7 +56,6 @@ export async function searchArchivosByNombre(accessToken: string, query: string)
 
     if (!response.ok) {
         console.error(`Error searching by name: ${response.status}`);
-        console.log(response.json)
         return [];
     }
 
@@ -42,7 +72,6 @@ export async function searchArchivosByPersona(accessToken: string, query: string
     
     if (!response.ok) {
         console.error(`Error searching by person: ${response.status}`);
-        console.log(response.json)
         return [];
     }
 
@@ -121,25 +150,43 @@ export async function getUrlCargaArchivo(accessToken: string, data:archivos.Pedi
     const response = await apiRequest({method: 'POST', endpoint: '/archivos/upload', token: accessToken, body: data});
 
     if (!response.ok) {
-        throw new Error(`No se pudo obtener el enlace de subida: ${response.statusText}`);
+        let errorDetails = '';
+        try {
+            const errorData = await response.json();
+            errorDetails = errorData.message || JSON.stringify(errorData);
+        } catch {
+            errorDetails = response.statusText || `Error ${response.status}`;
+        }
+        throw new Error(`No se pudo obtener el enlace de subida: ${errorDetails}`);
     }
 
-    return await response.json();
+    const responseData = await response.json();
+    const { uploadUrl, ruta_r2, fileName } = responseData;
+    return { uploadUrl, ruta_r2, fileName };
 }
 
-export async function uploadArchivoR2(url: string, fileUri: string, mimeType: string) : Promise<void> {
-    const archivoBlob = await uriToBlob(fileUri);
+export async function uploadArchivoR2(uploadUrl: string, fileUri: string, mimeType: string) : Promise<void> {
+    try {        
+        const archivoBlob = await uriToBlob(fileUri);
 
-    const response = await fetch(url, {
-        method: 'PUT',
-        headers: {
-            'Content-Type': mimeType,
-        },
-        body: archivoBlob,
-    });
+        const response = await fetch(uploadUrl, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': mimeType,
+            },
+            body: archivoBlob,
+        });
 
-    if (!response.ok) {
-        throw new Error(`No se pudo subir el archivo a R2: ${response.statusText}`);
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Error en R2:', { status: response.status, statusText: response.statusText, body: errorText });
+            throw new Error(`No se pudo subir el archivo a R2: ${response.status} ${response.statusText} - ${errorText}`);
+        }
+        
+    } catch (error) {
+        console.error('Error durante upload a R2:', error);
+        throw error;
     }
 }
 
@@ -147,7 +194,14 @@ export async function confirmarUploadArchivo(accessToken: string, archivoData: a
     const response = await apiRequest({method: 'POST', endpoint: '/archivos/metadata', token: accessToken, body: archivoData});
 
     if (!response.ok) {
-        throw new Error(`No se pudo confirmar la subida del archivo: ${response.statusText}`);
+        let errorDetails = '';
+        try {
+            const errorData = await response.json();
+            errorDetails = errorData.message || JSON.stringify(errorData);
+        } catch {
+            errorDetails = response.statusText || `Error ${response.status}`;
+        }
+        throw new Error(`No se pudo confirmar la subida del archivo: ${errorDetails}`);
     }
 
     const data: ArchivoDTO = await response.json();
@@ -156,18 +210,32 @@ export async function confirmarUploadArchivo(accessToken: string, archivoData: a
 
 export async function uploadArchivo(accessToken: string, archivo: archivos.MobileFile, archivoData: archivos.UploadArchivoPayload) : Promise<archivos.Archivo> {
     try {
+        // Get proper MIME type from file name and provided type
+        const contentType = getMimeType(archivo.name, archivo.type);
+        
         // 1. Pedir URL de carga
         const urlCargaResponse = await getUrlCargaArchivo(accessToken, {
-            nombreArchivo: archivoData.nombre,
-            tipoArchivo: archivo.type,
+            fileName: archivoData.nombre,
+            contentType: contentType,
         });
         const uploadUrl = urlCargaResponse.uploadUrl;
+        const rutaR2 = urlCargaResponse.ruta_r2;
     
         // 2. Subir archivo a R2
-        await uploadArchivoR2(uploadUrl, archivo.uri, archivo.type);
+        await uploadArchivoR2(uploadUrl, archivo.uri, contentType);
 
-        // 3. Confirmar subida
-        const archivoConfirmado = await confirmarUploadArchivo(accessToken, archivoData);
+        // 3. Confirmar subida con datos adicionales
+        const payloadConfirmacion: archivos.UploadArchivoPayload = {
+            nombre: archivoData.nombre,
+            ruta_r2: rutaR2,
+            tamaño: archivo.size,
+            tipo: contentType,
+            allowed_roles: archivoData.allowed_roles || [],
+            usuarios_asociados: archivoData.usuarios_asociados || [],
+            usuarios_compartidos: archivoData.usuarios_compartidos || [],
+        };
+
+        const archivoConfirmado = await confirmarUploadArchivo(accessToken, payloadConfirmacion);
 
         return archivoConfirmado; 
     } catch (error) {
@@ -199,7 +267,7 @@ export async function getArchivoUrlFirmada(accessToken: string, idArchivo: numbe
     const response = await apiRequest({method: 'GET', endpoint: `/archivos/${idArchivo}/url`, token: accessToken});
 
     if (!response.ok) {
-        throw new Error(`No se pudo obtener la URL del archivo: ${response.statusText}`);
+        throw new Error(`No se pudo obtener la URL del archivo: ${response.status}`);
     }
 
     const data: { url: string } = await response.json();

@@ -60,7 +60,7 @@ export interface ArchivoAdjunto {
   nombre: string;
   ruta_r2: string;
   tamaño: number;
-  tipo: string | null;
+  tipo: string | undefined;
   created_at: string;
 }
 

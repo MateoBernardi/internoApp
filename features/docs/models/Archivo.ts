@@ -21,6 +21,9 @@ export interface UpdateArchivoPayload {
 
 export interface UploadArchivoPayload {
   nombre: string;
+  ruta_r2?: string;
+  tamaño?: number;
+  tipo?: string;
   allowed_roles?: string[];
 
   // relaciones opcionales
@@ -29,14 +32,14 @@ export interface UploadArchivoPayload {
 }
 
 export interface PedirUrlCargaRequest {
-    nombreArchivo: string;
-    tipoArchivo: string;
+    fileName: string;
+    contentType: string;
 }
 
 export interface PedirUrlCargaResponse {
     uploadUrl: string;
     ruta_r2: string;
-    key: string;
+    fileName: string;
 }
 
 export interface MobileFile {

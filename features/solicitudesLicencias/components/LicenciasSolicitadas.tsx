@@ -108,8 +108,7 @@ export function LicenciasSolicitadas() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <ThemedText type="subtitle" style={styles.title}>Solicitudes Recibidas</ThemedText>
-        <View style={styles.underline} />
+        <ThemedText type="title" style={styles.headerTitle}>Solicitudes Recibidas</ThemedText>
       </View>
 
       <SearchBar
@@ -157,7 +156,7 @@ export function LicenciasSolicitadas() {
           onPress={() => setShowFilters(!showFilters)}
           style={styles.filterToggle}
         >
-          <Ionicons name={showFilters ? "chevron-up" : "options-outline"} size={18} color={colors.tint} />
+          <Ionicons name={showFilters ? "chevron-up" : "options-outline"} size={18} color={colors.lightTint} />
           <ThemedText style={styles.filterToggleText}>
             Estado: {estadoMapping[selectedEstado]}
           </ThemedText>
@@ -175,7 +174,7 @@ export function LicenciasSolicitadas() {
                     selectedEstado === key && styles.chipSelected
                   ]}
                 >
-                  <ThemedText style={[styles.chipText, selectedEstado === key && styles.chipTextSelected, { color: selectedEstado === key ? colors.tint : colors.text }]}>
+                  <ThemedText style={[styles.chipText, selectedEstado === key && styles.chipTextSelected, { color: selectedEstado === key ? colors.componentBackground : colors.text }]}>
                     {value}
                   </ThemedText>
                 </TouchableOpacity>
@@ -204,7 +203,7 @@ export function LicenciasSolicitadas() {
           renderItem={renderItem}
           keyExtractor={(item) => item.id.toString()}
           ItemSeparatorComponent={renderSeparator}
-          contentContainerStyle={{ paddingBottom: 20 }}
+          contentContainerStyle={{ paddingBottom: 80 }}
         />
       )}
     </View>
@@ -247,6 +246,7 @@ function LicenciaSolicitadaItem({ solicitud, estadoUI, onPress }: LicenciaSolici
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.componentBackground },
   header: { paddingHorizontal: 16, paddingTop: 16, marginBottom: 12 },
+  headerTitle: { fontSize: 20, fontWeight: 'bold', textAlign: 'center', backgroundColor: colors.componentBackground, paddingVertical: 12, paddingHorizontal: 16, borderRadius: 8 },
   title: { color: colors.tint, fontSize: 14, justifyContent: 'center' },
   underline: { height: 3, backgroundColor: colors.tint, width: 100, marginTop: 4, borderRadius: 2 },
   centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
@@ -291,7 +291,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.background
   },
-  chipSelected: { backgroundColor: colors.tint, borderColor: colors.tint },
+  chipSelected: { backgroundColor: colors.lightTint, borderColor: colors.lightTint },
   chipText: { fontSize: 13, color: colors.secondaryText },
   chipTextSelected: { color: colors.componentBackground, fontWeight: '600' },
 

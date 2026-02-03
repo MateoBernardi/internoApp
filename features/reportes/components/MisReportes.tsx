@@ -1,6 +1,7 @@
 import { OwnFlatList } from '@/components/FlatList';
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
+import { useAuth } from '@/features/auth/context/AuthContext';
 import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { EstadoReporte, Reporte } from '../models/Reporte';
@@ -17,9 +18,10 @@ const estadoMapping: Record<EstadoReporte, string> = {
 const colors = Colors['light'];
 
 export function MisReportes() {
+	const { user } = useAuth();
 
-	// No se pasa usuarioId, el backend lo resuelve
-	const { data: reportes, isLoading, error } = useReportes();
+	// Pasar usuarioId del usuario autenticado
+	const { data: reportes, isLoading, error } = useReportes(user?.user_context_id?.toString());
 
 	const [modalVisible, setModalVisible] = useState(false);
 	const [selectedReporte, setSelectedReporte] = useState<Reporte | null>(null);
@@ -57,6 +59,7 @@ export function MisReportes() {
 
 	return (
 		<View style={styles.container}>
+			<ThemedText type="subtitle" style={styles.title}>Mis Reportes</ThemedText>
 			{(!reportes || reportes.length === 0) ? (
 				<View style={styles.centerContainer}>
 					<ThemedText type="subtitle">No hay reportes enviados</ThemedText>
@@ -73,6 +76,7 @@ export function MisReportes() {
 					)}
 					keyExtractor={(item) => item.id.toString()}
 					showSeparators={true}
+					contentContainerStyle={{ paddingBottom: 80 }}
 				/>
 			)}
 			{selectedReporte && (
@@ -148,6 +152,15 @@ function MiReporteItem({ reporte, estadoUI, onPress }: MiReporteItemProps) {
 const styles = StyleSheet.create({
 	container: {
 		flex: 1,
+	},
+	title: {
+		fontSize: 20,
+		fontWeight: 'bold',
+		textAlign: 'center',
+		backgroundColor: colors.componentBackground,
+		paddingVertical: 12,
+		paddingHorizontal: 16,
+		borderRadius: 8,
 	},
 	centerContainer: {
 		flex: 1,

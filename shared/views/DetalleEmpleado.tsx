@@ -55,7 +55,7 @@ export function DetalleEmpleado() {
 	const renderTabContent = (usuario: any) => {
 		switch (activeTab) {
 			case 'reportes':
-				return <ReportesEmpleado userId={usuario.id.toString()} />;
+				return <ReportesEmpleado userId={usuario.id.toString()} userNombre={usuario.nombre} userApellido={usuario.apellido} />;
 			case 'permisos':
 				return <PermisosPorEmpleado usuarioId={usuario.id} />;
 			case 'francos':

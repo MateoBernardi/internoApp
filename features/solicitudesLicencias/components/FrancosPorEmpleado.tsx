@@ -102,12 +102,14 @@ function FrancoItem({ item }: { item: SolicitudLicencia }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: colors.componentBackground,
   },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 16,
+    backgroundColor: colors.componentBackground,
   },
   errorText: {
     marginBottom: 8,

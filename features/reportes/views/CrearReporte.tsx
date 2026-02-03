@@ -3,19 +3,30 @@ import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { useCreateReporte } from '../viewmodels/useReportes';
 
 const colors = Colors['light'];
 
-export default function CrearReporte() {
+interface CrearReporteProps {
+	user_context_id?: string;
+}
+
+export default function CrearReporte(props?: CrearReporteProps) {
 	const router = useRouter();
+	const params = useLocalSearchParams();
 	const { mutate: crearReporte, isPending } = useCreateReporte();
 
+	// Obtener user_context_id de props o de los parámetros de navegación
+	const initialUserId = props?.user_context_id || (params.user_context_id as string) || '';
+	const userNombre = (params.user_nombre as string) || '';
+	const userApellido = (params.user_apellido as string) || '';
+	const userFullName = userNombre && userApellido ? `${userNombre} ${userApellido}` : '';
+
 	// Form state
-	const [usuarioId, setUsuarioId] = useState('');
+	const [usuarioId, setUsuarioId] = useState(initialUserId);
 	const [titulo, setTitulo] = useState('');
 	const [descripcion, setDescripcion] = useState('');
 	const [categoria, setCategoria] = useState<'NEGATIVO' | 'POSITIVO'>('NEGATIVO');
@@ -77,12 +88,14 @@ export default function CrearReporte() {
 					{/* Usuario reportado */}
 					<View style={styles.inputSection}>
 						<TextInput
-							style={styles.input}
-							placeholder="ID usuario reportado"
-							placeholderTextColor={colors.secondaryText}
-							value={usuarioId}
-							onChangeText={setUsuarioId}
+							style={[styles.input, initialUserId && styles.disabledInput]}
+							placeholder={userFullName || "ID usuario reportado"}
+							placeholderTextColor={userFullName ? colors.text : colors.secondaryText}
+							value={userFullName || usuarioId}
+							onChangeText={!initialUserId ? setUsuarioId : undefined}
 							keyboardType="numeric"
+							editable={!initialUserId}
+							selectTextOnFocus={!initialUserId}
 						/>
 					</View>
 					{/* Título */}
@@ -207,6 +220,10 @@ const styles = StyleSheet.create({
 		fontSize: 16,
 		color: colors.text,
 		padding: 0,
+	},
+	disabledInput: {
+		color: colors.secondaryText,
+		opacity: 0.6,
 	},
 	chip: {
 		paddingHorizontal: 16,

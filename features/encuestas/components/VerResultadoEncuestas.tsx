@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import { Pregunta, Respuesta } from '../models/Encuesta';
-import { useGetEncuestas } from '../viewmodels/useEncuestas';
+import { useGetRespuestasEncuesta } from '../viewmodels/useEncuestas';
 
 interface RespuestaAgrupada {
   encuestaId: number;
@@ -26,9 +26,16 @@ interface RespuestaAgrupada {
 const colors = Colors['light'];
 
 export const VerResultadosEncuestas: React.FC = () => {
-  // Usamos useGetEncuestas que devuelve las encuestas con sus preguntas
-  const { data: encuestas, isLoading, error } = useGetEncuestas();
+  // Usamos useGetRespuestasEncuesta para obtener las encuestas con sus respuestas
+  const { data: encuestas, isLoading, error } = useGetRespuestasEncuesta();
   const [encuestaSeleccionada, setEncuestaSeleccionada] = useState<number | null>(null);
+
+  console.log('VerResultadosEncuestas - Datos recibidos:', {
+    isLoading,
+    hasData: !!encuestas,
+    dataLength: encuestas?.length || 0,
+    error: error?.message
+  });
 
   if (isLoading) {
     return (
@@ -126,7 +133,7 @@ export const VerResultadosEncuestas: React.FC = () => {
               </View>
             </View>
             <View style={styles.verDetalleButton}>
-              <Text style={styles.verDetalleText}>Ver detalles →</Text>
+              <Text style={styles.verDetalleText}>Ver detalles</Text>
             </View>
           </TouchableOpacity>
         )}
@@ -348,21 +355,30 @@ const RespuestasSiNo: React.FC<{ respuestas: Respuesta[] }> = ({ respuestas }) =
 // Funciones auxiliares
 const agruparEncuestas = (encuestas: any[]): RespuestaAgrupada[] => {
   if (!encuestas || !Array.isArray(encuestas)) {
+    console.log('agruparEncuestas: No hay encuestas');
     return [];
   }
 
+  console.log('agruparEncuestas - Encuestas recibidas:', encuestas.length);
+
   return encuestas
     .filter((encuesta) => encuesta.preguntas && encuesta.preguntas.length > 0)
-    .map((encuesta) => ({
-      encuestaId: encuesta.id,
-      encuestaTitulo: encuesta.titulo,
-      encuestaDescripcion: encuesta.descripcion,
-      fecha_creacion: encuesta.fecha_creacion,
-      preguntas: encuesta.preguntas?.map((pregunta: Pregunta) => ({
-        pregunta,
-        respuestas: [], // Las respuestas reales deberían venir del backend
-      })) || [],
-    }));
+    .map((encuesta) => {
+      const preguntasAgrupadas = encuesta.preguntas?.map((pregunta: any) => ({
+        pregunta: pregunta as Pregunta,
+        respuestas: pregunta.respuestas || [], // Las respuestas vienen directamente del backend
+      })) || [];
+
+      console.log(`Encuesta ${encuesta.titulo}: ${preguntasAgrupadas.length} preguntas agrupadas`);
+
+      return {
+        encuestaId: encuesta.id,
+        encuestaTitulo: encuesta.titulo,
+        encuestaDescripcion: encuesta.descripcion,
+        fecha_creacion: encuesta.fecha_creacion,
+        preguntas: preguntasAgrupadas,
+      };
+    });
 };
 
 const calcularTotalRespuestas = (encuesta: RespuestaAgrupada): number => {
@@ -471,7 +487,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   verDetalleText: {
-    color: colors.text,
+    color: colors.componentBackground,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -619,6 +635,7 @@ const styles = StyleSheet.create({
     height: 24,
     backgroundColor: colors.lightTint,
     borderRadius: 4,
+    maxWidth: '80%',
   },
   opcionPorcentaje: {
     fontSize: 12,

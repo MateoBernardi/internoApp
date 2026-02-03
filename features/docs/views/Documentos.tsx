@@ -6,6 +6,7 @@ import { Colors } from '@/constants/theme';
 import * as DocumentPicker from 'expo-document-picker';
 import React, { useState } from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CrearDocumento } from '../components/CrearDocumento';
 import DocumentosEmpresa from './DocumentosEmpresa';
 import MisDocumentos from './MisDocumentos';
@@ -15,6 +16,7 @@ const colors = Colors['light'];
 type TabType = 'empresa' | 'mios';
 
 export default function Documentos() {
+  const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<TabType>('empresa');
   const [modalVisible, setModalVisible] = useState(false);
   const [pickedFile, setPickedFile] = useState<any>(null);
@@ -105,7 +107,7 @@ export default function Documentos() {
         {tab === 'empresa' ? <DocumentosEmpresa query={query} /> : <MisDocumentos query={query} />}
       </View>
 
-      <CreateButton onPress={handleCreatePress} style={styles.fab} />
+      <CreateButton onPress={handleCreatePress} style={{ ...styles.fab, bottom: insets.bottom + 8, right: 36 }} />
 
       {modalVisible && (
         <CrearDocumento
@@ -164,7 +166,6 @@ const styles = StyleSheet.create({
   },
   fab: {
     position: 'absolute',
-    bottom: 32,
-    right: 24,
+    right: 36,
   },
 });

@@ -2,11 +2,11 @@ import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
 import React, { useCallback } from 'react';
 import {
-  ActivityIndicator,
-  FlatList,
-  ListRenderItem,
-  StyleSheet,
-  View,
+	ActivityIndicator,
+	FlatList,
+	ListRenderItem,
+	StyleSheet,
+	View,
 } from 'react-native';
 import { SolicitudLicencia } from '../models/SolicitudLicencia';
 import { useGetSolicitudesLicencias } from '../viewmodels/useSolicitudes';
@@ -96,12 +96,14 @@ function VacacionItem({ item }: { item: SolicitudLicencia }) {
 const styles = StyleSheet.create({
 	container: {
 		flex: 1,
+		backgroundColor: colors.componentBackground,
 	},
 	centerContainer: {
 		flex: 1,
 		justifyContent: 'center',
 		alignItems: 'center',
 		paddingHorizontal: 16,
+		backgroundColor: colors.componentBackground,
 	},
 	errorText: {
 		marginBottom: 8,

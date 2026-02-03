@@ -1,8 +1,12 @@
+import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   StyleSheet,
   Switch,
@@ -11,6 +15,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Encuesta, Pregunta, TipoPregunta } from '../models/Encuesta';
 import { useCreateEncuestaCompleta } from '../viewmodels/useEncuestas';
 
@@ -21,17 +26,23 @@ interface CrearEncuestaProps {
 const colors = Colors['light'];
 
 export const CrearEncuesta: React.FC<CrearEncuestaProps> = ({ onEncuestaCreada }) => {
+  const insets = useSafeAreaInsets();
   const [titulo, setTitulo] = useState('');
   const [descripcion, setDescripcion] = useState('');
-  const [categoria, setCategoria] = useState<'interna' | 'externa' | 'feedback_empleado'>(
-    'interna'
-  );
+
   const [esAnonima, setEsAnonima] = useState(false);
-  const [fechaFin, setFechaFin] = useState('');
+  const [fechaFin, setFechaFin] = useState<Date | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [preguntas, setPreguntas] = useState<Pregunta[]>([]);
   const [mostrandoFormularioPregunta, setMostrandoFormularioPregunta] = useState(false);
 
   const { mutate: crearEncuesta, isPending } = useCreateEncuestaCompleta();
+
+  const onDateChange = (event: any, selectedDate?: Date) => {
+    if (Platform.OS === 'android') setShowDatePicker(false);
+    if (event.type === 'dismissed') return;
+    if (selectedDate) setFechaFin(selectedDate);
+  };
 
   const agregarPregunta = (pregunta: Pregunta) => {
     setPreguntas([...preguntas, { ...pregunta, orden: preguntas.length + 1 }]);
@@ -75,9 +86,8 @@ export const CrearEncuesta: React.FC<CrearEncuestaProps> = ({ onEncuestaCreada }
     const encuestaData: Partial<Encuesta> = {
       titulo,
       descripcion: descripcion || undefined,
-      categoria,
       es_anonima: esAnonima,
-      fecha_fin: fechaFin || undefined,
+      fecha_fin: fechaFin ? fechaFin.toISOString() : undefined,
     };
 
     crearEncuesta(
@@ -108,75 +118,52 @@ export const CrearEncuesta: React.FC<CrearEncuestaProps> = ({ onEncuestaCreada }
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Crear Nueva Encuesta</Text>
-        <Text style={styles.headerSubtitle}>
-          Completa los datos y agrega preguntas
-        </Text>
-      </View>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
+    >
+      <ThemedText type="title" style={styles.pageTitle}>Crear Encuesta</ThemedText>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
         {/* Información básica */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Información Básica</Text>
-
-          <Text style={styles.label}>
-            Título <Text style={styles.obligatorio}>*</Text>
-          </Text>
           <TextInput
             style={styles.input}
-            placeholder="Ej: Encuesta de satisfacción 2024"
+            placeholder="Título de la encuesta *"
+            placeholderTextColor={colors.secondaryText}
             value={titulo}
             onChangeText={setTitulo}
           />
 
-          <Text style={styles.label}>Descripción</Text>
           <TextInput
             style={[styles.input, styles.textArea]}
-            placeholder="Describe brevemente el propósito de la encuesta..."
+            placeholder="Descripción (opcional)"
+            placeholderTextColor={colors.secondaryText}
             multiline
             numberOfLines={3}
             value={descripcion}
             onChangeText={setDescripcion}
           />
 
-          <Text style={styles.label}>
-            Categoría <Text style={styles.obligatorio}>*</Text>
-          </Text>
-          <View style={styles.categoriasContainer}>
-            {[
-              { value: 'interna', label: 'Interna' },
-              { value: 'externa', label: 'Externa' },
-              { value: 'feedback_empleado', label: 'Feedback Empleado' },
-            ].map((cat) => (
-              <TouchableOpacity
-                key={cat.value}
-                style={[
-                  styles.categoriaButton,
-                  categoria === cat.value && styles.categoriaButtonSelected,
-                ]}
-                onPress={() => setCategoria(cat.value as any)}
-              >
-                <Text
-                  style={[
-                    styles.categoriaText,
-                    categoria === cat.value && styles.categoriaTextSelected,
-                  ]}
-                >
-                  {cat.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          <ThemedText style={styles.subLabel}>Fecha de finalización (opcional)</ThemedText>
+          <TouchableOpacity 
+            style={styles.dateButton}
+            onPress={() => setShowDatePicker(true)}
+          >
+            <Text style={[styles.dateButtonText, !fechaFin && { color: colors.secondaryText }]}>
+              {fechaFin ? fechaFin.toLocaleDateString('es-ES') : 'Seleccionar fecha'}
+            </Text>
+          </TouchableOpacity>
 
-          <Text style={styles.label}>Fecha de finalización (opcional)</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="DD/MM/AAAA"
-            value={fechaFin}
-            onChangeText={setFechaFin}
-          />
+          {showDatePicker && (
+            <DateTimePicker
+              value={fechaFin || new Date()}
+              mode="date"
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              onChange={onDateChange}
+            />
+          )}
 
           <View style={styles.switchContainer}>
             <Text style={styles.switchLabel}>Encuesta anónima</Text>
@@ -192,9 +179,9 @@ export const CrearEncuesta: React.FC<CrearEncuestaProps> = ({ onEncuestaCreada }
         {/* Preguntas */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>
+            <ThemedText style={styles.sectionTitle}>
               Preguntas ({preguntas.length})
-            </Text>
+            </ThemedText>
             <TouchableOpacity
               style={styles.agregarPreguntaButton}
               onPress={() => setMostrandoFormularioPregunta(true)}
@@ -244,7 +231,7 @@ export const CrearEncuesta: React.FC<CrearEncuestaProps> = ({ onEncuestaCreada }
         </View>
       </ScrollView>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
         <TouchableOpacity
           style={[styles.crearButton, isPending && styles.crearButtonDisabled]}
           onPress={handleCrearEncuesta}
@@ -257,7 +244,7 @@ export const CrearEncuesta: React.FC<CrearEncuestaProps> = ({ onEncuestaCreada }
           )}
         </TouchableOpacity>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 };
 
@@ -271,6 +258,7 @@ const FormularioPregunta: React.FC<FormularioPreguntaProps> = ({
   onAgregarPregunta,
   onCancelar,
 }) => {
+  const insets = useSafeAreaInsets();
   const [titulo, setTitulo] = useState('');
   const [tipoPregunta, setTipoPregunta] = useState<TipoPregunta>('texto');
   const [esObligatoria, setEsObligatoria] = useState(true);
@@ -314,32 +302,32 @@ const FormularioPregunta: React.FC<FormularioPreguntaProps> = ({
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Nueva Pregunta</Text>
-      </View>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
+    >
+      <ThemedText type="title" style={styles.pageTitle}>Nueva Pregunta</ThemedText>
 
-      <ScrollView style={styles.scrollView}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingBottom: 100 }}>
         <View style={styles.section}>
-          <Text style={styles.label}>
-            Título de la pregunta <Text style={styles.obligatorio}>*</Text>
-          </Text>
           <TextInput
             style={[styles.input, styles.textArea]}
-            placeholder="Escribe la pregunta..."
+            placeholder="Escribe la pregunta *"
+            placeholderTextColor={colors.secondaryText}
             multiline
             numberOfLines={2}
             value={titulo}
             onChangeText={setTitulo}
           />
 
-          <Text style={styles.label}>Tipo de pregunta</Text>
+          <ThemedText style={styles.subLabel}>Tipo de pregunta</ThemedText>
           <View style={styles.tiposContainer}>
             {[
-              { value: 'texto', label: '📝 Texto', icon: '📝' },
-              { value: 'rating', label: '⭐ Calificación', icon: '⭐' },
-              { value: 'multiple_choice', label: '☑️ Opción múltiple', icon: '☑️' },
-              { value: 'si_no', label: '✓/✗ Sí/No', icon: '✓/✗' },
+              { value: 'texto', label: '📝 Texto' },
+              { value: 'rating', label: '⭐ Calificación' },
+              { value: 'multiple_choice', label: '☑️ Opción múltiple' },
+              { value: 'si_no', label: '✓/✗ Sí/No' },
             ].map((tipo) => (
               <TouchableOpacity
                 key={tipo.value}
@@ -363,11 +351,12 @@ const FormularioPregunta: React.FC<FormularioPreguntaProps> = ({
 
           {tipoPregunta === 'multiple_choice' && (
             <View style={styles.opcionesSection}>
-              <Text style={styles.label}>Opciones</Text>
+              <ThemedText style={styles.subLabel}>Opciones</ThemedText>
               <View style={styles.agregarOpcionContainer}>
                 <TextInput
                   style={[styles.input, { flex: 1 }]}
                   placeholder="Escribe una opción..."
+                  placeholderTextColor={colors.secondaryText}
                   value={nuevaOpcion}
                   onChangeText={setNuevaOpcion}
                   onSubmitEditing={agregarOpcion}
@@ -400,7 +389,7 @@ const FormularioPregunta: React.FC<FormularioPreguntaProps> = ({
         </View>
       </ScrollView>
 
-      <View style={styles.footer}>
+      <View style={[styles.footerDos, { paddingBottom: insets.bottom + 16 }]}>
         <TouchableOpacity style={styles.cancelarButton} onPress={onCancelar}>
           <Text style={styles.cancelarButtonText}>Cancelar</Text>
         </TouchableOpacity>
@@ -408,7 +397,7 @@ const FormularioPregunta: React.FC<FormularioPreguntaProps> = ({
           <Text style={styles.guardarButtonText}>Guardar Pregunta</Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 };
 
@@ -417,41 +406,47 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.componentBackground,
   },
-  header: {
-    backgroundColor: colors.componentBackground,
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.background,
-  },
-  headerTitle: {
-    fontSize: 24,
+  pageTitle: {
+    fontSize: 20,
     fontWeight: 'bold',
-    color: colors.text,
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: colors.secondaryText,
-    marginTop: 5,
+    textAlign: 'center',
+    backgroundColor: colors.componentBackground,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 12,
+    borderRadius: 8,
   },
   scrollView: {
     flex: 1,
   },
   section: {
     backgroundColor: colors.componentBackground,
-    padding: 20,
-    marginBottom: 10,
+    padding: 16,
+    marginHorizontal: 16,
+    marginBottom: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.background,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     color: colors.text,
-    marginBottom: 15,
+  },
+  subLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    marginTop: 16,
+    marginBottom: 8,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 15,
+    marginBottom: 12,
   },
   label: {
     fontSize: 14,
@@ -476,9 +471,21 @@ const styles = StyleSheet.create({
     minHeight: 80,
     textAlignVertical: 'top',
   },
+  dateButton: {
+    borderWidth: 1,
+    borderColor: colors.background,
+    borderRadius: 8,
+    padding: 12,
+    backgroundColor: colors.componentBackground,
+    marginTop: 8,
+  },
+  dateButtonText: {
+    fontSize: 14,
+    color: colors.text,
+  },
   categoriasContainer: {
     flexDirection: 'column',
-    gap: 10,
+    gap: 8,
   },
   categoriaButton: {
     padding: 12,
@@ -489,7 +496,7 @@ const styles = StyleSheet.create({
   },
   categoriaButtonSelected: {
     borderColor: colors.lightTint,
-    backgroundColor: colors.componentBackground,
+    backgroundColor: colors.lightTint + '12',
   },
   categoriaText: {
     fontSize: 14,
@@ -503,7 +510,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 20,
+    marginTop: 16,
     paddingVertical: 10,
   },
   switchLabel: {
@@ -513,17 +520,17 @@ const styles = StyleSheet.create({
   },
   agregarPreguntaButton: {
     backgroundColor: colors.lightTint,
-    paddingHorizontal: 15,
-    paddingVertical: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 6,
   },
   agregarPreguntaText: {
     color: colors.componentBackground,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
   },
   emptyContainer: {
-    padding: 40,
+    padding: 30,
     alignItems: 'center',
   },
   emptyText: {
@@ -538,8 +545,10 @@ const styles = StyleSheet.create({
   preguntaCard: {
     backgroundColor: colors.componentBackground,
     borderRadius: 8,
-    padding: 15,
-    marginBottom: 10,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: colors.background,
   },
   preguntaCardHeader: {
     flexDirection: 'row',
@@ -559,7 +568,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: colors.text,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   preguntaInfo: {
     flexDirection: 'row',
@@ -573,14 +582,14 @@ const styles = StyleSheet.create({
   obligatoriaTag: {
     fontSize: 10,
     color: colors.error,
-    backgroundColor: colors.componentBackground,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    backgroundColor: colors.error + '12',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
     borderRadius: 4,
   },
   opcionesPreview: {
-    marginTop: 10,
-    paddingTop: 10,
+    marginTop: 8,
+    paddingTop: 8,
     borderTopWidth: 1,
     borderTopColor: colors.background,
   },
@@ -588,15 +597,21 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: colors.secondaryText,
-    marginBottom: 5,
+    marginBottom: 4,
   },
   opcionItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  opcionText: {
     fontSize: 12,
     color: colors.secondaryText,
-    marginLeft: 10,
+    flex: 1,
   },
   tiposContainer: {
-    gap: 10,
+    gap: 8,
   },
   tipoButton: {
     padding: 12,
@@ -607,7 +622,7 @@ const styles = StyleSheet.create({
   },
   tipoButtonSelected: {
     borderColor: colors.lightTint,
-    backgroundColor: colors.componentBackground,
+    backgroundColor: colors.lightTint + '12',
   },
   tipoText: {
     fontSize: 14,
@@ -618,12 +633,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   opcionesSection: {
-    marginTop: 15,
+    marginTop: 12,
   },
   agregarOpcionContainer: {
     flexDirection: 'row',
-    gap: 10,
-    marginBottom: 10,
+    gap: 8,
+    marginBottom: 8,
   },
   addButton: {
     backgroundColor: colors.lightTint,
@@ -635,55 +650,54 @@ const styles = StyleSheet.create({
   },
   addButtonText: {
     color: colors.componentBackground,
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: 'bold',
   },
-  opcionText: {
-    fontSize: 14,
-    color: colors.text,
-    flex: 1,
-  },
   eliminarOpcion: {
-    fontSize: 18,
+    fontSize: 16,
     color: colors.error,
-    paddingHorizontal: 10,
   },
   footer: {
-    flexDirection: 'row',
-    padding: 15,
+    padding: 16,
     backgroundColor: colors.componentBackground,
     borderTopWidth: 1,
     borderTopColor: colors.background,
-    gap: 10,
+  },
+  footerDos: {
+    flexDirection: 'row',
+    padding: 16,
+    backgroundColor: colors.componentBackground,
+    borderTopWidth: 1,
+    borderTopColor: colors.background,
+    gap: 12,
   },
   cancelarButton: {
     flex: 1,
-    paddingVertical: 15,
+    paddingVertical: 12,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: colors.secondaryText,
     alignItems: 'center',
   },
   cancelarButtonText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     color: colors.secondaryText,
   },
   guardarButton: {
     flex: 2,
-    paddingVertical: 15,
+    paddingVertical: 12,
     borderRadius: 8,
     backgroundColor: colors.lightTint,
     alignItems: 'center',
   },
   guardarButtonText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     color: colors.componentBackground,
   },
   crearButton: {
-    flex: 1,
-    paddingVertical: 15,
+    paddingVertical: 14,
     borderRadius: 8,
     backgroundColor: colors.success,
     alignItems: 'center',

@@ -53,15 +53,11 @@ export default function TabLayout() {
       label: 'Mis Licencias',
       route: '/(extras)/mis-solicitudes-licencias' as Href,
     },
-    ...(isEmployee
-      ? [
-          {
-            id: 'mis-reportes',
-            label: 'Mis Reportes',
-            route: '/(extras)/reportes' as Href,
-          },
-        ]
-      : []),
+    {
+      id: 'mis-reportes',
+      label: 'Mis Reportes',
+      route: '/(extras)/mis-reportes' as Href,
+    },
     {
       id: 'configuracion-cuenta',
       label: 'Configuración de Cuenta',
@@ -113,7 +109,7 @@ export default function TabLayout() {
               <Text style={[styles.menuItemText, opt.textColor && { color: opt.textColor }]}>
                 {opt.label}
               </Text>
-              <IconSymbol name="chevron.right" size={16} color="#999" />
+              <IconSymbol name="chevron.right" size={16} color={colors.tint} />
             </TouchableOpacity>
           ))}
         </View>
@@ -134,11 +130,25 @@ export default function TabLayout() {
           tabBarStyle: { position: 'relative' } // Asegura que los tabs estén al frente
         }}>
         
-        <Tabs.Screen name="index" options={{ title: 'Inicio', tabBarIcon: ({ color }) => <IconSymbol size={24} name="house.fill" color={color} /> }} />
+        <Tabs.Screen 
+          name="index" 
+          listeners={{ tabPress: () => setActiveMenu(null) }}
+          options={{ title: 'Inicio', tabBarIcon: ({ color }) => <IconSymbol size={24} name="house.fill" color={color} /> }} 
+        />
 
-        {isAdminUser && (<Tabs.Screen name="explore" options={{ title: 'Solicitudes', tabBarIcon: ({ color }) => <IconSymbol size={24} name="paperplane.fill" color={color} /> }} />)}
+        {isAdminUser && (
+          <Tabs.Screen 
+            name="explore" 
+            listeners={{ tabPress: () => setActiveMenu(null) }}
+            options={{ title: 'Solicitudes', tabBarIcon: ({ color }) => <IconSymbol size={24} name="paperplane.fill" color={color} /> }} 
+          />
+        )}
 
-        <Tabs.Screen name="documentos" options={{ title: 'Documentos', tabBarIcon: ({ color }) => <IconSymbol size={24} name="doc.text.fill" color={color} /> }} />
+        <Tabs.Screen 
+          name="documentos" 
+          listeners={{ tabPress: () => setActiveMenu(null) }}
+          options={{ title: 'Documentos', tabBarIcon: ({ color }) => <IconSymbol size={24} name="doc.text.fill" color={color} /> }} 
+        />
 
         {isAdminUser && (
           <Tabs.Screen
@@ -149,8 +159,8 @@ export default function TabLayout() {
               tabBarIcon: ({ color }) => (
                 <IconSymbol 
                   size={24} 
-                  name={activeMenu === 'admin' ? 'chart.bar.fill' : 'chart.bar.fill'} 
-                  color={activeMenu === 'admin' ? '#FF3B30' : color} 
+                  name={activeMenu === 'admin' ? 'xmark' : 'chart.bar.fill'} 
+                  color={activeMenu === 'admin' ? colors.tint : color} 
                 />
               ),
             }}
@@ -165,8 +175,8 @@ export default function TabLayout() {
             tabBarIcon: ({ color }) => (
               <IconSymbol 
                 size={24} 
-                name={activeMenu === 'personal' ? 'user.fill' : 'user.fill'} 
-                color={activeMenu === 'personal' ? '#FF3B30' : color} 
+                name={activeMenu === 'personal' ? 'xmark' : 'user.fill'} 
+                color={activeMenu === 'personal' ? colors.tint : color} 
               />
             ),
           }}
@@ -182,17 +192,17 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    bottom: 0, // Ajusta esto si quieres que no tape el tab bar
+    bottom: 100, // Deja espacio para la tab bar
     backgroundColor: 'rgba(0,0,0,0.3)',
     zIndex: 10,
     justifyContent: 'flex-end',
   },
   menuContainer: {
-    backgroundColor: 'white',
+    backgroundColor: Colors.light.componentBackground,
     width: '100%',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    paddingBottom: 80, // Espacio para que no lo tape la tab bar
+    paddingBottom: 20,
     paddingTop: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -3 },
@@ -204,13 +214,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 15,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#EEE',
+    borderBottomColor: Colors.light.background,
     marginBottom: 10,
   },
   menuTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: Colors.light.text,
   },
   menuItem: {
     flexDirection: 'row',
@@ -221,6 +231,6 @@ const styles = StyleSheet.create({
   },
   menuItemText: {
     fontSize: 16,
-    color: '#444',
+    color: Colors.light.text,
   },
 });

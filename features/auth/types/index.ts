@@ -37,9 +37,8 @@ export interface CreateUserData {
   username: string;
   email: string;
   password: string;
-  nombre?: string;
-  apellido?: string;
-  telefono?: string;
+  nombre: string;
+  apellido: string;
 }
 
 export interface CreateUserResponse {

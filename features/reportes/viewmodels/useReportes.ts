@@ -1,4 +1,4 @@
-import { useAuth } from '@/features/auth/hooks/useAuthActions';
+import { useAuth } from '@/features/auth/context/AuthContext';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     createReporte,
@@ -18,13 +18,13 @@ const UPGRADED_EMPLOYEE_QUERY_KEY = ['reportes', 'upgraded-employee'];
  * Hook para obtener todos los reportes de un usuario en una fecha específica
  */
 export function useReportes(usuarioId?: string) {
-    const { getValidAccessToken } = useAuth();
+    const { tokens } = useAuth();
     
     return useQuery({
         queryKey: [...REPORTES_QUERY_KEY, usuarioId],
         queryFn: async () => {
             console.log('[useReportes] Iniciando query con usuarioId:', usuarioId);
-            const token = await getValidAccessToken();
+            const token = tokens?.accessToken;
             if (!token) {
                 console.error('[useReportes] No hay token de acceso');
                 throw new Error('No hay token de acceso');
@@ -46,11 +46,11 @@ export function useReportes(usuarioId?: string) {
  */
 export function useCreateReporte() {
     const queryClient = useQueryClient();
-    const { getValidAccessToken } = useAuth();
+    const { tokens } = useAuth();
 
     return useMutation({
         mutationFn: async (data: any) => {
-            const token = await getValidAccessToken();
+            const token = tokens?.accessToken;
             if (!token) {
                 throw new Error('No hay token de acceso');
             }
@@ -68,10 +68,10 @@ export function useCreateReporte() {
  */
 export function useUpdateReporte() {
     const queryClient = useQueryClient();
-    const { getValidAccessToken } = useAuth();      
+    const { tokens } = useAuth();      
     return useMutation({
         mutationFn: async ({ id, data }: { id: string; data: any }) => {
-            const token = await getValidAccessToken();
+            const token = tokens?.accessToken;
             if (!token) {
                 throw new Error('No hay token de acceso');
             }
@@ -88,12 +88,12 @@ export function useUpdateReporte() {
  * Hook para obtener las estadísticas de reportes
  */
 export function useReporteStats() {
-    const { getValidAccessToken } = useAuth();
+    const { tokens } = useAuth();
     
     return useQuery({
         queryKey: REPORTES_STATS_QUERY_KEY,
         queryFn: async () => {
-            const token = await getValidAccessToken();
+            const token = tokens?.accessToken;
             if (!token) {
                 throw new Error('No hay token de acceso');
             }
@@ -112,12 +112,12 @@ export function useReporteStats() {
  * Hook para obtener los mejores empleados
  */
 export function useTopEmployee() {
-    const { getValidAccessToken } = useAuth();
+    const { tokens } = useAuth();
     
     return useQuery({
         queryKey: TOP_EMPLOYEE_QUERY_KEY,
         queryFn: async () => {
-            const token = await getValidAccessToken();
+            const token = tokens?.accessToken;
             if (!token) {
                 throw new Error('No hay token de acceso');
             }
@@ -132,12 +132,12 @@ export function useTopEmployee() {
  * Hook para obtener los empleados mejorados
  */
 export function useUpgradedEmployee() {
-    const { getValidAccessToken } = useAuth();
+    const { tokens } = useAuth();
     
     return useQuery({
         queryKey: UPGRADED_EMPLOYEE_QUERY_KEY,
         queryFn: async () => {
-            const token = await getValidAccessToken();
+            const token = tokens?.accessToken;
             if (!token) {
                 throw new Error('No hay token de acceso');
             }

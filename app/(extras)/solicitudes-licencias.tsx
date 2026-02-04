@@ -2,7 +2,7 @@ import { ThemedView } from '@/components/themed-view';
 import SolicitudesLicenciasView from '@/features/solicitudesLicencias/views/SolicitudesLicencias';
 import { StyleSheet } from 'react-native';
 
-export default function DocumentosScreen() {
+export default function SolicitudesLicenciasScreen() {
   return (
         <ThemedView style={styles.container}>
           <SolicitudesLicenciasView />

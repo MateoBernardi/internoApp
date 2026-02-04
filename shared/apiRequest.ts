@@ -8,6 +8,7 @@ interface RequestOptions {
     token: string;
     body?: any;      // Opcional
     signal?: AbortSignal; // Opcional
+    entorno?: string; // Opcional, por defecto es "interno"
 }
 
 /**
@@ -16,6 +17,7 @@ interface RequestOptions {
  * @param endpoint The URL endpoint (e.g., "/novedades"). Should start with /.
  * @param accessToken The Bearer token for authorization. 
  * @param body The data to send in the request body (automatically stringified).
+ * @param entorno El entorno a enviar en el header x-app-entorno (default: "interno").
  */
 export async function apiRequest({
   method,
@@ -23,10 +25,11 @@ export async function apiRequest({
   token,
   body,
   signal,
+  entorno = "interno",
 }: RequestOptions): Promise<Response> {
   const headers: HeadersInit = {
     "Content-Type": "application/json",
-    "x-app-entorno": "interno",
+    "x-app-entorno": entorno,
   };
 
   if (token) {

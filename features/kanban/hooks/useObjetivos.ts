@@ -1,4 +1,4 @@
-import { useAuth } from '@/features/auth/hooks/useAuthActions';
+import { useAuth } from '@/features/auth/context/AuthContext';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { CreateObjetivoDTO, Objetivo, UpdateObjetivoDTO } from '../models/Objetivo';
 import {
@@ -14,12 +14,12 @@ const OBJETIVOS_QUERY_KEY = ['objetivos'];
  * Hook para obtener todos los objetivos del kanban
  */
 export function useObjetivos() {
-    const { getValidAccessToken } = useAuth();
+    const { tokens } = useAuth();
     
     return useQuery({
         queryKey: OBJETIVOS_QUERY_KEY,
         queryFn: async () => {
-            const token = await getValidAccessToken();
+            const token = tokens?.accessToken;
             if (!token) {
                 throw new Error('No hay token de acceso');
             }
@@ -35,11 +35,11 @@ export function useObjetivos() {
  */
 export function useCreateObjetivo() {
     const queryClient = useQueryClient();
-    const { getValidAccessToken } = useAuth();
+    const { tokens } = useAuth();
 
     return useMutation({
         mutationFn: async (data: CreateObjetivoDTO) => {
-            const token = await getValidAccessToken();
+            const token = tokens?.accessToken;
             if (!token) {
                 throw new Error('No hay token de acceso');
             }
@@ -59,11 +59,11 @@ export function useCreateObjetivo() {
  */
 export function useUpdateObjetivo() {
     const queryClient = useQueryClient();
-    const { getValidAccessToken } = useAuth();
+    const { tokens } = useAuth();
 
     return useMutation({
         mutationFn: async ({ id, data }: { id: number; data: UpdateObjetivoDTO }) => {
-            const token = await getValidAccessToken();
+            const token = tokens?.accessToken;
             if (!token) {
                 throw new Error('No hay token de acceso');
             }
@@ -129,11 +129,11 @@ export function useUpdateObjetivo() {
  */
 export function useDeleteObjetivo() {
     const queryClient = useQueryClient();
-    const { getValidAccessToken } = useAuth();
+    const { tokens } = useAuth();
 
     return useMutation({
         mutationFn: async (id: number) => {
-            const token = await getValidAccessToken();
+            const token = tokens?.accessToken;
             if (!token) {
                 throw new Error('No hay token de acceso');
             }

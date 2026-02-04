@@ -1,4 +1,4 @@
-import { useAuth } from '@/features/auth/hooks/useAuthActions';
+import { useAuth } from '@/features/auth/context/AuthContext';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Archivo, MobileFile, UpdateArchivoPayload, UploadArchivoPayload } from '../models/Archivo';
 import * as archivosApi from '../services/archivosApi';
@@ -14,26 +14,27 @@ export const ARCHIVOS_KEYS = {
 };
 
 export function useArchivos() {
-    const { getValidAccessToken } = useAuth();
+    const { tokens } = useAuth();
     
     return useQuery({
         queryKey: ARCHIVOS_KEYS.lists(),
         queryFn: async () => {
-             const token = await getValidAccessToken();
+             const token = tokens?.accessToken;
              if (!token) throw new Error("No authentification token found");
              return archivosApi.fetchArchivos(token);
-        }
+        },
+        enabled: !!tokens?.accessToken
     });
 }
 
 export function useSearchArchivos(query: string) {
-    const { getValidAccessToken } = useAuth();
+    const { tokens } = useAuth();
 
     return useQuery({
         queryKey: ARCHIVOS_KEYS.search(query),
         queryFn: async () => {
             if (!query || query.trim().length === 0) return [];
-            const token = await getValidAccessToken();
+            const token = tokens?.accessToken;
             if (!token) throw new Error("No authentification token found");
             
             const trimmedQuery = query.trim();
@@ -62,44 +63,45 @@ export function useSearchArchivos(query: string) {
             
             return resultadosUnicos;
         },
-        enabled: query.trim().length > 0
+        enabled: query.trim().length > 0 && !!tokens?.accessToken
     });
 }
 
 export function useArchivosPersonales() {
-    const { getValidAccessToken } = useAuth();
+    const { tokens } = useAuth();
 
     return useQuery({
         queryKey: ARCHIVOS_KEYS.personales(),
         queryFn: async () => {
-             const token = await getValidAccessToken();
+             const token = tokens?.accessToken;
              if (!token) throw new Error("No authentification token found");
              return archivosApi.getArchivosPersonales(token);
-        }
+        },
+        enabled: !!tokens?.accessToken
     });
 }
 
 export function useArchivosUsuario(idUsuario: number) {
-    const { getValidAccessToken } = useAuth();
+    const { tokens } = useAuth();
 
      return useQuery({
         queryKey: ARCHIVOS_KEYS.usuario(idUsuario),
         queryFn: async () => {
-             const token = await getValidAccessToken();
+             const token = tokens?.accessToken;
              if (!token) throw new Error("No authentification token found");
              return archivosApi.getArchivosByIdUsuario(token, idUsuario);
         },
-        enabled: !!idUsuario
+        enabled: !!idUsuario && !!tokens?.accessToken
     });
 }
 
 export function useUpdateArchivo() {
-    const { getValidAccessToken } = useAuth();
+    const { tokens } = useAuth();
     const queryClient = useQueryClient();
     
     return useMutation({
         mutationFn: async ({ id, data }: { id: number; data: UpdateArchivoPayload }) => {
-            const token = await getValidAccessToken();
+            const token = tokens?.accessToken;
             if (!token) throw new Error("No authentification token found");
             return archivosApi.updateArchivo(token, id, data);
         },
@@ -110,12 +112,12 @@ export function useUpdateArchivo() {
 }
 
 export function useDeleteArchivo() {
-    const { getValidAccessToken } = useAuth();
+    const { tokens } = useAuth();
     const queryClient = useQueryClient();
     
     return useMutation({
         mutationFn: async (id: number) => {
-            const token = await getValidAccessToken();
+            const token = tokens?.accessToken;
             if (!token) throw new Error("No authentification token found");
             return archivosApi.deleteArchivo(token, id);
         },
@@ -126,12 +128,12 @@ export function useDeleteArchivo() {
 }
 
 export function useUploadArchivo() {
-    const { getValidAccessToken } = useAuth();
+    const { tokens } = useAuth();
     const queryClient = useQueryClient();
     
     return useMutation({
         mutationFn: async ({ archivo, data }: { archivo: MobileFile; data: UploadArchivoPayload }) => {
-             const token = await getValidAccessToken();
+             const token = tokens?.accessToken;
              if (!token) throw new Error("No authentification token found");
              return archivosApi.uploadArchivo(token, archivo, data);
         },
@@ -142,26 +144,26 @@ export function useUploadArchivo() {
 }
 
 export function useArchivoUrl(id?: number) {
-    const { getValidAccessToken } = useAuth();
+    const { tokens } = useAuth();
     
     return useQuery({
         queryKey: id ? ARCHIVOS_KEYS.url(id) : ['url', 'null'],
          queryFn: async () => {
             if (!id) return null;
-             const token = await getValidAccessToken();
+             const token = tokens?.accessToken;
              if (!token) throw new Error("No authentification token found");
              return archivosApi.getArchivoUrlFirmada(token, id);
         },
-        enabled: !!id,
+        enabled: !!id && !!tokens?.accessToken,
         staleTime: 1000 * 60 * 5, // URL signed might be valid for some time, e.g. 5 minutes
     });
 }
 
 export function useGetArchivoUrlFirmada() {
-    const { getValidAccessToken } = useAuth();
+    const { tokens } = useAuth();
 
     const getArchivoUrlFirmada = async (id: number) => {
-        const token = await getValidAccessToken();
+        const token = tokens?.accessToken;
         if (!token) throw new Error("No se identificó al usuario");
         return archivosApi.getArchivoUrlFirmada(token, id);
     };

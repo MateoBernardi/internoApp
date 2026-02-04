@@ -1,5 +1,5 @@
-import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import React from 'react';
 
 const queryClient = new QueryClient({
     defaultOptions: {
@@ -13,15 +13,15 @@ const queryClient = new QueryClient({
     },
 });
 
-export interface KanbanProviderProps {
+export interface QueryProviderProps {
     children: React.ReactNode;
 }
 
 /**
- * Provider de TanStack Query para el Kanban
+ * Provider de TanStack Query
  * Proporciona cacheo y gestión de estado del servidor
  */
-export function KanbanProvider({ children }: KanbanProviderProps) {
+export function QueryProvider({ children }: QueryProviderProps) {
     return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
 }
 

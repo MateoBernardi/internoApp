@@ -1,10 +1,9 @@
 import { Stack } from 'expo-router';
 
-export default function AuthLayout() {
+export default function AssociationLayout() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="login" />
-      <Stack.Screen name="crear-usuario" />
+      <Stack.Screen name="asociar" options={{ headerShown: false }} />
     </Stack>
   );
 }

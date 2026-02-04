@@ -2,14 +2,17 @@
 import { InputWithIcon } from '@/components/InputWithIcon';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { useAuth } from '@/features/auth/hooks/useAuthActions';
+import { Colors } from '@/constants/theme';
+import { useAuth } from '@/features/auth/context/AuthContext';
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import { Keyboard, Platform, Pressable, StyleSheet, View } from 'react-native';
 
+const colors = Colors['light'];
+
 export const LoginForm: React.FC = () => {
-  const { handleLogin } = useAuth();
+  const { signIn } = useAuth();
   const [user, setUser] = useState("");
   const [pass, setPass] = useState("");
   const [loading, setLoading] = useState(false);
@@ -29,6 +32,10 @@ export const LoginForm: React.FC = () => {
     loading && styles.loginButtonLoading
   ], [isFormValid, loading]);
 
+  // Colores dinámicos del botón
+  const buttonIconColor = isFormValid ? colors.lightTint : colors.secondaryText;
+  const buttonTextColor = isFormValid ? colors.lightTint : colors.secondaryText;
+
   // Submit handler
   const onSubmit = useCallback(async () => {
     if (!isFormValid) {
@@ -43,18 +50,14 @@ export const LoginForm: React.FC = () => {
     setError("");
     
     try {
-      const ok = await handleLogin(user.trim(), pass.trim());
-      if (ok) {
-        router.replace("/explore");
-      } else {
-        setError("Usuario o contraseña incorrectos");
-      }
-    } catch (err) {
-      setError("Error de conexión. Intenta nuevamente");
+      await signIn(user.trim(), pass.trim());
+      // El RootLayout maneja el redirect automáticamente basado en isAuthenticated y requiresAssociation
+    } catch (err: any) {
+      setError(err.message || "Usuario o contraseña incorrectos");
     } finally {
       setLoading(false);
     }
-  }, [user, pass, handleLogin, isFormValid]);
+  }, [user, pass, signIn, isFormValid]);
 
   // Cambios de usuario y contraseña
   const handleUserChange = useCallback((text: string) => {
@@ -108,18 +111,25 @@ export const LoginForm: React.FC = () => {
           disabled={!isFormValid || loading}
           accessibilityRole="button"
           accessibilityLabel="Botón ingresar"
-          android_ripple={{ color: 'rgba(255,255,255,0.2)' }}
+          android_ripple={{ color: colors.lightTint }}
           {...Platform.OS === 'ios' && {
             onPressIn: () => {
               // Feedback háptico nativo disponible si se necesita
             }
           }}
         >
-          <Feather name="log-in" size={22} color={isFormValid ? "#274690" : "#fff"} style={{ marginRight: 8 }} />
-          <ThemedText style={[styles.loginButtonText, !isFormValid && { color: '#fff' }] }>
+          <Feather name="log-in" size={22} color={buttonIconColor} style={{ marginRight: 8 }} />
+          <ThemedText style={[styles.loginButtonText, { color: buttonTextColor }]}>
             {loading ? "Ingresando..." : "Ingresar"}
           </ThemedText>
         </Pressable>
+
+        <View style={styles.signupContainer}>
+          <ThemedText style={styles.signupText}>¿No tenés usuario? </ThemedText>
+          <Pressable onPress={() => router.navigate({pathname: '/(auth)/crear-usuario' as any})}>
+            <ThemedText style={styles.signupLink}>Crear uno</ThemedText>
+          </Pressable>
+        </View>
       </ThemedView>
     </ThemedView>
   );
@@ -131,13 +141,17 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     paddingHorizontal: 20,
+    paddingTop: 60,
   },
   formSubtitle: {
-    display: 'none',
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 12,
   },
   loginForm: {
     maxWidth: 380,
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.componentBackground,
     borderRadius: 16,
     padding: 24,
     gap: 16,
@@ -148,7 +162,7 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   loginButtonText: {
-    color: '#274690',
+    color: colors.componentBackground,
     fontSize: 16,
     fontWeight: '600',
     letterSpacing: 0.5,
@@ -158,38 +172,54 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     alignSelf: 'center',
     marginTop: 32,
-    backgroundColor: '#f3f6fa',
+    backgroundColor: colors.lightTint,
     borderRadius: 18,
     paddingVertical: 14,
     paddingHorizontal: 32,
     elevation: 8,
-    shadowColor: '#274690',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.18,
     shadowRadius: 16,
   },
   loginCardText: {
-    color: '#274690',
+    color: colors.componentBackground,
     fontWeight: 'bold',
     fontSize: 16,
   },
   loginButtonDisabled: {
-    backgroundColor: '#adb5bd',
+    backgroundColor: colors.background,
     shadowOpacity: 0.1,
   },
   loginButtonLoading: {
     opacity: 0.8,
+    backgroundColor: colors.secondaryText,
   },
   errorContainer: {
     backgroundColor: '#fee',
     borderRadius: 8,
     padding: 12,
     borderLeftWidth: 4,
-    borderLeftColor: '#dc3545',
+    borderLeftColor: colors.error,
   },
   errorText: {
-    color: '#dc3545',
+    color: colors.error,
     fontSize: 14,
     fontWeight: '500',
+  },
+  signupContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  signupText: {
+    fontSize: 14,
+    color: colors.secondaryText,
+  },
+  signupLink: {
+    fontSize: 14,
+    color: colors.tint,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
   },
 });

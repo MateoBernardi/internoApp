@@ -40,6 +40,11 @@ export default function TabLayout() {
       label: 'Encuestas',
       route: '/(extras)/encuestas' as Href,
     },
+    ...(hasRole('gerencia') ? [{
+      id: 'empleados',
+      label: 'Gestión de Roles',
+      route: '/(extras)/cambiar-rol' as Href,
+    }] : []),
   ];
 
   const personalMenuOptions: MenuOption[] = [
@@ -61,7 +66,7 @@ export default function TabLayout() {
     {
       id: 'configuracion-cuenta',
       label: 'Configuración de Cuenta',
-      route: '/(extras)/configuracion-cuenta' as Href,
+      route: '/(extras)/editar-usuario' as Href,
     },
     {
       id: 'cerrar-sesion',

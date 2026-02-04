@@ -9,7 +9,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
-type TabType = 'reportes' | 'permisos' | 'francos' | 'vacaciones';
+type TabType = 'reportes' | 'permisos' | 'francos' | 'vacaciones' | 'rol';
 
 const TABS: { key: TabType; label: string }[] = [
 	{ key: 'reportes', label: 'Reportes' },

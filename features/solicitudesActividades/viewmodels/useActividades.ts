@@ -1,4 +1,4 @@
-import { useAuth } from '@/features/auth/hooks/useAuthActions';
+import { useAuth } from '@/features/auth/context/AuthContext';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as actividadesModels from '../models/Actividad';
 import * as actividadesApi from '../services/actividadesApi';
@@ -16,12 +16,12 @@ const actividadesQueryKeys = {
  * Hook para obtener las actividades semanales futuras del usuario
  */
 export function useActividadesSemanales() {
-  const { getValidAccessToken } = useAuth();
+  const { tokens } = useAuth();
 
   return useQuery({
     queryKey: actividadesQueryKeys.semanales(),
     queryFn: async () => {
-      const accessToken = await getValidAccessToken();
+      const accessToken = tokens?.accessToken;
       if (!accessToken) {
         throw new Error('No access token available');
       }
@@ -38,12 +38,12 @@ export function useActividadesSemanales() {
  * Hook para obtener las actividades de la semana anterior del usuario
  */
 export function useActividadesSemanaAnterior() {
-  const { getValidAccessToken } = useAuth();
+  const { tokens } = useAuth();
 
   return useQuery({
     queryKey: actividadesQueryKeys.semanaAnterior(),
     queryFn: async () => {
-      const accessToken = await getValidAccessToken();
+      const accessToken = tokens?.accessToken;
       if (!accessToken) {
         throw new Error('No access token available');
       }
@@ -62,12 +62,12 @@ export function useActividadesSemanaAnterior() {
  * Hook para crear una nueva actividad
  */
 export function useCrearActividad() {
-  const { getValidAccessToken } = useAuth();
+  const { tokens } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (data: actividadesModels.CrearActividadRequest) => {
-      const accessToken = await getValidAccessToken();
+      const accessToken = tokens?.accessToken;
       if (!accessToken) {
         throw new Error('No access token available');
       }
@@ -88,12 +88,12 @@ export function useCrearActividad() {
  * Hook para agregar un participante a una actividad
  */
 export function useAgregarParticipante() {
-  const { getValidAccessToken } = useAuth();
+  const { tokens } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (data: actividadesModels.AgregarParticipanteRequest) => {
-      const accessToken = await getValidAccessToken();
+      const accessToken = tokens?.accessToken;
       if (!accessToken) {
         throw new Error('No access token available');
       }
@@ -117,12 +117,12 @@ export function useAgregarParticipante() {
  * Hook para cancelar una actividad
  */
 export function useCancelarActividad() {
-  const { getValidAccessToken } = useAuth();
+  const { tokens } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (data: actividadesModels.CancelarActividadRequest) => {
-      const accessToken = await getValidAccessToken();
+      const accessToken = tokens?.accessToken;
       if (!accessToken) {
         throw new Error('No access token available');
       }

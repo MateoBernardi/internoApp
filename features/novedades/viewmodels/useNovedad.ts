@@ -1,4 +1,4 @@
-import { useAuth } from '@/features/auth/hooks/useAuthActions';
+import { useAuth } from '@/features/auth/context/AuthContext';
 import { useCallback, useState } from 'react';
 import type { Novedad } from '../models/Novedades';
 import * as novedadesApi from '../services/novedadesApi';
@@ -15,7 +15,7 @@ import * as novedadesApi from '../services/novedadesApi';
  * Incluye manejo de estados de carga y errores
  */
 export function useNovedad() {
-  const { getValidAccessToken } = useAuth();
+  const { tokens } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,7 +27,7 @@ export function useNovedad() {
     setError(null);
 
     try {
-      const token = await getValidAccessToken();
+      const token = tokens?.accessToken;
       if(!token) throw new Error('No hay token de acceso');
       const novedades = await novedadesApi.fetchNovedades(token);
       
@@ -40,7 +40,7 @@ export function useNovedad() {
       console.error('Error en obtenerNovedades:', err);
       return { success: false, error: errorMsg };
     }
-  }, [getValidAccessToken]);
+  }, [tokens]);
 
   /**
    * Crear una nueva novedad
@@ -51,7 +51,7 @@ export function useNovedad() {
       setError(null);
 
       try {
-        const token = await getValidAccessToken();
+        const token = tokens?.accessToken;
         if(!token) throw new Error('No hay token de acceso');
         const nuevaNovedad = await novedadesApi.crearNovedad(novedadData, token);
         
@@ -65,7 +65,7 @@ export function useNovedad() {
         return { success: false, error: errorMsg };
       }
     },
-    [getValidAccessToken]
+    [tokens]
   );
 
   /**
@@ -77,7 +77,7 @@ export function useNovedad() {
       setError(null);
 
       try {
-        const token = await getValidAccessToken();
+        const token = tokens?.accessToken;
         if(!token) throw new Error('No hay token de acceso');
         const novedadActualizada = await novedadesApi.actualizarNovedad(novedadData, token);
         
@@ -91,7 +91,7 @@ export function useNovedad() {
         return { success: false, error: errorMsg };
       }
     },
-    [getValidAccessToken]
+    [tokens]
   );
 
   /**
@@ -103,7 +103,7 @@ export function useNovedad() {
       setError(null);
 
       try {
-        const token = await getValidAccessToken();
+        const token = tokens?.accessToken;
         if(!token) throw new Error('No hay token de acceso');
         await novedadesApi.eliminarNovedad(id, token);
         
@@ -117,7 +117,7 @@ export function useNovedad() {
         return { success: false, error: errorMsg };
       }
     },
-    [getValidAccessToken]
+    [tokens]
   );
 
   return {

@@ -1,4 +1,4 @@
-import { useAuth } from '@/features/auth/hooks/useAuthActions';
+import { useAuth } from '@/features/auth/context/AuthContext';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as solicitudModels from '../models/Solicitud';
 import * as solicitudesApi from '../services/solicitudesApi';
@@ -14,11 +14,11 @@ const solicitudesQueryKeys = {
  * Hook para obtener las solicitudes creadas por el usuario
  */
 export function useSolicitudesCreadas() {
-    const { getValidAccessToken } = useAuth();
+    const { tokens } = useAuth();
     return useQuery({
         queryKey: solicitudesQueryKeys.creadas(),
         queryFn: async () => {
-            const token = await getValidAccessToken();
+            const token = tokens?.accessToken;
             if (!token) {
                 throw new Error('No access token available');
             }
@@ -35,12 +35,12 @@ export function useSolicitudesCreadas() {
  * Hook para obtener las invitaciones recibidas por el usuario
  */
 export function useInvitaciones() {
-    const { getValidAccessToken } = useAuth();
+    const { tokens } = useAuth();
 
     return useQuery({
         queryKey: solicitudesQueryKeys.invitaciones(),
         queryFn: async () => {
-            const accessToken = await getValidAccessToken();
+            const accessToken = tokens?.accessToken;
             if (!accessToken) {
                 throw new Error('No access token available');
             }
@@ -57,12 +57,12 @@ export function useInvitaciones() {
  * Hook para obtener la bitácora de cambios de una solicitud
  */
 export function useSolicitudBitacora(solicitudId: number) {
-  const { getValidAccessToken } = useAuth();
+  const { tokens } = useAuth();
 
   return useQuery({
     queryKey: solicitudesQueryKeys.bitacora(solicitudId),
     queryFn: async () => {
-      const accessToken = await getValidAccessToken();
+      const accessToken = tokens?.accessToken;
       if (!accessToken) {
         throw new Error('No access token available');
       }
@@ -80,12 +80,12 @@ export function useSolicitudBitacora(solicitudId: number) {
  * Hook para crear una nueva solicitud
  */
 export function useCrearSolicitud() {
-  const { getValidAccessToken } = useAuth();
+  const { tokens } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (data: solicitudModels.CrearSolicitudRequest) => {
-      const accessToken = await getValidAccessToken();
+      const accessToken = tokens?.accessToken;
       if (!accessToken) {
         throw new Error('No access token available');
       }
@@ -106,12 +106,12 @@ export function useCrearSolicitud() {
  * Hook para cancelar una solicitud existente
  */
 export function useCancelarSolicitud() {
-  const { getValidAccessToken } = useAuth();
+  const { tokens } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (data: solicitudModels.CancelarSolicitudRequest) => {
-      const accessToken = await getValidAccessToken();
+      const accessToken = tokens?.accessToken;
       if (!accessToken) {
         throw new Error('No access token available');
       }
@@ -135,12 +135,12 @@ export function useCancelarSolicitud() {
  * Hook para modificar las fechas de una solicitud
  */
 export function useModificarSolicitudFechas() {
-  const { getValidAccessToken } = useAuth();
+  const { tokens } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (data: solicitudModels.ModificarSolicitudFechasRequest) => {
-      const accessToken = await getValidAccessToken();
+      const accessToken = tokens?.accessToken;
       if (!accessToken) {
         throw new Error('No access token available');
       }
@@ -168,12 +168,12 @@ export function useModificarSolicitudFechas() {
  * Hook para aceptar modificaciones en una solicitud
  */
 export function useAceptarModificaciones() {
-  const { getValidAccessToken } = useAuth();
+  const { tokens } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (solicitudId: number) => {
-      const accessToken = await getValidAccessToken();
+      const accessToken = tokens?.accessToken;
       if (!accessToken) {
         throw new Error('No access token available');
       }
@@ -200,12 +200,12 @@ export function useAceptarModificaciones() {
  * Hook para reenviar una solicitud a nuevos invitados
  */
 export function useReenviarSolicitud() {
-  const { getValidAccessToken } = useAuth();
+  const { tokens } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (data: solicitudModels.ReenviarSolicitudRequest) => {
-      const accessToken = await getValidAccessToken();
+      const accessToken = tokens?.accessToken;
       if (!accessToken) {
         throw new Error('No access token available');
       }
@@ -226,12 +226,12 @@ export function useReenviarSolicitud() {
  * Hook para actualizar el estado de una invitación (aceptar, rechazar, etc.)
  */
 export function useActualizarEstadoInvitacion() {
-  const { getValidAccessToken } = useAuth();
+  const { tokens } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (data: solicitudModels.ActualizarEstadoInvitacionRequest) => {
-      const accessToken = await getValidAccessToken();
+      const accessToken = tokens?.accessToken;
       if (!accessToken) {
         throw new Error('No access token available');
       }

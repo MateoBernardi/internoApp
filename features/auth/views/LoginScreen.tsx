@@ -1,5 +1,6 @@
 import { LoginForm } from '@/components/LoginForm';
 import { ThemedView } from '@/components/themed-view';
+import { Colors } from '@/constants/theme';
 import React, { useRef } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, useWindowDimensions } from "react-native";
 
@@ -7,7 +8,7 @@ import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, useWindowDimens
 const KEYBOARD_BEHAVIOR = Platform.OS === 'ios' ? 'padding' : 'height';
 const KEYBOARD_OFFSET = Platform.OS === 'ios' ? 0 : 20;
 
-export default function LoginScreen() {
+export default function Login() {
   // Refs para optimizar KeyboardAvoidingView
   const scrollViewRef = useRef(null);
   const { height: windowHeight } = useWindowDimensions();
@@ -42,7 +43,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   background: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: Colors.light.componentBackground,
   },
   scrollView: {
     flex: 1,

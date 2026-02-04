@@ -1,4 +1,4 @@
-import { useAuth } from '@/features/auth/hooks/useAuthActions';
+import { useAuth } from '@/features/auth/context/AuthContext';
 import { MobileFile } from '@/features/docs/models/Archivo';
 import { uploadArchivo } from '@/features/docs/services/archivosApi';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -15,11 +15,11 @@ import {
 } from "../services/solicitudesApi";
 
 export function useGetTiposLicencias() {
-    const { getValidAccessToken } = useAuth();
+    const { tokens } = useAuth();
     return useQuery({
         queryKey: ['tipos-licencias'],
         queryFn: async () => {
-            const token = await getValidAccessToken();
+            const token = tokens?.accessToken;
             if (!token) {
                 throw new Error('No hay token de acceso');
             }
@@ -31,12 +31,12 @@ export function useGetTiposLicencias() {
 }
 
 export function useGetSaldosLicencias() {
-    const { getValidAccessToken } = useAuth();
+    const { tokens } = useAuth();
 
     return useQuery({
         queryKey: ['saldos-licencias'],
         queryFn: async () => {
-            const token = await getValidAccessToken();
+            const token = tokens?.accessToken;
             if (!token) {
                 throw new Error('No hay token de acceso');
             }
@@ -48,12 +48,12 @@ export function useGetSaldosLicencias() {
 }
 
 export function useGetSolicitudesLicencias(filters?: solicitudesLicencias.GetSolicitudesFilters) {
-    const { getValidAccessToken } = useAuth();
+    const { tokens } = useAuth();
 
     return useQuery({
         queryKey: ['solicitudes-licencias', filters],
         queryFn: async () => {
-            const token = await getValidAccessToken();
+            const token = tokens?.accessToken;
             if (!token) {
                 throw new Error('No hay token de acceso');
             }
@@ -89,12 +89,12 @@ export function useGetSolicitudesLicencias(filters?: solicitudesLicencias.GetSol
 }
 
 export function useGetSolicitudesUsuario() {
-    const { getValidAccessToken } = useAuth();
-
+    const { tokens } = useAuth();
+    
     return useQuery({
         queryKey: ['solicitudes-licencias', 'usuario'],
         queryFn: async () => {
-            const token = await getValidAccessToken();
+            const token = tokens?.accessToken;
             if (!token) {
                 throw new Error('No hay token de acceso');
             }
@@ -130,11 +130,11 @@ export function useGetSolicitudesUsuario() {
 
 export function useCreateSolicitudLicencia() {
     const queryClient = useQueryClient();
-    const { getValidAccessToken } = useAuth();
+    const { tokens } = useAuth();
 
     return useMutation({
         mutationFn: async (data: solicitudesLicencias.CreateSolicitudDTO) => {
-            const token = await getValidAccessToken();
+            const token = tokens?.accessToken;
             if (!token) {
                 throw new Error('No hay token de acceso');
             }
@@ -149,11 +149,11 @@ export function useCreateSolicitudLicencia() {
 
 export function useAdjuntarArchivo() {
     const queryClient = useQueryClient();
-    const { getValidAccessToken } = useAuth();
+    const { tokens } = useAuth();
 
     return useMutation({
         mutationFn: async ({ solicitudId, archivo, archivoData }: { solicitudId: number; archivo: MobileFile; archivoData: solicitudesLicencias.ArchivoAdjunto }) => {
-            const token = await getValidAccessToken();
+            const token = tokens?.accessToken;
             if (!token) {
                 throw new Error('No hay token de acceso');
             }
@@ -171,11 +171,11 @@ export function useAdjuntarArchivo() {
 
 export function useCancelarSolicitudLicencia() {
     const queryClient = useQueryClient();
-    const { getValidAccessToken } = useAuth();
+    const { tokens } = useAuth();
 
     return useMutation({
         mutationFn: async (solicitudId: number) => {
-            const token = await getValidAccessToken();
+            const token = tokens?.accessToken;
             if (!token) {
                 throw new Error('No hay token de acceso');
             }
@@ -190,11 +190,11 @@ export function useCancelarSolicitudLicencia() {
 
 export function useAprobarSolicitudLicencia() {
     const queryClient = useQueryClient();
-    const { getValidAccessToken } = useAuth();  
+    const { tokens } = useAuth();  
 
     return useMutation({
         mutationFn: async (data: { solicitudId: number; observacion?: string }) => {
-            const token = await getValidAccessToken();
+            const token = tokens?.accessToken;
             if (!token) {
                 throw new Error('No hay token de acceso');
             }
@@ -210,11 +210,11 @@ export function useAprobarSolicitudLicencia() {
 
 export function useRechazarSolicitudLicencia() {
     const queryClient = useQueryClient();
-    const { getValidAccessToken } = useAuth();  
+    const { tokens } = useAuth();  
 
     return useMutation({
         mutationFn: async (data: { solicitudId: number; observacion: string }) => {
-            const token = await getValidAccessToken();
+            const token = tokens?.accessToken;
             if (!token) {
                 throw new Error('No hay token de acceso');
             }

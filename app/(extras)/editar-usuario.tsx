@@ -1,11 +1,11 @@
 import { ThemedView } from '@/components/themed-view';
-import AgendaPersonal from '@/features/solicitudesActividades/views/AgendaPersonal';
+import EditarUsuario from '@/shared/views/EditarUsuario';
 import { StyleSheet } from 'react-native';
 
-export default function AgendaPersonalScreen() {
+export default function EditarUsuarioScreen() {
   return (
         <ThemedView style={styles.container}>
-          <AgendaPersonal />
+          <EditarUsuario />
         </ThemedView>
     );
 }

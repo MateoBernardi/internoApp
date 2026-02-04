@@ -1,4 +1,4 @@
-import { useAuth } from '@/features/auth/hooks/useAuthActions';
+import { useAuth } from '@/features/auth/context/AuthContext';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     createEncuestaCompleta,
@@ -8,12 +8,12 @@ import {
 } from '../services/encuestasApi';
 
 export function useGetEncuestas() {
-    const { getValidAccessToken } = useAuth();
+    const { tokens } = useAuth();
 
     return useQuery({
         queryKey: ['encuestas'],
         queryFn: async () => {
-            const token = await getValidAccessToken();
+            const token = tokens?.accessToken;
             if (!token) {
                 throw new Error('No hay token de acceso');
             }
@@ -28,11 +28,11 @@ export function useGetEncuestas() {
 
 export function useEnviarRespuestasEncuesta() {
     const queryClient = useQueryClient();
-    const { getValidAccessToken } = useAuth();  
+    const { tokens } = useAuth();
 
     return useMutation({    
         mutationFn: async (data: {respuestas: import('../models/Encuesta').Respuesta[]}) => {
-            const token = await getValidAccessToken();
+            const token = tokens?.accessToken;
             if (!token) {
                 throw new Error('No hay token de acceso');
             }
@@ -46,12 +46,12 @@ export function useEnviarRespuestasEncuesta() {
 }
 
 export function useGetRespuestasEncuesta() {
-    const { getValidAccessToken } = useAuth();
+    const { tokens } = useAuth();
 
     return useQuery({
         queryKey: ['encuestas_respuestas'],
         queryFn: async () => {
-            const token = await getValidAccessToken();
+            const token = tokens?.accessToken;
             if (!token) {
                 throw new Error('No hay token de acceso');
             }
@@ -64,11 +64,11 @@ export function useGetRespuestasEncuesta() {
 
 export function useCreateEncuestaCompleta() {
     const queryClient = useQueryClient();
-    const { getValidAccessToken } = useAuth();
+    const { tokens } = useAuth();
 
     return useMutation({
         mutationFn: async (data: {encuesta: import('../models/Encuesta').Encuesta, preguntas: import('../models/Encuesta').Pregunta}) => {
-            const token = await getValidAccessToken();
+            const token = tokens?.accessToken;
             if (!token) {
                 throw new Error('No hay token de acceso');
             }

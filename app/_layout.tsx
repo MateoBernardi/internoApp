@@ -1,7 +1,6 @@
 import { Colors } from '@/constants/theme';
+import { QueryProvider } from '@/context/QueryProvider';
 import { AuthProvider, useAuth } from '@/features/auth/context/AuthContext';
-import { KanbanProvider } from '@/features/kanban/context/KanbanProvider';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Redirect, Stack, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -15,8 +14,7 @@ export const unstable_settings = {
 const colors = Colors['light']; // Usar siempre el tema claro
 
 function RootNavigator() {
-  const colorScheme = useColorScheme();
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, requiresAssociation } = useAuth();
   const segments = useSegments();
 
   // Mostrar loading mientras se verifica la sesión
@@ -29,14 +27,20 @@ function RootNavigator() {
   }
 
   const inAuthGroup = segments[0] === '(auth)';
+  const inAssociationGroup = segments[0] === '(association)';
+
+  // Si está autenticado, requiere asociación, y NO está en association, redirigir
+  if (isAuthenticated && requiresAssociation && !inAssociationGroup) {
+    return <Redirect href="/asociar" />;
+  }
 
   // Si NO está autenticado y NO está en el grupo (auth), redirigir a login
   if (!isAuthenticated && !inAuthGroup) {
-    return <Redirect href="/(auth)" />;
+    return <Redirect href="/login" />;
   }
 
-  // Si ESTÁ autenticado y está intentando acceder a (auth), redirigir a tabs
-  if (isAuthenticated && inAuthGroup) {
+  // Si ESTÁ autenticado, no requiere asociación, y está intentando acceder a (auth), redirigir a tabs
+  if (isAuthenticated && !requiresAssociation && inAuthGroup) {
     return <Redirect href="/(tabs)" />;
   }
 
@@ -46,6 +50,7 @@ function RootNavigator() {
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="(extras)" options={{ headerShown: false }} />
+        <Stack.Screen name="(association)" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>
       <StatusBar style="auto" />
@@ -55,11 +60,11 @@ function RootNavigator() {
 
 export default function RootLayout() {
   return (
-    <AuthProvider>
-      <KanbanProvider>
+    <QueryProvider>
+      <AuthProvider>
         <RootNavigator />
-      </KanbanProvider>
-    </AuthProvider>
+      </AuthProvider>
+    </QueryProvider>
   );
 }
 

@@ -4,7 +4,7 @@ import {
   useObtenerCuentasDisponibles,
   useRequestVerificationToken,
   useVerifyAndAssociate,
-} from "@/shared/users/useAssociarCuenta";
+} from "@/shared/users/useAsociarCuenta";
 import type { CuentaDisponibleDTO } from "@/shared/users/UserDTO";
 import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";

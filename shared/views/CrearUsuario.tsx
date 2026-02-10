@@ -158,7 +158,7 @@ export default function CrearUsuario() {
 
         // Redirigir al login después de 1.5 segundos
         setTimeout(() => {
-          router.replace('/(auth)');
+          router.replace('/login');
         }, 1500);
       } else {
         Alert.alert('Error', response.message || 'Error al crear el usuario');
@@ -399,7 +399,7 @@ export default function CrearUsuario() {
 
       {/* Volver al Login */}
       <TouchableOpacity
-        onPress={() => router.replace('/(auth)')}
+        onPress={() => router.replace('/login')}
         disabled={loading}
       >
         <ThemedText style={{ color: '#007AFF', textAlign: 'center', fontSize: 14 }}>

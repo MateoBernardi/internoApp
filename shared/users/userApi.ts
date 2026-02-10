@@ -165,5 +165,94 @@ export async function verifyAndAssociateAccount(
   return data;
 }
 
+/**
+ * Generar token para recuperación de contraseña
+ * Se envía email y se obtiene un token que será enviado al correo
+ */
+export async function generatePasswordToken(email: string) {
+  console.log("📧 generatePasswordToken - Generando token para email:", email);
+  const response = await apiRequest({
+    method: "PUT",
+    endpoint: `/usuarios/forgot-password`,
+    token: "",
+    body: { email },
+  });
+
+  if (!response.ok) {
+    const textResponse = await response.text();
+    console.error("❌ generatePasswordToken - Status:", response.statusText, "Response:", textResponse);
+    try {
+      const error = JSON.parse(textResponse);
+      throw new Error(error.message || error.error || 'Error al generar token');
+    } catch (e) {
+      throw new Error(textResponse || 'Error al generar token');
+    }
+  }
+
+  const data = await response.json();
+  console.log("✅ generatePasswordToken - Token generado y enviado");
+  return data;
+}
+
+/**
+ * Validar token de recuperación de contraseña
+ * Devuelve un access token readonly que se usa para cambiar la contraseña
+ */
+export async function validatePasswordToken(email: string, token: string) {
+  console.log("🔐 validatePasswordToken - Validando token");
+  const response = await apiRequest({
+    method: "PUT",
+    endpoint: `/usuarios/forgot-password/token`,
+    token: "",
+    body: { email, token },
+  });
+
+  if (!response.ok) {
+    const textResponse = await response.text();
+    console.error("❌ validatePasswordToken - Status:", response.statusText, "Response:", textResponse);
+    try {
+      const error = JSON.parse(textResponse);
+      throw new Error(error.message || error.error || 'Token inválido o expirado');
+    } catch (e) {
+      throw new Error(textResponse || 'Token inválido o expirado');
+    }
+  }
+
+  const data = await response.json();
+  console.log("✅ validatePasswordToken - Token validado");
+  return data;
+}
+
+/**
+ * Cambiar contraseña usando token de acceso readonly
+ * Requiere accessToken con rol readonly (obtenido del paso anterior)
+ */
+export async function changePasswordWithToken(accessToken: string, newPassword: string) {
+  console.log("🔄 changePasswordWithToken - Cambiando contraseña");
+  const response = await apiRequest({
+    method: "PUT",
+    endpoint: `/usuarios/change-password`,
+    token: accessToken,
+    body: { newPassword },
+  });
+
+  if (!response.ok) {
+    const textResponse = await response.text();
+    console.error("❌ changePasswordWithToken - Status:", response.statusText, "Response:", textResponse);
+    try {
+      const error = JSON.parse(textResponse);
+      throw new Error(error.message || error.error || 'Error al cambiar contraseña');
+    } catch (e) {
+      throw new Error(textResponse || 'Error al cambiar contraseña');
+    }
+  }
+
+  const data = await response.json();
+  console.log("✅ changePasswordWithToken - Contraseña cambiada exitosamente");
+  return data;
+}
+
+
+
 
 

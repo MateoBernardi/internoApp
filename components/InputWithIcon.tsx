@@ -13,6 +13,7 @@ type InputWithIconProps = {
   accessibilityLabel?: string;
   returnKeyType?: TextInputProps['returnKeyType'];
   textContentType?: TextInputProps['textContentType'];
+  keyboardType?: TextInputProps['keyboardType'];
   hasError?: boolean;
 };
 
@@ -25,6 +26,7 @@ export const InputWithIcon = memo(({
   accessibilityLabel,
   returnKeyType = "next",
   textContentType,
+  keyboardType = "default",
   hasError = false
 }: InputWithIconProps) => (
   <View style={[styles.inputContainer, hasError && styles.inputError]}>
@@ -43,6 +45,7 @@ export const InputWithIcon = memo(({
       accessibilityLabel={accessibilityLabel}
       returnKeyType={returnKeyType}
       textContentType={textContentType}
+      keyboardType={keyboardType}
       importantForAccessibility="yes"
     />
   </View>

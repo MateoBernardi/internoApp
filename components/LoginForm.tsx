@@ -124,11 +124,19 @@ export const LoginForm: React.FC = () => {
           </ThemedText>
         </Pressable>
 
-        <View style={styles.signupContainer}>
-          <ThemedText style={styles.signupText}>¿No tenés usuario? </ThemedText>
-          <Pressable onPress={() => router.navigate({pathname: '/(auth)/crear-usuario' as any})}>
-            <ThemedText style={styles.signupLink}>Crear uno</ThemedText>
-          </Pressable>
+        <View style={styles.linksContainer}>
+          <View style={styles.signupContainer}>
+            <ThemedText style={styles.signupText}>¿No tenés usuario? </ThemedText>
+            <Pressable onPress={() => router.navigate({pathname: '/(auth)/crear-usuario' as any})}>
+              <ThemedText style={styles.signupLink}>Crear uno</ThemedText>
+            </Pressable>
+          </View>
+
+          <View style={styles.forgotPasswordContainer}>
+            <Pressable onPress={() => router.navigate({pathname: '/(auth)/cambiar-contrasena' as any})}>
+              <ThemedText style={styles.forgotPasswordLink}>¿Olvidaste tu contraseña?</ThemedText>
+            </Pressable>
+          </View>
         </View>
       </ThemedView>
     </ThemedView>
@@ -206,11 +214,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
   },
+  linksContainer: {
+    marginTop: 20,
+    gap: 12,
+  },
   signupContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 20,
   },
   signupText: {
     fontSize: 14,
@@ -220,6 +231,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.tint,
     fontWeight: '600',
+    textDecorationLine: 'underline',
+  },
+  forgotPasswordContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  forgotPasswordLink: {
+    fontSize: 13,
+    color: colors.tint,
+    fontWeight: '500',
     textDecorationLine: 'underline',
   },
 });

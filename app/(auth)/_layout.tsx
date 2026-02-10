@@ -5,6 +5,7 @@ export default function AuthLayout() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="login" />
       <Stack.Screen name="crear-usuario" />
+      <Stack.Screen name="cambiar-contrasena" />
     </Stack>
   );
 }

@@ -12,6 +12,8 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "italoarg.com.ar",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -26,6 +28,7 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      "expo-notifications",
       "expo-router",
       [
         "expo-splash-screen",
@@ -47,7 +50,11 @@
       "reactCompiler": true
     },
     "extra": {
-      "API_BASE_URL": "http://192.168.1.22:3000"
+      "API_BASE_URL": "http://192.168.1.22:3000",
+      "router": {},
+      "eas": {
+        "projectId": "f7cef901-9e89-441f-8cb3-ceb9c01a8b6c"
+      }
     }
   }
 }

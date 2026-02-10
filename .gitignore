@@ -8,6 +8,7 @@ node_modules/
 dist/
 web-build/
 expo-env.d.ts
+italoapp-7def0-firebase-adminsdk-fbsvc-ff054e782e.json
 
 # Native
 .kotlin/

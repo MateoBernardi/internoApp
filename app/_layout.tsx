@@ -1,9 +1,12 @@
 import { Colors } from '@/constants/theme';
 import { QueryProvider } from '@/context/QueryProvider';
 import { AuthProvider, useAuth } from '@/features/auth/context/AuthContext';
+import { useRegisterDevice } from '@/features/devices/hooks/useRegisterDevice';
 import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import * as Notifications from 'expo-notifications';
 import { Redirect, Stack, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import 'react-native-reanimated';
 
@@ -16,12 +19,14 @@ const colors = Colors['light']; // Usar siempre el tema claro
 function RootNavigator() {
   const { isAuthenticated, isLoading, requiresAssociation } = useAuth();
   const segments = useSegments();
+  // Obtiene el push token y lo registra automáticamente cuando esté autenticado
+  useRegisterDevice();
 
   // Mostrar loading mientras se verifica la sesión
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color= {colors.lightTint} />
+        <ActivityIndicator size="large" color={colors.lightTint} />
       </View>
     );
   }
@@ -59,6 +64,28 @@ function RootNavigator() {
 }
 
 export default function RootLayout() {
+  const [notification, setNotification] = useState<Notifications.Notification | undefined>(
+    undefined
+  );
+
+  useEffect(() => {
+    // Configurar el manejador de notificaciones
+    const notificationListener = Notifications.addNotificationReceivedListener((notification) => {
+      setNotification(notification);
+    });
+
+    const responseListener = Notifications.addNotificationResponseReceivedListener((response) => {
+      console.log('Notificación presionada:', response);
+    });
+
+    return () => {
+      notificationListener.remove();
+      responseListener.remove();
+    };
+  }, []);
+
+  // Permitir que AuthProvider y el hook useRegisterDevice se encarguen de registrar el dispositivo
+  // cuando el usuario esté autenticado
   return (
     <QueryProvider>
       <AuthProvider>
@@ -67,6 +94,15 @@ export default function RootLayout() {
     </QueryProvider>
   );
 }
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
 
 const styles = StyleSheet.create({
   loadingContainer: {

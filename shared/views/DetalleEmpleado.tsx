@@ -140,7 +140,7 @@ export function DetalleEmpleado() {
 						>
 							<Ionicons name="add-circle-outline" size={20} color={colors.tint} />
 							<ThemedText style={[styles.addUserText, { color: colors.tint }]}>
-								Agregar
+								Comparar
 							</ThemedText>
 						</TouchableOpacity>
 					)}

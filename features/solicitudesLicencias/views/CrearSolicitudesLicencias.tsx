@@ -90,8 +90,29 @@ export function CrearSolicitudesLicencias() {
     setActiveDateType(null);
   };
 
+  const procederCrearSolicitud = useCallback(() => {
+    if (isPending) return; // Prevenir doble envío
+    crearSolicitud(
+      {
+        tipo_licencia_id: tipoLicenciaId!,
+        fecha_inicio: fechaInicio.toISOString().split('T')[0],
+        fecha_fin: fechaFin.toISOString().split('T')[0],
+        observacion: observacion.trim() || undefined,
+      },
+      {
+        onSuccess: () => {
+          Alert.alert('Éxito', 'Solicitud enviada correctamente');
+          router.back();
+        },
+        onError: (err: any) => {
+          Alert.alert('Error', err?.message || 'Hubo un problema al crear la solicitud');
+        },
+      }
+    );
+  }, [isPending, crearSolicitud, tipoLicenciaId, fechaInicio, fechaFin, observacion, router]);
+
   const handleCrearSolicitud = useCallback(() => {
-    if (!isFormValid) return;
+    if (!isFormValid || isPending) return;
 
     // Aviso si falta adjunto requerido
     if (selectedTipo?.requiere_adjunto && !archivoAdjunto) {
@@ -113,27 +134,7 @@ export function CrearSolicitudesLicencias() {
     } else {
       procederCrearSolicitud();
     }
-  }, [isFormValid, selectedTipo, archivoAdjunto]);
-
-  const procederCrearSolicitud = useCallback(() => {
-    crearSolicitud(
-      {
-        tipo_licencia_id: tipoLicenciaId!,
-        fecha_inicio: fechaInicio.toISOString().split('T')[0],
-        fecha_fin: fechaFin.toISOString().split('T')[0],
-        observacion: observacion.trim() || undefined,
-      },
-      {
-        onSuccess: () => {
-          Alert.alert('Éxito', 'Solicitud enviada correctamente');
-          router.back();
-        },
-        onError: (err: any) => {
-          Alert.alert('Error', err?.message || 'Hubo un problema al crear la solicitud');
-        },
-      }
-    );
-  }, [crearSolicitud, tipoLicenciaId, fechaInicio, fechaFin, observacion, router]);
+  }, [isFormValid, isPending, selectedTipo, archivoAdjunto, procederCrearSolicitud]);
 
   return (
     <View style={styles.container}>

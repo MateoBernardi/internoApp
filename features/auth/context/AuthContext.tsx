@@ -56,6 +56,8 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   refreshTokens: () => Promise<void>;
   reloadUserContext: () => Promise<void>;
+  /** Setea tokens directamente (ej: post-asociación) sin llamar al endpoint de login */
+  setAuthTokens: (accessToken: string, refreshToken?: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -66,6 +68,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [requiresAssociation, setRequiresAssociation] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const refreshPromiseRef = useRef<Promise<void> | null>(null);
+  const tokensRef = useRef<AuthTokens | null>(null);
 
   // Hooks de TanStack Query
   const loginMutation = useLogin();
@@ -101,13 +105,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
    */
   const saveTokens = useCallback(async (newTokens: AuthTokens) => {
     try {
-      await SecureStore.setItemAsync('accessToken', newTokens.accessToken);
-      if (newTokens.refreshToken) {
-        await SecureStore.setItemAsync('refreshToken', newTokens.refreshToken);
+      // Validate and ensure tokens are strings
+      const accessToken = String(newTokens.accessToken);
+      const refreshToken = newTokens.refreshToken ? String(newTokens.refreshToken) : null;
+
+      if (!accessToken || accessToken === 'null' || accessToken === 'undefined') {
+        throw new Error('Invalid accessToken: must be a non-empty string');
+      }
+
+      await SecureStore.setItemAsync('accessToken', accessToken);
+      if (refreshToken && refreshToken !== 'null' && refreshToken !== 'undefined') {
+        await SecureStore.setItemAsync('refreshToken', refreshToken);
       } else {
         await SecureStore.deleteItemAsync('refreshToken');
       }
-      setTokens(newTokens);
+      const saved = {
+        accessToken,
+        refreshToken: refreshToken || undefined,
+      };
+      tokensRef.current = saved;
+      setTokens(saved);
     } catch (error) {
       console.error('Error saving tokens:', error);
       throw error;
@@ -122,6 +139,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await SecureStore.deleteItemAsync('accessToken');
       await SecureStore.deleteItemAsync('refreshToken');
       await SecureStore.deleteItemAsync('requiresAssociation');
+      tokensRef.current = null;
       setTokens(null);
       setUser(null);
       setRequiresAssociation(false);
@@ -131,32 +149,54 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   /**
-   * Refrescar tokens usando el refreshToken
+   * Refrescar tokens usando el refreshToken.
+   * Usa un mutex (refreshPromiseRef) para evitar llamadas concurrentes
+   * que revoquen el RT en el backend y causen errores en cascada.
    */
   const refreshTokens = useCallback(async () => {
-    if (!tokens?.refreshToken) {
+    // Si ya hay un refresh en curso, reutilizar esa promesa
+    if (refreshPromiseRef.current) {
+      return refreshPromiseRef.current;
+    }
+
+    const currentRT = tokensRef.current?.refreshToken;
+
+    if (!currentRT) {
       // Si no hay refreshToken, limpiar tokens (usuario en estado requiresAssociation)
       await clearStoredTokens();
       return;
     }
 
-    try {
-      const response = await refreshMutation.mutateAsync(tokens.refreshToken);
-      const newTokens: AuthTokens = {
-        accessToken: response.accessToken,
-        refreshToken: response.refreshToken,
-      };
-      await saveTokens(newTokens);
-      
-      // Invalidar y refetch del user context
-      const queryClient = getQueryClient();
-      queryClient.invalidateQueries({ queryKey: ['userContext'] });
-    } catch (error) {
-      console.error('Error refreshing tokens:', error);
-      await clearStoredTokens();
-      throw error;
-    }
-  }, [tokens?.refreshToken, refreshMutation, saveTokens, clearStoredTokens]);
+    const doRefresh = async () => {
+      try {
+        const response = await refreshMutation.mutateAsync(currentRT);
+        
+        // Validate response has required fields
+        if (!response?.accessToken || typeof response.accessToken !== 'string') {
+          throw new Error(`Invalid accessToken in refresh response: ${typeof response?.accessToken}`);
+        }
+        
+        const newTokens: AuthTokens = {
+          accessToken: response.accessToken,
+          refreshToken: response.refreshToken || undefined,
+        };
+        await saveTokens(newTokens);
+        
+        // Invalidar y refetch del user context
+        const queryClient = getQueryClient();
+        queryClient.invalidateQueries({ queryKey: ['userContext'] });
+      } catch (error) {
+        console.error('Error refreshing tokens:', error);
+        await clearStoredTokens();
+        throw error;
+      } finally {
+        refreshPromiseRef.current = null;
+      }
+    };
+
+    refreshPromiseRef.current = doRefresh();
+    return refreshPromiseRef.current;
+  }, [refreshMutation, saveTokens, clearStoredTokens]);
 
   /**
    * Recargar el contexto del usuario
@@ -181,7 +221,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const response = await loginMutation.mutateAsync({ username, password });
 
-        if (response.accessToken) {
+        if (response.accessToken && typeof response.accessToken === 'string') {
           // Si requiresAssociation es true, el servidor envía solo accessToken
           const newTokens: AuthTokens = {
             accessToken: response.accessToken,
@@ -204,10 +244,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             queryClient.invalidateQueries({ queryKey: ['userContext'] });
           }
         } else {
-          throw new Error(response.message || 'Login failed');
+          throw new Error(response.message || 'Credenciales inválidas');
         }
       } catch (error) {
-        console.error('Error signing in:', error);
         throw error;
       }
     },
@@ -215,13 +254,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   /**
+   * Setear tokens directamente (ej: después de asociar cuenta).
+   * Guarda en SecureStore, actualiza estado, limpia requiresAssociation
+   * y dispara la carga del user context.
+   */
+  const setAuthTokens = useCallback(async (accessToken: string, refreshToken?: string) => {
+    const newTokens: AuthTokens = {
+      accessToken,
+      refreshToken: refreshToken || undefined,
+    };
+    await saveTokens(newTokens);
+    setRequiresAssociation(false);
+    await SecureStore.deleteItemAsync('requiresAssociation');
+
+    // Disparar carga del user context
+    const queryClient = getQueryClient();
+    queryClient.invalidateQueries({ queryKey: ['userContext'] });
+  }, [saveTokens]);
+
+  /**
    * Sign Out
    */
   const signOut = useCallback(async () => {
     try {
-      if (tokens?.refreshToken) {
+      const currentRT = tokensRef.current?.refreshToken;
+      if (currentRT) {
         // Notificar al servidor
-        await logoutMutation.mutateAsync(tokens.refreshToken);
+        await logoutMutation.mutateAsync(currentRT);
       }
     } catch (error) {
       console.error('Error notifying logout to server:', error);
@@ -231,7 +290,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const queryClient = getQueryClient();
       queryClient.clear();
     }
-  }, [tokens?.refreshToken, logoutMutation, clearStoredTokens]);
+  }, [logoutMutation, clearStoredTokens]);
 
   /**
    * Configurar timer para refrescar token automáticamente
@@ -272,17 +331,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (isTokenExpired(storedTokens.accessToken)) {
             try {
               if (storedTokens.refreshToken) {
-                const response = await refreshMutation.mutateAsync(storedTokens.refreshToken);
-                const newTokens: AuthTokens = {
-                  accessToken: response.accessToken,
-                  refreshToken: response.refreshToken,
-                };
-                setTokens(newTokens);
-                await saveTokens(newTokens);
-                // Si refrescamos exitosamente, asumimos que ya no requiere asociación (o mantenemos estado?)
-                // Generalmente refresh implica sesión válida completa, pero si estábamos en asociación...
-                // El backend decide si necesitamos asociación. Por ahora asumimos false o mantenemos storedReqAssoc?
-                // Si refrescamos, el backend nos daría un token nuevo.
+                // Setear tokensRef antes de llamar a refreshTokens para que use el RT correcto
+                tokensRef.current = storedTokens;
+                await refreshTokens();
               } else {
                 // No hay refreshToken (usuario en requiresAssociation), limpiar
                 await clearStoredTokens();
@@ -292,6 +343,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               await clearStoredTokens();
             }
           } else {
+            tokensRef.current = storedTokens;
             setTokens(storedTokens);
             setRequiresAssociation(storedReqAssoc);
           }
@@ -304,7 +356,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     initializeAuth();
-  }, [loadStoredTokens, saveTokens, clearStoredTokens, refreshMutation.mutateAsync]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /**
    * Efecto: actualizar user cuando userContextQuery cambia
@@ -344,6 +397,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signOut,
         refreshTokens,
         reloadUserContext,
+        setAuthTokens,
       }}
     >
       {children}

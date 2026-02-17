@@ -3,11 +3,11 @@ import { Colors } from '@/constants/theme';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import {
-  FlatList,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    FlatList,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { Encuesta } from '../models/Encuesta';
 import { useGetEncuestas } from '../viewmodels/useEncuestas';
@@ -97,6 +97,8 @@ export function EncuestasPendientes() {
         keyExtractor={(item) => item.id.toString()}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        scrollEnabled={false}
+        nestedScrollEnabled
       />
     </View>
   );

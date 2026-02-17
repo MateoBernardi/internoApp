@@ -8,17 +8,18 @@ import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Archivo, UpdateArchivoPayload } from '../models/Archivo';
 import { useUpdateArchivo } from '../viewmodels/useArchivos';
 
@@ -31,40 +32,38 @@ interface EditArchivoModalProps {
 }
 
 export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModalProps) {
-  // Form State
-  const [nombre, setNombre] = useState(archivo.nombre);
+  const insets = useSafeAreaInsets();
 
-  // User Selection State
+  const [nombre, setNombre] = useState(archivo.nombre);
+  const [descripcion, setDescripcion] = useState(archivo.titulo ?? '');
+
   const [searchQuery, setSearchQuery] = useState('');
   const { data: searchResults, isLoading: isSearchingUsers } = useSearchUsers(searchQuery);
   const users = searchResults || [];
 
-  // Role Selection Logic
   const [activeRole, setActiveRole] = useState('');
   const [roleUsers, setRoleUsers] = useState<UserSummary[]>([]);
   const [showRoleModal, setShowRoleModal] = useState(false);
   const { data: roleUsersData, isLoading: isLoadingRole, error: roleError } = useGetUserByRole(activeRole);
 
-  // Selected Users State
   const [usuariosCompartidos, setUsuariosCompartidos] = useState<UserSummary[]>([]);
   const [usuariosAsociados, setUsuariosAsociados] = useState<UserSummary[]>([]);
   const [allowedRoles, setAllowedRoles] = useState<string[]>([]);
-
-  // UI State
   const [showRolesDropdown, setShowRolesDropdown] = useState(false);
 
-  // Check user role
   const { hasRole } = useRoleCheck();
   const isSupervisor = hasRole(['gerencia', 'personasRelaciones', 'encargado']);
 
   const isLoadingUsers = isSearchingUsers || isLoadingRole;
   const { mutate: updateArchivo, isPending: isUpdating } = useUpdateArchivo();
 
-  // Handle Role Selection
+  const BUTTON_HEIGHT = 48;
+  const BUTTON_MARGIN = 16;
+  const bottomBarHeight = BUTTON_HEIGHT + BUTTON_MARGIN * 2 + insets.bottom;
+
   React.useEffect(() => {
     if (activeRole && roleUsersData) {
-      const roleUsersList = roleUsersData;
-      setRoleUsers(roleUsersList);
+      setRoleUsers(roleUsersData);
       setShowRoleModal(true);
     } else if (roleError) {
       Alert.alert('No se encontraron usuarios con ese rol');
@@ -81,11 +80,9 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
   const handleToggleUser = useCallback((user: UserSummary) => {
     setUsuariosCompartidos((prev) => {
       const isSelected = prev.some((u) => u.user_context_id === user.user_context_id);
-      if (isSelected) {
-        return prev.filter((u) => u.user_context_id !== user.user_context_id);
-      } else {
-        return [...prev, user];
-      }
+      return isSelected
+        ? prev.filter((u) => u.user_context_id !== user.user_context_id)
+        : [...prev, user];
     });
   }, []);
 
@@ -104,15 +101,9 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
     });
   }, []);
 
-  const handleSearchUsers = useCallback((query: string) => {
-    setSearchQuery(query);
-  }, []);
+  const handleSearchUsers = useCallback((query: string) => setSearchQuery(query), []);
+  const handleRoleSelect = useCallback((role: string) => setActiveRole(role), []);
 
-  const handleRoleSelect = useCallback((role: string) => {
-    setActiveRole(role);
-  }, []);
-
-  // Roles disponibles para seleccionar
   const allRoles = [
     { label: 'Todos', value: '*' },
     { label: 'Contable', value: 'contable' },
@@ -123,82 +114,86 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
     { label: 'Personas y Relaciones', value: 'personasRelaciones' },
   ];
 
-  const isFormValid = useMemo(() => {
-    return nombre.trim().length > 0;
-  }, [nombre]);
+  const isFormValid = useMemo(() => nombre.trim().length > 0, [nombre]);
+
+  const resetForm = useCallback(() => {
+    setNombre(archivo.nombre);
+    setDescripcion(archivo.titulo ?? '');
+    setUsuariosCompartidos([]);
+    setUsuariosAsociados([]);
+    setAllowedRoles([]);
+  }, [archivo.nombre, archivo.titulo]);
 
   const handleActualizarArchivo = useCallback(() => {
     if (!isFormValid) {
       Alert.alert('Formulario incompleto', 'Por favor proporciona un título');
       return;
     }
-
     const payload: UpdateArchivoPayload = {
       nombre: nombre.trim(),
+      titulo: descripcion.trim() || undefined,
       usuarios_compartidos: usuariosCompartidos.map((u) => u.user_context_id),
       usuarios_asociados: isSupervisor ? usuariosAsociados.map((u) => u.user_context_id) : [],
       allowed_roles: allowedRoles,
     };
-
     updateArchivo(
       { id: archivo.id, data: payload },
       {
-        onSuccess: () => {
-          Alert.alert('Éxito', 'Archivo actualizado correctamente');
-          onClose();
-        },
+        onSuccess: () => { Alert.alert('Éxito', 'Archivo actualizado correctamente'); onClose(); },
         onError: (error: any) => {
-          Alert.alert(
-            'Error',
-            error instanceof Error ? error.message : 'No se pudo actualizar el archivo'
-          );
+          Alert.alert('Error', error instanceof Error ? error.message : 'No se pudo actualizar el archivo');
         },
       }
     );
-  }, [isFormValid, archivo.id, nombre, usuariosCompartidos, usuariosAsociados, allowedRoles, isSupervisor, updateArchivo, onClose]);
+  }, [isFormValid, archivo.id, nombre, descripcion, usuariosCompartidos, usuariosAsociados, allowedRoles, isSupervisor, updateArchivo, onClose]);
 
   const handleCancel = useCallback(() => {
-    if (nombre !== archivo.nombre || usuariosCompartidos.length > 0) {
+    const hasChanges =
+      nombre !== archivo.nombre ||
+      descripcion !== (archivo.titulo ?? '') ||
+      usuariosCompartidos.length > 0;
+    if (hasChanges) {
       Alert.alert('Descartar cambios', '¿Deseas descartar los cambios?', [
         { text: 'Cancelar', onPress: () => {} },
-        {
-          text: 'Descartar',
-          onPress: () => {
-            onClose();
-            setNombre(archivo.nombre);
-            setUsuariosCompartidos([]);
-            setUsuariosAsociados([]);
-            setAllowedRoles([]);
-          },
-        },
+        { text: 'Descartar', onPress: () => { onClose(); resetForm(); } },
       ]);
     } else {
       onClose();
     }
-  }, [nombre, archivo.nombre, usuariosCompartidos, onClose]);
+  }, [nombre, descripcion, archivo.nombre, archivo.titulo, usuariosCompartidos, onClose, resetForm]);
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={handleCancel}>
+      {/*
+        Misma estructura que CrearDocumento:
+          <View> raíz
+            <Header> con insets.top
+            <KeyboardAvoidingView> solo el scroll
+            <Botón fijo> con insets.bottom
+      */}
       <View style={styles.container}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.container}
-        >
-          {/* Header */}
-          <View style={styles.header}>
-            <TouchableOpacity onPress={handleCancel} style={styles.iconButton}>
-              <Ionicons name="close" size={24} color={colors.icon} />
-            </TouchableOpacity>
-            <ThemedText style={styles.headerTitle}>Editar Archivo</ThemedText>
-            <View style={{ width: 40 }} />
-          </View>
+        {/* Header con safe-area top */}
+        <View style={[styles.header, { paddingTop: insets.top || 12 }]}>
+          <TouchableOpacity onPress={handleCancel} style={styles.iconButton}>
+            <Ionicons name="close" size={24} color={colors.icon} />
+          </TouchableOpacity>
+          <ThemedText style={styles.headerTitle}>Editar Archivo</ThemedText>
+          <View style={{ width: 40 }} />
+        </View>
 
+        {/* KAV solo envuelve el scroll */}
+        <KeyboardAvoidingView
+          style={styles.flex}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={0}
+        >
           <ScrollView
             style={styles.content}
-            contentContainerStyle={styles.contentContainer}
+            contentContainerStyle={[styles.contentContainer, { paddingBottom: bottomBarHeight + 8 }]}
             showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
           >
-            {/* Title Input */}
+            {/* Título */}
             <View style={styles.inputSection}>
               <ThemedText style={styles.label}>Título del archivo</ThemedText>
               <TextInput
@@ -211,8 +206,30 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
               />
             </View>
 
-            {/* Users Compartidos Selector */}
+            {/* Descripción */}
             <View style={styles.inputSection}>
+              <ThemedText style={styles.label}>
+                Descripción <ThemedText style={styles.labelOptional}>(opcional)</ThemedText>
+              </ThemedText>
+              <TextInput
+                style={[styles.input, styles.inputMultiline, { color: colors.text }]}
+                placeholder="Agregá una descripción del archivo..."
+                placeholderTextColor={colors.secondaryText}
+                value={descripcion}
+                onChangeText={setDescripcion}
+                maxLength={500}
+                multiline
+                numberOfLines={3}
+                textAlignVertical="top"
+              />
+            </View>
+
+            {/*
+              zIndex escalonado:
+              selectorZ20 → compartidos (dropdown flota sobre asociados)
+              selectorZ10 → asociados
+            */}
+            <View style={[styles.inputSection, styles.selectorZ20]}>
               <ThemedText style={styles.label}>Compartir con usuarios</ThemedText>
               <UserSelector
                 selectedUsers={usuariosCompartidos}
@@ -237,9 +254,8 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
               onDeselectAll={handleDeselectAllRoleUsers}
             />
 
-            {/* Usuarios Asociados (Solo para Supervisores) */}
             {isSupervisor && (
-              <View style={styles.inputSection}>
+              <View style={[styles.inputSection, styles.selectorZ10]}>
                 <ThemedText style={styles.label}>Usuarios Asociados (Seguidos)</ThemedText>
                 <UserSelector
                   selectedUsers={usuariosAsociados}
@@ -254,26 +270,17 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
               </View>
             )}
 
-            {/* Roles Permitidos */}
-            <View style={styles.inputSection}>
+            {/* Roles Permitidos — zIndex 5 para no interferir con selectores */}
+            <View style={[styles.inputSection, styles.selectorZ5]}>
               <ThemedText style={styles.label}>Roles permitidos</ThemedText>
               <TouchableOpacity
-                style={[
-                  styles.rolesButton,
-                  { backgroundColor: colors.componentBackground, borderColor: colors.icon },
-                ]}
+                style={[styles.rolesButton, { backgroundColor: colors.componentBackground, borderColor: colors.icon }]}
                 onPress={() => setShowRolesDropdown(!showRolesDropdown)}
               >
                 <ThemedText style={{ color: colors.text }}>
-                  {allowedRoles.length > 0
-                    ? `${allowedRoles.length} rol(es) seleccionado(s)`
-                    : 'Seleccionar roles'}
+                  {allowedRoles.length > 0 ? `${allowedRoles.length} rol(es) seleccionado(s)` : 'Seleccionar roles'}
                 </ThemedText>
-                <Ionicons
-                  name={showRolesDropdown ? 'chevron-up' : 'chevron-down'}
-                  size={20}
-                  color={colors.icon}
-                />
+                <Ionicons name={showRolesDropdown ? 'chevron-up' : 'chevron-down'} size={20} color={colors.icon} />
               </TouchableOpacity>
 
               {showRolesDropdown && (
@@ -283,21 +290,14 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
                       key={role.value}
                       style={styles.roleOption}
                       onPress={() => {
-                        // Handle "Todos" selection logic
                         if (role.value === '*') {
-                          setAllowedRoles((prev) =>
-                            prev.includes('*') ? [] : ['*']
-                          );
+                          setAllowedRoles((prev) => (prev.includes('*') ? [] : ['*']));
                         } else {
-                          // If "Todos" is selected, deselect it when selecting a specific role
                           setAllowedRoles((prev) => {
-                            const newRoles = prev.includes('*')
-                              ? prev.filter((r) => r !== '*')
-                              : prev;
-                            
-                            return newRoles.includes(role.value)
-                              ? newRoles.filter((r) => r !== role.value)
-                              : [...newRoles, role.value];
+                            const withoutTodos = prev.includes('*') ? prev.filter((r) => r !== '*') : prev;
+                            return withoutTodos.includes(role.value)
+                              ? withoutTodos.filter((r) => r !== role.value)
+                              : [...withoutTodos, role.value];
                           });
                         }
                       }}
@@ -314,15 +314,12 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
               )}
             </View>
           </ScrollView>
+        </KeyboardAvoidingView>
 
-          {/* Update Button */}
+        {/* Botón fijo fuera del KAV — con safe-area bottom */}
+        <View style={[styles.updateButtonContainer, { paddingBottom: insets.bottom || BUTTON_MARGIN }]}>
           <TouchableOpacity
-            style={[
-              styles.updateButton,
-              {
-                backgroundColor: !isFormValid || isUpdating ? colors.icon : colors.lightTint,
-              },
-            ]}
+            style={[styles.updateButton, { backgroundColor: !isFormValid || isUpdating ? colors.icon : colors.lightTint }]}
             onPress={handleActualizarArchivo}
             disabled={!isFormValid || isUpdating}
           >
@@ -335,23 +332,28 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
               </>
             )}
           </TouchableOpacity>
-        </KeyboardAvoidingView>
+        </View>
       </View>
     </Modal>
   );
 }
+
+const BUTTON_MARGIN = 16;
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.componentBackground,
   },
+  flex: {
+    flex: 1,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingBottom: 12,
     backgroundColor: colors.componentBackground,
     borderBottomWidth: 1,
     borderBottomColor: colors.icon,
@@ -369,15 +371,33 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: 12,
+    overflow: 'visible',
   },
   inputSection: {
     marginBottom: 20,
+  },
+  selectorZ20: {
+    zIndex: 20,
+    elevation: 20,
+  },
+  selectorZ10: {
+    zIndex: 10,
+    elevation: 10,
+  },
+  selectorZ5: {
+    zIndex: 5,
+    elevation: 5,
   },
   label: {
     fontWeight: '600',
     marginBottom: 8,
     fontSize: 14,
+  },
+  labelOptional: {
+    fontWeight: '400',
+    fontSize: 13,
+    color: colors.secondaryText,
   },
   input: {
     backgroundColor: colors.componentBackground,
@@ -386,6 +406,10 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderWidth: 1,
     borderColor: colors.icon,
+  },
+  inputMultiline: {
+    minHeight: 80,
+    paddingTop: 10,
   },
   rolesButton: {
     flexDirection: 'row',
@@ -411,13 +435,18 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.icon,
   },
+  updateButtonContainer: {
+    backgroundColor: colors.componentBackground,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.icon,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+  },
   updateButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginHorizontal: 16,
-    marginBottom: 16,
-    paddingVertical: 12,
+    paddingVertical: 14,
     borderRadius: 8,
     gap: 8,
   },

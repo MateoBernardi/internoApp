@@ -86,6 +86,7 @@ export const CrearEncuesta: React.FC<CrearEncuestaProps> = ({ onEncuestaCreada }
     const encuestaData: Partial<Encuesta> = {
       titulo,
       descripcion: descripcion || undefined,
+      categoria: 'interna',
       es_anonima: esAnonima,
       fecha_fin: fechaFin ? fechaFin.toISOString() : undefined,
     };

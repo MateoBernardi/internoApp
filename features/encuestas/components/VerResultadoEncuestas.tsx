@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
@@ -17,6 +18,8 @@ interface RespuestaAgrupada {
   encuestaTitulo: string;
   encuestaDescripcion?: string;
   fecha_creacion?: string;
+  fecha_fin?: string;
+  es_anonima?: boolean;
   preguntas: {
     pregunta: Pregunta;
     respuestas: Respuesta[];
@@ -154,6 +157,11 @@ const DetalleResultados: React.FC<DetalleResultadosProps> = ({
   encuesta,
   onVolver,
 }) => {
+  const esEncuestaEnProgreso = () => {
+    if (!encuesta.fecha_fin) return false;
+    return new Date(encuesta.fecha_fin) > new Date();
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -166,7 +174,13 @@ const DetalleResultados: React.FC<DetalleResultadosProps> = ({
         )}
       </View>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      {esEncuestaEnProgreso() && (
+        <View style={styles.enProgresoCartel}>
+          <Text style={styles.enProgresoText}>⏳ En progreso</Text>
+        </View>
+      )}
+
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollViewContent}>
         {encuesta.preguntas.map((item, index) => (
           <View key={index} style={styles.preguntaResultadoCard}>
             <View style={styles.preguntaHeader}>
@@ -289,13 +303,30 @@ const RespuestasMultipleChoice: React.FC<{
   respuestas: Respuesta[];
   pregunta: Pregunta;
 }> = ({ respuestas, pregunta }) => {
+  const [modalVisible, setModalVisible] = useState(false);
+  const [opcionSeleccionada, setOpcionSeleccionada] = useState<number | null>(null);
+  const esAnonima = respuestas[0]?.nombre === undefined || respuestas[0]?.nombre === null;
+
   const opcionesCount = new Map<number, number>();
+  const respuestasPorOpcion = new Map<number, Respuesta[]>();
 
   respuestas.forEach((r) => {
     if (r.opcion_id) {
       opcionesCount.set(r.opcion_id, (opcionesCount.get(r.opcion_id) || 0) + 1);
+      if (!respuestasPorOpcion.has(r.opcion_id)) {
+        respuestasPorOpcion.set(r.opcion_id, []);
+      }
+      respuestasPorOpcion.get(r.opcion_id)!.push(r);
     }
   });
+
+  const abrirModal = (opcionId: number) => {
+    setOpcionSeleccionada(opcionId);
+    setModalVisible(true);
+  };
+
+  const respuestasOpcionSeleccionada = opcionSeleccionada ? respuestasPorOpcion.get(opcionSeleccionada) || [] : [];
+  const opcionSeleccionadaNombre = pregunta.opcionesCompletas?.find(o => o.id === opcionSeleccionada)?.texto_opcion || '';
 
   return (
     <View>
@@ -306,48 +337,179 @@ const RespuestasMultipleChoice: React.FC<{
           : '0';
 
         return (
-          <View key={opcion.id} style={styles.opcionResultadoCard}>
-            <Text style={styles.opcionTexto}>{opcion.texto_opcion}</Text>
-            <View style={styles.opcionStats}>
-              <View
-                style={[
-                  styles.opcionBarra,
-                  { 
-                    width: `${porcentaje}%` as any,
-                    minWidth: cantidad > 0 ? 30 : 0 
-                  },
-                ]}
-              />
-              <Text style={styles.opcionPorcentaje}>
-                {cantidad} ({porcentaje}%)
-              </Text>
+          <View key={opcion.id}>
+            <View style={styles.opcionResultadoCard}>
+              <Text style={styles.opcionTexto}>{opcion.texto_opcion}</Text>
+              <View style={styles.opcionStatsWrapper}>
+                <View style={styles.opcionStats}>
+                  <View
+                    style={[
+                      styles.opcionBarra,
+                      { 
+                        width: `${porcentaje}%` as any,
+                        minWidth: cantidad > 0 ? 30 : 0 
+                      },
+                    ]}
+                  />
+                  <Text style={styles.opcionPorcentaje}>
+                    {cantidad} ({porcentaje}%)
+                  </Text>
+                </View>
+                {!esAnonima && cantidad > 0 && (
+                  <TouchableOpacity
+                    style={styles.verRespondentesButtonInline}
+                    onPress={() => abrirModal(opcion.id)}
+                  >
+                    <Text style={styles.verRespondentesText}>Ver</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
           </View>
         );
       })}
+
+      {!esAnonima && (
+        <Modal
+          visible={modalVisible}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>
+                  Usuarios: {opcionSeleccionadaNombre}
+                </Text>
+                <TouchableOpacity onPress={() => setModalVisible(false)}>
+                  <Text style={styles.modalCloseButton}>✕</Text>
+                </TouchableOpacity>
+              </View>
+              <ScrollView style={styles.modalScroll}>
+                {respuestasOpcionSeleccionada.length > 0 ? (
+                  respuestasOpcionSeleccionada.map((respuesta, index) => (
+                    <TouchableOpacity key={index} style={styles.respondentCard}>
+                      <View style={styles.respondentContent}>
+                        <View style={styles.respondentInfo}>
+                          <Text style={styles.respondentName}>
+                            {respuesta.nombre} {respuesta.apellido}
+                          </Text>
+                          {respuesta.fecha_respuesta && (
+                            <Text style={styles.respondentDate}>
+                              {new Date(respuesta.fecha_respuesta).toLocaleDateString('es-ES')}
+                            </Text>
+                          )}
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  ))
+                ) : (
+                  <Text style={styles.respondentEmpty}>No hay respuestas</Text>
+                )}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+      )}
     </View>
   );
 };
 
 const RespuestasSiNo: React.FC<{ respuestas: Respuesta[] }> = ({ respuestas }) => {
-  const si = respuestas.filter((r) => r.respuesta_texto === 'Sí').length;
-  const no = respuestas.filter((r) => r.respuesta_texto === 'No').length;
+  const [modalVisible, setModalVisible] = useState(false);
+  const [tipoSeleccionado, setTipoSeleccionado] = useState<'Si' | 'No' | null>(null);
+  const esAnonima = respuestas[0]?.nombre === undefined || respuestas[0]?.nombre === null;
+
+  const siRespuestas = respuestas.filter((r) => r.respuesta_texto === 'Sí');
+  const noRespuestas = respuestas.filter((r) => r.respuesta_texto === 'No');
+  const si = siRespuestas.length;
+  const no = noRespuestas.length;
   const total = si + no;
 
+  const abrirModal = (tipo: 'Si' | 'No') => {
+    setTipoSeleccionado(tipo);
+    setModalVisible(true);
+  };
+
+  const respuestasSeleccionadas = tipoSeleccionado === 'Si' ? siRespuestas : noRespuestas;
+
   return (
-    <View style={styles.siNoResultadosContainer}>
-      <View style={styles.siNoItem}>
-        <Text style={styles.siNoLabel}>✓ Sí</Text>
-        <Text style={styles.siNoValor}>
-          {si} ({total ? ((si / total) * 100).toFixed(0) : 0}%)
-        </Text>
+    <View>
+      <View style={styles.siNoResultadosContainer}>
+        <View style={styles.siNoItem}>
+          <Text style={styles.siNoLabel}>✓ Sí</Text>
+          <Text style={styles.siNoValor}>
+            {si} ({total ? ((si / total) * 100).toFixed(0) : 0}%)
+          </Text>
+          {!esAnonima && si > 0 && (
+            <TouchableOpacity
+              style={styles.siNoModalButton}
+              onPress={() => abrirModal('Si')}
+            >
+              <Text style={styles.siNoModalButtonText}>Ver personas</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+        <View style={styles.siNoItem}>
+          <Text style={styles.siNoLabel}>✗ No</Text>
+          <Text style={styles.siNoValor}>
+            {no} ({total ? ((no / total) * 100).toFixed(0) : 0}%)
+          </Text>
+          {!esAnonima && no > 0 && (
+            <TouchableOpacity
+              style={styles.siNoModalButton}
+              onPress={() => abrirModal('No')}
+            >
+              <Text style={styles.siNoModalButtonText}>Ver personas</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
-      <View style={styles.siNoItem}>
-        <Text style={styles.siNoLabel}>✗ No</Text>
-        <Text style={styles.siNoValor}>
-          {no} ({total ? ((no / total) * 100).toFixed(0) : 0}%)
-        </Text>
-      </View>
+
+      {!esAnonima && (
+        <Modal
+          visible={modalVisible}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>
+                  {tipoSeleccionado === 'Si' ? '✓ Respondieron Sí' : '✗ Respondieron No'}
+                </Text>
+                <TouchableOpacity onPress={() => setModalVisible(false)}>
+                  <Text style={styles.modalCloseButton}>✕</Text>
+                </TouchableOpacity>
+              </View>
+              <ScrollView style={styles.modalScroll}>
+                {respuestasSeleccionadas.length > 0 ? (
+                  respuestasSeleccionadas.map((respuesta, index) => (
+                    <TouchableOpacity key={index} style={styles.respondentCard}>
+                      <View style={styles.respondentContent}>
+                        <View style={styles.respondentInfo}>
+                          <Text style={styles.respondentName}>
+                            {respuesta.nombre} {respuesta.apellido}
+                          </Text>
+                          {respuesta.fecha_respuesta && (
+                            <Text style={styles.respondentDate}>
+                              {new Date(respuesta.fecha_respuesta).toLocaleDateString('es-ES')}
+                            </Text>
+                          )}
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  ))
+                ) : (
+                  <Text style={styles.respondentEmpty}>No hay respuestas</Text>
+                )}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+      )}
     </View>
   );
 };
@@ -376,6 +538,8 @@ const agruparEncuestas = (encuestas: any[]): RespuestaAgrupada[] => {
         encuestaTitulo: encuesta.titulo,
         encuestaDescripcion: encuesta.descripcion,
         fecha_creacion: encuesta.fecha_creacion,
+        fecha_fin: encuesta.fecha_fin,
+        es_anonima: encuesta.es_anonima,
         preguntas: preguntasAgrupadas,
       };
     });
@@ -399,6 +563,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.componentBackground,
+    paddingBottom: '20%' as any,
   },
   centerContainer: {
     flex: 1,
@@ -435,7 +600,10 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+  },
+  scrollViewContent: {
     padding: 15,
+    paddingBottom: 50,
   },
   encuestaCard: {
     backgroundColor: colors.componentBackground,
@@ -620,6 +788,12 @@ const styles = StyleSheet.create({
   opcionResultadoCard: {
     marginBottom: 12,
   },
+  opcionStatsWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
   opcionTexto: {
     fontSize: 14,
     fontWeight: '600',
@@ -629,7 +803,9 @@ const styles = StyleSheet.create({
   opcionStats: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 10,
+    flex: 1,
   },
   opcionBarra: {
     height: 24,
@@ -664,6 +840,125 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: colors.lightTint,
+  },
+  siNoModalButton: {
+    marginTop: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: colors.lightTint,
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+  siNoModalButtonText: {
+    color: colors.componentBackground,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  verRespondentesButton: {
+    marginHorizontal: 12,
+    marginBottom: 12,
+    marginTop: -8,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    backgroundColor: colors.lightTint,
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+  verRespondentesButtonInline: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    backgroundColor: colors.lightTint,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  verRespondentesText: {
+    color: colors.componentBackground,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: colors.componentBackground,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    maxHeight: '80%',
+    paddingBottom: '20%' as any,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.background,
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  modalCloseButton: {
+    fontSize: 24,
+    color: colors.secondaryText,
+  },
+  modalScroll: {
+    paddingHorizontal: 20,
+    marginTop: 10,
+  },
+  respondentCard: {
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 10,
+  },
+  respondentContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  respondentInfo: {
+    flex: 1,
+  },
+  respondentName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  respondentDate: {
+    fontSize: 12,
+    color: colors.secondaryText,
+  },
+  respondentArrow: {
+    fontSize: 20,
+    color: colors.lightTint,
+    marginLeft: 10,
+  },
+  respondentEmpty: {
+    fontSize: 14,
+    color: colors.secondaryText,
+    textAlign: 'center',
+    paddingVertical: 20,
+  },
+  enProgresoCartel: {
+    backgroundColor: colors.warning,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginHorizontal: 15,
+    marginVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  enProgresoText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.componentBackground,
   },
   loadingText: {
     marginTop: 10,

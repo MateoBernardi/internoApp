@@ -7,7 +7,6 @@ import {
 } from "@/shared/users/useAsociarCuenta";
 import type { CuentaDisponibleDTO } from "@/shared/users/UserDTO";
 import { useRouter } from "expo-router";
-import * as SecureStore from "expo-secure-store";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -44,7 +43,7 @@ const formatCUIT = (value: string): string => {
 
 export default function AsociarCuenta() {
   const router = useRouter();
-  const { signIn, signOut } = useAuth();
+  const { setAuthTokens, signOut } = useAuth();
 
   // Estado del flujo
   const [step, setStep] = useState<Step>("cuit");
@@ -176,14 +175,8 @@ export default function AsociarCuenta() {
         entorno,
       });
 
-      // Guardar los nuevos tokens
-      await SecureStore.setItemAsync("accessToken", response.accessToken);
-      if (response.refreshToken) {
-        await SecureStore.setItemAsync("refreshToken", response.refreshToken);
-      }
-
-      // Actualizar el contexto de autenticación
-      await signIn(response.accessToken, response.refreshToken || "");
+      // Actualizar tokens en el AuthContext (guarda en SecureStore + actualiza estado)
+      await setAuthTokens(response.accessToken, response.refreshToken);
 
       setStep("success");
 

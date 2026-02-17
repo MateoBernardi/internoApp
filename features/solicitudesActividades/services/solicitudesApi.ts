@@ -15,7 +15,7 @@ export async function crearSolicitud(accessToken: string, data: solicitudes.Crea
 }
 
 export async function cancelarSolicitud(accessToken: string, data: solicitudes.CancelarSolicitudRequest): Promise<void> {
-    const response = await apiRequest({method: 'DELETE', endpoint: `/solicitudes-actividades/solicitudes/cancelar`, token: accessToken});
+    const response = await apiRequest({method: 'DELETE', endpoint: `/solicitudes-actividades/solicitudes/cancelar`, token: accessToken, body: data});
 
     if (!response.ok) {
         const errorText = await response.text();
@@ -37,7 +37,7 @@ export async function modificarSolicitudFechas(accessToken: string, data: solici
 }
 
 export async function aceptarModificaciones(accessToken: string, solicitudId: number): Promise<{ success: boolean; message: string }> {
-    const response = await apiRequest({method: 'POST', endpoint: `/solicitudes-actividades/solicitudes/aceptar-modificaciones/${solicitudId}`, token: accessToken});
+    const response = await apiRequest({method: 'PUT', endpoint: `/solicitudes-actividades/solicitudes/aceptar-modificaciones/${solicitudId}`, token: accessToken});
 
     if (!response.ok) {
         const errorText = await response.text();

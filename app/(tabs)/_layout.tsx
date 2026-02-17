@@ -2,7 +2,7 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
-import { Href, Tabs, useRouter } from 'expo-router';
+import { Href, Redirect, Tabs, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
@@ -16,11 +16,19 @@ interface MenuOption {
 
 export default function TabLayout() {
   const { user, signOut } = useAuth();
-  const { hasRole } = useRoleCheck();
+  const { hasRole, isKnownRole } = useRoleCheck();
   const router = useRouter();
 
-  const isAdminUser = hasRole(['gerencia', 'personasRelaciones', 'consejo', 'encargado']);
+  // Redirect unknown roles to login
+  if (user?.rol_nombre && !isKnownRole()) {
+    signOut();
+    return <Redirect href="/login" />;
+  }
+
   const isEmployee = hasRole('empleado');
+  const isEncargado = hasRole('encargado');
+  const hideExplore = isEmployee || isEncargado;
+  const hideAdmin = isEmployee;
   const colors = Colors['light'];
   const [activeMenu, setActiveMenu] = useState<'personal' | 'admin' | null>(null);
 
@@ -35,11 +43,11 @@ export default function TabLayout() {
       label: 'Solicitudes de Licencias',
       route: '/(extras)/solicitudes-licencias' as Href,
     },
-    {
+    ...(!isEncargado ? [{
       id: 'encuestas',
       label: 'Encuestas',
       route: '/(extras)/encuestas' as Href,
-    },
+    }] : []),
     ...(hasRole('gerencia') ? [{
       id: 'empleados',
       label: 'Gestión de Roles',
@@ -141,13 +149,15 @@ export default function TabLayout() {
           options={{ title: 'Inicio', tabBarIcon: ({ color }) => <IconSymbol size={24} name="house.fill" color={color} /> }} 
         />
 
-        {isAdminUser && (
-          <Tabs.Screen 
-            name="explore" 
-            listeners={{ tabPress: () => setActiveMenu(null) }}
-            options={{ title: 'Solicitudes', tabBarIcon: ({ color }) => <IconSymbol size={24} name="paperplane.fill" color={color} /> }} 
-          />
-        )}
+        <Tabs.Screen 
+          name="explore" 
+          listeners={{ tabPress: () => setActiveMenu(null) }}
+          options={{ 
+            href: hideExplore ? null : undefined,
+            title: 'Solicitudes', 
+            tabBarIcon: ({ color }) => <IconSymbol size={24} name="paperplane.fill" color={color} /> 
+          }} 
+        />
 
         <Tabs.Screen 
           name="documentos" 
@@ -155,22 +165,21 @@ export default function TabLayout() {
           options={{ title: 'Documentos', tabBarIcon: ({ color }) => <IconSymbol size={24} name="doc.text.fill" color={color} /> }} 
         />
 
-        {isAdminUser && (
-          <Tabs.Screen
-            name="administracionMenu"
-            listeners={{ tabPress: (e) => { e.preventDefault(); handlePress('admin'); } }}
-            options={{
-              title: 'Admin',
-              tabBarIcon: ({ color }) => (
-                <IconSymbol 
-                  size={24} 
-                  name={activeMenu === 'admin' ? 'xmark' : 'chart.bar.fill'} 
-                  color={activeMenu === 'admin' ? colors.tint : color} 
-                />
-              ),
-            }}
-          />
-        )}
+        <Tabs.Screen
+          name="administracionMenu"
+          listeners={{ tabPress: (e) => { e.preventDefault(); handlePress('admin'); } }}
+          options={{
+            href: hideAdmin ? null : undefined,
+            title: 'Admin',
+            tabBarIcon: ({ color }) => (
+              <IconSymbol 
+                size={24} 
+                name={activeMenu === 'admin' ? 'xmark' : 'chart.bar.fill'} 
+                color={activeMenu === 'admin' ? colors.tint : color} 
+              />
+            ),
+          }}
+        />
 
         <Tabs.Screen
           name="areaPersonalMenu"

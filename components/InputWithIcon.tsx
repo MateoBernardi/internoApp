@@ -1,5 +1,6 @@
+import { Feather } from '@expo/vector-icons';
 import React, { memo } from 'react';
-import { StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { ThemedText } from './themed-text';
 
 import type { TextInputProps } from 'react-native';
@@ -15,6 +16,7 @@ type InputWithIconProps = {
   textContentType?: TextInputProps['textContentType'];
   keyboardType?: TextInputProps['keyboardType'];
   hasError?: boolean;
+  onToggleSecure?: () => void;
 };
 
 export const InputWithIcon = memo(({
@@ -27,7 +29,8 @@ export const InputWithIcon = memo(({
   returnKeyType = "next",
   textContentType,
   keyboardType = "default",
-  hasError = false
+  hasError = false,
+  onToggleSecure
 }: InputWithIconProps) => (
   <View style={[styles.inputContainer, hasError && styles.inputError]}>
     <View style={styles.inputIcon}>
@@ -48,6 +51,20 @@ export const InputWithIcon = memo(({
       keyboardType={keyboardType}
       importantForAccessibility="yes"
     />
+    {onToggleSecure && (
+      <Pressable 
+        style={styles.toggleButton}
+        onPress={onToggleSecure}
+        accessibilityRole="button"
+        accessibilityLabel={secureTextEntry ? "Mostrar contraseña" : "Ocultar contraseña"}
+      >
+        <Feather 
+          name={secureTextEntry ? "eye" : "eye-off"} 
+          size={20} 
+          color="#999" 
+        />
+      </Pressable>
+    )}
   </View>
 ));
 
@@ -81,5 +98,9 @@ const styles = StyleSheet.create({
   },
   inputError: {
     borderColor: '#e57373',
+  },
+  toggleButton: {
+    padding: 8,
+    marginLeft: 4,
   },
 });

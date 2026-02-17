@@ -27,6 +27,7 @@ interface RoleUserSelectionModalProps {
   roleName: string;
   roleUsers: UserSummary[];
   selectedUsers: UserSummary[]; // Global selected users
+  isRoleSelected?: boolean; // Whether the entire role is in allowed_roles
   onToggleUser: (user: UserSummary) => void;
   onSelectAll: (users: UserSummary[]) => void;
   onDeselectAll: (users: UserSummary[]) => void;
@@ -41,6 +42,7 @@ export function RoleUserSelectionModal({
   roleName,
   roleUsers,
   selectedUsers,
+  isRoleSelected = false,
   onToggleUser,
   onSelectAll,
   onDeselectAll
@@ -59,8 +61,9 @@ export function RoleUserSelectionModal({
 
   const allSelected = useMemo(() => {
       if (displayedUsers.length === 0) return false;
+      if (isRoleSelected) return true;
       return displayedUsers.every(rUser => selectedUsers.some(sUser => sUser.user_context_id === rUser.user_context_id));
-  }, [displayedUsers, selectedUsers]);
+  }, [displayedUsers, selectedUsers, isRoleSelected]);
 
   const handleHeaderToggle = () => {
     if (displayedUsers.length === 0) return;
@@ -72,7 +75,7 @@ export function RoleUserSelectionModal({
   };
 
   const renderItem = ({ item }: { item: UserSummary }) => {
-    const isSelected = selectedUsers.some(u => u.user_context_id === item.user_context_id);
+    const isSelected = isRoleSelected || selectedUsers.some(u => u.user_context_id === item.user_context_id);
     return (
         <TouchableOpacity 
             style={styles.userRow} 

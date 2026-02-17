@@ -48,7 +48,9 @@ export async function fetchArchivos(accessToken: string) : Promise<archivos.Arch
     }
 
     const data: ArchivoDTO[] = await response.json();
-    return data.map(mapArchivoDTOToArchivo);
+    const archivosFormateados = data.map(mapArchivoDTOToArchivo);
+    console.log('[fetchArchivos] Archivos obtenidos:', archivosFormateados);
+    return archivosFormateados;
 }
 
 export async function searchArchivosByNombre(accessToken: string, query: string) : Promise<archivos.Archivo[]> {
@@ -64,7 +66,9 @@ export async function searchArchivosByNombre(accessToken: string, query: string)
         console.error("searchArchivosByNombre expected array but got:", data);
         return [];
     }
-    return data.map(mapArchivoDTOToArchivo);
+    const archivosFormateados = data.map(mapArchivoDTOToArchivo);
+    console.log('[searchArchivosByNombre] Archivos encontrados:', archivosFormateados);
+    return archivosFormateados;
 }
 
 export async function searchArchivosByPersona(accessToken: string, query: string) : Promise<archivos.Archivo[]> {
@@ -80,7 +84,9 @@ export async function searchArchivosByPersona(accessToken: string, query: string
         console.error("searchArchivosByPersona expected array but got:", data);
         return [];
     }
-    return data.map(mapArchivoDTOToArchivo);
+    const archivosFormateados = data.map(mapArchivoDTOToArchivo);
+    console.log('[searchArchivosByPersona] Archivos encontrados:', archivosFormateados);
+    return archivosFormateados;
 }
 
 export async function getArchivosByIdUsuario(accessToken: string, idUsuario: number) : Promise<archivos.Archivo[]> {
@@ -91,7 +97,9 @@ export async function getArchivosByIdUsuario(accessToken: string, idUsuario: num
     }
 
     const data: ArchivoDTO[] = await response.json();
-    return data.map(mapArchivoDTOToArchivo);
+    const archivosFormateados = data.map(mapArchivoDTOToArchivo);
+    console.log('[getArchivosByIdUsuario] Archivos del usuario:', archivosFormateados);
+    return archivosFormateados;
 }
 
 export async function searchArchivos(query: string) : Promise<archivos.Archivo[]> {
@@ -143,7 +151,9 @@ export async function getArchivosPersonales(accessToken: string) : Promise<archi
     }
 
     const data: ArchivoDTO[] = await response.json();
-    return data.map(mapArchivoDTOToArchivo);
+    const archivosFormateados = data.map(mapArchivoDTOToArchivo);
+    console.log('[getArchivosPersonales] Archivos personales:', archivosFormateados);
+    return archivosFormateados;
 }
 
 export async function getUrlCargaArchivo(accessToken: string, data:archivos.PedirUrlCargaRequest ) : Promise<archivos.PedirUrlCargaResponse> {
@@ -205,7 +215,9 @@ export async function confirmarUploadArchivo(accessToken: string, archivoData: a
     }
 
     const data: ArchivoDTO = await response.json();
-    return mapArchivoDTOToArchivo(data);
+    const archivoConfirmado = mapArchivoDTOToArchivo(data);
+    console.log('[confirmarUploadArchivo] Archivo confirmado:', archivoConfirmado);
+    return archivoConfirmado;
 }   
 
 export async function uploadArchivo(accessToken: string, archivo: archivos.MobileFile, archivoData: archivos.UploadArchivoPayload) : Promise<archivos.Archivo> {
@@ -227,6 +239,7 @@ export async function uploadArchivo(accessToken: string, archivo: archivos.Mobil
         // 3. Confirmar subida con datos adicionales
         const payloadConfirmacion: archivos.UploadArchivoPayload = {
             nombre: archivoData.nombre,
+            titulo: archivoData.titulo,
             ruta_r2: rutaR2,
             tamaño: archivo.size,
             tipo: contentType,
@@ -252,7 +265,9 @@ export async function updateArchivo(accessToken: string, idArchivo: number, arch
     }
 
     const data: ArchivoDTO = await response.json();
-    return mapArchivoDTOToArchivo(data);
+    const archivoFormateado = mapArchivoDTOToArchivo(data);
+    console.log('[updateArchivo] Archivo actualizado:', archivoFormateado);
+    return archivoFormateado;
 }
 
 export async function deleteArchivo(accessToken: string, idArchivo: number) : Promise<void> {
@@ -271,5 +286,6 @@ export async function getArchivoUrlFirmada(accessToken: string, idArchivo: numbe
     }
 
     const data: { url: string } = await response.json();
+    console.log('[getArchivoUrlFirmada] URL obtenida para archivo ID:', idArchivo, 'URL:', data.url);
     return data.url;
 }

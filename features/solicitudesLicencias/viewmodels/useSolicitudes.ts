@@ -10,6 +10,7 @@ import {
     createSolicitudLicencia,
     getSaldosLicencia,
     getSolicitudesLicencias,
+    getSolicitudesUsuario,
     getTiposLicencia,
     rechazarSolicitudLicencia
 } from "../services/solicitudesApi";
@@ -98,7 +99,7 @@ export function useGetSolicitudesUsuario() {
             if (!token) {
                 throw new Error('No hay token de acceso');
             }
-            return getSolicitudesLicencias(token, { });
+            return getSolicitudesUsuario(token);
         },
         select: (response: solicitudesLicencias.SolicitudLicencia[]): solicitudesLicencias.SolicitudLicencia[] => {
             return response.map((solicitud): solicitudesLicencias.SolicitudLicencia => ({
@@ -214,16 +215,23 @@ export function useRechazarSolicitudLicencia() {
 
     return useMutation({
         mutationFn: async (data: { solicitudId: number; observacion: string }) => {
+            console.log('[useRechazarSolicitudLicencia] Iniciando mutación:', data);
             const token = tokens?.accessToken;
             if (!token) {
+                console.error('[useRechazarSolicitudLicencia] No hay token de acceso disponible');
                 throw new Error('No hay token de acceso');
             }
+            console.log('[useRechazarSolicitudLicencia] Token presente, llamando a rechazarSolicitudLicencia');
             // Llamar al endpoint de rechazar solicitud
             return rechazarSolicitudLicencia(token, data.solicitudId, data.observacion);
         },
         onSuccess: () => {
+            console.log('[useRechazarSolicitudLicencia] Rechazo exitoso, invalidando queries');
             // Invalidar las solicitudes para refrescar los datos       
             queryClient.invalidateQueries({ queryKey: ['solicitudes-licencias'] });
         },
+        onError: (error) => {
+            console.error('[useRechazarSolicitudLicencia] Error en onError:', error);
+        }
     });
 }

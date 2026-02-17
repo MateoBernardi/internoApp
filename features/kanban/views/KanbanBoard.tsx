@@ -3,7 +3,9 @@
  * Incluye gestión completa: crear, mover con observación, ver bitácora y eliminar
 */
 
-import React, { useCallback, useMemo, useState } from 'react';
+import { Colors } from '@/constants/theme';
+import { useAuth } from '@/features/auth/context/AuthContext';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -23,7 +25,7 @@ import {
 } from '../hooks/useObjetivos';
 import type { CreateObjetivoDTO, Objetivo } from '../models/Objetivo';
 
-const ESTADOS = ['PENDIENTE', 'PROGRESO', 'HECHO', 'PRIORIDAD'] as const;
+const ESTADOS = ['PENDIENTE', 'PRIORIDAD', 'PROGRESO', 'REALIZADO'] as const;
 
 // ============================================
 // Modal para crear/editar objetivo
@@ -45,6 +47,15 @@ function FormObjetivoModal({ visible, objetivo, onClose, onSuccess }: FormObjeti
 
     const isEditing = !!objetivo;
     const isLoading = createMutation.isPending || updateMutation.isPending;
+
+    // Actualizar estado cuando el modal se abre o el objetivo cambia
+    useEffect(() => {
+        if (visible) {
+            setTitulo(objetivo?.titulo || '');
+            setDescripcion(objetivo?.descripcion || '');
+            setEstado(objetivo?.estado || 'PENDIENTE');
+        }
+    }, [visible, objetivo]);
 
     const handleSubmit = async () => {
         if (!titulo.trim()) {
@@ -78,9 +89,6 @@ function FormObjetivoModal({ visible, objetivo, onClose, onSuccess }: FormObjeti
     };
 
     const handleClose = () => {
-        setTitulo(objetivo?.titulo || '');
-        setDescripcion(objetivo?.descripcion || '');
-        setEstado(objetivo?.estado || 'PENDIENTE');
         onClose();
     };
 
@@ -186,9 +194,10 @@ interface DetailModalProps {
     onEdit?: (objetivo: Objetivo) => void;
     onMove?: (objetivo: Objetivo) => void;
     onDelete?: (id: number) => void;
+    currentUserId?: number;
 }
 
-function DetailModal({ visible, objetivo, onClose, onEdit, onMove, onDelete }: DetailModalProps) {
+function DetailModal({ visible, objetivo, onClose, onEdit, onMove, onDelete, currentUserId }: DetailModalProps) {
     if (!objetivo) return null;
 
     return (
@@ -275,7 +284,11 @@ function DetailModal({ visible, objetivo, onClose, onEdit, onMove, onDelete }: D
                 {/* Botones de acción */}
                 <View style={styles.modalFooter}>
                     <TouchableOpacity
-                        style={[styles.button, styles.buttonDanger]}
+                        style={[
+                            styles.button,
+                            styles.buttonDanger,
+                            currentUserId !== objetivo.created_by && styles.buttonDisabled,
+                        ]}
                         onPress={() => {
                             Alert.alert(
                                 'Eliminar',
@@ -293,8 +306,11 @@ function DetailModal({ visible, objetivo, onClose, onEdit, onMove, onDelete }: D
                                 ]
                             );
                         }}
+                        disabled={currentUserId !== objetivo.created_by}
                     >
-                        <Text style={styles.buttonDangerText}>🗑 Eliminar</Text>
+                        <Text style={[styles.buttonDangerText, currentUserId !== objetivo.created_by && styles.buttonDisabledText]}>
+                            Eliminar
+                        </Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
@@ -304,7 +320,7 @@ function DetailModal({ visible, objetivo, onClose, onEdit, onMove, onDelete }: D
                             onClose();
                         }}
                     >
-                        <Text style={styles.buttonSecondaryText}>✏️ Editar</Text>
+                        <Text style={styles.buttonSecondaryText}>Editar</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
@@ -552,6 +568,7 @@ function KanbanColumn({ estado, objetivos, onObjetivoPress, onMovePress, optimis
 // ============================================
 
 export function KanbanBoard() {
+    const { user } = useAuth();
     const { data: objetivos = [], isLoading, error } = useObjetivos();
     const updateMutation = useUpdateObjetivo();
     const deleteMutation = useDeleteObjetivo();
@@ -610,7 +627,7 @@ export function KanbanBoard() {
                 await updateMutation.mutateAsync({
                     id: objetivoId,
                     data: {
-                        estado: nuevoEstado as 'PENDIENTE' | 'PROGRESO' | 'HECHO' | 'PRIORIDAD',
+                        estado: nuevoEstado as 'PENDIENTE' |'PRIORIDAD' | 'PROGRESO' | 'REALIZADO',
                         observacion: observacion,
                     },
                 });
@@ -719,6 +736,7 @@ export function KanbanBoard() {
                 onEdit={handleOpenEdit}
                 onMove={handleOpenMove}
                 onDelete={handleDeleteObjetivo}
+                currentUserId={user?.user_context_id}
             />
 
             <MoveModal
@@ -749,7 +767,7 @@ function getColumnColor(estado: string): string {
             return '#ffecb3';
         case 'PROGRESO':
             return '#b3e5fc';
-        case 'HECHO':
+        case 'REALIZADO':
             return '#c8e6c9';
         case 'PRIORIDAD':
             return '#ffccbc';
@@ -764,7 +782,7 @@ function getStateColor(estado: string): string {
             return '#ffc107';
         case 'PROGRESO':
             return '#2196f3';
-        case 'HECHO':
+        case 'REALIZADO':
             return '#4caf50';
         case 'PRIORIDAD':
             return '#ff9800';
@@ -977,6 +995,8 @@ const styles = StyleSheet.create({
     modalContainer: {
         flex: 1,
         backgroundColor: '#fff',
+        paddingTop: '10%',
+        paddingBottom: 16,
     },
     modalHeader: {
         paddingHorizontal: 16,
@@ -1006,7 +1026,8 @@ const styles = StyleSheet.create({
     modalFooter: {
         flexDirection: 'row',
         paddingHorizontal: 16,
-        paddingVertical: 12,
+        paddingVertical: '10%',
+        paddingBottom: '20%',
         borderTopWidth: 1,
         borderTopColor: '#e0e0e0',
         gap: 12,
@@ -1096,16 +1117,19 @@ const styles = StyleSheet.create({
         fontSize: 14,
     },
     buttonDanger: {
-        backgroundColor: '#ffebee',
+        backgroundColor: Colors.light.error,
         borderWidth: 1,
         borderColor: '#ffcdd2',
     },
     buttonDangerText: {
-        color: '#d32f2f',
+        color: Colors.light.componentBackground,
         fontWeight: '600',
         fontSize: 14,
     },
     buttonDisabled: {
+        opacity: 0.6,
+    },
+    buttonDisabledText: {
         opacity: 0.6,
     },
 

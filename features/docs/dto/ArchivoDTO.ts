@@ -4,6 +4,7 @@ export interface ArchivoDTO {
   ruta_r2: string;
   tipo: string;
   tamaño: number;
+  titulo?: string;
   created_by: number;
   creador_nombre: string;
   creador_apellido: string;

@@ -4,13 +4,13 @@ import { UserSummary } from '@/shared/users/User';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
-  ActivityIndicator,
-  Modal,
-  Platform,
-  StyleSheet, TextInput, TouchableOpacity,
-  TouchableWithoutFeedback,
-  UIManager,
-  View,
+    ActivityIndicator,
+    Modal,
+    Platform,
+    StyleSheet, TextInput, TouchableOpacity,
+    TouchableWithoutFeedback,
+    UIManager,
+    View,
 } from 'react-native';
 
 if (Platform.OS === 'android') {
@@ -24,6 +24,8 @@ interface UserSelectorProps {
   onSelectUsers: (users: UserSummary[]) => void;
   users: UserSummary[]; // Search Results
   roles: { label: string; value: string }[];
+  selectedRoles?: { label: string; value: string }[];
+  onRemoveRole?: (roleValue: string) => void;
   isLoadingUsers?: boolean;
   isLoadingRoles?: boolean;
   onSearch: (query: string) => void;
@@ -38,6 +40,8 @@ export function UserSelector({
   onSelectUsers,
   users,
   roles,
+  selectedRoles = [],
+  onRemoveRole,
   isLoadingUsers = false,
   isLoadingRoles = false,
   onSearch,
@@ -179,6 +183,18 @@ export function UserSelector({
 
       {/* Selected Chips */}
       <View style={styles.selectedChipsContainer}>
+          {selectedRoles.map((role) => (
+            <TouchableOpacity
+              key={`role-${role.value}`}
+              onPress={() => onRemoveRole?.(role.value)}
+              style={[styles.userChip, styles.roleChip]}>
+              <Ionicons name="people" size={14} color={colors.tint} style={{ marginRight: 4 }} />
+              <ThemedText style={[styles.userChipText, { color: colors.tint }]}>
+                {role.label}
+              </ThemedText>
+              <Ionicons name="close" size={16} color={colors.tint} style={{ marginLeft: 6 }} />
+            </TouchableOpacity>
+          ))}
           {selectedUsers.map((user) => (
             <TouchableOpacity
               key={user.user_context_id}
@@ -328,5 +344,9 @@ const styles = StyleSheet.create({
   },
   userChipText: {
     fontSize: 14,
+  },
+  roleChip: {
+    borderColor: colors.tint,
+    backgroundColor: colors.tint + '15',
   },
 });

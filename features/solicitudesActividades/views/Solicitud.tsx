@@ -9,6 +9,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
+    KeyboardAvoidingView,
     Modal,
     Platform,
     ScrollView,
@@ -458,8 +459,8 @@ export function Solicitud() {
                     <TouchableOpacity style={[styles.fab, { backgroundColor: colors.error,  marginRight: 16 }]} onPress={handleRechazar}>
                         <Ionicons name="close" size={24} color={colors.background} />
                     </TouchableOpacity>
-                    <TouchableOpacity style={[styles.fab, { backgroundColor: colors.warning, marginRight: 16 }]} onPress={handleModificarPress}>
-                        <Ionicons name="pencil" size={24} color={colors.background} />
+                    <TouchableOpacity style={[styles.fab, { backgroundColor: colors.lightTint, marginRight: 16 }]} onPress={handleModificarPress}>
+                        <Ionicons name="create-outline" size={24} color={colors.background} />
                     </TouchableOpacity>
                   </>
                 )}
@@ -480,7 +481,7 @@ export function Solicitud() {
 
           {/* Main Action: Accept (Recibida or Enviada[MODIFIED]) */}
           {((type === 'recibida') || (type === 'enviada' && solicitud?.estado === 'MODIFIED')) && (
-               <TouchableOpacity style={[styles.fab, { backgroundColor: colors.lightTint, marginRight: 16 }]} onPress={handleAceptarPress}>
+               <TouchableOpacity style={[styles.fab, { backgroundColor: colors.success, marginRight: 16 }]} onPress={handleAceptarPress}>
                    <Ionicons name="checkmark" size={24} color={colors.background} />
                </TouchableOpacity>
           )}
@@ -524,8 +525,9 @@ export function Solicitud() {
 
       {/* Modal Modificar */}
       <Modal visible={showModifyModal} transparent animationType="slide">
-          <View style={styles.modalOverlay}>
-              <View style={styles.modalContent}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{flex: 1}}>
+      <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
                   <ThemedText type="subtitle" style={{marginBottom: 16}}>Modificar Solicitud</ThemedText>
                   
                   <ThemedText style={styles.label}>Nueva Fecha Inicio</ThemedText>
@@ -576,12 +578,14 @@ export function Solicitud() {
                 onChange={onDateChange}
                 />
             )}
+      </KeyboardAvoidingView>
       </Modal>
 
       {/* Modal Compartir */}
       <Modal visible={showShareModal} transparent animationType="slide" onRequestClose={() => setShowShareModal(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{flex: 1}}>
         <View style={styles.modalOverlay}>
-            <View style={[styles.modalContent, { height: '40%' }]}>
+            <View style={styles.modalContent}>
                 <ThemedText type="subtitle" style={{marginBottom: 16}}>Compartir Solicitud</ThemedText>
                 <UserSelector 
                     selectedUsers={selectedUsersToShare}
@@ -602,6 +606,7 @@ export function Solicitud() {
                 </View>
             </View>
         </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Modal de Selección de Usuarios por Rol */}

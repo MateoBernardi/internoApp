@@ -255,32 +255,56 @@ export function CrearSolicitud() {
              </View>
 
              <View style={styles.dateRow}>
-                 <TouchableOpacity onPress={handleStartDate} style={{ flex: 1 }}>
-                    <ThemedText style={styles.dateValue}>
-                        {fechaInicio.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short' })}
-                    </ThemedText>
-                 </TouchableOpacity>
-                 {!allDay && (
-                     <TouchableOpacity onPress={handleStartTime}>
-                        <ThemedText style={styles.timeValue}>
-                            {fechaInicio.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                 <View style={{ flex: 1 }}>
+                     <TouchableOpacity 
+                        onPress={handleStartDate}
+                        activeOpacity={0.7}
+                     >
+                        <ThemedText style={styles.dateLabel}>Fecha de inicio</ThemedText>
+                        <ThemedText style={styles.dateValue}>
+                            {fechaInicio.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short' })}
                         </ThemedText>
                      </TouchableOpacity>
+                 </View>
+                 {!allDay && (
+                     <View>
+                         <TouchableOpacity 
+                            onPress={handleStartTime}
+                            activeOpacity={0.7}
+                         >
+                            <ThemedText style={styles.dateLabel}>Hora</ThemedText>
+                            <ThemedText style={styles.timeValue}>
+                                {fechaInicio.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                            </ThemedText>
+                         </TouchableOpacity>
+                     </View>
                  )}
              </View>
 
              <View style={styles.dateRow}>
-                 <TouchableOpacity onPress={handleEndDate} style={{ flex: 1 }}>
-                    <ThemedText style={styles.dateValue}>
-                        {fechaFin.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short' })}
-                    </ThemedText>
-                 </TouchableOpacity>
-                 {!allDay && (
-                     <TouchableOpacity onPress={handleEndTime}>
-                        <ThemedText style={styles.timeValue}>
-                            {fechaFin.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                 <View style={{ flex: 1 }}>
+                     <TouchableOpacity 
+                        onPress={handleEndDate}
+                        activeOpacity={0.7}
+                     >
+                        <ThemedText style={styles.dateLabel}>Fecha de finalización</ThemedText>
+                        <ThemedText style={styles.dateValue}>
+                            {fechaFin.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short' })}
                         </ThemedText>
                      </TouchableOpacity>
+                 </View>
+                 {!allDay && (
+                     <View>
+                         <TouchableOpacity 
+                            onPress={handleEndTime}
+                            activeOpacity={0.7}
+                         >
+                            <ThemedText style={styles.dateLabel}>Hora</ThemedText>
+                            <ThemedText style={styles.timeValue}>
+                                {fechaFin.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                            </ThemedText>
+                         </TouchableOpacity>
+                     </View>
                  )}
              </View>
 
@@ -343,7 +367,7 @@ export function CrearSolicitud() {
                     <ThemedText style={[
                          styles.chipText,
                         tipoActividad === 'MANDATO' ? { color: colors.lightTint, fontWeight: 'bold' } : { color: colors.secondaryText }
-                    ]}>Pedido</ThemedText>
+                    ]}>Tarea</ThemedText>
                 </TouchableOpacity>
              </ScrollView>
           </View>
@@ -480,6 +504,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
   },
+  dateLabel: {
+     fontSize: 12,
+     color: colors.secondaryText,
+     marginBottom: 4,
+  },
   dateValue: {
      fontSize: 16,
      color: colors.lightTint,
@@ -487,7 +516,6 @@ const styles = StyleSheet.create({
   timeValue: {
       fontSize: 16,
       color: colors.lightTint,
-      marginLeft: 16,
   },
   messageInput: {
       flex: 1,

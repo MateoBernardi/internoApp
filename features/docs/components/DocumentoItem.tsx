@@ -1,8 +1,9 @@
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
-import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import React, { useState } from 'react';
+import { Modal, Pressable, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Archivo } from '../models/Archivo';
 
 const formatBytes = (bytes: number, decimals = 2) => {
@@ -14,46 +15,35 @@ const formatBytes = (bytes: number, decimals = 2) => {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
 };
 
-// Mapeo de extensiones a iconos con colores
 const getTipoIcon = (nombreArchivo: string): { icon: string; color: string } => {
   const extension = nombreArchivo.split('.').pop()?.toLowerCase() || '';
-  
   const iconMap: Record<string, { icon: string; color: string }> = {
-    // PDF - Rojo
-    'pdf': { icon: 'document-text', color: '#ef4444' },
-    // Word - Azul
-    'doc': { icon: 'document-text', color: '#2563eb' },
+    'pdf':  { icon: 'document-text', color: '#ef4444' },
+    'doc':  { icon: 'document-text', color: '#2563eb' },
     'docx': { icon: 'document-text', color: '#2563eb' },
     'word': { icon: 'document-text', color: '#2563eb' },
-    // Excel - Verde
-    'xls': { icon: 'document-text', color: '#16a34a' },
+    'xls':  { icon: 'document-text', color: '#16a34a' },
     'xlsx': { icon: 'document-text', color: '#16a34a' },
-    'excel': { icon: 'document-text', color: '#16a34a' },
-    'csv': { icon: 'document-text', color: '#16a34a' },
-    // Imágenes - Amarillo
-    'jpg': { icon: 'image', color: '#eab308' },
+    'excel':{ icon: 'document-text', color: '#16a34a' },
+    'csv':  { icon: 'document-text', color: '#16a34a' },
+    'jpg':  { icon: 'image', color: '#eab308' },
     'jpeg': { icon: 'image', color: '#eab308' },
-    'png': { icon: 'image', color: '#eab308' },
-    'gif': { icon: 'image', color: '#eab308' },
-    'bmp': { icon: 'image', color: '#eab308' },
-    'svg': { icon: 'image', color: '#eab308' },
-    // Texto - Gris
-    'txt': { icon: 'document-text', color: '#6b7280' },
-    // Vídeos
-    'mp4': { icon: 'play-circle', color: '#8b5cf6' },
-    'avi': { icon: 'play-circle', color: '#8b5cf6' },
-    'mov': { icon: 'play-circle', color: '#8b5cf6' },
-    'mkv': { icon: 'play-circle', color: '#8b5cf6' },
-    // Audio
-    'mp3': { icon: 'musical-note', color: '#06b6d4' },
-    'wav': { icon: 'musical-note', color: '#06b6d4' },
+    'png':  { icon: 'image', color: '#eab308' },
+    'gif':  { icon: 'image', color: '#eab308' },
+    'bmp':  { icon: 'image', color: '#eab308' },
+    'svg':  { icon: 'image', color: '#eab308' },
+    'txt':  { icon: 'document-text', color: '#6b7280' },
+    'mp4':  { icon: 'play-circle', color: '#8b5cf6' },
+    'avi':  { icon: 'play-circle', color: '#8b5cf6' },
+    'mov':  { icon: 'play-circle', color: '#8b5cf6' },
+    'mkv':  { icon: 'play-circle', color: '#8b5cf6' },
+    'mp3':  { icon: 'musical-note', color: '#06b6d4' },
+    'wav':  { icon: 'musical-note', color: '#06b6d4' },
     'flac': { icon: 'musical-note', color: '#06b6d4' },
-    // Comprimidos
-    'zip': { icon: 'folder', color: '#f97316' },
-    'rar': { icon: 'folder', color: '#f97316' },
-    '7z': { icon: 'folder', color: '#f97316' },
+    'zip':  { icon: 'folder', color: '#f97316' },
+    'rar':  { icon: 'folder', color: '#f97316' },
+    '7z':   { icon: 'folder', color: '#f97316' },
   };
-  
   return iconMap[extension] || { icon: 'document-text', color: '#9ca3af' };
 };
 
@@ -66,42 +56,101 @@ interface DocumentoItemProps {
 
 const colors = Colors['light'];
 
-export function DocumentoItem({ archivo, onPress, onOptions, onDelete }: DocumentoItemProps) {
-  const { icon, color } = getTipoIcon(archivo.nombre);
-  
+function DescripcionModal({
+  visible,
+  titulo,
+  nombre,
+  onClose,
+}: {
+  visible: boolean;
+  titulo: string;
+  nombre: string;
+  onClose: () => void;
+}) {
+  const insets = useSafeAreaInsets();
   return (
-    <TouchableOpacity
-      onPress={onPress}
-      style={[
-        styles.itemContainer,
-        { backgroundColor: colors.componentBackground },
-      ]}
-    >
-      <Ionicons name={icon as any} size={28} color={color} style={styles.documentIcon} />
-      <View style={styles.itemContent}>
-        <ThemedText type="defaultSemiBold" numberOfLines={1}>
-          {archivo.nombre}
-        </ThemedText>
-        <ThemedText style={[styles.creador, { color: colors.secondaryText }]}>
-          De: {archivo.nombreCreador} {archivo.apellidoCreador}
-        </ThemedText>
-        <View style={styles.footerContainer}>
-          <ThemedText style={[styles.dateText, { color: colors.secondaryText }]}>
-            {formatBytes(archivo.tamaño)} • {new Date(archivo.createdAt).toLocaleDateString()}
-          </ThemedText>
-          <View style={styles.actionButtons}>
-            {onDelete && (
-              <TouchableOpacity onPress={onDelete} style={styles.deleteButton}>
-                <Ionicons name="trash" size={20} color={colors.error} />
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity onPress={onOptions} style={styles.moreButton}>
-              <Ionicons name="ellipsis-vertical" size={18} color={colors.icon} />
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable style={styles.modalBackdrop} onPress={onClose}>
+        <Pressable style={[styles.modalCard, { marginBottom: insets.bottom + 16 }]}>
+          <View style={styles.modalHeader}>
+            <ThemedText style={styles.modalTitle} numberOfLines={1}>{nombre}</ThemedText>
+            <TouchableOpacity onPress={onClose} style={styles.modalCloseButton}>
+              <Ionicons name="close" size={20} color={colors.icon} />
             </TouchableOpacity>
           </View>
+          <View style={styles.modalDivider} />
+          <ThemedText style={styles.modalDescripcion}>{titulo}</ThemedText>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
+export function DocumentoItem({ archivo, onPress, onOptions, onDelete }: DocumentoItemProps) {
+  const { icon, color } = getTipoIcon(archivo.nombre);
+  const [showDescripcion, setShowDescripcion] = useState(false);
+
+  return (
+    <>
+      {/*
+        El View exterior contiene la fila completa.
+        El TouchableOpacity solo cubre icono + texto (left side).
+        Los botones de acción viven fuera del TouchableOpacity para que
+        sus onPress no compitan con el onPress del item.
+      */}
+      <View style={[styles.itemContainer, { backgroundColor: colors.componentBackground }]}>
+        <TouchableOpacity onPress={onPress} style={styles.itemPressable} activeOpacity={0.7}>
+          <Ionicons name={icon as any} size={28} color={color} style={styles.documentIcon} />
+          <View style={styles.itemContent}>
+            <ThemedText type="defaultSemiBold" numberOfLines={1}>{archivo.nombre}</ThemedText>
+            <ThemedText style={[styles.creador, { color: colors.secondaryText }]}>
+              De: {archivo.nombreCreador} {archivo.apellidoCreador}
+            </ThemedText>
+            <ThemedText style={[styles.dateText, { color: colors.secondaryText }]}>
+              {formatBytes(archivo.tamaño)} • {new Date(archivo.createdAt).toLocaleDateString()}
+            </ThemedText>
+          </View>
+        </TouchableOpacity>
+
+        {/* Botones fuera del TouchableOpacity — cada uno maneja su propio onPress */}
+        <View style={styles.actionButtons}>
+          {!!archivo.titulo && (
+            <TouchableOpacity
+              onPress={() => setShowDescripcion(true)}
+              style={styles.actionButton}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="eye-outline" size={20} color={colors.tint} />
+            </TouchableOpacity>
+          )}
+          {onDelete && (
+            <TouchableOpacity
+              onPress={onDelete}
+              style={styles.actionButton}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="trash" size={20} color={colors.error} />
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity
+            onPress={onOptions}
+            style={[styles.actionButton, styles.moreButton]}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name="ellipsis-vertical" size={18} color={colors.icon} />
+          </TouchableOpacity>
         </View>
       </View>
-    </TouchableOpacity>
+
+      {!!archivo.titulo && (
+        <DescripcionModal
+          visible={showDescripcion}
+          titulo={archivo.titulo}
+          nombre={archivo.nombre}
+          onClose={() => setShowDescripcion(false)}
+        />
+      )}
+    </>
   );
 }
 
@@ -113,26 +162,25 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 8,
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
+  },
+  // Ocupa todo el espacio disponible menos los botones de acción
+  itemPressable: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   documentIcon: {
     marginRight: 12,
-    marginTop: 2,
   },
   itemContent: {
     flex: 1,
     flexDirection: 'column',
+    gap: 3,
   },
   creador: {
     fontSize: 12,
-    marginTop: 2,
     fontWeight: '500',
-  },
-  footerContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 8,
   },
   dateText: {
     fontSize: 11,
@@ -141,13 +189,56 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    marginLeft: 8,
   },
-  deleteButton: {
+  actionButton: {
     padding: 8,
-    marginRight: -4,
   },
   moreButton: {
-    padding: 8,
     marginRight: -8,
+  },
+  // Modal
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 16,
+  },
+  modalCard: {
+    backgroundColor: colors.componentBackground,
+    borderRadius: 16,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 12,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  modalTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    flex: 1,
+    marginRight: 8,
+  },
+  modalCloseButton: {
+    padding: 4,
+  },
+  modalDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.icon,
+    marginBottom: 14,
+  },
+  modalDescripcion: {
+    fontSize: 14,
+    lineHeight: 22,
+    color: colors.text,
   },
 });

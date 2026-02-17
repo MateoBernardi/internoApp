@@ -1,4 +1,3 @@
-
 import { InputWithIcon } from '@/components/InputWithIcon';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -15,6 +14,7 @@ export const LoginForm: React.FC = () => {
   const { signIn } = useAuth();
   const [user, setUser] = useState("");
   const [pass, setPass] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -25,16 +25,13 @@ export const LoginForm: React.FC = () => {
     return userTrimmed.length > 0 && passTrimmed.length > 0;
   }, [user, pass]);
 
-  // Estilos del botón
-  const buttonStyle = useMemo(() => [
-    styles.loginButton,
-    !isFormValid && styles.loginButtonDisabled,
-    loading && styles.loginButtonLoading
-  ], [isFormValid, loading]);
-
   // Colores dinámicos del botón
-  const buttonIconColor = isFormValid ? colors.lightTint : colors.secondaryText;
-  const buttonTextColor = isFormValid ? colors.lightTint : colors.secondaryText;
+  // loading  -> background: lightTint,  icono/texto: componentBackground
+  // válido   -> background: background, icono/texto: lightTint
+  // inválido -> background: background, icono/texto: secondaryText
+  const buttonBackgroundColor = loading ? colors.lightTint : colors.background;
+  const buttonIconColor  = loading ? colors.componentBackground : isFormValid ? colors.lightTint : colors.secondaryText;
+  const buttonTextColor  = loading ? colors.componentBackground : isFormValid ? colors.lightTint : colors.secondaryText;
 
   // Submit handler
   const onSubmit = useCallback(async () => {
@@ -52,8 +49,15 @@ export const LoginForm: React.FC = () => {
     try {
       await signIn(user.trim(), pass.trim());
       // El RootLayout maneja el redirect automáticamente basado en isAuthenticated y requiresAssociation
-    } catch (err: any) {
-      setError(err.message || "Usuario o contraseña incorrectos");
+    } catch (err: unknown) {
+      // Error: limpiar usuario, mantener foco en inicio, mostrar error
+      setUser("");
+      setPass("");
+      if (err instanceof Error) {
+        setError(err.message || "Usuario o contraseña incorrectos");
+      } else {
+        setError("Usuario o contraseña incorrectos");
+      }
     } finally {
       setLoading(false);
     }
@@ -98,7 +102,8 @@ export const LoginForm: React.FC = () => {
           placeholder="Contraseña"
           value={pass}
           onChangeText={handlePassChange}
-          secureTextEntry
+          secureTextEntry={!showPassword}
+          onToggleSecure={() => setShowPassword(!showPassword)}
           accessibilityLabel="Campo contraseña"
           returnKeyType="done"
           textContentType="password"
@@ -106,7 +111,10 @@ export const LoginForm: React.FC = () => {
         />
         {errorContent}
         <Pressable
-          style={buttonStyle}
+          style={[
+            styles.loginButton,
+            { backgroundColor: buttonBackgroundColor },
+          ]}
           onPress={onSubmit}
           disabled={!isFormValid || loading}
           accessibilityRole="button"
@@ -170,7 +178,6 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   loginButtonText: {
-    color: colors.componentBackground,
     fontSize: 16,
     fontWeight: '600',
     letterSpacing: 0.5,
@@ -180,7 +187,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     alignSelf: 'center',
     marginTop: 32,
-    backgroundColor: colors.lightTint,
     borderRadius: 18,
     paddingVertical: 14,
     paddingHorizontal: 32,
@@ -193,14 +199,6 @@ const styles = StyleSheet.create({
     color: colors.componentBackground,
     fontWeight: 'bold',
     fontSize: 16,
-  },
-  loginButtonDisabled: {
-    backgroundColor: colors.background,
-    shadowOpacity: 0.1,
-  },
-  loginButtonLoading: {
-    opacity: 0.8,
-    backgroundColor: colors.secondaryText,
   },
   errorContainer: {
     backgroundColor: '#fee',

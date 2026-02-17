@@ -1,6 +1,13 @@
 import type { Novedad } from '@/features/novedades/models/Novedades';
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+
+// Factor de escala basado en pantallas de referencia
+const { width } = Dimensions.get('window');
+const REFERENCE_WIDTH = 375; // iPhone SE
+const SCALE_FACTOR = width / REFERENCE_WIDTH;
+
+const scale = (size: number) => Math.round(size * SCALE_FACTOR);
 
 interface NovedadCardProps {
   novedad: Novedad & { categoria: string; fecha: string; };
@@ -73,43 +80,43 @@ export function NovedadCard({ novedad, onPress }: NovedadCardProps) {
 
 const styles = StyleSheet.create({
   container: {
-    width: 100,
-    marginHorizontal: 4,
+    width: scale(100),
+    marginHorizontal: scale(4),
   },
   card: {
-    height: 80,
-    borderRadius: 12,
-    borderLeftWidth: 4,
-    padding: 5,
+    height: scale(80),
+    borderRadius: scale(12),
+    borderLeftWidth: scale(4),
+    padding: scale(5),
     justifyContent: 'space-between',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: scale(2) },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowRadius: scale(4),
     elevation: 3,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: scale(6),
   },
   icon: {
-    fontSize: 20,
+    fontSize: scale(20),
   },
   categoria: {
-    fontSize: 10,
+    fontSize: scale(10),
     fontWeight: '600',
     color: '#6b7280',
     letterSpacing: 0.5,
   },
   titulo: {
-    fontSize: 14,
+    fontSize: scale(14),
     fontWeight: 'bold',
     color: '#111827',
-    lineHeight: 18,
+    lineHeight: scale(18),
   },
   fecha: {
-    fontSize: 11,
+    fontSize: scale(11),
     color: '#6b7280',
   },
 });

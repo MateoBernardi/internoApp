@@ -1,6 +1,7 @@
 export interface Archivo {
     id: number;
     nombre: string;
+    titulo?: string;
     url: string;
     tamaño: number;
     tipo: string;
@@ -12,6 +13,7 @@ export interface Archivo {
 
 export interface UpdateArchivoPayload {
   nombre?: string;
+  titulo?: string;
   allowed_roles?: string[];
 
   // operaciones incrementales
@@ -21,6 +23,7 @@ export interface UpdateArchivoPayload {
 
 export interface UploadArchivoPayload {
   nombre: string;
+  titulo?: string;
   ruta_r2?: string;
   tamaño?: number;
   tipo?: string;

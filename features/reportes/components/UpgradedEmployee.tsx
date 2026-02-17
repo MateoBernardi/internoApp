@@ -29,28 +29,30 @@ export function UpgradedEmployee() {
 			<View style={styles.iconCircle}>
 				<ThemedText style={styles.iconText}>{iniciales}</ThemedText>
 			</View>
-			<ThemedText type="subtitle" style={styles.title}>
+			<ThemedText type="subtitle" style={styles.title} numberOfLines={2}>
 				Más mejoras en los últimos 3 meses
 			</ThemedText>
 			<View style={styles.upRow}>
 				<Ionicons name="arrow-up" size={22} color={colors.lightTint} style={{ marginRight: 4 }} />
 				<ThemedText style={styles.upCount}>{empleado.positivos_recientes}</ThemedText>
 			</View>
-			<ThemedText style={styles.name}>{empleado.nombre} {empleado.apellido}</ThemedText>
+			<ThemedText style={styles.name} numberOfLines={2}>{empleado.nombre} {empleado.apellido}</ThemedText>
 		</View>
 	);
 }
 
 const styles = StyleSheet.create({
 	card: {
-		width: 120,
-		height: 180,
+		width: 140,
+		minHeight: 180,
 		backgroundColor: colors.componentBackground,
 		borderRadius: 20,
 		borderWidth: 3,
 		borderColor: '#9C27B0',
 		alignItems: 'center',
 		justifyContent: 'center',
+		paddingHorizontal: 10,
+		paddingVertical: 14,
 		shadowColor: '#000',
 		shadowOffset: { width: 0, height: 2 },
 		shadowOpacity: 0.12,
@@ -74,7 +76,7 @@ const styles = StyleSheet.create({
 		fontWeight: 'bold',
 	},
 	title: {
-		fontSize: 15,
+		fontSize: 12,
 		fontWeight: '600',
 		color: colors.text,
 		marginBottom: 2,
@@ -91,7 +93,7 @@ const styles = StyleSheet.create({
 		color: colors.lightTint,
 	},
 	name: {
-		fontSize: 15,
+		fontSize: 13,
 		color: colors.text,
 		marginTop: 4,
 		fontWeight: '500',

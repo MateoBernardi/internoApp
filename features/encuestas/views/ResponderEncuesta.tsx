@@ -136,7 +136,7 @@ export const ResponderEncuesta: React.FC<ResponderEncuestaProps> = ({
                 text: 'OK', 
                 onPress: () => {
                   // Redirigir a la pantalla principal
-                  router.push({ pathname: '/' });
+                  router.replace({ pathname: '/' });
                 }
               }
             ]

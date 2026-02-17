@@ -8,6 +8,9 @@ import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacit
 import type { Novedad } from '../models/Novedades';
 import { useNovedad } from '../viewmodels/useNovedad';
 
+// Roles que tienen permiso para crear, editar y eliminar novedades
+const supervisorRoles = ['gerencia', 'personasRelaciones', 'encargado'];
+
 interface NovedadView extends Novedad {
   categoria: string;
   fecha: string;
@@ -175,9 +178,11 @@ export default function TablonNovedades() {
   };
 
   // Determinar si el usuario puede crear/editar novedades
-  // Ajusta esta lógica según tu estructura de roles
-  const canCreate = true; // Cambia esto según tu lógica de permisos
-  const canEdit = true; // Cambia esto según tu lógica de permisos
+  // Solo usuarios con roles específicos pueden gestionar novedades
+  const userRole = user?.rol_nombre || '';
+  const hasPermission = supervisorRoles.includes(userRole);
+  const canCreate = hasPermission;
+  const canEdit = hasPermission;
 
   if (localLoading || isLoading) {
     return (
@@ -200,11 +205,7 @@ export default function TablonNovedades() {
   }
 
   if (novedades.length === 0 && !canCreate) {
-    return (
-      <View style={styles.centerContainer}>
-        <Text style={styles.emptyText}>No hay novedades disponibles</Text>
-      </View>
-    );
+    return null; // No mostrar nada si no hay novedades y el usuario no puede crear
   }
 
   return (

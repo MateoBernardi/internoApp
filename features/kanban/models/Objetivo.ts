@@ -12,7 +12,7 @@ export interface Objetivo {
     id: number;
     titulo: string;
     descripcion: string;
-    estado: 'PENDIENTE' | 'PROGRESO' | 'HECHO' | 'PRIORIDAD';
+    estado: 'PENDIENTE' | 'PRIORIDAD' | 'PROGRESO' | 'REALIZADO';
     rank_position: string; // Lexorank string
     created_by: number;
     created_by_username?: string;
@@ -31,7 +31,7 @@ export interface CreateObjetivoDTO {
 export interface UpdateObjetivoDTO {
     titulo?: string;
     descripcion?: string;
-    estado?: 'PENDIENTE' | 'PROGRESO' | 'HECHO' | 'PRIORIDAD';
+    estado?: 'PENDIENTE' | 'PRIORIDAD' | 'PROGRESO' | 'REALIZADO';
     rank_position?: string;
     observacion?: string;
 }

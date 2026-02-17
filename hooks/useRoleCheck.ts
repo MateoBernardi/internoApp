@@ -1,8 +1,8 @@
 import { useAuth } from '@/features/auth/context/AuthContext';
 
-type UserRole = 'admin' | 'contable' | 'gerencia' | 'personasRelaciones' | 'consejo' | 'encargado' | 'empleado';
+type UserRole = 'admin' | 'contable' | 'gerencia' | 'personasRelaciones' | 'consejo' | 'encargado' | 'empleado' | 'readonly';
 
-const ALL_ROLES: UserRole[] = ['admin', 'contable', 'gerencia', 'personasRelaciones', 'consejo', 'encargado', 'empleado'];
+export const ALL_ROLES: UserRole[] = ['admin', 'contable', 'gerencia', 'personasRelaciones', 'consejo', 'encargado', 'empleado', 'readonly'];
 
 export function useRoleCheck() {
   const { user } = useAuth();
@@ -22,6 +22,12 @@ export function useRoleCheck() {
     return userRole === role;
   };
 
+  const isKnownRole = (): boolean => {
+    const rolNombre = user?.rol_nombre;
+    if (!rolNombre) return false;
+    return ALL_ROLES.includes(rolNombre as UserRole);
+  };
+
   const isEmployeeOrEncargado = (): boolean => {
     return hasRole(['empleado', 'encargado']);
   };
@@ -33,6 +39,7 @@ export function useRoleCheck() {
   return {
     userRole: getUserRole(),
     hasRole,
+    isKnownRole,
     isEmployeeOrEncargado,
     isAdmin,
   };

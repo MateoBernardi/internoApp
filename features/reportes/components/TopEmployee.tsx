@@ -29,23 +29,25 @@ export function TopEmployee() {
 			<View style={styles.iconCircle}>
 				<ThemedText style={styles.iconText}>{iniciales}</ThemedText>
 			</View>
-			<ThemedText type="subtitle" style={styles.title}>Más comentarios positivos</ThemedText>
+			<ThemedText type="subtitle" style={styles.title} numberOfLines={2}>Más comentarios positivos</ThemedText>
 			<ThemedText style={styles.positiveCount}>{empleado.total_positivos}</ThemedText>
-			<ThemedText style={styles.name}>{empleado.nombre} {empleado.apellido}</ThemedText>
+			<ThemedText style={styles.name} numberOfLines={2}>{empleado.nombre} {empleado.apellido}</ThemedText>
 		</View>
 	);
 }
 
 const styles = StyleSheet.create({
 	card: {
-		width: 120,
-		height: 180,
+		width: 140,
+		minHeight: 180,
 		backgroundColor: colors.componentBackground,
 		borderRadius: 20,
 		borderWidth: 3,
 		borderColor: colors.lightTint,
 		alignItems: 'center',
 		justifyContent: 'center',
+		paddingHorizontal: 10,
+		paddingVertical: 14,
 		shadowColor: '#000',
 		shadowOffset: { width: 0, height: 2 },
 		shadowOpacity: 0.12,
@@ -69,7 +71,7 @@ const styles = StyleSheet.create({
 		fontWeight: 'bold',
 	},
 	title: {
-		fontSize: 16,
+		fontSize: 12,
 		fontWeight: '600',
 		color: colors.text,
 		marginBottom: 2,
@@ -82,7 +84,7 @@ const styles = StyleSheet.create({
 		marginBottom: 2,
 	},
 	name: {
-		fontSize: 15,
+		fontSize: 13,
 		color: colors.text,
 		marginTop: 4,
 		fontWeight: '500',

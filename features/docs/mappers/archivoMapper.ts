@@ -10,6 +10,7 @@ export function mapArchivoDTOToArchivo(dto: ArchivoDTO): Archivo {
     nombre: dto.nombre,
     url: dto.ruta_r2,
     tamaño: dto.tamaño,
+    titulo: dto.titulo,
     tipo: dto.tipo,
     creadorId: dto.created_by,
     nombreCreador: dto.creador_nombre,

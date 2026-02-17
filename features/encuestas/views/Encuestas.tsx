@@ -1,5 +1,6 @@
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
+import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
   StyleSheet,
@@ -19,23 +20,29 @@ export const Encuestas: React.FC = () => {
   const [opcionSeleccionada, setOpcionSeleccionada] =
     useState<OpcionSeleccionada>(null);
 
+  const handleVolver = () => {
+    setOpcionSeleccionada(null);
+  };
+
   const handleEncuestaCreada = () => {
     setOpcionSeleccionada(null);
   };
 
   // Si hay una opción seleccionada, mostrar el componente correspondiente
   if (opcionSeleccionada === 'crear') {
-    return <CrearEncuesta onEncuestaCreada={handleEncuestaCreada} />;
+    return <CrearEncuesta onEncuestaCreada={handleEncuestaCreada} onVolver={handleVolver} />;
   }
 
   if (opcionSeleccionada === 'resultados') {
-    return <VerResultadosEncuestas />;
+    return <VerResultadosEncuestas onVolver={handleVolver} />;
   }
 
   // Pantalla de selección de opciones
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-      <ThemedText type="title" style={styles.pageTitle}>Gestión de Encuestas</ThemedText>
+      <View style={styles.header}>
+        <ThemedText type="title" style={styles.headerTitle}>Gestión de Encuestas</ThemedText>
+      </View>
 
       <View style={styles.content}>
         <TouchableOpacity
@@ -43,16 +50,19 @@ export const Encuestas: React.FC = () => {
           onPress={() => setOpcionSeleccionada('crear')}
           activeOpacity={0.7}
         >
-          <View style={styles.iconContainer}>
-            <Text style={styles.icon}>📝</Text>
-          </View>
-          <Text style={styles.optionTitle}>Crear Encuesta</Text>
-          <Text style={styles.optionDescription}>
-            Crea una nueva encuesta con preguntas personalizadas para tus
-            usuarios
-          </Text>
-          <View style={styles.arrowContainer}>
-            <Text style={styles.arrow}>→</Text>
+          <View style={styles.cardRow}>
+            <View style={styles.iconContainer}>
+              <Ionicons name="create-outline" size={28} color={colors.lightTint} />
+            </View>
+            <View style={styles.cardTextContainer}>
+              <Text style={styles.optionTitle}>Crear Encuesta</Text>
+              <Text style={styles.optionDescription}>
+                Crea una nueva encuesta con preguntas personalizadas
+              </Text>
+            </View>
+            <View style={styles.arrowContainer}>
+              <Ionicons name="chevron-forward" size={24} color={colors.lightTint} />
+            </View>
           </View>
         </TouchableOpacity>
 
@@ -61,15 +71,19 @@ export const Encuestas: React.FC = () => {
           onPress={() => setOpcionSeleccionada('resultados')}
           activeOpacity={0.7}
         >
-          <View style={styles.iconContainer}>
-            <Text style={styles.icon}>📊</Text>
-          </View>
-          <Text style={styles.optionTitle}>Ver Resultados</Text>
-          <Text style={styles.optionDescription}>
-            Consulta y analiza las respuestas de las encuestas completadas
-          </Text>
-          <View style={styles.arrowContainer}>
-            <Text style={styles.arrow}>→</Text>
+          <View style={styles.cardRow}>
+            <View style={styles.iconContainer}>
+              <Ionicons name="bar-chart-outline" size={28} color={colors.lightTint} />
+            </View>
+            <View style={styles.cardTextContainer}>
+              <Text style={styles.optionTitle}>Ver Resultados</Text>
+              <Text style={styles.optionDescription}>
+                Consulta y analiza las respuestas de las encuestas
+              </Text>
+            </View>
+            <View style={styles.arrowContainer}>
+              <Ionicons name="chevron-forward" size={24} color={colors.lightTint} />
+            </View>
           </View>
         </TouchableOpacity>
       </View>
@@ -82,98 +96,66 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.componentBackground,
   },
-  pageTitle: {
+  header: {
+    paddingHorizontal: 16,
+    paddingTop: 24,
+    paddingBottom: 8,
+  },
+  headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     textAlign: 'center',
     backgroundColor: colors.componentBackground,
     paddingVertical: 12,
     paddingHorizontal: 16,
-    marginHorizontal: 16,
-    marginTop: 16,
-    marginBottom: 16,
     borderRadius: 8,
-  },
-  header: {
-    backgroundColor: colors.componentBackground,
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.background,
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: 5,
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: colors.secondaryText,
   },
   content: {
     flex: 1,
-    padding: 20,
-    justifyContent: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 24,
+    gap: 16,
   },
   optionCard: {
     backgroundColor: colors.componentBackground,
-    borderRadius: 16,
-    padding: 24,
-    marginBottom: 20,
+    borderRadius: 12,
+    padding: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowRadius: 4,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: colors.background,
+  },
+  cardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   iconContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: colors.componentBackground,
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: colors.lightTint + '15',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    marginRight: 16,
   },
-  icon: {
-    fontSize: 32,
+  cardTextContainer: {
+    flex: 1,
   },
   optionTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: '600',
     color: colors.text,
-    marginBottom: 8,
+    marginBottom: 4,
   },
   optionDescription: {
-    fontSize: 14,
-    color: colors.secondaryText,
-    lineHeight: 20,
-    marginBottom: 16,
-  },
-  arrowContainer: {
-    alignSelf: 'flex-end',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.lightTint,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  arrow: {
-    fontSize: 20,
-    color: colors.componentBackground,
-    fontWeight: 'bold',
-  },
-  footer: {
-    backgroundColor: colors.componentBackground,
-    padding: 20,
-    borderTopWidth: 1,
-    borderTopColor: colors.background,
-  },
-  footerText: {
     fontSize: 13,
     color: colors.secondaryText,
-    textAlign: 'center',
     lineHeight: 18,
+  },
+  arrowContainer: {
+    marginLeft: 8,
   },
 });

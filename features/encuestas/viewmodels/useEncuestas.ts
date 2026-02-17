@@ -2,6 +2,7 @@ import { useAuth } from '@/features/auth/context/AuthContext';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     createEncuestaCompleta,
+    eliminarEncuesta,
     enviarRespuestas,
     fetchEncuestas,
     getRespuestasEncuesta
@@ -77,6 +78,27 @@ export function useCreateEncuestaCompleta() {
         onSuccess: () => {
             // Invalidar la query para refrescar desde el servidor
             queryClient.invalidateQueries({ queryKey: ['encuestas'] });
+            queryClient.invalidateQueries({ queryKey: ['encuestas_respuestas'] });
+        },
+    });
+}
+
+export function useEliminarEncuesta() {
+    const queryClient = useQueryClient();
+    const { tokens } = useAuth();
+
+    return useMutation({
+        mutationFn: async (encuestaId: number) => {
+            const token = tokens?.accessToken;
+            if (!token) {
+                throw new Error('No hay token de acceso');
+            }
+            return eliminarEncuesta(token, encuestaId);
+        },
+        onSuccess: () => {
+            // Invalidar queries para refrescar desde el servidor
+            queryClient.invalidateQueries({ queryKey: ['encuestas'] });
+            queryClient.invalidateQueries({ queryKey: ['encuestas_respuestas'] });
         },
     });
 }

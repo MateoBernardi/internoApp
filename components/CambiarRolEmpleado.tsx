@@ -1,7 +1,7 @@
 import { ThemedText } from '@/components/themed-text';
 import { SearchBar } from '@/components/ui/SearchBar';
 import { Colors } from '@/constants/theme';
-import { useSearchUsers, useUpdateUserRole } from '@/shared/users/useUser';
+import { useBajaUsuario, useSearchUsers, useUpdateUserRole } from '@/shared/users/useUser';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
@@ -32,6 +32,7 @@ export function CambiarRolEmpleado() {
   
   const searchUsersQuery = useSearchUsers(searchQuery);
   const updateRolMutation = useUpdateUserRole();
+  const bajaMutation = useBajaUsuario();
 
   const handleSearchClear = () => {
     setSearchQuery('');
@@ -96,6 +97,44 @@ export function CambiarRolEmpleado() {
             }
           },
           style: 'default',
+        },
+      ]
+    );
+  };
+
+  const handleBajaUsuario = () => {
+    if (!selectedUser?.user_context_id) {
+      Alert.alert('Error', 'No se encontró el usuario');
+      return;
+    }
+
+    Alert.alert(
+      '⚠️ Dar de baja usuario',
+      `¿Estás seguro de que deseas dar de baja a ${selectedUser.nombre} ${selectedUser.apellido}?\n\nEsta acción no se puede deshacer.`,
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel',
+        },
+        {
+          text: 'Dar de baja',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await bajaMutation.mutateAsync(selectedUser.user_context_id);
+              Alert.alert(
+                'Éxito',
+                `El usuario ${selectedUser.nombre} ${selectedUser.apellido} ha sido dado de baja.`
+              );
+              setSelectedUser(null);
+              setSelectedRoleId(null);
+            } catch (error: any) {
+              Alert.alert(
+                'Error',
+                error.message || 'No se pudo dar de baja al usuario'
+              );
+            }
+          },
         },
       ]
     );
@@ -311,34 +350,65 @@ export function CambiarRolEmpleado() {
               })}
             </View>
 
-            {/* Botón de cambiar rol */}
-            <TouchableOpacity
-              style={[
-                styles.changeButton,
-                {
-                  backgroundColor: colors.tint,
-                  opacity: !selectedRoleId || updateRolMutation.isPending ? 0.5 : 1,
-                },
-              ]}
-              onPress={handleCambiarRol}
-              disabled={!selectedRoleId || updateRolMutation.isPending}
-            >
-              {updateRolMutation.isPending ? (
-                <ActivityIndicator color="#fff" size="small" />
-              ) : (
-                <ThemedText style={styles.changeButtonText}>Cambiar Rol</ThemedText>
-              )}
-            </TouchableOpacity>
+            {/* Botones de acción */}
+            <View style={styles.actionsContainer}>
+              {/* Botón de cambiar rol */}
+              <TouchableOpacity
+                style={[
+                  styles.changeButton,
+                  styles.changeRoleButton,
+                  {
+                    backgroundColor: colors.tint,
+                    opacity: !selectedRoleId || updateRolMutation.isPending ? 0.5 : 1,
+                  },
+                ]}
+                onPress={handleCambiarRol}
+                disabled={!selectedRoleId || updateRolMutation.isPending}
+              >
+                {updateRolMutation.isPending ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <>
+                    <Ionicons name="swap-horizontal" size={18} color={colors.componentBackground} />
+                    <ThemedText style={styles.changeButtonText}>Cambiar Rol</ThemedText>
+                  </>
+                )}
+              </TouchableOpacity>
+
+              {/* Botón de dar de baja */}
+              <TouchableOpacity
+                style={[
+                  styles.changeButton,
+                  styles.bajaButton,
+                  {
+                    opacity: bajaMutation.isPending ? 0.5 : 1,
+                  },
+                ]}
+                onPress={handleBajaUsuario}
+                disabled={bajaMutation.isPending}
+              >
+                {bajaMutation.isPending ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <>
+                    <Ionicons name="person-remove" size={18} color={colors.componentBackground} />
+                    <ThemedText style={styles.changeButtonText}>Dar de baja</ThemedText>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* Estado de error */}
-          {updateRolMutation.isError && (
+          {(updateRolMutation.isError || bajaMutation.isError) && (
             <View style={[styles.errorContainer, { backgroundColor: colors.error + '15' }]}>
               <Ionicons name="alert-circle" size={20} color={colors.error} />
               <ThemedText style={[styles.errorText, { color: colors.error }]}>
                 {updateRolMutation.error instanceof Error
                   ? updateRolMutation.error.message
-                  : 'Error al cambiar el rol'}
+                  : bajaMutation.error instanceof Error
+                  ? bajaMutation.error.message
+                  : 'Error en la operación'}
               </ThemedText>
             </View>
           )}
@@ -545,7 +615,12 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginTop: 2,
   },
+  actionsContainer: {
+    flexDirection: 'row',
+    gap: 12,
+  },
   changeButton: {
+    flex: 1,
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 8,
@@ -554,9 +629,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
   },
+  changeRoleButton: {
+    backgroundColor: colors.tint,
+  },
+  bajaButton: {
+    backgroundColor: colors.error,
+  },
   changeButtonText: {
     color: colors.componentBackground,
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
   },
 });

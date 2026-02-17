@@ -120,7 +120,7 @@ export function DocumentoItem({ archivo, onPress, onOptions, onDelete }: Documen
               style={styles.actionButton}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Ionicons name="eye-outline" size={20} color={colors.tint} />
+              <Ionicons name="information-circle-outline" size={20} color={colors.tint} />
             </TouchableOpacity>
           )}
           {onDelete && (

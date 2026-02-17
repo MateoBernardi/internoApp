@@ -35,6 +35,10 @@ export function CrearSolicitudesLicencias() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [activeDateType, setActiveDateType] = useState<'start' | 'end' | null>(null);
   const [showTipoLicenciaModal, setShowTipoLicenciaModal] = useState(false);
+  const [horaInicio, setHoraInicio] = useState<Date>(new Date());
+  const [horaFin, setHoraFin] = useState<Date>(new Date(new Date().getTime() + 60 * 60 * 1000));
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [activeTimeType, setActiveTimeType] = useState<'start' | 'end' | null>(null);
 
   // --- Hooks de Datos ---
   const { data: tiposLicencias, isLoading: isLoadingTipos, isError: isErrorTipos } = useGetTiposLicencias();
@@ -45,6 +49,10 @@ export function CrearSolicitudesLicencias() {
   const selectedTipo = useMemo(() => 
     tiposLicencias?.find((t) => t.id === tipoLicenciaId), 
   [tiposLicencias, tipoLicenciaId]);
+
+  const isPermisoEspecial = useMemo(() => {
+    return selectedTipo?.nombre?.toLowerCase().includes('permiso especial') || false;
+  }, [selectedTipo]);
 
   const saldoCorrespondiente = useMemo(() => {
     if (!tipoLicenciaId || !saldosLicencias) return null;
@@ -68,9 +76,10 @@ export function CrearSolicitudesLicencias() {
     const saldoSuficiente = selectedTipo?.requiere_saldo 
       ? saldoDisponible >= diasSolicitados 
       : true;
+    const horasCorrectas = isPermisoEspecial ? horaInicio < horaFin : true;
 
-    return tieneTipo && fechasCorrectas && saldoSuficiente && !isPending;
-  }, [tipoLicenciaId, fechaInicio, fechaFin, selectedTipo, saldoDisponible, diasSolicitados, isPending]);
+    return tieneTipo && fechasCorrectas && saldoSuficiente && horasCorrectas && !isPending;
+  }, [tipoLicenciaId, fechaInicio, fechaFin, selectedTipo, saldoDisponible, diasSolicitados, isPending, isPermisoEspecial, horaInicio, horaFin]);
 
   // --- Handlers ---
   const onDateChange = (event: any, selectedDate?: Date) => {
@@ -90,15 +99,51 @@ export function CrearSolicitudesLicencias() {
     setActiveDateType(null);
   };
 
+  const onTimeChange = (event: any, selectedTime?: Date) => {
+    if (Platform.OS === 'android') setShowTimePicker(false);
+    if (event.type === 'dismissed') {
+      setActiveTimeType(null);
+      return;
+    }
+
+    const currentTime = selectedTime || (activeTimeType === 'start' ? horaInicio : horaFin);
+    if (activeTimeType === 'start') {
+      setHoraInicio(currentTime);
+    } else {
+      setHoraFin(currentTime);
+    }
+    setActiveTimeType(null);
+  };
+
+  const formatTimestamp = (fecha: Date, hora: Date): string => {
+    const year = fecha.getFullYear();
+    const month = String(fecha.getMonth() + 1).padStart(2, '0');
+    const day = String(fecha.getDate()).padStart(2, '0');
+    const hours = String(hora.getHours()).padStart(2, '0');
+    const minutes = String(hora.getMinutes()).padStart(2, '0');
+    const seconds = String(hora.getSeconds()).padStart(2, '0');
+    const ms = String(hora.getMilliseconds()).padStart(3, '0');
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${ms}`;
+  };
+
   const procederCrearSolicitud = useCallback(() => {
     if (isPending) return; // Prevenir doble envío
+    
+    const payload: any = {
+      tipo_licencia_id: tipoLicenciaId!,
+      observacion: observacion.trim() || undefined,
+    };
+
+    if (isPermisoEspecial) {
+      payload.fecha_inicio = formatTimestamp(fechaInicio, horaInicio);
+      payload.fecha_fin = formatTimestamp(fechaFin, horaFin);
+    } else {
+      payload.fecha_inicio = fechaInicio.toISOString().split('T')[0];
+      payload.fecha_fin = fechaFin.toISOString().split('T')[0];
+    }
+
     crearSolicitud(
-      {
-        tipo_licencia_id: tipoLicenciaId!,
-        fecha_inicio: fechaInicio.toISOString().split('T')[0],
-        fecha_fin: fechaFin.toISOString().split('T')[0],
-        observacion: observacion.trim() || undefined,
-      },
+      payload,
       {
         onSuccess: () => {
           Alert.alert('Éxito', 'Solicitud enviada correctamente');
@@ -109,7 +154,7 @@ export function CrearSolicitudesLicencias() {
         },
       }
     );
-  }, [isPending, crearSolicitud, tipoLicenciaId, fechaInicio, fechaFin, observacion, router]);
+  }, [isPending, crearSolicitud, tipoLicenciaId, fechaInicio, fechaFin, horaInicio, horaFin, observacion, router, isPermisoEspecial]);
 
   const handleCrearSolicitud = useCallback(() => {
     if (!isFormValid || isPending) return;
@@ -211,6 +256,36 @@ export function CrearSolicitudesLicencias() {
             )}
           </View>
 
+          {/* Selector de Horas (Solo para Permiso Especial) */}
+          {isPermisoEspecial && (
+            <View style={styles.sectionCard}>
+              <View style={styles.rowInfo}>
+                <Ionicons name="time-outline" size={20} color={colors.lightTint} />
+                <ThemedText style={styles.sectionLabel}>Horario</ThemedText>
+              </View>
+
+              <TouchableOpacity onPress={() => { setActiveTimeType('start'); setShowTimePicker(true); }} style={styles.datePickerRow}>
+                <ThemedText style={styles.dateLabel}>Desde</ThemedText>
+                <ThemedText style={styles.dateValue}>
+                  {horaInicio.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                </ThemedText>
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={() => { setActiveTimeType('end'); setShowTimePicker(true); }} style={styles.datePickerRow}>
+                <ThemedText style={styles.dateLabel}>Hasta</ThemedText>
+                <ThemedText style={styles.dateValue}>
+                  {horaFin.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                </ThemedText>
+              </TouchableOpacity>
+
+              {horaInicio >= horaFin && (
+                <ThemedText style={[styles.warningText, { marginTop: 12, color: colors.error }]}>
+                  La hora final debe ser posterior a la hora inicial
+                </ThemedText>
+              )}
+            </View>
+          )}
+
           {/* Información de Saldo (Condicional) */}
           {selectedTipo?.requiere_saldo && (
             <View style={[styles.sectionCard, styles.saldoCard, saldoDisponible < diasSolicitados && styles.saldoError]}>
@@ -303,6 +378,16 @@ export function CrearSolicitudesLicencias() {
             minimumDate={activeDateType === 'end' ? fechaInicio : undefined}
             display={Platform.OS === 'ios' ? 'spinner' : 'default'}
             onChange={onDateChange}
+          />
+        )}
+
+        {showTimePicker && (
+          <DateTimePicker
+            value={activeTimeType === 'start' ? horaInicio : horaFin}
+            mode="time"
+            is24Hour={true}
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            onChange={onTimeChange}
           />
         )}
       </KeyboardAvoidingView>

@@ -4,7 +4,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Keyboard, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import {
   changePasswordWithToken,
@@ -32,6 +32,7 @@ export const CambiarContrasenaView: React.FC<CambiarContrasenaViewProps> = ({ on
   // Estados de UI
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const isProcessingRef = useRef(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -71,11 +72,9 @@ export const CambiarContrasenaView: React.FC<CambiarContrasenaViewProps> = ({ on
 
   // Paso 1: Generar token
   const handleGenerateToken = useCallback(async () => {
-    if (!isEmailValid) {
-      setError('Por favor ingresa un email válido');
-      return;
-    }
+    if (!isEmailValid || isProcessingRef.current) return;
 
+    isProcessingRef.current = true;
     setLoading(true);
     setError('');
     Keyboard.dismiss();
@@ -87,16 +86,15 @@ export const CambiarContrasenaView: React.FC<CambiarContrasenaViewProps> = ({ on
       setError(err.message || 'Error al generar token');
     } finally {
       setLoading(false);
+      isProcessingRef.current = false;
     }
   }, [email, isEmailValid]);
 
   // Paso 2: Validar token
   const handleValidateToken = useCallback(async () => {
-    if (!isTokenValid) {
-      setError('Por favor ingresa el token');
-      return;
-    }
+    if (!isTokenValid || isProcessingRef.current) return;
 
+    isProcessingRef.current = true;
     setLoading(true);
     setError('');
     Keyboard.dismiss();
@@ -113,11 +111,14 @@ export const CambiarContrasenaView: React.FC<CambiarContrasenaViewProps> = ({ on
       setError(err.message || 'Token inválido o expirado');
     } finally {
       setLoading(false);
+      isProcessingRef.current = false;
     }
   }, [email, token, isTokenValid]);
 
   // Paso 3: Cambiar contraseña
   const handleChangePassword = useCallback(async () => {
+    if (isProcessingRef.current) return;
+
     if (!isPasswordValid) {
       if (newPassword.length < 8) {
         setError('La contraseña debe tener al menos 8 caracteres');
@@ -134,6 +135,7 @@ export const CambiarContrasenaView: React.FC<CambiarContrasenaViewProps> = ({ on
       return;
     }
 
+    isProcessingRef.current = true;
     setLoading(true);
     setError('');
     Keyboard.dismiss();
@@ -145,6 +147,7 @@ export const CambiarContrasenaView: React.FC<CambiarContrasenaViewProps> = ({ on
       setError(err.message || 'Error al cambiar contraseña');
     } finally {
       setLoading(false);
+      isProcessingRef.current = false;
     }
   }, [newPassword, confirmPassword, accessToken, isPasswordValid]);
 
@@ -155,7 +158,9 @@ export const CambiarContrasenaView: React.FC<CambiarContrasenaViewProps> = ({ on
       setToken('');
       setError('');
     } else if (currentStep === 'password') {
-      setCurrentStep('token');
+      // El token ya fue consumido al validarse, hay que reiniciar todo el flujo
+      setCurrentStep('email');
+      setToken('');
       setNewPassword('');
       setConfirmPassword('');
       setError('');
@@ -185,7 +190,7 @@ export const CambiarContrasenaView: React.FC<CambiarContrasenaViewProps> = ({ on
         <View style={styles.headerContainer}>
           <ThemedText style={styles.title}>Recuperar Contraseña</ThemedText>
           <ThemedText style={styles.subtitle}>
-            {currentStep === 'email' && 'Ingresa tu email para recibir un token'}
+            {currentStep === 'email' && 'Ingresa tu email de usuario para recibir un token'}
             {currentStep === 'token' && 'Ingresa el token que recibiste por email'}
             {currentStep === 'password' && 'Crea tu nueva contraseña'}
             {currentStep === 'success' && 'Contraseña cambiada con éxito'}

@@ -93,3 +93,18 @@ export async function enviarRespuestas(accessToken: string, data: {respuestas: R
     const responseData: Respuesta[] = await response.json();
     return responseData;
 }
+
+export async function eliminarEncuesta(accessToken: string, encuestaId: number): Promise<void> {
+    const response = await apiRequest({ 
+        method: 'DELETE', 
+        endpoint: `/encuestas/${encuestaId}`, 
+        token: accessToken 
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error eliminando encuesta:', response.status, response.statusText);
+        console.error('Response body:', errorText);
+        throw new Error(`Error al eliminar la encuesta: ${errorText}`);
+    }
+}

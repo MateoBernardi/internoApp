@@ -62,6 +62,27 @@ export async function updateUserRole(accessToken: string, userId: number, roleId
 }
 
 /**
+ * Dar de baja a un usuario (solo gerencia)
+ * DELETE /usuarios/:usuarioId/baja
+ */
+export async function bajaUsuario(accessToken: string, userId: number) {
+  const response = await apiRequest({
+    method: "DELETE",
+    endpoint: `/usuarios/${userId}/baja`,
+    token: accessToken
+  });
+  
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('Error al dar de baja usuario:', response.status, errorText);
+    throw new Error('Error al dar de baja al usuario');
+  }
+  
+  const data = await response.json();
+  return data;
+}
+
+/**
  * Obtener cuentas disponibles para asociar
  * Requiere accessToken con rol readonly y requiresAssociation=true
  */

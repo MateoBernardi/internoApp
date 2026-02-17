@@ -1,4 +1,5 @@
 import { ThemedText } from '@/components/themed-text';
+import { Colors } from '@/constants/theme';
 import { useRegisterUser } from '@/features/auth/hooks/useAuthActions';
 import { CreateUserData } from '@/features/auth/types';
 import { Ionicons } from '@expo/vector-icons';
@@ -177,7 +178,7 @@ export default function CrearUsuario() {
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
     >
       <ScrollView
-        contentContainerStyle={{ paddingHorizontal: 20, paddingVertical: 40 }}
+        contentContainerStyle={{ paddingHorizontal: 20, paddingVertical: 40, backgroundColor: Colors.light.componentBackground, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
@@ -197,12 +198,13 @@ export default function CrearUsuario() {
       <View style={{ marginBottom: 16 }}>
         <TextInput
           placeholder="Tu nombre de usuario"
+          placeholderTextColor={Colors.light.secondaryText}
           value={formData.username}
           onChangeText={(value) => handleInputChange('username', value)}
           editable={!loading}
           style={{
             borderWidth: 1,
-            borderColor: errors.username ? '#dc3545' : '#ccc',
+            borderColor: errors.username ? '#dc3545' : Colors.light.secondaryText,
             borderRadius: 6,
             paddingHorizontal: 12,
             paddingVertical: 10,
@@ -220,13 +222,14 @@ export default function CrearUsuario() {
       <View style={{ marginBottom: 16 }}>
         <TextInput
           placeholder="tu@email.com"
+          placeholderTextColor={Colors.light.secondaryText}
           value={formData.email}
           onChangeText={(value) => handleInputChange('email', value)}
           keyboardType="email-address"
           editable={!loading}
           style={{
             borderWidth: 1,
-            borderColor: errors.email ? '#dc3545' : '#ccc',
+            borderColor: errors.email ? '#dc3545' : Colors.light.secondaryText,
             borderRadius: 6,
             paddingHorizontal: 12,
             paddingVertical: 10,
@@ -245,6 +248,7 @@ export default function CrearUsuario() {
         <View style={{ flexDirection: 'row', alignItems: 'center', position: 'relative' }}>
           <TextInput
             placeholder="Tu contraseña"
+            placeholderTextColor={Colors.light.secondaryText}
             value={formData.password}
             onChangeText={(value) => handleInputChange('password', value)}
             secureTextEntry={!showPassword}
@@ -252,7 +256,7 @@ export default function CrearUsuario() {
             style={{
               flex: 1,
               borderWidth: 1,
-              borderColor: errors.password ? '#dc3545' : '#ccc',
+              borderColor: errors.password ? '#dc3545' : Colors.light.secondaryText,
               borderRadius: 6,
               paddingHorizontal: 12,
               paddingVertical: 10,
@@ -283,6 +287,7 @@ export default function CrearUsuario() {
         <View style={{ flexDirection: 'row', alignItems: 'center', position: 'relative' }}>
           <TextInput
             placeholder="Confirma tu contraseña"
+            placeholderTextColor={Colors.light.secondaryText}
             value={confirmPassword}
             onChangeText={(value) => {
               setConfirmPassword(value);
@@ -297,7 +302,7 @@ export default function CrearUsuario() {
             style={{
               flex: 1,
               borderWidth: 1,
-              borderColor: errors.confirmPassword ? '#dc3545' : '#ccc',
+              borderColor: errors.confirmPassword ? '#dc3545' : Colors.light.secondaryText,
               borderRadius: 6,
               paddingHorizontal: 12,
               paddingVertical: 10,
@@ -327,12 +332,13 @@ export default function CrearUsuario() {
       <View style={{ marginBottom: 16 }}>
         <TextInput
           placeholder="Tu nombre"
+          placeholderTextColor={Colors.light.secondaryText}
           value={formData.nombre}
           onChangeText={(value) => handleInputChange('nombre', value)}
           editable={!loading}
           style={{
             borderWidth: 1,
-            borderColor: errors.nombre ? '#dc3545' : '#ccc',
+            borderColor: errors.nombre ? '#dc3545' : Colors.light.secondaryText,
             borderRadius: 6,
             paddingHorizontal: 12,
             paddingVertical: 10,
@@ -350,16 +356,18 @@ export default function CrearUsuario() {
       <View style={{ marginBottom: 16 }}>
         <TextInput
           placeholder="Tu apellido"
+          placeholderTextColor={Colors.light.secondaryText}
           value={formData.apellido}
           onChangeText={(value) => handleInputChange('apellido', value)}
           editable={!loading}
           style={{
             borderWidth: 1,
-            borderColor: errors.apellido ? '#dc3545' : '#ccc',
+            borderColor: errors.apellido ? '#dc3545' : Colors.light.secondaryText,
             borderRadius: 6,
             paddingHorizontal: 12,
             paddingVertical: 10,
             fontSize: 14,
+            color: Colors.light.text,
           }}
         />
         {errors.apellido && (

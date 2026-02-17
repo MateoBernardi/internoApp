@@ -36,7 +36,7 @@ export default function TabLayout() {
     {
       id: 'reportes',
       label: 'Reportes',
-      route: '/(extras)/reportes' as Href,
+      route: isEncargado ? '/(extras)/reportes-encargado' as Href : '/(extras)/reportes' as Href,
     },
     {
       id: 'solicitudes-licencias',

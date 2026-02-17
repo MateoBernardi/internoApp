@@ -4,12 +4,12 @@ import { Colors } from '@/constants/theme';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
-	ActivityIndicator,
-	FlatList,
-	ListRenderItem,
-	StyleSheet,
-	TouchableOpacity,
-	View
+    ActivityIndicator,
+    FlatList,
+    ListRenderItem,
+    StyleSheet,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EstadoReporte, Reporte } from '../models/Reporte';
@@ -105,8 +105,15 @@ export function ReportesEmpleado({ userId, userNombre = '', userApellido = '' }:
 
 	if (!reportes || reportes.length === 0) {
 		return (
-			<View style={styles.centerContainer}>
-				<ThemedText type="subtitle">No hay reportes para este usuario</ThemedText>
+			<View style={styles.container}>
+				<View style={styles.centerContainer}>
+					<ThemedText type="subtitle">No hay reportes para este usuario</ThemedText>
+				</View>
+				<CreateButton
+					onPress={handleCrearReporte}
+					style={{ ...styles.createButton, bottom: insets.bottom + 16, right: 36 }}
+					accessibilityLabel="Crear nuevo reporte"
+				/>
 			</View>
 		);
 	}

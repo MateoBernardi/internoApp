@@ -1,19 +1,20 @@
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
+import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import React, { useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Switch,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Encuesta, Pregunta, TipoPregunta } from '../models/Encuesta';
@@ -21,11 +22,12 @@ import { useCreateEncuestaCompleta } from '../viewmodels/useEncuestas';
 
 interface CrearEncuestaProps {
   onEncuestaCreada: () => void;
+  onVolver: () => void;
 }
 
 const colors = Colors['light'];
 
-export const CrearEncuesta: React.FC<CrearEncuestaProps> = ({ onEncuestaCreada }) => {
+export const CrearEncuesta: React.FC<CrearEncuestaProps> = ({ onEncuestaCreada, onVolver }) => {
   const insets = useSafeAreaInsets();
   const [titulo, setTitulo] = useState('');
   const [descripcion, setDescripcion] = useState('');
@@ -124,7 +126,14 @@ export const CrearEncuesta: React.FC<CrearEncuestaProps> = ({ onEncuestaCreada }
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
     >
-      <ThemedText type="title" style={styles.pageTitle}>Crear Encuesta</ThemedText>
+      {/* Header con botón de volver */}
+      <View style={styles.headerContainer}>
+        <TouchableOpacity onPress={onVolver} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
+        </TouchableOpacity>
+        <ThemedText type="title" style={styles.headerTitle}>Crear Encuesta</ThemedText>
+        <View style={{ width: 40 }} />
+      </View>
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
         {/* Información básica */}
@@ -232,16 +241,19 @@ export const CrearEncuesta: React.FC<CrearEncuestaProps> = ({ onEncuestaCreada }
         </View>
       </ScrollView>
 
-      <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
+      <View style={[styles.footerDos, { paddingBottom: insets.bottom + 16 }]}>
+        <TouchableOpacity style={styles.cancelarButton} onPress={onVolver}>
+          <Text style={styles.cancelarButtonText}>Cancelar</Text>
+        </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.crearButton, isPending && styles.crearButtonDisabled]}
+          style={[styles.guardarButton, isPending && styles.crearButtonDisabled]}
           onPress={handleCrearEncuesta}
           disabled={isPending}
         >
           {isPending ? (
             <ActivityIndicator color={colors.componentBackground} />
           ) : (
-            <Text style={styles.crearButtonText}>Crear Encuesta</Text>
+            <Text style={styles.guardarButtonText}>Crear Encuesta</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -406,6 +418,28 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.componentBackground,
+  },
+  headerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.background,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    textAlign: 'center',
+    flex: 1,
   },
   pageTitle: {
     fontSize: 20,

@@ -3,7 +3,7 @@ import { Colors } from '@/constants/theme';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { Picker } from '@react-native-picker/picker';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { EstadoReporte, Reporte } from '../models/Reporte';
 import { useUpdateReporte } from '../viewmodels/useReportes';
 
@@ -103,8 +103,7 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 					</View>
 					<TextInput
 						style={styles.input}
-						placeholder={nuevoEstado === 'DISPUTA' ? 'Observación (obligatoria)' : 'Observación (opcional)'}
-						value={observacion}
+						placeholder={nuevoEstado === 'DISPUTA' ? 'Observación (obligatoria)' : 'Observación (opcional)'}					placeholderTextColor={colors.text}						value={observacion}
 						onChangeText={setObservacion}
 						multiline
 					/>
@@ -133,8 +132,7 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 					</View>
 					<TextInput
 						style={styles.input}
-						placeholder="Observación (obligatoria)"
-						value={observacion}
+						placeholder="Observación (obligatoria)"					placeholderTextColor={colors.text}						value={observacion}
 						onChangeText={setObservacion}
 						multiline
 					/>
@@ -148,7 +146,10 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 
 	return (
 		<Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-			<View style={styles.overlay}>
+			<KeyboardAvoidingView
+				style={styles.overlay}
+				behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+			>
 				<View style={[styles.modal, { backgroundColor: colors.componentBackground }]}>  
 					<ScrollView contentContainerStyle={styles.scrollContent}>
 						<TouchableOpacity style={styles.closeBtn} onPress={onClose}>
@@ -197,7 +198,7 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 						{renderControles()}
 					</ScrollView>
 				</View>
-			</View>
+			</KeyboardAvoidingView>
 		</Modal>
 	);
 }

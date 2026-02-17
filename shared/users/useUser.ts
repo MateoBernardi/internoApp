@@ -1,8 +1,8 @@
 import { useAuth } from '@/features/auth/context/AuthContext';
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import type { UpdateUserRequest, UserSummary } from "./User";
-import { getUserByRole, searchUsers, updatePassword, updateUserData, updateUserRole } from "./userApi";
+import { bajaUsuario, getUserByRole, searchUsers, updatePassword, updateUserData, updateUserRole } from "./userApi";
 import type { UsuarioEntidadDTO } from "./UserDTO";
 
 interface SearchResponse {
@@ -120,6 +120,27 @@ export function useUpdateUserRole() {
                 throw new Error('No hay token de acceso');
             }
             return updateUserRole(token, userId, roleId);
+        },
+    });
+}
+
+// Hook para dar de baja a un usuario (solo gerencia)
+export function useBajaUsuario() {
+    const { tokens } = useAuth();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async (userId: number) => {
+            const token = tokens?.accessToken;
+            if (!token) {
+                throw new Error('No hay token de acceso');
+            }
+            return bajaUsuario(token, userId);
+        },
+        onSuccess: () => {
+            // Invalidar queries de usuarios para refrescar datos
+            queryClient.invalidateQueries({ queryKey: ['searchUsers'] });
+            queryClient.invalidateQueries({ queryKey: ['getUserByRole'] });
         },
     });
 }

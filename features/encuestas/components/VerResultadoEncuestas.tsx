@@ -1,7 +1,10 @@
+import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
+import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Modal,
   ScrollView,
@@ -11,7 +14,11 @@ import {
   View,
 } from 'react-native';
 import { Pregunta, Respuesta } from '../models/Encuesta';
-import { useGetRespuestasEncuesta } from '../viewmodels/useEncuestas';
+import { useEliminarEncuesta, useGetRespuestasEncuesta } from '../viewmodels/useEncuestas';
+
+interface VerResultadosEncuestasProps {
+  onVolver: () => void;
+}
 
 interface RespuestaAgrupada {
   encuestaId: number;
@@ -20,6 +27,7 @@ interface RespuestaAgrupada {
   fecha_creacion?: string;
   fecha_fin?: string;
   es_anonima?: boolean;
+  creador_user_context_id?: number;
   preguntas: {
     pregunta: Pregunta;
     respuestas: Respuesta[];
@@ -28,43 +36,94 @@ interface RespuestaAgrupada {
 
 const colors = Colors['light'];
 
-export const VerResultadosEncuestas: React.FC = () => {
-  // Usamos useGetRespuestasEncuesta para obtener las encuestas con sus respuestas
-  const { data: encuestas, isLoading, error } = useGetRespuestasEncuesta();
+export const VerResultadosEncuestas: React.FC<VerResultadosEncuestasProps> = ({ onVolver }) => {
+  const { data: encuestas, isLoading, error, refetch } = useGetRespuestasEncuesta();
+  const { mutate: eliminarEncuesta, isPending: isDeleting } = useEliminarEncuesta();
   const [encuestaSeleccionada, setEncuestaSeleccionada] = useState<number | null>(null);
 
-  console.log('VerResultadosEncuestas - Datos recibidos:', {
-    isLoading,
-    hasData: !!encuestas,
-    dataLength: encuestas?.length || 0,
-    error: error?.message
-  });
+  const handleEliminarEncuesta = (encuestaId: number, titulo: string) => {
+    Alert.alert(
+      'Eliminar Encuesta',
+      `¿Estás seguro de que deseas eliminar la encuesta "${titulo}"? Esta acción no se puede deshacer.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: () => {
+            eliminarEncuesta(encuestaId, {
+              onSuccess: () => {
+                Alert.alert('Éxito', 'La encuesta ha sido eliminada correctamente');
+                refetch();
+              },
+              onError: (error) => {
+                Alert.alert('Error', 'No se pudo eliminar la encuesta. Verifica tus permisos.');
+                console.error(error);
+              },
+            });
+          },
+        },
+      ]
+    );
+  };
 
   if (isLoading) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={colors.lightTint} />
-        <Text style={styles.loadingText}>Cargando resultados...</Text>
+      <View style={styles.container}>
+        <View style={styles.headerContainer}>
+          <TouchableOpacity onPress={onVolver} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color={colors.text} />
+          </TouchableOpacity>
+          <ThemedText type="title" style={styles.headerTitleCentered}>Resultados</ThemedText>
+          <View style={{ width: 40 }} />
+        </View>
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color={colors.lightTint} />
+          <Text style={styles.loadingText}>Cargando resultados...</Text>
+        </View>
       </View>
     );
   }
 
   if (error) {
     return (
-      <View style={styles.centerContainer}>
-        <Text style={styles.errorText}>Error al cargar resultados</Text>
-        <Text style={styles.errorSubtext}>{error.message}</Text>
+      <View style={styles.container}>
+        <View style={styles.headerContainer}>
+          <TouchableOpacity onPress={onVolver} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color={colors.text} />
+          </TouchableOpacity>
+          <ThemedText type="title" style={styles.headerTitleCentered}>Resultados</ThemedText>
+          <View style={{ width: 40 }} />
+        </View>
+        <View style={styles.centerContainer}>
+          <Ionicons name="alert-circle-outline" size={48} color={colors.error} />
+          <Text style={styles.errorText}>Error al cargar resultados</Text>
+          <Text style={styles.errorSubtext}>{error.message}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={() => refetch()}>
+            <Text style={styles.retryButtonText}>Reintentar</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
 
   if (!encuestas || encuestas.length === 0) {
     return (
-      <View style={styles.centerContainer}>
-        <Text style={styles.emptyText}>No hay resultados disponibles</Text>
-        <Text style={styles.emptySubtext}>
-          Las encuestas completadas aparecerán aquí
-        </Text>
+      <View style={styles.container}>
+        <View style={styles.headerContainer}>
+          <TouchableOpacity onPress={onVolver} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color={colors.text} />
+          </TouchableOpacity>
+          <ThemedText type="title" style={styles.headerTitleCentered}>Resultados</ThemedText>
+          <View style={{ width: 40 }} />
+        </View>
+        <View style={styles.centerContainer}>
+          <Ionicons name="document-text-outline" size={48} color={colors.secondaryText} />
+          <Text style={styles.emptyText}>No hay resultados disponibles</Text>
+          <Text style={styles.emptySubtext}>
+            Las encuestas completadas aparecerán aquí
+          </Text>
+        </View>
       </View>
     );
   }
@@ -76,11 +135,21 @@ export const VerResultadosEncuestas: React.FC = () => {
 
   if (respuestasAgrupadas.length === 0) {
     return (
-      <View style={styles.centerContainer}>
-        <Text style={styles.emptyText}>No hay resultados disponibles</Text>
-        <Text style={styles.emptySubtext}>
-          Las encuestas completadas aparecerán aquí
-        </Text>
+      <View style={styles.container}>
+        <View style={styles.headerContainer}>
+          <TouchableOpacity onPress={onVolver} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color={colors.text} />
+          </TouchableOpacity>
+          <ThemedText type="title" style={styles.headerTitleCentered}>Resultados</ThemedText>
+          <View style={{ width: 40 }} />
+        </View>
+        <View style={styles.centerContainer}>
+          <Ionicons name="document-text-outline" size={48} color={colors.secondaryText} />
+          <Text style={styles.emptyText}>No hay resultados disponibles</Text>
+          <Text style={styles.emptySubtext}>
+            Las encuestas completadas aparecerán aquí
+          </Text>
+        </View>
       </View>
     );
   }
@@ -94,6 +163,8 @@ export const VerResultadosEncuestas: React.FC = () => {
         <DetalleResultados
           encuesta={encuesta}
           onVolver={() => setEncuestaSeleccionada(null)}
+          onEliminar={() => handleEliminarEncuesta(encuesta.encuestaId, encuesta.encuestaTitulo)}
+          isDeleting={isDeleting}
         />
       );
     }
@@ -101,8 +172,15 @@ export const VerResultadosEncuestas: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Resultados de Encuestas</Text>
+      <View style={styles.headerContainer}>
+        <TouchableOpacity onPress={onVolver} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
+        </TouchableOpacity>
+        <ThemedText type="title" style={styles.headerTitleCentered}>Resultados</ThemedText>
+        <View style={{ width: 40 }} />
+      </View>
+      
+      <View style={styles.subHeader}>
         <Text style={styles.headerSubtitle}>
           {respuestasAgrupadas.length} encuesta
           {respuestasAgrupadas.length !== 1 ? 's' : ''} con respuestas
@@ -117,7 +195,15 @@ export const VerResultadosEncuestas: React.FC = () => {
             style={styles.encuestaCard}
             onPress={() => setEncuestaSeleccionada(item.encuestaId)}
           >
-            <Text style={styles.encuestaTitulo}>{item.encuestaTitulo}</Text>
+            <View style={styles.cardHeaderRow}>
+              <Text style={styles.encuestaTitulo}>{item.encuestaTitulo}</Text>
+              {item.es_anonima && (
+                <View style={styles.anonimaBadge}>
+                  <Ionicons name="eye-off-outline" size={12} color={colors.secondaryText} />
+                  <Text style={styles.anonimaText}>Anónima</Text>
+                </View>
+              )}
+            </View>
             {item.encuestaDescripcion && (
               <Text style={styles.encuestaDescripcion} numberOfLines={2}>
                 {item.encuestaDescripcion}
@@ -137,6 +223,7 @@ export const VerResultadosEncuestas: React.FC = () => {
             </View>
             <View style={styles.verDetalleButton}>
               <Text style={styles.verDetalleText}>Ver detalles</Text>
+              <Ionicons name="chevron-forward" size={16} color={colors.componentBackground} />
             </View>
           </TouchableOpacity>
         )}
@@ -151,11 +238,15 @@ export const VerResultadosEncuestas: React.FC = () => {
 interface DetalleResultadosProps {
   encuesta: RespuestaAgrupada;
   onVolver: () => void;
+  onEliminar: () => void;
+  isDeleting: boolean;
 }
 
 const DetalleResultados: React.FC<DetalleResultadosProps> = ({
   encuesta,
   onVolver,
+  onEliminar,
+  isDeleting,
 }) => {
   const esEncuestaEnProgreso = () => {
     if (!encuesta.fecha_fin) return false;
@@ -164,19 +255,42 @@ const DetalleResultados: React.FC<DetalleResultadosProps> = ({
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.volverButton} onPress={onVolver}>
-          <Text style={styles.volverText}>← Volver</Text>
+      <View style={styles.detailHeaderContainer}>
+        <TouchableOpacity onPress={onVolver} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{encuesta.encuestaTitulo}</Text>
-        {encuesta.encuestaDescripcion && (
-          <Text style={styles.headerSubtitle}>{encuesta.encuestaDescripcion}</Text>
-        )}
+        <View style={styles.detailTitleContainer}>
+          <Text style={styles.detailHeaderTitle} numberOfLines={1}>{encuesta.encuestaTitulo}</Text>
+          {encuesta.es_anonima && (
+            <View style={styles.anonimaBadgeSmall}>
+              <Ionicons name="eye-off-outline" size={10} color={colors.secondaryText} />
+              <Text style={styles.anonimaTextSmall}>Anónima</Text>
+            </View>
+          )}
+        </View>
+        <TouchableOpacity 
+          onPress={onEliminar} 
+          style={styles.deleteButton}
+          disabled={isDeleting}
+        >
+          {isDeleting ? (
+            <ActivityIndicator size="small" color={colors.error} />
+          ) : (
+            <Ionicons name="trash-outline" size={22} color={colors.error} />
+          )}
+        </TouchableOpacity>
       </View>
+
+      {encuesta.encuestaDescripcion && (
+        <View style={styles.descriptionContainer}>
+          <Text style={styles.detailDescription}>{encuesta.encuestaDescripcion}</Text>
+        </View>
+      )}
 
       {esEncuestaEnProgreso() && (
         <View style={styles.enProgresoCartel}>
-          <Text style={styles.enProgresoText}>⏳ En progreso</Text>
+          <Ionicons name="time-outline" size={16} color={colors.componentBackground} />
+          <Text style={styles.enProgresoText}>En progreso</Text>
         </View>
       )}
 
@@ -225,6 +339,10 @@ const DetalleResultados: React.FC<DetalleResultadosProps> = ({
 
 // Componentes para mostrar respuestas según el tipo
 const RespuestasRating: React.FC<{ respuestas: Respuesta[] }> = ({ respuestas }) => {
+  const [modalVisible, setModalVisible] = useState(false);
+  const [ratingSeleccionado, setRatingSeleccionado] = useState<number | null>(null);
+  const esAnonima = respuestas[0]?.nombre === undefined || respuestas[0]?.nombre === null;
+
   const ratings = respuestas
     .filter((r) => r.valor_rating)
     .map((r) => r.valor_rating!);
@@ -236,7 +354,17 @@ const RespuestasRating: React.FC<{ respuestas: Respuesta[] }> = ({ respuestas })
   const distribucion = [1, 2, 3, 4, 5].map((valor) => ({
     valor,
     cantidad: ratings.filter((r) => r === valor).length,
+    respuestas: respuestas.filter((r) => r.valor_rating === valor),
   }));
+
+  const abrirModal = (rating: number) => {
+    setRatingSeleccionado(rating);
+    setModalVisible(true);
+  };
+
+  const respuestasRatingSeleccionado = ratingSeleccionado 
+    ? distribucion.find(d => d.valor === ratingSeleccionado)?.respuestas || []
+    : [];
 
   return (
     <View>
@@ -265,10 +393,62 @@ const RespuestasRating: React.FC<{ respuestas: Respuesta[] }> = ({ respuestas })
                 />
               </View>
               <Text style={styles.distribucionCantidad}>{item.cantidad}</Text>
+              {!esAnonima && item.cantidad > 0 && (
+                <TouchableOpacity
+                  style={styles.verRespondentesButtonInline}
+                  onPress={() => abrirModal(item.valor)}
+                >
+                  <Text style={styles.verRespondentesText}>Ver</Text>
+                </TouchableOpacity>
+              )}
             </View>
           );
         })}
       </View>
+
+      {!esAnonima && (
+        <Modal
+          visible={modalVisible}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>
+                  Votaron {ratingSeleccionado}★
+                </Text>
+                <TouchableOpacity onPress={() => setModalVisible(false)}>
+                  <Text style={styles.modalCloseButton}>✕</Text>
+                </TouchableOpacity>
+              </View>
+              <ScrollView style={styles.modalScroll}>
+                {respuestasRatingSeleccionado.length > 0 ? (
+                  respuestasRatingSeleccionado.map((respuesta, index) => (
+                    <View key={index} style={styles.respondentCard}>
+                      <View style={styles.respondentContent}>
+                        <View style={styles.respondentInfo}>
+                          <Text style={styles.respondentName}>
+                            {respuesta.nombre} {respuesta.apellido}
+                          </Text>
+                          {respuesta.fecha_respuesta && (
+                            <Text style={styles.respondentDate}>
+                              {new Date(respuesta.fecha_respuesta).toLocaleDateString('es-ES')}
+                            </Text>
+                          )}
+                        </View>
+                      </View>
+                    </View>
+                  ))
+                ) : (
+                  <Text style={styles.respondentEmpty}>No hay respuestas</Text>
+                )}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+      )}
     </View>
   );
 };
@@ -540,6 +720,7 @@ const agruparEncuestas = (encuestas: any[]): RespuestaAgrupada[] => {
         fecha_creacion: encuesta.fecha_creacion,
         fecha_fin: encuesta.fecha_fin,
         es_anonima: encuesta.es_anonima,
+        creador_user_context_id: encuesta.creador_user_context_id,
         preguntas: preguntasAgrupadas,
       };
     });
@@ -570,6 +751,114 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
+    gap: 12,
+  },
+  headerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.background,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitleCentered: {
+    fontSize: 18,
+    fontWeight: '600',
+    textAlign: 'center',
+    flex: 1,
+  },
+  subHeader: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 4,
+  },
+  detailHeaderContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.background,
+  },
+  detailTitleContainer: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 4,
+  },
+  detailHeaderTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    textAlign: 'center',
+  },
+  descriptionContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+  },
+  detailDescription: {
+    fontSize: 14,
+    color: colors.secondaryText,
+    textAlign: 'center',
+  },
+  deleteButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  retryButton: {
+    marginTop: 16,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    backgroundColor: colors.lightTint,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: colors.componentBackground,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  anonimaBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.background,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  anonimaText: {
+    fontSize: 11,
+    color: colors.secondaryText,
+  },
+  anonimaBadgeSmall: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.background,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  anonimaTextSmall: {
+    fontSize: 10,
+    color: colors.secondaryText,
   },
   header: {
     backgroundColor: colors.componentBackground,
@@ -617,10 +906,10 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   encuestaTitulo: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: '600',
     color: colors.text,
-    marginBottom: 8,
+    flex: 1,
   },
   encuestaDescripcion: {
     fontSize: 14,
@@ -649,10 +938,13 @@ const styles = StyleSheet.create({
     color: colors.lightTint,
   },
   verDetalleButton: {
+    flexDirection: 'row',
     backgroundColor: colors.lightTint,
     paddingVertical: 10,
     borderRadius: 8,
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
   },
   verDetalleText: {
     color: colors.componentBackground,
@@ -947,13 +1239,16 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
   },
   enProgresoCartel: {
+    flexDirection: 'row',
     backgroundColor: colors.warning,
-    paddingVertical: 12,
+    paddingVertical: 10,
     paddingHorizontal: 16,
-    marginHorizontal: 15,
-    marginVertical: 10,
+    marginHorizontal: 16,
+    marginTop: 12,
     borderRadius: 8,
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
   },
   enProgresoText: {
     fontSize: 14,

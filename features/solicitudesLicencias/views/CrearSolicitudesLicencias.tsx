@@ -5,20 +5,20 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import {
-  useCreateSolicitudLicencia,
-  useGetSaldosLicencias,
-  useGetTiposLicencias,
+    useCreateSolicitudLicencia,
+    useGetSaldosLicencias,
+    useGetTiposLicencias,
 } from '../viewmodels/useSolicitudes';
 
 const colors = Colors['light'];
@@ -35,8 +35,12 @@ export function CrearSolicitudesLicencias() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [activeDateType, setActiveDateType] = useState<'start' | 'end' | null>(null);
   const [showTipoLicenciaModal, setShowTipoLicenciaModal] = useState(false);
-  const [horaInicio, setHoraInicio] = useState<Date>(new Date());
-  const [horaFin, setHoraFin] = useState<Date>(new Date(new Date().getTime() + 60 * 60 * 1000));
+  const [horaInicio, setHoraInicio] = useState<Date>(() => {
+    const d = new Date(); d.setHours(8, 0, 0, 0); return d;
+  });
+  const [horaFin, setHoraFin] = useState<Date>(() => {
+    const d = new Date(); d.setHours(17, 0, 0, 0); return d;
+  });
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [activeTimeType, setActiveTimeType] = useState<'start' | 'end' | null>(null);
 
@@ -49,10 +53,6 @@ export function CrearSolicitudesLicencias() {
   const selectedTipo = useMemo(() => 
     tiposLicencias?.find((t) => t.id === tipoLicenciaId), 
   [tiposLicencias, tipoLicenciaId]);
-
-  const isPermisoEspecial = useMemo(() => {
-    return selectedTipo?.nombre?.toLowerCase().includes('permiso especial') || false;
-  }, [selectedTipo]);
 
   const saldoCorrespondiente = useMemo(() => {
     if (!tipoLicenciaId || !saldosLicencias) return null;
@@ -76,10 +76,10 @@ export function CrearSolicitudesLicencias() {
     const saldoSuficiente = selectedTipo?.requiere_saldo 
       ? saldoDisponible >= diasSolicitados 
       : true;
-    const horasCorrectas = isPermisoEspecial ? horaInicio < horaFin : true;
+    const horasCorrectas = horaInicio < horaFin;
 
     return tieneTipo && fechasCorrectas && saldoSuficiente && horasCorrectas && !isPending;
-  }, [tipoLicenciaId, fechaInicio, fechaFin, selectedTipo, saldoDisponible, diasSolicitados, isPending, isPermisoEspecial, horaInicio, horaFin]);
+  }, [tipoLicenciaId, fechaInicio, fechaFin, selectedTipo, saldoDisponible, diasSolicitados, isPending, horaInicio, horaFin]);
 
   // --- Handlers ---
   const onDateChange = (event: any, selectedDate?: Date) => {
@@ -134,13 +134,8 @@ export function CrearSolicitudesLicencias() {
       observacion: observacion.trim() || undefined,
     };
 
-    if (isPermisoEspecial) {
-      payload.fecha_inicio = formatTimestamp(fechaInicio, horaInicio);
-      payload.fecha_fin = formatTimestamp(fechaFin, horaFin);
-    } else {
-      payload.fecha_inicio = fechaInicio.toISOString().split('T')[0];
-      payload.fecha_fin = fechaFin.toISOString().split('T')[0];
-    }
+    payload.fecha_inicio = formatTimestamp(fechaInicio, horaInicio);
+    payload.fecha_fin = formatTimestamp(fechaFin, horaFin);
 
     crearSolicitud(
       payload,
@@ -154,7 +149,7 @@ export function CrearSolicitudesLicencias() {
         },
       }
     );
-  }, [isPending, crearSolicitud, tipoLicenciaId, fechaInicio, fechaFin, horaInicio, horaFin, observacion, router, isPermisoEspecial]);
+  }, [isPending, crearSolicitud, tipoLicenciaId, fechaInicio, fechaFin, horaInicio, horaFin, observacion, router]);
 
   const handleCrearSolicitud = useCallback(() => {
     if (!isFormValid || isPending) return;
@@ -256,35 +251,33 @@ export function CrearSolicitudesLicencias() {
             )}
           </View>
 
-          {/* Selector de Horas (Solo para Permiso Especial) */}
-          {isPermisoEspecial && (
-            <View style={styles.sectionCard}>
-              <View style={styles.rowInfo}>
-                <Ionicons name="time-outline" size={20} color={colors.lightTint} />
-                <ThemedText style={styles.sectionLabel}>Horario</ThemedText>
-              </View>
-
-              <TouchableOpacity onPress={() => { setActiveTimeType('start'); setShowTimePicker(true); }} style={styles.datePickerRow}>
-                <ThemedText style={styles.dateLabel}>Desde</ThemedText>
-                <ThemedText style={styles.dateValue}>
-                  {horaInicio.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
-                </ThemedText>
-              </TouchableOpacity>
-
-              <TouchableOpacity onPress={() => { setActiveTimeType('end'); setShowTimePicker(true); }} style={styles.datePickerRow}>
-                <ThemedText style={styles.dateLabel}>Hasta</ThemedText>
-                <ThemedText style={styles.dateValue}>
-                  {horaFin.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
-                </ThemedText>
-              </TouchableOpacity>
-
-              {horaInicio >= horaFin && (
-                <ThemedText style={[styles.warningText, { marginTop: 12, color: colors.error }]}>
-                  La hora final debe ser posterior a la hora inicial
-                </ThemedText>
-              )}
+          {/* Selector de Horario */}
+          <View style={styles.sectionCard}>
+            <View style={styles.rowInfo}>
+              <Ionicons name="time-outline" size={20} color={colors.lightTint} />
+              <ThemedText style={styles.sectionLabel}>Horario</ThemedText>
             </View>
-          )}
+
+            <TouchableOpacity onPress={() => { setActiveTimeType('start'); setShowTimePicker(true); }} style={styles.datePickerRow}>
+              <ThemedText style={styles.dateLabel}>Desde</ThemedText>
+              <ThemedText style={styles.dateValue}>
+                {horaInicio.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+              </ThemedText>
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={() => { setActiveTimeType('end'); setShowTimePicker(true); }} style={styles.datePickerRow}>
+              <ThemedText style={styles.dateLabel}>Hasta</ThemedText>
+              <ThemedText style={styles.dateValue}>
+                {horaFin.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+              </ThemedText>
+            </TouchableOpacity>
+
+            {horaInicio >= horaFin && (
+              <ThemedText style={[styles.warningText, { marginTop: 12, color: colors.error }]}>
+                La hora final debe ser posterior a la hora inicial
+              </ThemedText>
+            )}
+          </View>
 
           {/* Información de Saldo (Condicional) */}
           {selectedTipo?.requiere_saldo && (

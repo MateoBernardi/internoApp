@@ -32,6 +32,9 @@ export interface Encuesta {
   fecha_fin: string;
   preguntas: Pregunta[];
   creador_user_context_id?: number; // ID del contexto de usuario que creó la encuesta
+  created_by?: number;           // ID del creador (desde el backend)
+  creador_nombre?: string;       // Nombre del creador
+  creador_apellido?: string;     // Apellido del creador
 }
 
 // Encuesta completa con preguntas

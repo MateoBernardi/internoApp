@@ -6,22 +6,23 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Linking,
-  Modal,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    Linking,
+    Modal,
+    ScrollView,
+    StyleSheet,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { EstadoSolicitud } from '../models/SolicitudLicencia';
 import {
-  useAprobarSolicitudLicencia,
-  useCancelarSolicitudLicencia,
-  useGetSolicitudesLicencias,
-  useRechazarSolicitudLicencia,
+    useAprobarSolicitudLicencia,
+    useCancelarSolicitudLicencia,
+    useGetSolicitudesLicencias,
+    useGetSolicitudesUsuario,
+    useRechazarSolicitudLicencia,
 } from '../viewmodels/useSolicitudes';
 
 const estadoMapping: Record<EstadoSolicitud, string> = {
@@ -63,8 +64,13 @@ export function SolicitudLicencia() {
 
   const solicitudId = parseInt(id);
 
-  // Fetch solicitudes
-  const { data: solicitudes } = useGetSolicitudesLicencias({});
+  // Fetch solicitudes from the correct source based on navigation type
+  const { data: solicitudesAdmin } = useGetSolicitudesLicencias(
+    type === 'recibida' ? {} : undefined
+  );
+  const { data: solicitudesUsuario } = useGetSolicitudesUsuario(
+    type === 'enviada'
+  );
 
   // Mutations
   const { mutate: aprobarSolicitud, isPending: isApproving } =
@@ -84,7 +90,8 @@ export function SolicitudLicencia() {
   // Get archivo URL
   const { data: archivoUrl, isLoading: isLoadingUrl } = useArchivoUrl(selectedArchivoId);
 
-  // Find solicitud
+  // Find solicitud from the correct data source
+  const solicitudes = type === 'enviada' ? solicitudesUsuario : solicitudesAdmin;
   const solicitud = useMemo(
     () => solicitudes?.find((s) => s.id === solicitudId),
     [solicitudes, solicitudId]

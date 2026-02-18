@@ -5,9 +5,9 @@ import { Colors } from '@/constants/theme';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-  StyleSheet,
-  TouchableOpacity,
-  View
+    StyleSheet,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SolicitudesEnviadas } from '../components/SolicitudesEnviadas';
@@ -17,7 +17,12 @@ type TabType = 'enviadas' | 'recibidas';
 const colors = Colors['light'];
 
 
-export default function SolicitudesView() {
+interface SolicitudesViewProps {
+  onRefresh?: () => Promise<void>;
+  refreshing?: boolean;
+}
+
+export default function SolicitudesView({ onRefresh, refreshing }: SolicitudesViewProps = {}) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
@@ -81,9 +86,9 @@ export default function SolicitudesView() {
       {/* Contenido */}
       <View style={styles.content}>
         {activeTab === 'recibidas' ? (
-          <SolicitudesRecibidas />
+          <SolicitudesRecibidas onRefresh={onRefresh} refreshing={refreshing} />
         ) : (
-          <SolicitudesEnviadas />
+          <SolicitudesEnviadas onRefresh={onRefresh} refreshing={refreshing} />
         )}
       </View>
 

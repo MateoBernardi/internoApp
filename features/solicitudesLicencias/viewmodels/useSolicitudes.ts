@@ -60,6 +60,7 @@ export function useGetSolicitudesLicencias(filters?: solicitudesLicencias.GetSol
             }
             return getSolicitudesLicencias(token, filters);
         },
+        enabled: filters !== undefined,
         select: (response: solicitudesLicencias.SolicitudLicencia[]): solicitudesLicencias.SolicitudLicencia[] => {
             // Aquí podrías transformar los datos si es necesario
             return response.map((solicitud): solicitudesLicencias.SolicitudLicencia => ({
@@ -89,11 +90,12 @@ export function useGetSolicitudesLicencias(filters?: solicitudesLicencias.GetSol
     });
 }
 
-export function useGetSolicitudesUsuario() {
+export function useGetSolicitudesUsuario(enabled: boolean = true) {
     const { tokens } = useAuth();
     
     return useQuery({
         queryKey: ['solicitudes-licencias', 'usuario'],
+        enabled,
         queryFn: async () => {
             const token = tokens?.accessToken;
             if (!token) {

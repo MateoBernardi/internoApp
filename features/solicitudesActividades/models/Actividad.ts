@@ -8,7 +8,6 @@ export interface Actividad {
   fecha_inicio: string; // ISO 8601 UTC
   fecha_fin: string; // ISO 8601 UTC
   rol: RolActividad;
-  prioridad: number; // 1=Alta, 2=Media, 3=Baja
   participantes?: number[]; // IDs de los participantes (usuario_entidad)
   solicitud_id?: number | null; // ID de la solicitud (null si fue creada directamente)
 }
@@ -29,7 +28,6 @@ export interface Licencia {
 export interface AgregarParticipanteRequest {
   actividadId: number;
   rol?: RolActividad; // Default: 'guest'
-  prioridad?: number; // Default: 3
 }
 
 export interface AgregarParticipanteResponse {
@@ -51,7 +49,6 @@ export interface CrearActividadRequest {
   descripcion: string;
   fecha_inicio: string;
   fecha_fin: string;
-  prioridad?: number;
 }
 
 export interface CrearActividadResponse {

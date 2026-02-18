@@ -59,7 +59,7 @@ export function useActividadesSemanaAnterior() {
 // ==================== MUTATIONS ====================
 
 /**
- * Hook para crear una nueva actividad
+ * Hook para crear una nueva actividad (con actualización optimista)
  */
 export function useCrearActividad() {
   const { tokens } = useAuth();
@@ -71,13 +71,50 @@ export function useCrearActividad() {
       if (!accessToken) {
         throw new Error('No access token available');
       }
-      return actividadesApi.creatActividad(accessToken, data);
+      return actividadesApi.createActividad(accessToken, data);
     },
-    onSuccess: () => {
-      // Invalidar las actividades semanales para refrescar la lista
-      queryClient.invalidateQueries({
-        queryKey: actividadesQueryKeys.semanales(),
-      });
+    onMutate: async (newData) => {
+      // Cancelar refetches en curso
+      await queryClient.cancelQueries({ queryKey: actividadesQueryKeys.semanales() });
+
+      // Snapshot del estado previo
+      const previousData = queryClient.getQueryData<actividadesModels.ActividadesSemanalesResponse>(
+        actividadesQueryKeys.semanales()
+      );
+
+      // Actualización optimista
+      queryClient.setQueryData<actividadesModels.ActividadesSemanalesResponse>(
+        actividadesQueryKeys.semanales(),
+        (old) => {
+          if (!old) return { actividades: [], licencias: [] };
+          const optimisticActividad: actividadesModels.Actividad = {
+            id: Date.now(), // ID temporal
+            titulo: newData.titulo,
+            descripcion: newData.descripcion,
+            fecha_inicio: newData.fecha_inicio,
+            fecha_fin: newData.fecha_fin,
+            rol: 'host',
+            participantes: [],
+            solicitud_id: null,
+          };
+          return {
+            ...old,
+            actividades: [...old.actividades, optimisticActividad],
+          };
+        }
+      );
+
+      return { previousData };
+    },
+    onError: (_err, _newData, context) => {
+      // Revertir al estado previo en caso de error
+      if (context?.previousData) {
+        queryClient.setQueryData(actividadesQueryKeys.semanales(), context.previousData);
+      }
+    },
+    onSettled: () => {
+      // Siempre revalidar con el servidor
+      queryClient.invalidateQueries({ queryKey: actividadesQueryKeys.semanales() });
     },
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
@@ -114,7 +151,7 @@ export function useAgregarParticipante() {
 }
 
 /**
- * Hook para cancelar una actividad
+ * Hook para cancelar una actividad (con actualización optimista)
  */
 export function useCancelarActividad() {
   const { tokens } = useAuth();
@@ -128,14 +165,39 @@ export function useCancelarActividad() {
       }
       return actividadesApi.cancelarActividad(accessToken, data);
     },
-    onSuccess: () => {
-      // Invalidar ambas listas de actividades
-      queryClient.invalidateQueries({
-        queryKey: actividadesQueryKeys.semanales(),
-      });
-      queryClient.invalidateQueries({
-        queryKey: actividadesQueryKeys.semanaAnterior(),
-      });
+    onMutate: async (cancelData) => {
+      // Cancelar refetches en curso
+      await queryClient.cancelQueries({ queryKey: actividadesQueryKeys.semanales() });
+
+      // Snapshot del estado previo
+      const previousData = queryClient.getQueryData<actividadesModels.ActividadesSemanalesResponse>(
+        actividadesQueryKeys.semanales()
+      );
+
+      // Actualización optimista: remover la actividad de la lista
+      queryClient.setQueryData<actividadesModels.ActividadesSemanalesResponse>(
+        actividadesQueryKeys.semanales(),
+        (old) => {
+          if (!old) return { actividades: [], licencias: [] };
+          return {
+            ...old,
+            actividades: old.actividades.filter((a) => a.id !== cancelData.actividadId),
+          };
+        }
+      );
+
+      return { previousData };
+    },
+    onError: (_err, _cancelData, context) => {
+      // Revertir al estado previo en caso de error
+      if (context?.previousData) {
+        queryClient.setQueryData(actividadesQueryKeys.semanales(), context.previousData);
+      }
+    },
+    onSettled: () => {
+      // Siempre revalidar con el servidor
+      queryClient.invalidateQueries({ queryKey: actividadesQueryKeys.semanales() });
+      queryClient.invalidateQueries({ queryKey: actividadesQueryKeys.semanaAnterior() });
     },
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),

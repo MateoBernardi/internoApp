@@ -55,6 +55,8 @@ export default function TabLayout() {
     }] : []),
   ];
 
+  const hideMisReportes = hasRole(['gerencia', 'personasRelaciones', 'consejo', 'contable']);
+
   const personalMenuOptions: MenuOption[] = [
     {
       id: 'agenda-personal',
@@ -66,11 +68,11 @@ export default function TabLayout() {
       label: 'Mis Licencias',
       route: '/(extras)/mis-solicitudes-licencias' as Href,
     },
-    {
+    ...(!hideMisReportes ? [{
       id: 'mis-reportes',
       label: 'Mis Reportes',
       route: '/(extras)/mis-reportes' as Href,
-    },
+    }] : []),
     {
       id: 'configuracion-cuenta',
       label: 'Configuración de Cuenta',

@@ -102,6 +102,9 @@ export async function eliminarEncuesta(accessToken: string, encuestaId: number):
     });
 
     if (!response.ok) {
+        if (response.status === 403) {
+            throw new Error('Solo el creador de la encuesta puede eliminarla');
+        }
         const errorText = await response.text();
         console.error('Error eliminando encuesta:', response.status, response.statusText);
         console.error('Response body:', errorText);

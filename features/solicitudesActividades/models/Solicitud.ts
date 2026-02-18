@@ -54,6 +54,22 @@ export interface SolicitudEnviada{
   invitado_apellido: string; // Opcional: apellido del creador de la solicitud
 }
 
+export interface InvitadoResumen {
+  nombre: string;
+  apellido: string;
+  estado: EstadoInvitacionDB;
+}
+
+export interface SolicitudEnviadaAgrupada {
+  solicitud_id: number;
+  titulo: string;
+  descripcion: string;
+  created_by: number;
+  fecha_inicio: string;
+  fecha_fin: string;
+  invitados: InvitadoResumen[];
+}
+
 export type TipoActividad = 'PETICION' | 'REUNION';
 export type TipoActividadDB = 'MANDATO' | 'REUNION';
 
@@ -74,7 +90,6 @@ export interface CrearSolicitudResponse {
 export interface ActualizarEstadoInvitacionRequest {
   solicitudId: number;
   estado: EstadoInvitacionDB;
-  prioridad?: number; // 1=Alta, 2=Media, 3=Baja (requerido al aceptar)
 }
 
 export interface ActualizarEstadoInvitacionResponse {

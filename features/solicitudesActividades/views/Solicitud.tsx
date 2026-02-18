@@ -16,6 +16,7 @@ import {
     StyleSheet,
     TextInput,
     TouchableOpacity,
+    TouchableWithoutFeedback,
     View,
 } from 'react-native';
 import { RoleUserSelectionModal } from '../components/RoleUserSelectionModal';
@@ -60,9 +61,6 @@ export function Solicitud() {
   const [modEndDate, setModEndDate] = useState(new Date());
   const [modObservation, setModObservation] = useState('');
   const [showDatePicker, setShowDatePicker] = useState<{show: boolean, mode: 'date'|'time', target: 'start'|'end'}>({show: false, mode: 'date', target: 'start'});
-
-  // Estado para aceptación
-  const [priority, setPriority] = useState('3');
 
   // Estado para compartir
   const [searchQuery, setSearchQuery] = useState('');
@@ -145,7 +143,6 @@ export function Solicitud() {
         {
           solicitudId,
           estado: 'ACCEPTED' as EstadoInvitacionDB,
-          prioridad: parseInt(priority, 10),
         },
         {
           onSuccess: () => {
@@ -158,7 +155,7 @@ export function Solicitud() {
           },
         }
       );
-  }, [solicitudId, priority, actualizarEstado, aceptarModificaciones, type, solicitud]);
+  }, [solicitudId, actualizarEstado, aceptarModificaciones, type, solicitud]);
 
   const handleRechazar = useCallback(() => {
     Alert.alert('Rechazar solicitud', '¿Deseas rechazar esta solicitud?', [
@@ -313,6 +310,7 @@ export function Solicitud() {
 
   const fechaInicio = solicitud ? new Date(solicitud.fecha_inicio) : new Date();
   const fechaFin = solicitud ? new Date(solicitud.fecha_fin) : new Date();
+  const fechaInicioPasada = fechaInicio < new Date();
   
   if (!solicitud && !enviadas && !recibidas) {
        return (
@@ -454,7 +452,7 @@ export function Solicitud() {
           {menuOpen && (
               <>
                 {/* Opciones para Recibidas */}
-                {type === 'recibida' && solicitud?.estado !== 'ACCEPTED' && solicitud?.estado !== 'REJECTED' && (
+                {type === 'recibida' && solicitud?.estado !== 'ACCEPTED' && solicitud?.estado !== 'REJECTED' && !fechaInicioPasada && (
                   <>
                     <TouchableOpacity style={[styles.fab, { backgroundColor: colors.error,  marginRight: 16 }]} onPress={handleRechazar}>
                         <Ionicons name="close" size={24} color={colors.background} />
@@ -466,7 +464,7 @@ export function Solicitud() {
                 )}
                 
                 {/* Opciones para Enviadas */}
-                {type === 'enviada' && solicitud?.estado !== 'ACCEPTED' && solicitud?.estado !== 'REJECTED' && (
+                {type === 'enviada' && solicitud?.estado !== 'ACCEPTED' && solicitud?.estado !== 'REJECTED' && !fechaInicioPasada && (
                   <>
                     <TouchableOpacity style={[styles.fab, { backgroundColor: colors.lightTint, marginRight: 16 }]} onPress={handleModificarPress}>
                         <Ionicons name="create-outline" size={24} color={colors.background} />
@@ -479,8 +477,8 @@ export function Solicitud() {
               </>
           )}
 
-          {/* Main Action: Accept (Recibida or Enviada[MODIFIED]) */}
-          {((type === 'recibida') || (type === 'enviada' && solicitud?.estado === 'MODIFIED')) && (
+          {/* Main Action: Accept (Recibida or Enviada[MODIFIED]) - only if date not passed */}
+          {!fechaInicioPasada && ((type === 'recibida') || (type === 'enviada' && solicitud?.estado === 'MODIFIED')) && (
                <TouchableOpacity style={[styles.fab, { backgroundColor: colors.success, marginRight: 16 }]} onPress={handleAceptarPress}>
                    <Ionicons name="checkmark" size={24} color={colors.background} />
                </TouchableOpacity>
@@ -492,25 +490,14 @@ export function Solicitud() {
           </TouchableOpacity>
       </View>
 
-      {/* Modal Aceptar (Prioridad) */}
-      <Modal visible={showAcceptModal} transparent animationType="slide">
+      {/* Modal Aceptar */}
+      <Modal visible={showAcceptModal} transparent animationType="fade">
+        <TouchableWithoutFeedback onPress={() => setShowAcceptModal(false)}>
           <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback onPress={e => e.stopPropagation()}>
               <View style={styles.modalContent}>
                   <ThemedText type="subtitle" style={{marginBottom: 16}}>Aceptar Solicitud</ThemedText>
-                  <ThemedText style={{marginBottom: 8}}>Selecciona la prioridad:</ThemedText>
-                  <View style={styles.priorityRow}>
-                       {['1', '2', '3'].map((p) => (
-                           <TouchableOpacity 
-                                key={p} 
-                                style={[styles.priorityBtn, priority === p && styles.priorityBtnActive]}
-                                onPress={() => setPriority(p)}
-                           >
-                               <ThemedText style={[styles.priorityText, priority === p && {color: colors.background}]}>
-                                   {p === '1' ? 'Alta' : p === '2' ? 'Media' : 'Baja'}
-                               </ThemedText>
-                           </TouchableOpacity>
-                       ))}
-                  </View>
+                  <ThemedText style={{marginBottom: 8}}>¿Confirmas que deseas aceptar esta solicitud?</ThemedText>
                   <View style={styles.modalActions}>
                       <TouchableOpacity onPress={() => setShowAcceptModal(false)} style={styles.modalBtnCancel}>
                           <ThemedText style={{color: colors.error}}>Cancelar</ThemedText>
@@ -520,13 +507,17 @@ export function Solicitud() {
                       </TouchableOpacity>
                   </View>
               </View>
+            </TouchableWithoutFeedback>
           </View>
+        </TouchableWithoutFeedback>
       </Modal>
 
       {/* Modal Modificar */}
-      <Modal visible={showModifyModal} transparent animationType="slide">
+      <Modal visible={showModifyModal} transparent animationType="fade">
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{flex: 1}}>
+      <TouchableWithoutFeedback onPress={() => setShowModifyModal(false)}>
       <View style={styles.modalOverlay}>
+        <TouchableWithoutFeedback onPress={e => e.stopPropagation()}>
           <View style={styles.modalContent}>
                   <ThemedText type="subtitle" style={{marginBottom: 16}}>Modificar Solicitud</ThemedText>
                   
@@ -567,7 +558,9 @@ export function Solicitud() {
                       </TouchableOpacity>
                   </View>
               </View>
+          </TouchableWithoutFeedback>
           </View>
+          </TouchableWithoutFeedback>
           {showDatePicker.show && (
                 <DateTimePicker
                 testID="dateTimePicker"
@@ -582,9 +575,11 @@ export function Solicitud() {
       </Modal>
 
       {/* Modal Compartir */}
-      <Modal visible={showShareModal} transparent animationType="slide" onRequestClose={() => setShowShareModal(false)}>
+      <Modal visible={showShareModal} transparent animationType="fade" onRequestClose={() => setShowShareModal(false)}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{flex: 1}}>
+        <TouchableWithoutFeedback onPress={() => setShowShareModal(false)}>
         <View style={styles.modalOverlay}>
+          <TouchableWithoutFeedback onPress={e => e.stopPropagation()}>
             <View style={styles.modalContent}>
                 <ThemedText type="subtitle" style={{marginBottom: 16}}>Compartir Solicitud</ThemedText>
                 <UserSelector 
@@ -605,7 +600,9 @@ export function Solicitud() {
                     </TouchableOpacity>
                 </View>
             </View>
+          </TouchableWithoutFeedback>
         </View>
+        </TouchableWithoutFeedback>
         </KeyboardAvoidingView>
       </Modal>
 
@@ -805,16 +802,22 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
       flex: 1,
-      backgroundColor: 'rgba(0,0,0,0.5)',
+      backgroundColor: 'rgba(0,0,0,0.6)',
       justifyContent: 'center',
       alignItems: 'center',
   },
   modalContent: {
-      width: '85%',
-      backgroundColor: 'white',
+      width: '90%',
+      maxWidth: 450,
+      maxHeight: '85%',
+      backgroundColor: colors.componentBackground,
       borderRadius: 16,
       padding: 24,
-      elevation: 5,
+      elevation: 10,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
   },
   modalActions: {
       flexDirection: 'row',
@@ -829,29 +832,7 @@ const styles = StyleSheet.create({
       backgroundColor: colors.tint,
       paddingVertical: 10,
       paddingHorizontal: 20,
-      borderRadius: 4,
-  },
-  priorityRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      marginTop: 10,
-  },
-  priorityBtn: {
-      padding: 12,
-      borderWidth: 1,
-      borderColor: colors.background,
       borderRadius: 8,
-      flex: 1,
-      marginHorizontal: 4,
-      alignItems: 'center',
-  },
-  priorityBtnActive: {
-      backgroundColor: colors.tint,
-      borderColor: colors.tint,
-  },
-  priorityText: {
-      color: colors.secondaryText,
-      fontWeight: 'bold',
   },
   row: {
       flexDirection: 'row',

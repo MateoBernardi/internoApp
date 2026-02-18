@@ -4,19 +4,25 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useRouter } from 'expo-router';
 import React, { useCallback } from 'react';
 import {
-  ActivityIndicator,
-  FlatList,
-  ListRenderItem,
-  StyleSheet,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    FlatList,
+    ListRenderItem,
+    RefreshControl,
+    StyleSheet,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { SolicitudEnviada, estadoInvitacionMapping } from '../models/Solicitud';
 import { useInvitaciones } from '../viewmodels/useSolicitudes';
 
 const colors = Colors['light'];
 
-export function SolicitudesRecibidas() {
+interface SolicitudesRecibidasProps {
+  onRefresh?: () => Promise<void>;
+  refreshing?: boolean;
+}
+
+export function SolicitudesRecibidas({ onRefresh, refreshing }: SolicitudesRecibidasProps = {}) {
   const router = useRouter();
   const { data: invitaciones, isLoading, error } = useInvitaciones();
 
@@ -90,6 +96,16 @@ export function SolicitudesRecibidas() {
       keyExtractor={(item: SolicitudEnviada) => item.solicitud_id.toString()}
       scrollEnabled={true}
       ItemSeparatorComponent={renderSeparator}
+      refreshControl={
+        onRefresh ? (
+          <RefreshControl
+            refreshing={refreshing ?? false}
+            onRefresh={onRefresh}
+            colors={[colors.lightTint]}
+            tintColor={colors.lightTint}
+          />
+        ) : undefined
+      }
     />
   );
 }

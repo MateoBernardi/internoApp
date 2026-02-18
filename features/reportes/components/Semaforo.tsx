@@ -30,9 +30,10 @@ const zonaConfig: Record<'rojo' | 'amarillo' | 'verde', { label: string; backgro
 interface SemaforoProps {
 	query?: string;
 	filteredData?: ReporteStats[];
+	comparingWith?: string;
 }
 
-export function Semaforo({ query = '', filteredData }: SemaforoProps = {}) {
+export function Semaforo({ query = '', filteredData, comparingWith }: SemaforoProps = {}) {
 	const { data: stats, error, isLoading } = useReporteStats();
 	const [expandedZones, setExpandedZones] = useState<Record<'rojo' | 'amarillo' | 'verde', boolean>>({
 		rojo: true,
@@ -111,6 +112,7 @@ export function Semaforo({ query = '', filteredData }: SemaforoProps = {}) {
 						isExpanded={expandedZones[zona]}
 						onToggle={() => toggleZone(zona)}
 						searchQuery={query}
+						comparingWith={comparingWith}
 					/>
 				);
 			})}
@@ -124,12 +126,14 @@ function ZonaSection({
 	isExpanded,
 	onToggle,
 	searchQuery,
+	comparingWith,
 }: {
 	zona: 'rojo' | 'amarillo' | 'verde';
 	items: ReporteStats[];
 	isExpanded: boolean;
 	onToggle: () => void;
 	searchQuery: string;
+	comparingWith?: string;
 }) {
 	const config = zonaConfig[zona];
 
@@ -159,7 +163,7 @@ function ZonaSection({
 						</ThemedText>
 					) : (
 						items.map((item) => (
-							<SemaforoItem key={item.usuario_id} item={item} />
+							<SemaforoItem key={item.usuario_id} item={item} comparingWith={comparingWith} />
 						))
 					)}
 				</View>
@@ -168,13 +172,35 @@ function ZonaSection({
 	);
 }
 
-function SemaforoItem({ item }: { item: ReporteStats }) {
+function SemaforoItem({ item, comparingWith }: { item: ReporteStats; comparingWith?: string }) {
 	const router = useRouter();
+
 	const handlePress = () => {
-		router.push({
-			pathname: '/(extras)/detalle-empleados',
-			params: { selectedUsers: JSON.stringify([{ id: item.usuario_id, nombre: item.nombre, apellido: item.apellido }]) },
-		});
+		const newUser = { id: item.usuario_id, nombre: item.nombre, apellido: item.apellido };
+
+		if (comparingWith) {
+			// Comparison mode: add the new user to existing users
+			try {
+				const existingUsers = JSON.parse(comparingWith) as any[];
+				const alreadyExists = existingUsers.some((u: any) => u.id === item.usuario_id);
+				if (alreadyExists) return;
+				const allUsers = [...existingUsers, newUser];
+				router.replace({
+					pathname: '/(extras)/detalle-empleados',
+					params: { selectedUsers: JSON.stringify(allUsers) },
+				});
+			} catch {
+				router.push({
+					pathname: '/(extras)/detalle-empleados',
+					params: { selectedUsers: JSON.stringify([newUser]) },
+				});
+			}
+		} else {
+			router.push({
+				pathname: '/(extras)/detalle-empleados',
+				params: { selectedUsers: JSON.stringify([newUser]) },
+			});
+		}
 	};
 	return (
 		<View style={styles.itemContainer}>

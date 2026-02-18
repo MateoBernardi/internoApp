@@ -1,11 +1,11 @@
 import { apiRequest } from "@/shared/apiRequest";
 import * as actividades from "../models/Actividad";
 
-export async function creatActividad(accessToken: string, data: actividades.CrearActividadRequest): Promise<actividades.CrearActividadResponse> {
-    const response = await apiRequest({ method: "POST", endpoint: "/solicitudes-actividades/actividades/crear", token: accessToken, body: data });    
+export async function createActividad(accessToken: string, data: actividades.CrearActividadRequest): Promise<actividades.CrearActividadResponse> {
+    const response = await apiRequest({ method: "PUT", endpoint: "/solicitudes-actividades/actividades/crear", token: accessToken, body: data });    
     if (!response.ok) {
         const errorText = await response.text();
-        console.error("Error en creatActividad:", response.status, errorText);
+        console.error("Error en createActividad:", response.status, errorText);
         throw new Error(`No se pudo crear la actividad: ${response.status} - ${errorText}`);
     }
     return await response.json();
@@ -42,7 +42,7 @@ export async function obtenerActividadesSemanaAnterior(accessToken: string): Pro
 }
 
 export async function cancelarActividad(accessToken: string, data: actividades.CancelarActividadRequest): Promise<actividades.CancelarActividadResponse> {
-    const response = await apiRequest({ method: "POST", endpoint: `/solicitudes-actividades/actividades/cancelar`, token: accessToken, body: data });
+    const response = await apiRequest({ method: "PUT", endpoint: `/solicitudes-actividades/actividades/cancelar`, token: accessToken, body: data });
     if (!response.ok) {
         const errorText = await response.text();
         console.error("Error en cancelarActividad:", response.status, errorText);

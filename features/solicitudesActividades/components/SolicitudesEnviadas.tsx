@@ -1,24 +1,60 @@
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
 import { useRouter } from 'expo-router';
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import {
-  ActivityIndicator,
-  FlatList,
-  ListRenderItem,
-  StyleSheet,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    FlatList,
+    ListRenderItem,
+    RefreshControl,
+    StyleSheet,
+    TouchableOpacity,
+    View,
 } from 'react-native';
-import { SolicitudEnviada, estadoInvitacionMapping } from '../models/Solicitud';
+import { InvitadoResumen, SolicitudEnviada, SolicitudEnviadaAgrupada, estadoInvitacionMapping } from '../models/Solicitud';
 import { useSolicitudesCreadas } from '../viewmodels/useSolicitudes';
 
 const colors = Colors['light'];
 
+function agruparSolicitudes(solicitudes: SolicitudEnviada[]): SolicitudEnviadaAgrupada[] {
+  const map = new Map<number, SolicitudEnviadaAgrupada>();
+  for (const s of solicitudes) {
+    const existing = map.get(s.solicitud_id);
+    const invitado: InvitadoResumen = {
+      nombre: s.invitado_nombre,
+      apellido: s.invitado_apellido,
+      estado: s.estado,
+    };
+    if (existing) {
+      existing.invitados.push(invitado);
+    } else {
+      map.set(s.solicitud_id, {
+        solicitud_id: s.solicitud_id,
+        titulo: s.titulo,
+        descripcion: s.descripcion,
+        created_by: s.created_by,
+        fecha_inicio: s.fecha_inicio,
+        fecha_fin: s.fecha_fin,
+        invitados: [invitado],
+      });
+    }
+  }
+  return Array.from(map.values());
+}
 
-export function SolicitudesEnviadas() {
+interface SolicitudesEnviadasProps {
+  onRefresh?: () => Promise<void>;
+  refreshing?: boolean;
+}
+
+export function SolicitudesEnviadas({ onRefresh, refreshing }: SolicitudesEnviadasProps = {}) {
   const router = useRouter();
   const { data: solicitudes, isLoading, error } = useSolicitudesCreadas();
+
+  const agrupadas = useMemo(() => {
+    if (!solicitudes) return [];
+    return agruparSolicitudes(solicitudes);
+  }, [solicitudes]);
 
   const handleOpenSolicitud = useCallback((solicitudId: number) => {
     router.push({
@@ -37,15 +73,12 @@ export function SolicitudesEnviadas() {
         }}
       />
     );
-  }, [colors]);
+  }, []);
 
-  const renderItem: ListRenderItem<SolicitudEnviada> = useCallback(({ item }) => {
-    const estadoUI = estadoInvitacionMapping[item.estado];
-    
+  const renderItem: ListRenderItem<SolicitudEnviadaAgrupada> = useCallback(({ item }) => {
     return (
       <SolicitudEnviadaItem
         solicitud={item}
-        estadoUI={estadoUI}
         onPress={() => handleOpenSolicitud(item.solicitud_id)}
       />
     );
@@ -72,7 +105,7 @@ export function SolicitudesEnviadas() {
     );
   }
 
-  if (!solicitudes || solicitudes.length === 0) {
+  if (agrupadas.length === 0) {
     return (
       <View style={styles.centerContainer}>
         <ThemedText type="subtitle">No hay solicitudes enviadas por vos</ThemedText>
@@ -85,22 +118,31 @@ export function SolicitudesEnviadas() {
 
   return (
     <FlatList
-      data={solicitudes}
+      data={agrupadas}
       renderItem={renderItem}
-      keyExtractor={(item: SolicitudEnviada) => item.solicitud_id.toString()}
+      keyExtractor={(item: SolicitudEnviadaAgrupada) => item.solicitud_id.toString()}
       scrollEnabled={true}
       ItemSeparatorComponent={renderSeparator}
+      refreshControl={
+        onRefresh ? (
+          <RefreshControl
+            refreshing={refreshing ?? false}
+            onRefresh={onRefresh}
+            colors={[colors.lightTint]}
+            tintColor={colors.lightTint}
+          />
+        ) : undefined
+      }
     />
   );
 }
 
 interface SolicitudEnviadaItemProps {
-  solicitud: SolicitudEnviada;
-  estadoUI: string;
+  solicitud: SolicitudEnviadaAgrupada;
   onPress: () => void;
 }
 
-function SolicitudEnviadaItem({ solicitud, estadoUI, onPress }: SolicitudEnviadaItemProps) {
+function SolicitudEnviadaItem({ solicitud, onPress }: SolicitudEnviadaItemProps) {
   const getEstadoColor = (estado: string): string => {
     switch (estado) {
       case 'Pendiente':
@@ -138,23 +180,29 @@ function SolicitudEnviadaItem({ solicitud, estadoUI, onPress }: SolicitudEnviada
         >
           {solicitud.descripcion}
         </ThemedText>
-        <View style={styles.footerContainer}>
-          <ThemedText style={[styles.dateText, { color: colors.secondaryText }]}>
-            {new Date(solicitud.fecha_inicio).toLocaleDateString()}
-          </ThemedText>
-          <View
-            style={[
-              styles.estadoBadge,
-              { backgroundColor: getEstadoColor(estadoUI) + '20' },
-            ]}
-          >
-            <ThemedText
-              style={[styles.estadoText, { color: getEstadoColor(estadoUI) }]}
-            >
-              {estadoUI}
-            </ThemedText>
-          </View>
+
+        {/* Lista de invitados con su estado */}
+        <View style={styles.invitadosContainer}>
+          {solicitud.invitados.map((inv, idx) => {
+            const estadoUI = estadoInvitacionMapping[inv.estado];
+            return (
+              <View key={`${inv.nombre}-${inv.apellido}-${idx}`} style={styles.invitadoRow}>
+                <ThemedText style={styles.invitadoName} numberOfLines={1}>
+                  {inv.nombre} {inv.apellido}
+                </ThemedText>
+                <View style={[styles.estadoBadge, { backgroundColor: getEstadoColor(estadoUI) + '20' }]}>
+                  <ThemedText style={[styles.estadoText, { color: getEstadoColor(estadoUI) }]}>
+                    {estadoUI}
+                  </ThemedText>
+                </View>
+              </View>
+            );
+          })}
         </View>
+
+        <ThemedText style={[styles.dateText, { color: colors.secondaryText }]}>
+          {new Date(solicitud.fecha_inicio).toLocaleDateString()}
+        </ThemedText>
       </View>
     </TouchableOpacity>
   );
@@ -184,6 +232,21 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginTop: 4,
   },
+  invitadosContainer: {
+    marginTop: 8,
+    gap: 4,
+  },
+  invitadoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  invitadoName: {
+    fontSize: 13,
+    color: colors.secondaryText,
+    flex: 1,
+    marginRight: 8,
+  },
   footerContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -192,6 +255,7 @@ const styles = StyleSheet.create({
   },
   dateText: {
     fontSize: 12,
+    marginTop: 8,
   },
   estadoBadge: {
     paddingHorizontal: 8,

@@ -15,9 +15,13 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import type { Activity } from '../components/activityTypes';
+import { AgendaDiaria } from '../components/AgendaDiaria';
+import { AgendaSemanal } from '../components/AgendaSemanal';
 import type { Actividad, Licencia } from '../models/Actividad';
 import {
   useActividadesSemanaAnterior,
@@ -26,23 +30,7 @@ import {
   useCrearActividad,
 } from '../viewmodels/useActividades';
 
-interface Activity {
-  id: string;
-  time: string;
-  title: string;
-  description?: string;
-  completed: boolean;
-  date: string;
-  rol?: string;
-  prioridad?: number;
-  participantes?: number[];
-  tipo?: 'actividad' | 'licencia';
-  solicitud_id?: number | null;
-  tipo_licencia_id?: number;
-  tipo_licencia_nombre?: string;
-  usuario_id?: number;
-  fecha_fin?: string;
-}
+const colors = Colors['light'];
 
 const AgendaPersonal: React.FC = () => {
   // Queries
@@ -73,11 +61,9 @@ const AgendaPersonal: React.FC = () => {
     endTime: new Date(today.getTime() + 3600000),
     title: '',
     description: '',
-    prioridad: 2,
   });
 
   const [selectedActivitiesToRepeat, setSelectedActivitiesToRepeat] = useState<string[]>([]);
-  const [repeatDate, setRepeatDate] = useState<string>(today.toISOString().split('T')[0]);
 
   // Date picker state
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -86,7 +72,9 @@ const AgendaPersonal: React.FC = () => {
 
   const isLoading =
     actividadesSemanalesQuery.isLoading ||
-    actividadesSemanaAnteriorQuery.isLoading ||
+    actividadesSemanaAnteriorQuery.isLoading;
+
+  const isMutating =
     crearActividadMutation.isPending ||
     cancelarActividadMutation.isPending;
 
@@ -107,7 +95,6 @@ const AgendaPersonal: React.FC = () => {
         completed: false,
         date,
         rol: act.rol,
-        prioridad: act.prioridad,
         participantes: act.participantes,
         solicitud_id: act.solicitud_id,
         fecha_fin: act.fecha_fin,
@@ -234,25 +221,17 @@ const AgendaPersonal: React.FC = () => {
       '¿Estás seguro?',
       `¿Deseas cancelar "${activity.title}"?`,
       [
-        {
-          text: 'Cancelar',
-          style: 'cancel',
-        },
+        { text: 'Cancelar', style: 'cancel' },
         {
           text: 'Eliminar',
           style: 'destructive',
           onPress: async () => {
             try {
               const actividadId = Number(activity.id.replace('licencia-', ''));
-              await cancelarActividadMutation.mutateAsync({
-                actividadId,
-              });
+              await cancelarActividadMutation.mutateAsync({ actividadId });
               Alert.alert('Éxito', 'Actividad cancelada correctamente.');
             } catch (error: any) {
-              Alert.alert(
-                'Error',
-                error.message || 'Error al cancelar la actividad'
-              );
+              Alert.alert('Error', error.message || 'Error al cancelar la actividad');
             }
           },
         },
@@ -280,7 +259,6 @@ const AgendaPersonal: React.FC = () => {
         descripcion: newActivity.description,
         fecha_inicio: fechaInicio,
         fecha_fin: fechaFin,
-        prioridad: newActivity.prioridad,
       });
 
       setNewActivity({
@@ -289,7 +267,6 @@ const AgendaPersonal: React.FC = () => {
         endTime: new Date(today.getTime() + 3600000),
         title: '',
         description: '',
-        prioridad: 2,
       });
       setShowAddForm(false);
       Alert.alert('Éxito', 'Actividad creada correctamente.');
@@ -312,208 +289,69 @@ const AgendaPersonal: React.FC = () => {
     }
   };
 
-  const getPriorityColor = (prioridad?: number) => {
-    if (prioridad === 1) return '#EF4444';
-    if (prioridad === 2) return '#F59E0B';
-    return '#10B981';
-  };
+  const handleRepeatActivities = async () => {
+    if (selectedActivitiesToRepeat.length === 0) return;
 
-  const getPriorityLabel = (prioridad?: number) => {
-    if (prioridad === 1) return 'P1';
-    if (prioridad === 2) return 'P2';
-    return 'P3';
-  };
-
-  // Vista de Día
-  const DayView = () => {
-    const sorted = [...filteredActivities].sort((a, b) =>
-      (a.time || '23:59').localeCompare(b.time || '23:59')
+    const activitiesToRepeat = lastWeekActivities.filter((a) =>
+      selectedActivitiesToRepeat.includes(a.id)
     );
 
-    return (
-      <FlatList
-        data={sorted}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item: activity }) => (
-          <View style={styles.activityCardDay}>
-            <View style={styles.timeColumnDay}>
-              <Text style={styles.timeTextDay}>{activity.time || '—'}</Text>
-              {activity.fecha_fin && (
-                <Text style={styles.endTimeTextDay}>
-                  {(() => {
-                    const timeMatch = activity.fecha_fin.match(/[T ](\d{2}:\d{2})/);
-                    return timeMatch ? timeMatch[1] : '—';
-                  })()}
-                </Text>
-              )}
-            </View>
+    let successCount = 0;
+    let errorCount = 0;
 
-            <View style={styles.contentColumnDay}>
-              <View style={styles.titleRowDay}>
-                <Text style={styles.titleTextDay} numberOfLines={2}>
-                  {activity.title}
-                </Text>
-                {activity.prioridad && (
-                  <View
-                    style={[
-                      styles.priorityBadgeDay,
-                      {
-                        backgroundColor: getPriorityColor(activity.prioridad),
-                      },
-                    ]}
-                  >
-                    <Text style={styles.priorityTextDay}>
-                      {getPriorityLabel(activity.prioridad)}
-                    </Text>
-                  </View>
-                )}
-              </View>
-              {activity.tipo === 'licencia' && (
-                <Text style={styles.licenseLabelDay}>Licencia</Text>
-              )}
-              {activity.description && (
-                <Text style={styles.descriptionTextDay} numberOfLines={2}>
-                  {activity.description}
-                </Text>
-              )}
-            </View>
+    for (const activity of activitiesToRepeat) {
+      try {
+        // Calcular la nueva fecha: misma hora, pero en la semana actual
+        const originalDate = new Date(activity.date + 'T' + activity.time + ':00');
+        const dayOfWeek = originalDate.getDay();
 
-            <TouchableOpacity
-              onPress={() => handleDeleteActivity(activity.id)}
-              style={styles.deleteButtonDay}
-            >
-              <Ionicons name="close-circle" size={24} color="#EF4444" />
-            </TouchableOpacity>
-          </View>
-        )}
-        scrollEnabled={false}
-        contentContainerStyle={styles.listContent}
-      />
-    );
-  };
+        const newDate = new Date(today);
+        const currentDay = newDate.getDay();
+        const daysOffset = dayOfWeek - currentDay;
+        newDate.setDate(newDate.getDate() + daysOffset);
+        const newDateStr = newDate.toISOString().split('T')[0];
 
-  // Vista de Semana
-  const WeekView = () => {
-    const dayLabels = [
-      'Domingo',
-      'Lunes',
-      'Martes',
-      'Miércoles',
-      'Jueves',
-      'Viernes',
-      'Sábado',
-    ];
-    const daysOfWeek = [];
+        const fechaInicio = `${newDateStr}T${activity.time}:00`;
 
-    for (let i = 0; i < 7; i++) {
-      const dayDate = new Date(today);
-      const dayOfWeek = dayDate.getDay();
-      const daysOffset = i - dayOfWeek;
-      dayDate.setDate(dayDate.getDate() + daysOffset);
-      const dateStr = dayDate.toISOString().split('T')[0];
+        // Calcular fecha fin basándose en la duración original
+        let fechaFin = `${newDateStr}T${activity.time}:00`;
+        if (activity.fecha_fin) {
+          const finMatch = activity.fecha_fin.match(/[T ](\d{2}:\d{2})/);
+          if (finMatch) {
+            fechaFin = `${newDateStr}T${finMatch[1]}:00`;
+          }
+        }
 
-      const dayActivities = filteredActivities
-        .filter((a) => a.date === dateStr)
-        .sort((a, b) => (a.time || '23:59').localeCompare(b.time || '23:59'));
-
-      daysOfWeek.push({
-        dateStr,
-        dayLabel: dayLabels[i],
-        dayNum: dayDate.getDate(),
-        activities: dayActivities,
-        isToday: dateStr === today.toISOString().split('T')[0],
-      });
+        await crearActividadMutation.mutateAsync({
+          titulo: activity.title,
+          descripcion: activity.description || '',
+          fecha_inicio: fechaInicio,
+          fecha_fin: fechaFin,
+        });
+        successCount++;
+      } catch {
+        errorCount++;
+      }
     }
 
-    return (
-      <FlatList
-        data={daysOfWeek}
-        keyExtractor={(item) => item.dateStr}
-        renderItem={({ item: day }) => (
-          <View
-            style={[
-              styles.dayCardWeek,
-              day.isToday && styles.dayCardWeekToday,
-            ]}
-          >
-            <View style={styles.dayHeaderWeek}>
-              <Text
-                style={[
-                  styles.dayLabelWeek,
-                  day.isToday && styles.dayLabelWeekToday,
-                ]}
-              >
-                {day.dayLabel}
-              </Text>
-              <Text
-                style={[
-                  styles.dayDateWeek,
-                  day.isToday && styles.dayDateWeekToday,
-                ]}
-              >
-                {new Date(day.dateStr + 'T00:00:00')
-                  .toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
-                  .toUpperCase()}
-              </Text>
-            </View>
+    setSelectedActivitiesToRepeat([]);
+    setShowRepeatForm(false);
 
-            {day.activities.length === 0 ? (
-              <Text style={styles.noActivitiesTextWeek}>Sin actividades</Text>
-            ) : (
-              <View style={styles.dayActivitiesContainerWeek}>
-                {day.activities.map((activity) => (
-                  <View key={activity.id} style={styles.weekActivityCard}>
-                    <View style={styles.weekTimeColumn}>
-                      <Text style={styles.weekTimeText}>{activity.time || '—'}</Text>
-                    </View>
-
-                    <View style={styles.weekContentColumn}>
-                      <View style={styles.weekTitleRow}>
-                        <Text style={styles.weekTitleText} numberOfLines={2}>
-                          {activity.title}
-                        </Text>
-                        {activity.prioridad && (
-                          <View
-                            style={[
-                              styles.weekPriorityBadge,
-                              {
-                                backgroundColor: getPriorityColor(
-                                  activity.prioridad
-                                ),
-                              },
-                            ]}
-                          >
-                            <Text style={styles.weekPriorityText}>
-                              {getPriorityLabel(activity.prioridad)}
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-                    </View>
-
-                    <TouchableOpacity
-                      onPress={() => handleDeleteActivity(activity.id)}
-                      style={styles.weekDeleteButton}
-                    >
-                      <Ionicons name="close-circle" size={20} color="#EF4444" />
-                    </TouchableOpacity>
-                  </View>
-                ))}
-              </View>
-            )}
-          </View>
-        )}
-        scrollEnabled={false}
-        contentContainerStyle={styles.weekListContent}
-      />
-    );
+    if (errorCount === 0) {
+      Alert.alert('Éxito', `Se repitieron ${successCount} actividades correctamente.`);
+    } else {
+      Alert.alert(
+        'Resultado',
+        `${successCount} actividades creadas, ${errorCount} con error.`
+      );
+    }
   };
 
   return (
     <View style={styles.container}>
       {/* Título */}
       <ThemedText type="title" style={styles.pageTitle}>Agenda Personal</ThemedText>
-      
+
       {/* Header */}
       <View style={styles.header}>
         <View>
@@ -527,19 +365,13 @@ const AgendaPersonal: React.FC = () => {
             onPress={() => setViewMode('day')}
             style={[
               styles.tab,
-              viewMode === 'day' && [
-                styles.tabActive,
-                { borderBottomColor: '#1a73e8' },
-              ],
+              viewMode === 'day' && [styles.tabActive, { borderBottomColor: colors.lightTint }],
             ]}
           >
             <Text
               style={[
                 styles.tabText,
-                viewMode === 'day' && {
-                  color: '#1a73e8',
-                  fontWeight: 'bold',
-                },
+                viewMode === 'day' && { color: colors.lightTint, fontWeight: 'bold' },
               ]}
             >
               Día
@@ -549,19 +381,13 @@ const AgendaPersonal: React.FC = () => {
             onPress={() => setViewMode('week')}
             style={[
               styles.tab,
-              viewMode === 'week' && [
-                styles.tabActive,
-                { borderBottomColor: '#1a73e8' },
-              ],
+              viewMode === 'week' && [styles.tabActive, { borderBottomColor: colors.lightTint }],
             ]}
           >
             <Text
               style={[
                 styles.tabText,
-                viewMode === 'week' && {
-                  color: '#1a73e8',
-                  fontWeight: 'bold',
-                },
+                viewMode === 'week' && { color: colors.lightTint, fontWeight: 'bold' },
               ]}
             >
               Semana
@@ -574,7 +400,7 @@ const AgendaPersonal: React.FC = () => {
       <ScrollView style={styles.activitiesContainer} contentContainerStyle={{ paddingBottom: 80 }}>
         {isLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#1a73e8" />
+            <ActivityIndicator size="large" color={colors.lightTint} />
             <Text style={styles.loadingText}>Cargando actividades...</Text>
           </View>
         ) : filteredActivities.length === 0 ? (
@@ -583,9 +409,16 @@ const AgendaPersonal: React.FC = () => {
             <Text style={styles.emptyText}>No hay actividades programadas</Text>
           </View>
         ) : viewMode === 'week' ? (
-          <WeekView />
+          <AgendaSemanal
+            activities={filteredActivities}
+            today={today}
+            onDeleteActivity={handleDeleteActivity}
+          />
         ) : (
-          <DayView />
+          <AgendaDiaria
+            activities={filteredActivities}
+            onDeleteActivity={handleDeleteActivity}
+          />
         )}
       </ScrollView>
 
@@ -626,45 +459,42 @@ const AgendaPersonal: React.FC = () => {
         </TouchableOpacity>
       </View>
 
-      {/* Add Activity Modal */}
+      {/* ==================== Add Activity Modal ==================== */}
       <Modal
         visible={showAddForm}
         transparent
         animationType="fade"
         onRequestClose={() => setShowAddForm(false)}
       >
-        <TouchableOpacity
-          activeOpacity={1}
-          style={styles.modalOverlay}
-          onPress={() => setShowAddForm(false)}
-        >
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={styles.keyboardAvoid}
-          >
-            <TouchableOpacity
-              activeOpacity={1}
-              style={styles.modalContent}
-              onPress={(e) => e.stopPropagation()}
-            >
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Nueva Actividad</Text>
-                <TouchableOpacity
-                  onPress={() => setShowAddForm(false)}
-                  style={styles.closeButton}
-                >
-                  <Ionicons name="close" size={24} color="#5f6368" />
-                </TouchableOpacity>
-              </View>
+        <View style={styles.modalOverlay}>
+          <TouchableWithoutFeedback onPress={() => setShowAddForm(false)}>
+            <View style={StyleSheet.absoluteFill} />
+          </TouchableWithoutFeedback>
 
-              <ScrollView style={styles.formContent} showsVerticalScrollIndicator={false}>
+          <View style={styles.modalContainer}>
+            <KeyboardAvoidingView
+              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+              style={{ width: '100%' }}
+            >
+              <ScrollView
+                contentContainerStyle={styles.modalScrollContent}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+              >
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Nueva Actividad</Text>
+                  <TouchableOpacity
+                    onPress={() => setShowAddForm(false)}
+                    style={styles.closeButton}
+                  >
+                    <Ionicons name="close" size={24} color={colors.secondaryText} />
+                  </TouchableOpacity>
+                </View>
+
                 {/* Fecha */}
                 <View style={styles.dateSection}>
-                  <TouchableOpacity
-                    onPress={handleStartDate}
-                    style={styles.dateRow}
-                  >
-                    <Ionicons name="calendar" size={20} color="#1a73e8" />
+                  <TouchableOpacity onPress={handleStartDate} style={styles.dateRow}>
+                    <Ionicons name="calendar" size={20} color={colors.lightTint} />
                     <View style={{ marginLeft: 12 }}>
                       <Text style={styles.dateLabel}>Fecha</Text>
                       <Text style={styles.dateValue}>
@@ -677,11 +507,8 @@ const AgendaPersonal: React.FC = () => {
                   </TouchableOpacity>
 
                   {/* Hora inicio */}
-                  <TouchableOpacity
-                    onPress={handleStartTime}
-                    style={styles.dateRow}
-                  >
-                    <Ionicons name="time" size={20} color="#1a73e8" />
+                  <TouchableOpacity onPress={handleStartTime} style={styles.dateRow}>
+                    <Ionicons name="time" size={20} color={colors.lightTint} />
                     <View style={{ marginLeft: 12 }}>
                       <Text style={styles.dateLabel}>Inicio</Text>
                       <Text style={styles.dateValue}>
@@ -694,11 +521,8 @@ const AgendaPersonal: React.FC = () => {
                   </TouchableOpacity>
 
                   {/* Hora fin */}
-                  <TouchableOpacity
-                    onPress={handleEndTime}
-                    style={styles.dateRow}
-                  >
-                    <Ionicons name="time" size={20} color="#1a73e8" />
+                  <TouchableOpacity onPress={handleEndTime} style={styles.dateRow}>
+                    <Ionicons name="time" size={20} color={colors.lightTint} />
                     <View style={{ marginLeft: 12 }}>
                       <Text style={styles.dateLabel}>Fin</Text>
                       <Text style={styles.dateValue}>
@@ -712,112 +536,74 @@ const AgendaPersonal: React.FC = () => {
                 </View>
 
                 {/* Título */}
-                <View style={styles.inputSection}>
+                <View style={styles.fieldContainer}>
+                  <Text style={styles.fieldLabel}>Título</Text>
                   <TextInput
                     style={styles.input}
                     placeholder="Título (requerido)"
                     value={newActivity.title}
-                    onChangeText={(text) =>
-                      setNewActivity({ ...newActivity, title: text })
-                    }
+                    onChangeText={(text) => setNewActivity({ ...newActivity, title: text })}
                     placeholderTextColor="#9CA3AF"
                   />
                 </View>
 
-                {/* Prioridad */}
-                <View style={styles.inputSection}>
-                  <Text style={styles.sectionLabel}>Prioridad</Text>
-                  <View style={styles.priorityChips}>
-                    {[1, 2, 3].map((p) => (
-                      <TouchableOpacity
-                        key={p}
-                        style={[
-                          styles.priorityChip,
-                          newActivity.prioridad === p &&
-                            styles.priorityChipActive,
-                        ]}
-                        onPress={() =>
-                          setNewActivity({ ...newActivity, prioridad: p })
-                        }
-                      >
-                        <Text
-                          style={[
-                            styles.priorityChipText,
-                            newActivity.prioridad === p &&
-                              styles.priorityChipTextActive,
-                          ]}
-                        >
-                          {p === 1 ? 'Alta' : p === 2 ? 'Media' : 'Baja'}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
-
                 {/* Descripción */}
-                <View style={styles.inputSection}>
+                <View style={styles.fieldContainer}>
+                  <Text style={styles.fieldLabel}>Descripción</Text>
                   <TextInput
                     style={[styles.input, styles.descriptionInput]}
                     placeholder="Descripción (opcional)"
                     value={newActivity.description}
-                    onChangeText={(text) =>
-                      setNewActivity({ ...newActivity, description: text })
-                    }
+                    onChangeText={(text) => setNewActivity({ ...newActivity, description: text })}
                     placeholderTextColor="#9CA3AF"
                     multiline
                     numberOfLines={4}
                   />
                 </View>
-              </ScrollView>
 
-              {/* Botones */}
-              <View style={styles.modalFooter}>
-                <TouchableOpacity
-                  style={styles.cancelButtonModal}
-                  onPress={() => setShowAddForm(false)}
-                >
-                  <Text style={styles.cancelButtonTextModal}>Cancelar</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.submitButtonModal,
-                    !newActivity.title.trim() && styles.submitButtonDisabled,
-                  ]}
-                  onPress={handleAddActivity}
-                  disabled={!newActivity.title.trim() || isLoading}
-                >
-                  {isLoading ? (
-                    <ActivityIndicator color="#FFFFFF" size="small" />
-                  ) : (
-                    <Ionicons name="checkmark" size={20} color="#FFFFFF" />
-                  )}
-                </TouchableOpacity>
-              </View>
-            </TouchableOpacity>
-          </KeyboardAvoidingView>
-        </TouchableOpacity>
+                {/* Botones */}
+                <View style={styles.buttonContainer}>
+                  <TouchableOpacity style={styles.cancelButton} onPress={() => setShowAddForm(false)}>
+                    <Text style={styles.cancelButtonText}>Cancelar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.submitButton,
+                      !newActivity.title.trim() && styles.submitButtonDisabled,
+                    ]}
+                    onPress={handleAddActivity}
+                    disabled={!newActivity.title.trim() || isMutating}
+                  >
+                    {isMutating ? (
+                      <ActivityIndicator color="#FFFFFF" size="small" />
+                    ) : (
+                      <Text style={styles.submitButtonText}>Guardar</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
+            </KeyboardAvoidingView>
+          </View>
+        </View>
       </Modal>
 
-      {/* Repeat Activities Modal */}
+      {/* ==================== Repeat Activities Modal ==================== */}
       <Modal
         visible={showRepeatForm}
         transparent
         animationType="fade"
         onRequestClose={() => setShowRepeatForm(false)}
       >
-        <TouchableOpacity
-          activeOpacity={1}
-          style={styles.modalOverlay}
-          onPress={() => setShowRepeatForm(false)}
-        >
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={styles.keyboardAvoid}
-          >
-            <TouchableOpacity
-              activeOpacity={1}
-              style={[styles.modalContent, styles.largeModalContent]}
-              onPress={(e) => e.stopPropagation()}
+        <View style={styles.modalOverlay}>
+          <TouchableWithoutFeedback onPress={() => setShowRepeatForm(false)}>
+            <View style={StyleSheet.absoluteFill} />
+          </TouchableWithoutFeedback>
+
+          <View style={[styles.modalContainer, { maxHeight: '85%' }]}>
+            <ScrollView
+              contentContainerStyle={styles.modalScrollContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
             >
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Repetir actividades</Text>
@@ -825,113 +611,109 @@ const AgendaPersonal: React.FC = () => {
                   onPress={() => setShowRepeatForm(false)}
                   style={styles.closeButton}
                 >
-                  <Ionicons name="close" size={24} color="#5f6368" />
+                  <Ionicons name="close" size={24} color={colors.secondaryText} />
                 </TouchableOpacity>
               </View>
 
-              <ScrollView style={styles.formContent} showsVerticalScrollIndicator={false}>
-                {/* Select all button */}
-                <View style={styles.selectAllContainer}>
-                  <Text style={styles.selectAllText}>
-                    {lastWeekActivities.length} actividades disponibles
-                  </Text>
-                  <TouchableOpacity
-                    style={styles.selectAllButton}
-                    onPress={selectAllActivities}
-                  >
-                    <Text style={styles.selectAllButtonText}>
-                      {selectedActivitiesToRepeat.length ===
-                      lastWeekActivities.length
-                        ? 'Deseleccionar'
-                        : 'Seleccionar'}
-                    </Text>
-                  </TouchableOpacity>
+              {actividadesSemanaAnteriorQuery.isLoading ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="large" color={colors.lightTint} />
+                  <Text style={styles.loadingText}>Cargando semana anterior...</Text>
                 </View>
+              ) : actividadesSemanaAnteriorQuery.isError ? (
+                <View style={styles.emptyContainer}>
+                  <Ionicons name="alert-circle-outline" size={48} color={colors.error} />
+                  <Text style={[styles.emptyText, { color: colors.error }]}>
+                    No se pudieron cargar las actividades de la semana anterior.
+                  </Text>
+                </View>
+              ) : lastWeekActivities.length === 0 ? (
+                <View style={styles.emptyContainer}>
+                  <Ionicons name="calendar-outline" size={48} color="#D1D5DB" />
+                  <Text style={styles.emptyText}>No hay actividades de la semana anterior</Text>
+                </View>
+              ) : (
+                <>
+                  {/* Select all button */}
+                  <View style={styles.selectAllContainer}>
+                    <Text style={styles.selectAllText}>
+                      {lastWeekActivities.length} actividades disponibles
+                    </Text>
+                    <TouchableOpacity style={styles.selectAllButton} onPress={selectAllActivities}>
+                      <Text style={styles.selectAllButtonText}>
+                        {selectedActivitiesToRepeat.length === lastWeekActivities.length
+                          ? 'Deseleccionar'
+                          : 'Seleccionar'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
 
-                {/* Activities list */}
-                <FlatList
-                  data={lastWeekActivities.sort((a, b) =>
-                    a.time.localeCompare(b.time)
-                  )}
-                  keyExtractor={(item) => item.id}
-                  renderItem={({ item: activity }) => {
-                    const isSelected = selectedActivitiesToRepeat.includes(
-                      activity.id
-                    );
+                  {/* Activities list */}
+                  <FlatList
+                    data={lastWeekActivities.sort((a, b) => a.time.localeCompare(b.time))}
+                    keyExtractor={(item) => item.id}
+                    renderItem={({ item: activity }) => {
+                      const isSelected = selectedActivitiesToRepeat.includes(activity.id);
+                      const hasParticipants = (activity.participantes?.length ?? 0) > 1;
 
-                    return (
-                      <TouchableOpacity
-                        style={[
-                          styles.repeatActivityCard,
-                          isSelected && styles.repeatActivityCardSelected,
-                        ]}
-                        onPress={() => toggleActivitySelection(activity.id)}
-                      >
-                        <View style={styles.checkboxContainer}>
-                          <View
-                            style={[
-                              styles.checkbox,
-                              isSelected && styles.checkboxSelected,
-                            ]}
-                          >
-                            {isSelected && (
-                              <Ionicons
-                                name="checkmark"
-                                size={14}
-                                color="#FFFFFF"
-                              />
-                            )}
+                      return (
+                        <TouchableOpacity
+                          style={[
+                            styles.repeatActivityCard,
+                            isSelected && styles.repeatActivityCardSelected,
+                          ]}
+                          onPress={() => toggleActivitySelection(activity.id)}
+                        >
+                          <View style={styles.checkboxContainer}>
+                            <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
+                              {isSelected && (
+                                <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+                              )}
+                            </View>
+                            <View style={styles.repeatActivityInfo}>
+                              <Text style={styles.repeatActivityTime}>{activity.time}</Text>
+                              <Text style={styles.repeatActivityTitle}>{activity.title}</Text>
+                              {hasParticipants && (
+                                <Text style={styles.repeatParticipantsText}>
+                                  {activity.participantes!.length} participantes
+                                </Text>
+                              )}
+                            </View>
                           </View>
-                          <View style={styles.repeatActivityInfo}>
-                            <Text style={styles.repeatActivityTime}>
-                              {activity.time}
-                            </Text>
-                            <Text style={styles.repeatActivityTitle}>
-                              {activity.title}
-                            </Text>
-                          </View>
-                        </View>
-                      </TouchableOpacity>
-                    );
-                  }}
-                  scrollEnabled={false}
-                />
-              </ScrollView>
+                        </TouchableOpacity>
+                      );
+                    }}
+                    scrollEnabled={false}
+                  />
+                </>
+              )}
 
               {/* Footer buttons */}
-              <View style={styles.modalFooter}>
+              <View style={styles.buttonContainer}>
                 <TouchableOpacity
-                  style={styles.cancelButtonModal}
+                  style={styles.cancelButton}
                   onPress={() => setShowRepeatForm(false)}
                 >
-                  <Text style={styles.cancelButtonTextModal}>Cancelar</Text>
+                  <Text style={styles.cancelButtonText}>Cancelar</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[
-                    styles.submitButtonModal,
-                    selectedActivitiesToRepeat.length === 0 &&
-                      styles.submitButtonDisabled,
+                    styles.submitButton,
+                    selectedActivitiesToRepeat.length === 0 && styles.submitButtonDisabled,
                   ]}
-                  disabled={selectedActivitiesToRepeat.length === 0 || isLoading}
-                  onPress={() => {
-                    Alert.alert(
-                      'Éxito',
-                      `Se van a repetir ${selectedActivitiesToRepeat.length} actividades`
-                    );
-                    setSelectedActivitiesToRepeat([]);
-                    setShowRepeatForm(false);
-                  }}
+                  disabled={selectedActivitiesToRepeat.length === 0 || isMutating}
+                  onPress={handleRepeatActivities}
                 >
-                  {isLoading ? (
+                  {isMutating ? (
                     <ActivityIndicator color="#FFFFFF" size="small" />
                   ) : (
-                    <Ionicons name="checkmark" size={20} color="#FFFFFF" />
+                    <Text style={styles.submitButtonText}>Repetir</Text>
                   )}
                 </TouchableOpacity>
               </View>
-            </TouchableOpacity>
-          </KeyboardAvoidingView>
-        </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
       </Modal>
 
       {/* Date Picker */}
@@ -964,14 +746,14 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     textAlign: 'center',
-    backgroundColor: Colors['light'].componentBackground,
+    backgroundColor: colors.componentBackground,
     paddingVertical: 12,
     paddingHorizontal: 16,
     marginHorizontal: 16,
     marginTop: 16,
     marginBottom: 12,
     borderRadius: 8,
-    color: Colors['light'].text,
+    color: colors.text,
   },
   header: {
     paddingHorizontal: 16,
@@ -1037,178 +819,6 @@ const styles = StyleSheet.create({
     color: '#5f6368',
     marginTop: 12,
   },
-  listContent: {
-    gap: 8,
-    paddingBottom: 16,
-  },
-  weekListContent: {
-    gap: 8,
-    paddingBottom: 16,
-  },
-
-  // Styles for Day View
-  activityCardDay: {
-    flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    borderLeftWidth: 4,
-    borderLeftColor: '#1a73e8',
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    marginHorizontal: 8,
-    marginBottom: 4,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e0e0e0',
-  },
-  timeColumnDay: {
-    marginRight: 12,
-    minWidth: 50,
-  },
-  timeTextDay: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#202124',
-  },
-  endTimeTextDay: {
-    fontSize: 12,
-    color: '#5f6368',
-    marginTop: 4,
-  },
-  contentColumnDay: {
-    flex: 1,
-  },
-  titleRowDay: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-    gap: 8,
-  },
-  titleTextDay: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#202124',
-    flex: 1,
-  },
-  priorityBadgeDay: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  priorityTextDay: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  licenseLabelDay: {
-    fontSize: 12,
-    color: '#1a73e8',
-    fontWeight: '600',
-    marginTop: 4,
-  },
-  descriptionTextDay: {
-    fontSize: 13,
-    color: '#5f6368',
-    marginTop: 4,
-  },
-  deleteButtonDay: {
-    paddingLeft: 8,
-    justifyContent: 'center',
-  },
-
-  // Styles for Week View
-  dayCardWeek: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    borderLeftWidth: 4,
-    borderLeftColor: '#dadce0',
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    marginHorizontal: 8,
-    marginBottom: 8,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e0e0e0',
-  },
-  dayCardWeekToday: {
-    backgroundColor: '#f1f3f4',
-    borderLeftColor: '#1a73e8',
-  },
-  dayHeaderWeek: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e0e0e0',
-    paddingBottom: 8,
-    marginBottom: 8,
-  },
-  dayLabelWeek: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#202124',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  dayLabelWeekToday: {
-    color: '#1a73e8',
-  },
-  dayDateWeek: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#5f6368',
-    marginTop: 4,
-  },
-  dayDateWeekToday: {
-    color: '#1a73e8',
-  },
-  noActivitiesTextWeek: {
-    fontSize: 12,
-    color: '#9CA3AF',
-  },
-  dayActivitiesContainerWeek: {
-    gap: 6,
-  },
-  weekActivityCard: {
-    flexDirection: 'row',
-    backgroundColor: '#f9f9f9',
-    borderRadius: 6,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#dadce0',
-    padding: 10,
-  },
-  weekTimeColumn: {
-    marginRight: 8,
-    minWidth: 40,
-  },
-  weekTimeText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#202124',
-  },
-  weekContentColumn: {
-    flex: 1,
-  },
-  weekTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  weekTitleText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#202124',
-    flex: 1,
-  },
-  weekPriorityBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 8,
-  },
-  weekPriorityText: {
-    fontSize: 9,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  weekDeleteButton: {
-    paddingLeft: 8,
-    justifyContent: 'center',
-  },
 
   // Floating Action Button
   fabContainer: {
@@ -1220,7 +830,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#1a73e8',
+    backgroundColor: colors.lightTint,
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 6,
@@ -1233,7 +843,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#34a853',
+    backgroundColor: colors.success,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
@@ -1247,7 +857,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#ea4335',
+    backgroundColor: colors.error,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
@@ -1258,45 +868,42 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
 
-  // Modal styles
+  // Modal styles (centered card, aligned with NovedadFormModal style)
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  keyboardAvoid: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+  modalContainer: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    width: '90%',
+    maxWidth: 450,
     maxHeight: '80%',
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
   },
-  largeModalContent: {
-    maxHeight: '90%',
+  modalScrollContent: {
+    padding: 24,
+    flexGrow: 1,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e0e0e0',
+    marginBottom: 20,
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#202124',
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#111827',
   },
   closeButton: {
     padding: 8,
-  },
-  formContent: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
   },
   dateSection: {
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -1316,91 +923,66 @@ const styles = StyleSheet.create({
   },
   dateValue: {
     fontSize: 15,
-    color: '#1a73e8',
+    color: colors.lightTint,
     fontWeight: '600',
     marginTop: 2,
   },
-  inputSection: {
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e0e0e0',
+  fieldContainer: {
+    marginBottom: 16,
+  },
+  fieldLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 6,
   },
   input: {
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     fontSize: 15,
-    color: '#202124',
-    padding: 0,
+    color: '#111827',
+    backgroundColor: '#ffffff',
   },
   descriptionInput: {
     minHeight: 80,
     textAlignVertical: 'top',
+    paddingTop: 10,
   },
-  sectionLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#5f6368',
-    marginBottom: 8,
-  },
-  priorityChips: {
+  buttonContainer: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 10,
+    marginTop: 10,
+    paddingBottom: 10,
   },
-  priorityChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#dadce0',
-    backgroundColor: '#f1f3f4',
-  },
-  priorityChipActive: {
-    backgroundColor: '#d2e3fc',
-    borderColor: '#1a73e8',
-  },
-  priorityChipText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#5f6368',
-  },
-  priorityChipTextActive: {
-    color: '#1a73e8',
-  },
-  modalFooter: {
-    flexDirection: 'row',
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#e0e0e0',
-  },
-  cancelButtonModal: {
+  cancelButton: {
     flex: 1,
+    backgroundColor: '#e5e7eb',
     paddingVertical: 12,
     borderRadius: 8,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#dadce0',
-    justifyContent: 'center',
     alignItems: 'center',
   },
-  cancelButtonTextModal: {
-    fontSize: 14,
+  cancelButtonText: {
+    color: '#374151',
+    fontSize: 15,
     fontWeight: '600',
-    color: '#202124',
   },
-  submitButtonModal: {
+  submitButton: {
     flex: 1,
+    backgroundColor: colors.lightTint,
     paddingVertical: 12,
-    backgroundColor: '#1a73e8',
     borderRadius: 8,
-    justifyContent: 'center',
     alignItems: 'center',
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
   },
   submitButtonDisabled: {
-    backgroundColor: '#ccc',
+    backgroundColor: '#d1d5db',
+  },
+  submitButtonText: {
+    color: 'white',
+    fontSize: 15,
+    fontWeight: '600',
   },
   selectAllContainer: {
     flexDirection: 'row',
@@ -1425,7 +1007,7 @@ const styles = StyleSheet.create({
   selectAllButtonText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#1a73e8',
+    color: colors.lightTint,
   },
   repeatActivityCard: {
     borderWidth: StyleSheet.hairlineWidth,
@@ -1438,7 +1020,7 @@ const styles = StyleSheet.create({
   },
   repeatActivityCardSelected: {
     backgroundColor: '#f1f3f4',
-    borderColor: '#1a73e8',
+    borderColor: colors.lightTint,
   },
   checkboxContainer: {
     flexDirection: 'row',
@@ -1456,8 +1038,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   checkboxSelected: {
-    backgroundColor: '#1a73e8',
-    borderColor: '#1a73e8',
+    backgroundColor: colors.lightTint,
+    borderColor: colors.lightTint,
   },
   repeatActivityInfo: {
     flex: 1,
@@ -1471,6 +1053,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#202124',
+    marginTop: 2,
+  },
+  repeatParticipantsText: {
+    fontSize: 11,
+    color: colors.secondaryText,
     marginTop: 2,
   },
 });

@@ -1,6 +1,7 @@
 import { ThemedText } from '@/components/themed-text';
 import { SearchBar } from '@/components/ui/SearchBar';
 import { Colors } from '@/constants/theme';
+import { useLocalSearchParams } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { Semaforo } from '../components/Semaforo';
@@ -11,6 +12,7 @@ import { useReporteStats } from '../viewmodels/useReportes';
 const colors = Colors['light'];
 
 export function Reportes() {
+	const params = useLocalSearchParams<{ comparingWith?: string }>();
 	const [searchQuery, setSearchQuery] = useState('');
 	const { data: stats } = useReporteStats();
 
@@ -35,6 +37,16 @@ export function Reportes() {
 					Métricas de empleados
 				</ThemedText>
 			</View>
+
+			{/* Banner de comparación */}
+			{params.comparingWith && (
+				<View style={{ backgroundColor: colors.lightTint + '15', paddingVertical: 10, paddingHorizontal: 16 }}>
+					<ThemedText style={{ color: colors.lightTint, fontWeight: '600', textAlign: 'center', fontSize: 14 }}>
+						Seleccioná un empleado para comparar
+					</ThemedText>
+				</View>
+			)}
+
 			{/* Buscador */}
 			<View style={styles.searchBarContainer}>
 				<SearchBar
@@ -62,7 +74,7 @@ export function Reportes() {
 
 				{/* Semáforo con datos filtrados */}
 				<View style={styles.semaforoContainer}>
-					<Semaforo query={searchQuery} filteredData={filteredStats} />
+					<Semaforo query={searchQuery} filteredData={filteredStats} comparingWith={params.comparingWith} />
 				</View>
 			</ScrollView>
 		</View>

@@ -13,6 +13,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useAuth } from '@/features/auth/context/AuthContext';
 import { Pregunta, Respuesta } from '../models/Encuesta';
 import { useEliminarEncuesta, useGetRespuestasEncuesta } from '../viewmodels/useEncuestas';
 
@@ -28,6 +29,9 @@ interface RespuestaAgrupada {
   fecha_fin?: string;
   es_anonima?: boolean;
   creador_user_context_id?: number;
+  created_by?: number;
+  creador_nombre?: string;
+  creador_apellido?: string;
   preguntas: {
     pregunta: Pregunta;
     respuestas: Respuesta[];
@@ -39,6 +43,7 @@ const colors = Colors['light'];
 export const VerResultadosEncuestas: React.FC<VerResultadosEncuestasProps> = ({ onVolver }) => {
   const { data: encuestas, isLoading, error, refetch } = useGetRespuestasEncuesta();
   const { mutate: eliminarEncuesta, isPending: isDeleting } = useEliminarEncuesta();
+  const { user } = useAuth();
   const [encuestaSeleccionada, setEncuestaSeleccionada] = useState<number | null>(null);
 
   const handleEliminarEncuesta = (encuestaId: number, titulo: string) => {
@@ -159,12 +164,14 @@ export const VerResultadosEncuestas: React.FC<VerResultadosEncuestasProps> = ({ 
       (e) => e.encuestaId === encuestaSeleccionada
     );
     if (encuesta) {
+      const esCreador = user?.user_context_id === encuesta.created_by;
       return (
         <DetalleResultados
           encuesta={encuesta}
           onVolver={() => setEncuestaSeleccionada(null)}
           onEliminar={() => handleEliminarEncuesta(encuesta.encuestaId, encuesta.encuestaTitulo)}
           isDeleting={isDeleting}
+          esCreador={esCreador}
         />
       );
     }
@@ -204,6 +211,11 @@ export const VerResultadosEncuestas: React.FC<VerResultadosEncuestasProps> = ({ 
                 </View>
               )}
             </View>
+            {item.creador_nombre && (
+              <Text style={styles.creadorText}>
+                Creada por: {item.creador_nombre} {item.creador_apellido}
+              </Text>
+            )}
             {item.encuestaDescripcion && (
               <Text style={styles.encuestaDescripcion} numberOfLines={2}>
                 {item.encuestaDescripcion}
@@ -240,6 +252,7 @@ interface DetalleResultadosProps {
   onVolver: () => void;
   onEliminar: () => void;
   isDeleting: boolean;
+  esCreador: boolean;
 }
 
 const DetalleResultados: React.FC<DetalleResultadosProps> = ({
@@ -247,6 +260,7 @@ const DetalleResultados: React.FC<DetalleResultadosProps> = ({
   onVolver,
   onEliminar,
   isDeleting,
+  esCreador,
 }) => {
   const esEncuestaEnProgreso = () => {
     if (!encuesta.fecha_fin) return false;
@@ -268,17 +282,21 @@ const DetalleResultados: React.FC<DetalleResultadosProps> = ({
             </View>
           )}
         </View>
-        <TouchableOpacity 
-          onPress={onEliminar} 
-          style={styles.deleteButton}
-          disabled={isDeleting}
-        >
-          {isDeleting ? (
-            <ActivityIndicator size="small" color={colors.error} />
-          ) : (
-            <Ionicons name="trash-outline" size={22} color={colors.error} />
-          )}
-        </TouchableOpacity>
+        {esCreador ? (
+          <TouchableOpacity 
+            onPress={onEliminar} 
+            style={styles.deleteButton}
+            disabled={isDeleting}
+          >
+            {isDeleting ? (
+              <ActivityIndicator size="small" color={colors.error} />
+            ) : (
+              <Ionicons name="trash-outline" size={22} color={colors.error} />
+            )}
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.deleteButton} />
+        )}
       </View>
 
       {encuesta.encuestaDescripcion && (
@@ -721,6 +739,9 @@ const agruparEncuestas = (encuestas: any[]): RespuestaAgrupada[] => {
         fecha_fin: encuesta.fecha_fin,
         es_anonima: encuesta.es_anonima,
         creador_user_context_id: encuesta.creador_user_context_id,
+        created_by: encuesta.created_by,
+        creador_nombre: encuesta.creador_nombre,
+        creador_apellido: encuesta.creador_apellido,
         preguntas: preguntasAgrupadas,
       };
     });
@@ -910,6 +931,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.text,
     flex: 1,
+  },
+  creadorText: {
+    fontSize: 13,
+    color: colors.secondaryText,
+    marginBottom: 8,
   },
   encuestaDescripcion: {
     fontSize: 14,

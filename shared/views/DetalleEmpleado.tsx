@@ -40,7 +40,10 @@ export function DetalleEmpleado() {
 	}, [params.selectedUsers]);
 
 	const handleComparar = () => {
-		router.push('/(extras)/reportes');
+		router.push({
+			pathname: '/(extras)/reportes',
+			params: { comparingWith: JSON.stringify(usuarios) },
+		});
 	};
 
 	const handleRemoveUser = (id: number) => {

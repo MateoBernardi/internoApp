@@ -29,7 +29,11 @@ const TIPOS_NOVEDAD = [
   { id: 10, nombre: 'Otros' },
 ];
 
-export default function TablonNovedades() {
+interface TablonNovedadesProps {
+  refreshTrigger?: number;
+}
+
+export default function TablonNovedades({ refreshTrigger }: TablonNovedadesProps) {
   const { user } = useAuth();
   const { obtenerNovedades, crearNovedad, actualizarNovedad, eliminarNovedad, isLoading, error } =
     useNovedad();
@@ -45,6 +49,13 @@ export default function TablonNovedades() {
   useEffect(() => {
     loadNovedades();
   }, []);
+
+  // Recargar cuando se dispara refresh desde el padre
+  useEffect(() => {
+    if (refreshTrigger && refreshTrigger > 0) {
+      loadNovedades();
+    }
+  }, [refreshTrigger]);
 
   const loadNovedades = async () => {
     setLocalLoading(true);

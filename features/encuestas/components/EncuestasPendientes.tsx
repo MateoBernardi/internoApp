@@ -3,7 +3,6 @@ import { Colors } from '@/constants/theme';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import {
-    FlatList,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -91,15 +90,13 @@ export function EncuestasPendientes() {
         </Text>
       </View>
 
-      <FlatList
-        data={encuestas}
-        renderItem={renderEncuestaItem}
-        keyExtractor={(item) => item.id.toString()}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-        scrollEnabled={false}
-        nestedScrollEnabled
-      />
+      <View style={styles.listContent}>
+        {encuestas.map((item) => (
+          <React.Fragment key={item.id.toString()}>
+            {renderEncuestaItem({ item })}
+          </React.Fragment>
+        ))}
+      </View>
     </View>
   );
 };

@@ -5,9 +5,6 @@ import { useRouter } from 'expo-router';
 import React, { useCallback } from 'react';
 import {
     ActivityIndicator,
-    FlatList,
-    ListRenderItem,
-    RefreshControl,
     StyleSheet,
     TouchableOpacity,
     View,
@@ -33,29 +30,7 @@ export function SolicitudesRecibidas({ onRefresh, refreshing }: SolicitudesRecib
     });
   }, [router]);
 
-  const renderSeparator = useCallback(() => {
-    return (
-      <View
-        style={{
-          height: StyleSheet.hairlineWidth,
-          backgroundColor: colors.secondaryText,
-          marginHorizontal: 16,
-        }}
-      />
-    );
-  }, [colors]);
 
-  const renderItem: ListRenderItem<SolicitudEnviada> = useCallback(({ item }) => {
-    const estadoUI = estadoInvitacionMapping[item.estado];
-    
-    return (
-      <SolicitudRecibidaItem
-        solicitud={item}
-        estadoUI={estadoUI}
-        onPress={() => handleOpenSolicitud(item.solicitud_id)}
-      />
-    );
-  }, [handleOpenSolicitud]);
 
   if (isLoading) {
     return (
@@ -90,23 +65,29 @@ export function SolicitudesRecibidas({ onRefresh, refreshing }: SolicitudesRecib
   }
 
   return (
-    <FlatList
-      data={invitaciones}
-      renderItem={renderItem}
-      keyExtractor={(item: SolicitudEnviada) => item.solicitud_id.toString()}
-      scrollEnabled={true}
-      ItemSeparatorComponent={renderSeparator}
-      refreshControl={
-        onRefresh ? (
-          <RefreshControl
-            refreshing={refreshing ?? false}
-            onRefresh={onRefresh}
-            colors={[colors.lightTint]}
-            tintColor={colors.lightTint}
-          />
-        ) : undefined
-      }
-    />
+    <View>
+      {invitaciones.map((item, index) => {
+        const estadoUI = estadoInvitacionMapping[item.estado];
+        return (
+          <React.Fragment key={item.solicitud_id.toString()}>
+            {index > 0 && (
+              <View
+                style={{
+                  height: StyleSheet.hairlineWidth,
+                  backgroundColor: colors.secondaryText,
+                  marginHorizontal: 16,
+                }}
+              />
+            )}
+            <SolicitudRecibidaItem
+              solicitud={item}
+              estadoUI={estadoUI}
+              onPress={() => handleOpenSolicitud(item.solicitud_id)}
+            />
+          </React.Fragment>
+        );
+      })}
+    </View>
   );
 }
 

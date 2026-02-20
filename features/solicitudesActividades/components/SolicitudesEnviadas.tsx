@@ -4,9 +4,6 @@ import { useRouter } from 'expo-router';
 import React, { useCallback, useMemo } from 'react';
 import {
     ActivityIndicator,
-    FlatList,
-    ListRenderItem,
-    RefreshControl,
     StyleSheet,
     TouchableOpacity,
     View,
@@ -63,26 +60,7 @@ export function SolicitudesEnviadas({ onRefresh, refreshing }: SolicitudesEnviad
     });
   }, [router]);
 
-  const renderSeparator = useCallback(() => {
-    return (
-      <View
-        style={{
-          height: StyleSheet.hairlineWidth,
-          backgroundColor: colors.secondaryText,
-          marginHorizontal: 16,
-        }}
-      />
-    );
-  }, []);
 
-  const renderItem: ListRenderItem<SolicitudEnviadaAgrupada> = useCallback(({ item }) => {
-    return (
-      <SolicitudEnviadaItem
-        solicitud={item}
-        onPress={() => handleOpenSolicitud(item.solicitud_id)}
-      />
-    );
-  }, [handleOpenSolicitud]);
 
   if (isLoading) {
     return (
@@ -117,23 +95,25 @@ export function SolicitudesEnviadas({ onRefresh, refreshing }: SolicitudesEnviad
   }
 
   return (
-    <FlatList
-      data={agrupadas}
-      renderItem={renderItem}
-      keyExtractor={(item: SolicitudEnviadaAgrupada) => item.solicitud_id.toString()}
-      scrollEnabled={true}
-      ItemSeparatorComponent={renderSeparator}
-      refreshControl={
-        onRefresh ? (
-          <RefreshControl
-            refreshing={refreshing ?? false}
-            onRefresh={onRefresh}
-            colors={[colors.lightTint]}
-            tintColor={colors.lightTint}
+    <View>
+      {agrupadas.map((item, index) => (
+        <React.Fragment key={item.solicitud_id.toString()}>
+          {index > 0 && (
+            <View
+              style={{
+                height: StyleSheet.hairlineWidth,
+                backgroundColor: colors.secondaryText,
+                marginHorizontal: 16,
+              }}
+            />
+          )}
+          <SolicitudEnviadaItem
+            solicitud={item}
+            onPress={() => handleOpenSolicitud(item.solicitud_id)}
           />
-        ) : undefined
-      }
-    />
+        </React.Fragment>
+      ))}
+    </View>
   );
 }
 

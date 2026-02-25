@@ -21,11 +21,12 @@ export default function DocumentosEmpresa({ query = '' }: { query?: string }) {
   const [isDownloading, setIsDownloading] = useState(false);
   const { getArchivoUrlFirmada } = useGetArchivoUrlFirmada();
 
-  const { data: allFiles, isLoading: loadingAll, refetch: refetchAll } = useArchivos();
-  const { data: searchResults, isLoading: loadingSearch } = useSearchArchivos(query);
+  const { data: allFiles, isLoading: loadingAll, isPending: pendingAll, error: errorAll, refetch: refetchAll } = useArchivos();
+  const { data: searchResults, isLoading: loadingSearch, isPending: pendingSearch } = useSearchArchivos(query);
 
   const isSearching = query.trim().length > 0;
   const displayData = isSearching ? searchResults : allFiles;
+  const isLoadingAny = isSearching ? loadingSearch || pendingSearch : loadingAll || pendingAll;
 
   useEffect(() => {
     if (!fileToOpen) return;
@@ -121,9 +122,16 @@ export default function DocumentosEmpresa({ query = '' }: { query?: string }) {
 
   return (
     <ThemedView style={styles.container}>
-      {isSearching ? loadingSearch : loadingAll ? (
+      {isLoadingAny ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color={colors.tint} />
+        </View>
+      ) : errorAll && !isSearching ? (
+        <View style={styles.center}>
+          <ThemedText style={{ marginBottom: 8 }}>Error al cargar documentos</ThemedText>
+          <ThemedText style={{ color: colors.secondaryText, fontSize: 13 }}>
+            {errorAll instanceof Error ? errorAll.message : 'Intenta nuevamente'}
+          </ThemedText>
         </View>
       ) : (
         <OwnFlatList<Archivo>

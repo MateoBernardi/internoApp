@@ -1,14 +1,25 @@
 import { apiRequest } from '@/shared/apiRequest';
 import * as solicitudes from '../models/Solicitud';
 
+/** Extrae el mensaje de error del body JSON del backend (si aplica) */
+async function extractErrorText(response: Response): Promise<string> {
+    const text = await response.text();
+    try {
+        const json = JSON.parse(text);
+        return json.error || json.message || text;
+    } catch {
+        return text;
+    }
+}
+
 export async function crearSolicitud(accessToken: string, data: solicitudes.CrearSolicitudRequest): Promise<solicitudes.CrearSolicitudResponse> {
     const response = await apiRequest({method: 'POST', endpoint: '/solicitudes-actividades/solicitudes', token: accessToken, body: data});
     console.log('Solicitud enviada: ', data);
 
     if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Error en crearSolicitud:', response.status, errorText);
-        throw new Error(`No se pudo crear la solicitud: ${response.status} - ${errorText}`);
+        const errorMsg = await extractErrorText(response);
+        console.error('Error en crearSolicitud:', response.status, errorMsg);
+        throw new Error(errorMsg);
     }
 
     return await response.json();
@@ -100,9 +111,9 @@ export async function actualizarEstadoInvitacion(accessToken: string, data: soli
     const response = await apiRequest({method: 'PUT', endpoint: `/solicitudes-actividades/solicitudes/invitados/estado`, token: accessToken, body: data});
 
     if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Error en actualizarEstadoInvitacion:', response.status, errorText);
-        throw new Error(`No se pudo actualizar el estado de la invitación: ${response.status} - ${errorText}`);
+        const errorMsg = await extractErrorText(response);
+        console.error('Error en actualizarEstadoInvitacion:', response.status, errorMsg);
+        throw new Error(errorMsg);
     }
 
     return await response.json();

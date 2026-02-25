@@ -1,5 +1,8 @@
 import { apiRequest } from '@/shared/apiRequest';
+import Constants from 'expo-constants';
 import * as reporte from '../models/Reporte';
+
+const API_BASE_URL = Constants.expoConfig?.extra?.API_BASE_URL;
 
 export async function createReporte (accessToken: string, payload: reporte.CreateReportePayload): Promise<reporte.Reporte> {
     const response = await apiRequest({  method: 'POST', endpoint: '/reportes', token: accessToken, body: payload});
@@ -99,4 +102,115 @@ export async function getUpgradedEmployee (accessToken: string): Promise<reporte
 
     const data: reporte.MostImprovedUser = await response.json();
     return data;
+}
+
+// ─── Reportes Imágenes ────────────────────────────────────────────────────────
+
+/**
+ * Obtiene las imágenes (con metadatos) asociadas a un reporte.
+ * GET /reportesImagenes/:reporte_id
+ */
+export async function getReporteImagenes (
+    accessToken: string,
+    reporteId: string | number,
+): Promise<reporte.ReporteImagen[]> {
+    const response = await apiRequest({
+        method: 'GET',
+        endpoint: `/reportesImagenes/${reporteId}`,
+        token: accessToken,
+    });
+
+    if (!response.ok) {
+        throw new Error(`No se pudieron obtener las imágenes del reporte: ${response.statusText}`);
+    }
+
+    return response.json();
+}
+
+/**
+ * Sube una imagen a Cloudflare y la vincula al reporte en una sola llamada.
+ * POST /reportesImagenes/upload  (multipart/form-data)
+ *
+ * @param fileUri   URI local del archivo (resultado de expo-document-picker / expo-image-picker)
+ * @param fileName  Nombre del archivo (e.g. "foto.jpg")
+ * @param mimeType  MIME type (e.g. "image/jpeg")
+ */
+export async function uploadReporteImage (
+    accessToken: string,
+    reporteId: number | string,
+    fileUri: string,
+    fileName: string,
+    mimeType: string,
+    description: string,
+    orden: number,
+): Promise<reporte.UploadReporteImageResponse> {
+    const formData = new FormData();
+    // React Native FormData acepta un objeto con uri para representar archivos locales
+    formData.append('file', { uri: fileUri, name: fileName, type: mimeType } as any);
+    formData.append('reporteId', String(reporteId));
+    formData.append('description', description);
+    formData.append('orden', String(orden));
+
+    const response = await fetch(`${API_BASE_URL}/reportesImagenes/upload`, {
+        method: 'POST',
+        headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'x-app-entorno': 'interno',
+            // NO establecer Content-Type — fetch lo agrega automáticamente con el boundary correcto
+        },
+        body: formData,
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`No se pudo subir la imagen: ${response.status} - ${errorText}`);
+    }
+
+    return response.json();
+}
+
+/**
+ * Desvincula una imagen de un reporte (y reordena el resto automáticamente).
+ * DELETE /reportesImagenes/unlink/:reporte_id/:image_id/:orden
+ */
+export async function unlinkReporteImage (
+    accessToken: string,
+    reporteId: number | string,
+    imageId: number,
+    orden: number,
+): Promise<void> {
+    const response = await apiRequest({
+        method: 'DELETE',
+        endpoint: `/reportesImagenes/unlink/${reporteId}/${imageId}/${orden}`,
+        token: accessToken,
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`No se pudo desvincular la imagen: ${response.status} - ${errorText}`);
+    }
+}
+
+/**
+ * Actualiza el orden de una imagen dentro de un reporte.
+ * PUT /reportesImagenes/update-order/:reporte_id/:image_id
+ */
+export async function updateReporteImageOrder (
+    accessToken: string,
+    reporteId: number | string,
+    imageId: number,
+    newOrder: number,
+): Promise<reporte.ReporteImagen> {
+    const response = await apiRequest({
+        method: 'PUT',
+        endpoint: `/reportesImagenes/update-order/${reporteId}/${imageId}`,
+        token: accessToken,
+        body: { newOrder },
+    });
+
+    if (!response.ok) {
+        throw new Error(`No se pudo actualizar el orden: ${response.statusText}`);
+    }
+
+    return response.json();
 }

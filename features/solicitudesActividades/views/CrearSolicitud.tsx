@@ -7,16 +7,16 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Switch,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { RoleUserSelectionModal } from '../components/RoleUserSelectionModal';
 import { UserSelector } from '../components/UserSelector';
@@ -33,6 +33,7 @@ export function CrearSolicitud() {
   const [fechaFin, setFechaFin] = useState<Date>(new Date(Date.now() + 3600000)); // +1 hora
   const [allDay, setAllDay] = useState(false);
   const [tipoActividad, setTipoActividad] = useState<'REUNION' | 'MANDATO'>('REUNION');
+  const [includeDates, setIncludeDates] = useState(true); // MANDATO can skip dates
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [datePickerMode, setDatePickerMode] = useState<'date' | 'time'>('date');
   const [activeDateType, setActiveDateType] = useState<'start' | 'end' | null>(null);
@@ -154,13 +155,16 @@ export function CrearSolicitud() {
   };
 
   const isFormValid = useMemo(() => {
+    const dateValid = tipoActividad === 'MANDATO' && !includeDates
+      ? true
+      : fechaInicio < fechaFin;
     return (
       titulo.trim().length > 0 &&
       descripcion.trim().length > 0 &&
       selectedUsers.length > 0 &&
-      fechaInicio < fechaFin
+      dateValid
     );
-  }, [titulo, descripcion, selectedUsers, fechaInicio, fechaFin]);
+  }, [titulo, descripcion, selectedUsers, fechaInicio, fechaFin, tipoActividad, includeDates]);
 
   const handleCrearSolicitud = useCallback(() => {
     if (!isFormValid) {
@@ -180,8 +184,9 @@ export function CrearSolicitud() {
       {
         titulo: titulo.trim(),
         descripcion: descripcion.trim(),
-        fecha_inicio: start.toISOString(),
-        fecha_fin: end.toISOString(),
+        ...(tipoActividad === 'REUNION' || includeDates
+          ? { fecha_inicio: start.toISOString(), fecha_fin: end.toISOString() }
+          : {}),
         tipo_actividad: tipoActividad,
         invitados: selectedUsers.map((u: UserSummary) => u.user_context_id),
       },
@@ -254,65 +259,84 @@ export function CrearSolicitud() {
                 />
              </View>
 
-             <View style={styles.dateRow}>
-                 <View style={{ flex: 1 }}>
-                     <TouchableOpacity 
-                        onPress={handleStartDate}
-                        activeOpacity={0.7}
-                     >
-                        <ThemedText style={styles.dateLabel}>Fecha de inicio</ThemedText>
-                        <ThemedText style={styles.dateValue}>
-                            {fechaInicio.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short' })}
-                        </ThemedText>
-                     </TouchableOpacity>
-                 </View>
-                 {!allDay && (
-                     <View>
+             {/* Solo para MANDATO: mostrar opción de incluir fechas */}
+             {tipoActividad === 'MANDATO' && (
+               <View style={[styles.switchRow, { marginTop: 4 }]}>
+                 <Ionicons name="calendar-outline" size={20} color={colors.secondaryText} style={{ marginRight: 8 }} />
+                 <ThemedText style={[styles.dateSectionTitle, { color: colors.secondaryText }]}>Incluir fechas</ThemedText>
+                 <View style={{ flex: 1 }} />
+                 <Switch
+                   value={includeDates}
+                   onValueChange={setIncludeDates}
+                   trackColor={{ false: colors.secondaryText, true: colors.success }}
+                   thumbColor={colors.componentBackground}
+                 />
+               </View>
+             )}
+
+             {(tipoActividad === 'REUNION' || includeDates) && (
+               <>
+                 <View style={styles.dateRow}>
+                     <View style={{ flex: 1 }}>
                          <TouchableOpacity 
-                            onPress={handleStartTime}
+                            onPress={handleStartDate}
                             activeOpacity={0.7}
                          >
-                            <ThemedText style={styles.dateLabel}>Hora</ThemedText>
-                            <ThemedText style={styles.timeValue}>
-                                {fechaInicio.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                            <ThemedText style={styles.dateLabel}>Fecha de inicio</ThemedText>
+                            <ThemedText style={styles.dateValue}>
+                                {fechaInicio.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short' })}
                             </ThemedText>
                          </TouchableOpacity>
                      </View>
-                 )}
-             </View>
-
-             <View style={styles.dateRow}>
-                 <View style={{ flex: 1 }}>
-                     <TouchableOpacity 
-                        onPress={handleEndDate}
-                        activeOpacity={0.7}
-                     >
-                        <ThemedText style={styles.dateLabel}>Fecha de finalización</ThemedText>
-                        <ThemedText style={styles.dateValue}>
-                            {fechaFin.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short' })}
-                        </ThemedText>
-                     </TouchableOpacity>
+                     {!allDay && (
+                         <View>
+                             <TouchableOpacity 
+                                onPress={handleStartTime}
+                                activeOpacity={0.7}
+                             >
+                                <ThemedText style={styles.dateLabel}>Hora</ThemedText>
+                                <ThemedText style={styles.timeValue}>
+                                    {fechaInicio.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                                </ThemedText>
+                             </TouchableOpacity>
+                         </View>
+                     )}
                  </View>
-                 {!allDay && (
-                     <View>
+
+                 <View style={styles.dateRow}>
+                     <View style={{ flex: 1 }}>
                          <TouchableOpacity 
-                            onPress={handleEndTime}
+                            onPress={handleEndDate}
                             activeOpacity={0.7}
                          >
-                            <ThemedText style={styles.dateLabel}>Hora</ThemedText>
-                            <ThemedText style={styles.timeValue}>
-                                {fechaFin.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                            <ThemedText style={styles.dateLabel}>Fecha de finalización</ThemedText>
+                            <ThemedText style={styles.dateValue}>
+                                {fechaFin.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short' })}
                             </ThemedText>
                          </TouchableOpacity>
                      </View>
-                 )}
-             </View>
+                     {!allDay && (
+                         <View>
+                             <TouchableOpacity 
+                                onPress={handleEndTime}
+                                activeOpacity={0.7}
+                             >
+                                <ThemedText style={styles.dateLabel}>Hora</ThemedText>
+                                <ThemedText style={styles.timeValue}>
+                                    {fechaFin.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                                </ThemedText>
+                             </TouchableOpacity>
+                         </View>
+                     )}
+                 </View>
 
-            {fechaInicio >= fechaFin && (
-              <ThemedText style={{ color: colors.error, fontSize: 12, marginTop: 8 }}>
-                La fecha de fin debe ser posterior a la de inicio
-              </ThemedText>
-            )}
+                 {fechaInicio >= fechaFin && (
+                   <ThemedText style={{ color: colors.error, fontSize: 12, marginTop: 8 }}>
+                     La fecha de fin debe ser posterior a la de inicio
+                   </ThemedText>
+                 )}
+               </>
+             )}
           </View>
 
           {/* UserSelector */}
@@ -350,7 +374,7 @@ export function CrearSolicitud() {
                         styles.chip,
                         tipoActividad === 'REUNION' && { borderColor: colors.lightTint, backgroundColor: 'transparent', borderWidth: 1 }
                     ]}
-                    onPress={() => setTipoActividad('REUNION')}
+                    onPress={() => { setTipoActividad('REUNION'); setIncludeDates(true); }}
                 >
                     <ThemedText style={[
                         styles.chipText,

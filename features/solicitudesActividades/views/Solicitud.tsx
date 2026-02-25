@@ -22,6 +22,7 @@ import {
 import { RoleUserSelectionModal } from '../components/RoleUserSelectionModal';
 import { UserSelector } from '../components/UserSelector';
 import { EstadoInvitacionDB, estadoInvitacionMapping, ModificarSolicitudFechasRequest, ReenviarSolicitudRequest } from '../models/Solicitud';
+import { useCrearActividad } from '../viewmodels/useActividades';
 import {
     useAceptarModificaciones,
     useActualizarEstadoInvitacion,
@@ -46,6 +47,7 @@ export function Solicitud() {
   const { mutate: aceptarModificaciones, isPending: isAcceptingMod } = useAceptarModificaciones();
   const { mutate: modificarSolicitud, isPending: isModifying } = useModificarSolicitudFechas();
   const { mutate: reenviarSolicitud, isPending: isSharing } = useReenviarSolicitud();
+  const { mutate: crearActividad, isPending: isCreatingActividad } = useCrearActividad();
   
   const { data: enviadas } = useSolicitudesCreadas();
   const { data: recibidas } = useInvitaciones();
@@ -54,7 +56,13 @@ export function Solicitud() {
   const [showAcceptModal, setShowAcceptModal] = useState(false);
   const [showModifyModal, setShowModifyModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [showAddToAgendaModal, setShowAddToAgendaModal] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+
+  // Estados para el modal "Agregar a la agenda"
+  const [agendaFechaInicio, setAgendaFechaInicio] = useState<Date>(new Date());
+  const [agendaFechaFin, setAgendaFechaFin] = useState<Date>(new Date(Date.now() + 3600000));
+  const [showAgendaDatePicker, setShowAgendaDatePicker] = useState<{show: boolean, mode: 'date'|'time', target: 'start'|'end'}>({show: false, mode: 'date', target: 'start'});
   
   // Estado para modificación
   const [modStartDate, setModStartDate] = useState(new Date());
@@ -183,8 +191,8 @@ export function Solicitud() {
 
   const handleModificarPress = useCallback(() => {
       if (solicitud) {
-          setModStartDate(new Date(solicitud.fecha_inicio));
-          setModEndDate(new Date(solicitud.fecha_fin));
+          setModStartDate(solicitud.fecha_inicio ? new Date(solicitud.fecha_inicio) : new Date());
+          setModEndDate(solicitud.fecha_fin ? new Date(solicitud.fecha_fin) : new Date(Date.now() + 3600000));
           setModObservation('');
           setShowModifyModal(true);
       }
@@ -240,6 +248,62 @@ export function Solicitud() {
     setActiveRole('');
     setShowShareModal(true);
   }, []);
+
+  const handleAgregarAAgenda = useCallback(() => {
+    // Prellena fechas desde la solicitud si existen
+    if (solicitud?.fecha_inicio && solicitud?.fecha_fin) {
+      setAgendaFechaInicio(new Date(solicitud.fecha_inicio));
+      setAgendaFechaFin(new Date(solicitud.fecha_fin));
+    } else {
+      setAgendaFechaInicio(new Date());
+      setAgendaFechaFin(new Date(Date.now() + 3600000));
+    }
+    setShowAddToAgendaModal(true);
+  }, [solicitud]);
+
+  const onAgendaDateChange = (event: any, selectedDate?: Date) => {
+    const currentTarget = showAgendaDatePicker.target;
+    if (Platform.OS === 'android') {
+      setShowAgendaDatePicker(prev => ({ ...prev, show: false }));
+    }
+    if (selectedDate && event.type !== 'dismissed') {
+      if (currentTarget === 'start') {
+        setAgendaFechaInicio(selectedDate);
+        if (selectedDate >= agendaFechaFin) {
+          setAgendaFechaFin(new Date(selectedDate.getTime() + 3600000));
+        }
+      } else {
+        setAgendaFechaFin(selectedDate);
+      }
+    }
+  };
+
+  const confirmAgregarAAgenda = useCallback(() => {
+    if (agendaFechaInicio >= agendaFechaFin) {
+      Alert.alert('Error', 'La fecha de fin debe ser posterior a la de inicio');
+      return;
+    }
+    if (!solicitud) return;
+    crearActividad(
+      {
+        titulo: solicitud.titulo,
+        descripcion: solicitud.descripcion,
+        fecha_inicio: agendaFechaInicio.toISOString(),
+        fecha_fin: agendaFechaFin.toISOString(),
+        solicitud_id: solicitud.solicitud_id,
+      },
+      {
+        onSuccess: () => {
+          setShowAddToAgendaModal(false);
+          Alert.alert('Éxito', 'Actividad agregada a tu agenda');
+        },
+        onError: (error) => {
+          const msg = error instanceof Error ? error.message : 'Error al agregar a la agenda';
+          Alert.alert('Error', msg);
+        },
+      }
+    );
+  }, [agendaFechaInicio, agendaFechaFin, solicitud, crearActividad]);
 
   const confirmCompartir = useCallback(() => {
     if (selectedUsersToShare.length === 0) {
@@ -308,9 +372,10 @@ export function Solicitud() {
     { label: 'Personas y Relaciones', value: 'personasRelaciones' },
   ];
 
-  const fechaInicio = solicitud ? new Date(solicitud.fecha_inicio) : new Date();
-  const fechaFin = solicitud ? new Date(solicitud.fecha_fin) : new Date();
-  const fechaInicioPasada = fechaInicio < new Date();
+  const hasDates = !!(solicitud?.fecha_inicio && solicitud?.fecha_fin);
+  const fechaInicio = solicitud?.fecha_inicio ? new Date(solicitud.fecha_inicio) : new Date();
+  const fechaFin = solicitud?.fecha_fin ? new Date(solicitud.fecha_fin) : new Date();
+  const fechaInicioPasada = hasDates ? fechaInicio < new Date() : false;
   
   if (!solicitud && !enviadas && !recibidas) {
        return (
@@ -347,23 +412,31 @@ export function Solicitud() {
                     </ThemedText>
                 </View>
 
-                <View style={styles.dateRow}>
-                    <ThemedText style={styles.dateValue}>
-                        {fechaInicio.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short' })}
-                    </ThemedText>
-                    <ThemedText style={styles.timeValue}>
-                        {fechaInicio.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
-                    </ThemedText>
-                </View>
+                {hasDates ? (
+                  <>
+                    <View style={styles.dateRow}>
+                        <ThemedText style={styles.dateValue}>
+                            {fechaInicio.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short' })}
+                        </ThemedText>
+                        <ThemedText style={styles.timeValue}>
+                            {fechaInicio.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                        </ThemedText>
+                    </View>
 
-                <View style={styles.dateRow}>
-                    <ThemedText style={styles.dateValue}>
-                        {fechaFin.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short' })}
-                    </ThemedText>
-                    <ThemedText style={styles.timeValue}>
-                         {fechaFin.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
-                    </ThemedText>
-                </View>
+                    <View style={styles.dateRow}>
+                        <ThemedText style={styles.dateValue}>
+                            {fechaFin.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short' })}
+                        </ThemedText>
+                        <ThemedText style={styles.timeValue}>
+                             {fechaFin.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                        </ThemedText>
+                    </View>
+                  </>
+                ) : (
+                  <ThemedText style={{ color: colors.secondaryText, fontSize: 14, marginTop: 4 }}>
+                    Sin fecha definida
+                  </ThemedText>
+                )}
             </View>
 
              <View style={styles.inputSection}>
@@ -380,7 +453,7 @@ export function Solicitud() {
             <View style={[styles.inputSection, { borderBottomWidth: 0, paddingVertical: 10 }]}>
                  <View style={[styles.chip, { borderColor: colors.lightTint, backgroundColor: 'transparent', borderWidth: 1 }]}>
                     <ThemedText style={[styles.chipText, { color: colors.lightTint, fontWeight: 'bold' }]}>
-                        Reunión
+                        {solicitud?.tipo_actividad === 'MANDATO' ? 'Tarea' : 'Reunión'}
                     </ThemedText>
                  </View>
             </View>
@@ -477,8 +550,15 @@ export function Solicitud() {
               </>
           )}
 
+          {/* Agregar a la agenda (solo para recibidas aceptadas) */}
+          {type === 'recibida' && solicitud?.estado === 'ACCEPTED' && (
+            <TouchableOpacity style={[styles.fab, { backgroundColor: colors.success, marginRight: 16 }]} onPress={handleAgregarAAgenda}>
+              <Ionicons name="calendar-outline" size={24} color={colors.background} />
+            </TouchableOpacity>
+          )}
+
           {/* Main Action: Accept (Recibida or Enviada[MODIFIED]) - only if date not passed */}
-          {!fechaInicioPasada && ((type === 'recibida') || (type === 'enviada' && solicitud?.estado === 'MODIFIED')) && (
+          {!fechaInicioPasada && ((type === 'recibida' && solicitud?.estado !== 'ACCEPTED') || (type === 'enviada' && solicitud?.estado === 'MODIFIED')) && (
                <TouchableOpacity style={[styles.fab, { backgroundColor: colors.success, marginRight: 16 }]} onPress={handleAceptarPress}>
                    <Ionicons name="checkmark" size={24} color={colors.background} />
                </TouchableOpacity>
@@ -617,6 +697,78 @@ export function Solicitud() {
         onSelectAll={handleSelectAllRoleUsers}
         onDeselectAll={handleDeselectAllRoleUsers}
       />
+
+      {/* Modal Agregar a la Agenda */}
+      <Modal visible={showAddToAgendaModal} transparent animationType="fade" onRequestClose={() => setShowAddToAgendaModal(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{flex: 1}}>
+        <TouchableWithoutFeedback onPress={() => setShowAddToAgendaModal(false)}>
+        <View style={styles.modalOverlay}>
+          <TouchableWithoutFeedback onPress={e => e.stopPropagation()}>
+            <View style={styles.modalContent}>
+              <ThemedText type="subtitle" style={{marginBottom: 8}}>Agregar a la agenda</ThemedText>
+              {!hasDates && (
+                <ThemedText style={{color: colors.secondaryText, marginBottom: 16, fontSize: 13}}>
+                  Esta tarea no tiene fechas. Ingresa las fechas para agendar la actividad.
+                </ThemedText>
+              )}
+
+              <ThemedText style={styles.label}>Fecha de inicio</ThemedText>
+              <View style={styles.row}>
+                <TouchableOpacity onPress={() => setShowAgendaDatePicker({show: true, mode: 'date', target: 'start'})} style={styles.dateBtn}>
+                  <ThemedText>{agendaFechaInicio.toLocaleDateString('es-ES', {day:'2-digit', month:'short', year:'numeric'})}</ThemedText>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setShowAgendaDatePicker({show: true, mode: 'time', target: 'start'})} style={styles.dateBtn}>
+                  <ThemedText>{agendaFechaInicio.toLocaleTimeString('es-ES', {hour:'2-digit', minute:'2-digit'})}</ThemedText>
+                </TouchableOpacity>
+              </View>
+
+              <ThemedText style={styles.label}>Fecha de fin</ThemedText>
+              <View style={styles.row}>
+                <TouchableOpacity onPress={() => setShowAgendaDatePicker({show: true, mode: 'date', target: 'end'})} style={styles.dateBtn}>
+                  <ThemedText>{agendaFechaFin.toLocaleDateString('es-ES', {day:'2-digit', month:'short', year:'numeric'})}</ThemedText>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setShowAgendaDatePicker({show: true, mode: 'time', target: 'end'})} style={styles.dateBtn}>
+                  <ThemedText>{agendaFechaFin.toLocaleTimeString('es-ES', {hour:'2-digit', minute:'2-digit'})}</ThemedText>
+                </TouchableOpacity>
+              </View>
+
+              {agendaFechaInicio >= agendaFechaFin && (
+                <ThemedText style={{color: colors.error, fontSize: 12, marginBottom: 8}}>
+                  La fecha de fin debe ser posterior a la de inicio
+                </ThemedText>
+              )}
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity onPress={() => setShowAddToAgendaModal(false)} style={styles.modalBtnCancel}>
+                  <ThemedText style={{color: colors.error}}>Cancelar</ThemedText>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={confirmAgregarAAgenda}
+                  style={[styles.modalBtnConfirm, { opacity: agendaFechaInicio >= agendaFechaFin ? 0.5 : 1 }]}
+                  disabled={isCreatingActividad || agendaFechaInicio >= agendaFechaFin}
+                >
+                  {isCreatingActividad
+                    ? <ActivityIndicator color={colors.background}/>
+                    : <ThemedText style={{color: colors.background}}>Agregar</ThemedText>
+                  }
+                </TouchableOpacity>
+              </View>
+            </View>
+          </TouchableWithoutFeedback>
+        </View>
+        </TouchableWithoutFeedback>
+        {showAgendaDatePicker.show && (
+          <DateTimePicker
+            testID="agendaDateTimePicker"
+            value={showAgendaDatePicker.target === 'start' ? agendaFechaInicio : agendaFechaFin}
+            mode={showAgendaDatePicker.mode}
+            is24Hour={true}
+            display="default"
+            onChange={onAgendaDateChange}
+          />
+        )}
+        </KeyboardAvoidingView>
+      </Modal>
 
     </View>
   );

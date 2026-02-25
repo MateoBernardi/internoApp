@@ -6,6 +6,7 @@ import React, { useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { EstadoReporte, Reporte } from '../models/Reporte';
 import { useUpdateReporte } from '../viewmodels/useReportes';
+import { ImagenesReporte } from './ImagenesReporte';
 
 interface ReporteModalProps {
 	visible: boolean;
@@ -40,6 +41,9 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 	// Solo gerencia puede modificar si está en estado final
 	// En otros estados (DISPUTA, PENDIENTE), cualquiera puede modificar
 	const canModify = !isReporteFinal || isGerencia;
+
+	// Roles supervisores que pueden gestionar imágenes
+	const canManageImages = hasRole(['gerencia', 'personasRelaciones', 'encargado']);
 
 	// Para MisReportes: solo puede aceptar (ASENTADO, obs opcional) o responder (DISPUTA, obs obligatoria)
 	// Para ReportesEmpleado: puede cambiar a cualquier estado, obs obligatoria
@@ -194,6 +198,12 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 								<ThemedText style={{ color: colors.icon, textAlign: 'center', marginTop: 20 }}>No hay actividad reciente</ThemedText>
 							)}
 						</View>
+						{/* Imágenes */}
+						<ImagenesReporte
+							reporteId={reporte.id}
+							imagenesUrl={reporte.imagenes}
+							canManage={canManageImages}
+						/>
 						{/* Acciones */}
 						{renderControles()}
 					</ScrollView>

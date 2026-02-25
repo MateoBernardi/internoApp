@@ -28,6 +28,41 @@ export interface Reporte {
     creador_nombre?: string;
     creador_apellido?: string;
     bitacora?: BitacoraItem[];
+    /** URLs de imágenes asociadas al reporte (incluidas en GET /reportes) */
+    imagenes?: string[];
+}
+
+/** Objeto de imagen con metadatos completos (de GET /reportesImagenes/:reporte_id) */
+export interface ReporteImagen {
+    id: number;
+    reporte_id: number;
+    image_id: number;
+    orden: number;
+    url: string;
+    section: string;
+    imagen_descripcion: string | null;
+}
+
+/** Respuesta del endpoint POST /reportesImagenes/upload */
+export interface UploadReporteImageResponse {
+    image: {
+        id: number;
+        url: string;
+        section: string;
+        description: string;
+        cf_image_id: string;
+    };
+    reporteLink: {
+        id: number;
+        reporte_id: number;
+        image_id: number;
+        orden: number;
+    };
+    cloudflareData: {
+        id: string;
+        variants: string[];
+        url: string;
+    };
 }
 
 export interface CreateReportePayload {

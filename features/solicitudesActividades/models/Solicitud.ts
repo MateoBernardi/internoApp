@@ -33,8 +33,9 @@ export interface Solicitud {
   titulo: string;
   descripcion: string;
   created_by: number;
-  fecha_inicio: string; // ISO 8601 UTC
-  fecha_fin: string; // ISO 8601 UTC
+  fecha_inicio: string | null; // ISO 8601 UTC — null para MANDATOs sin fechas
+  fecha_fin: string | null; // ISO 8601 UTC — null para MANDATOs sin fechas
+  tipo_actividad?: TipoActividadDB;
   estado: EstadoInvitacionDB; // Estado de la invitación
   nombre: string; // Opcional: nombre del creador de la solicitud
   apellido: string; // Opcional: apellido del creador de la solicitud
@@ -45,8 +46,9 @@ export interface SolicitudEnviada{
   titulo: string;
   descripcion: string;
   created_by: number;
-  fecha_inicio: string; // ISO 8601 UTC
-  fecha_fin: string; // ISO 8601 UTC
+  fecha_inicio: string | null; // ISO 8601 UTC — null para MANDATOs sin fechas
+  fecha_fin: string | null; // ISO 8601 UTC — null para MANDATOs sin fechas
+  tipo_actividad?: TipoActividadDB;
   estado: EstadoInvitacionDB; // Estado de la invitación
   creador_nombre: string; // Opcional: nombre del creador de la solicitud
   creador_apellido: string; // Opcional: apellido del creador de la solicitud
@@ -65,8 +67,9 @@ export interface SolicitudEnviadaAgrupada {
   titulo: string;
   descripcion: string;
   created_by: number;
-  fecha_inicio: string;
-  fecha_fin: string;
+  fecha_inicio: string | null;
+  fecha_fin: string | null;
+  tipo_actividad?: TipoActividadDB;
   invitados: InvitadoResumen[];
 }
 
@@ -76,8 +79,8 @@ export type TipoActividadDB = 'MANDATO' | 'REUNION';
 export interface CrearSolicitudRequest {
   titulo: string;
   descripcion: string;
-  fecha_inicio: string; // ISO 8601 UTC
-  fecha_fin: string; // ISO 8601 UTC
+  fecha_inicio?: string; // ISO 8601 UTC — obligatorio para REUNION, opcional para MANDATO
+  fecha_fin?: string; // ISO 8601 UTC — obligatorio para REUNION, opcional para MANDATO
   tipo_actividad: TipoActividadDB;
   invitados: number[]; // Array de IDs de usuario_entidad
 }

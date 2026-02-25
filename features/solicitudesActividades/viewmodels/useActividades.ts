@@ -95,7 +95,7 @@ export function useCrearActividad() {
             fecha_fin: newData.fecha_fin,
             rol: 'host',
             participantes: [],
-            solicitud_id: null,
+            solicitud_id: newData.solicitud_id ?? null,
           };
           return {
             ...old,

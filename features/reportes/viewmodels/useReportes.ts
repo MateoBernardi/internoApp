@@ -3,10 +3,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     createReporte,
     fetchReportes,
+    getReporteImagenes,
     getReporteStats,
     getTopEmployee,
     getUpgradedEmployee,
-    updateReporte
+    unlinkReporteImage,
+    updateReporte,
+    updateReporteImageOrder,
+    uploadReporteImage,
 } from '../services/reportesApi';
 
 const REPORTES_QUERY_KEY = ['reportes'];
@@ -145,5 +149,127 @@ export function useUpgradedEmployee() {
         },
         staleTime: 1000 * 60 * 10, // 10 minutos
         gcTime: 1000 * 60 * 20, // 20 minutos
+    });
+}
+
+// ─── Hooks de Imágenes ────────────────────────────────────────────────────────
+
+const REPORTE_IMAGENES_QUERY_KEY = (reporteId: string | number) =>
+    ['reportes', 'imagenes', String(reporteId)];
+
+/**
+ * Obtiene las imágenes con metadatos de un reporte (para gestión: delete, reordenar).
+ * Solo debería ejecutarse cuando el usuario tiene rol supervisor.
+ */
+export function useReporteImagenes(reporteId: string | number | undefined) {
+    const { tokens } = useAuth();
+
+    return useQuery({
+        queryKey: REPORTE_IMAGENES_QUERY_KEY(reporteId ?? ''),
+        queryFn: async () => {
+            const token = tokens?.accessToken;
+            if (!token) throw new Error('No hay token de acceso');
+            return getReporteImagenes(token, reporteId!);
+        },
+        enabled: !!reporteId && !!tokens?.accessToken,
+        staleTime: 1000 * 60 * 2,
+        gcTime: 1000 * 60 * 5,
+    });
+}
+
+/**
+ * Sube una imagen a Cloudflare y la vincula al reporte en un solo request.
+ * Invalida la lista de reportes y las imágenes del reporte al completar.
+ */
+export function useUploadReporteImage() {
+    const queryClient = useQueryClient();
+    const { tokens } = useAuth();
+
+    return useMutation({
+        mutationFn: async ({
+            reporteId,
+            fileUri,
+            fileName,
+            mimeType,
+            description,
+            orden,
+        }: {
+            reporteId: number | string;
+            fileUri: string;
+            fileName: string;
+            mimeType: string;
+            description: string;
+            orden: number;
+        }) => {
+            const token = tokens?.accessToken;
+            if (!token) throw new Error('No hay token de acceso');
+            return uploadReporteImage(token, reporteId, fileUri, fileName, mimeType, description, orden);
+        },
+        onSuccess: (_data, variables) => {
+            queryClient.invalidateQueries({ queryKey: REPORTES_QUERY_KEY });
+            queryClient.invalidateQueries({
+                queryKey: REPORTE_IMAGENES_QUERY_KEY(variables.reporteId),
+            });
+        },
+    });
+}
+
+/**
+ * Desvincula una imagen de un reporte.
+ * Invalida la lista de reportes y las imágenes del reporte al completar.
+ */
+export function useUnlinkReporteImage() {
+    const queryClient = useQueryClient();
+    const { tokens } = useAuth();
+
+    return useMutation({
+        mutationFn: async ({
+            reporteId,
+            imageId,
+            orden,
+        }: {
+            reporteId: number | string;
+            imageId: number;
+            orden: number;
+        }) => {
+            const token = tokens?.accessToken;
+            if (!token) throw new Error('No hay token de acceso');
+            return unlinkReporteImage(token, reporteId, imageId, orden);
+        },
+        onSuccess: (_data, variables) => {
+            queryClient.invalidateQueries({ queryKey: REPORTES_QUERY_KEY });
+            queryClient.invalidateQueries({
+                queryKey: REPORTE_IMAGENES_QUERY_KEY(variables.reporteId),
+            });
+        },
+    });
+}
+
+/**
+ * Actualiza el orden de una imagen dentro de un reporte.
+ */
+export function useUpdateReporteImageOrder() {
+    const queryClient = useQueryClient();
+    const { tokens } = useAuth();
+
+    return useMutation({
+        mutationFn: async ({
+            reporteId,
+            imageId,
+            newOrder,
+        }: {
+            reporteId: number | string;
+            imageId: number;
+            newOrder: number;
+        }) => {
+            const token = tokens?.accessToken;
+            if (!token) throw new Error('No hay token de acceso');
+            return updateReporteImageOrder(token, reporteId, imageId, newOrder);
+        },
+        onSuccess: (_data, variables) => {
+            queryClient.invalidateQueries({
+                queryKey: REPORTE_IMAGENES_QUERY_KEY(variables.reporteId),
+            });
+        },
     });
 }

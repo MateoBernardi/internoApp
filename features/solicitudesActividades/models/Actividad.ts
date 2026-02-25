@@ -49,6 +49,7 @@ export interface CrearActividadRequest {
   descripcion: string;
   fecha_inicio: string;
   fecha_fin: string;
+  solicitud_id?: number; // Si se provee, vincula la actividad a esa solicitud
 }
 
 export interface CrearActividadResponse {

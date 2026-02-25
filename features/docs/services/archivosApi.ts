@@ -41,10 +41,13 @@ const getMimeType = (fileName: string, providedType?: string): string => {
 };
 
 export async function fetchArchivos(accessToken: string) : Promise<archivos.Archivo[]> {   
+    console.log('[fetchArchivos] Llamando API /archivos...');
     const response = await apiRequest({method: 'GET', endpoint: '/archivos', token: accessToken})
 
     if (!response.ok) {
-        throw new Error(`No se pudo obtener los archivos: ${response.statusText}`);
+        const errorText = await response.text();
+        console.error('[fetchArchivos] Error:', { status: response.status, statusText: response.statusText, body: errorText });
+        throw new Error(`No se pudo obtener los archivos: ${response.status} ${response.statusText}`);
     }
 
     const data: ArchivoDTO[] = await response.json();

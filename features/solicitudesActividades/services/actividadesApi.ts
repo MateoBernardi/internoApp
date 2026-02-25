@@ -1,12 +1,23 @@
 import { apiRequest } from "@/shared/apiRequest";
 import * as actividades from "../models/Actividad";
 
+/** Extrae el mensaje de error del body JSON del backend (si aplica) */
+async function extractErrorText(response: Response): Promise<string> {
+    const text = await response.text();
+    try {
+        const json = JSON.parse(text);
+        return json.error || json.message || text;
+    } catch {
+        return text;
+    }
+}
+
 export async function createActividad(accessToken: string, data: actividades.CrearActividadRequest): Promise<actividades.CrearActividadResponse> {
     const response = await apiRequest({ method: "PUT", endpoint: "/solicitudes-actividades/actividades/crear", token: accessToken, body: data });    
     if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Error en createActividad:", response.status, errorText);
-        throw new Error(`No se pudo crear la actividad: ${response.status} - ${errorText}`);
+        const errorMsg = await extractErrorText(response);
+        console.error("Error en createActividad:", response.status, errorMsg);
+        throw new Error(errorMsg);
     }
     return await response.json();
 }

@@ -22,11 +22,12 @@ export default function MisDocumentos({ query = '' }: { query?: string }) {
   const [isDownloading, setIsDownloading] = useState(false);
   const { getArchivoUrlFirmada } = useGetArchivoUrlFirmada();
 
-  const { data: files, isLoading, refetch } = useArchivosPersonales();
-  const { data: searchResults, isLoading: loadingSearch } = useSearchArchivos(query);
+  const { data: files, isLoading, isPending, error, refetch } = useArchivosPersonales();
+  const { data: searchResults, isLoading: loadingSearch, isPending: pendingSearch } = useSearchArchivos(query);
 
   const isSearching = query.trim().length > 0;
   const displayData = isSearching ? searchResults : files;
+  const isLoadingAny = isSearching ? loadingSearch || pendingSearch : isLoading || isPending;
 
   useEffect(() => {
     if (!fileToOpen) return;
@@ -127,9 +128,16 @@ export default function MisDocumentos({ query = '' }: { query?: string }) {
 
   return (
     <ThemedView style={styles.container}>
-      {isSearching ? loadingSearch : isLoading ? (
+      {isLoadingAny ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color={colors.tint} />
+        </View>
+      ) : error && !isSearching ? (
+        <View style={styles.center}>
+          <ThemedText style={{ marginBottom: 8 }}>Error al cargar documentos</ThemedText>
+          <ThemedText style={{ color: colors.secondaryText, fontSize: 13 }}>
+            {error instanceof Error ? error.message : 'Intenta nuevamente'}
+          </ThemedText>
         </View>
       ) : (
         <OwnFlatList<Archivo>

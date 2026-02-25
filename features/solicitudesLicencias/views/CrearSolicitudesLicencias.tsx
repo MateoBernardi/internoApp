@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as DocumentPicker from 'expo-document-picker';
 import { useRouter } from 'expo-router';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -73,6 +73,7 @@ export function CrearSolicitudesLicencias() {
     const [activeTimeType, setActiveTimeType] = useState<'start' | 'end' | null>(null);
     const [isUploadingFile, setIsUploadingFile] = useState(false);
     const [solicitudIdParaAdjunto, setSolicitudIdParaAdjunto] = useState<number | null>(null);
+    const isSubmittingRef = useRef(false);
 
     // --- Hooks de Datos ---
     const { data: tiposLicencias, isLoading: isLoadingTipos, isError: isErrorTipos } = useGetTiposLicencias();
@@ -202,7 +203,8 @@ export function CrearSolicitudesLicencias() {
 
     // --- Crear Solicitud + Adjuntar ---
     const procederCrearSolicitud = useCallback(() => {
-        if (isPending) return;
+        if (isPending || isSubmittingRef.current) return;
+        isSubmittingRef.current = true;
         const payload: any = {
             tipo_licencia_id: tipoLicenciaId!,
             observacion: observacion.trim() || undefined,
@@ -227,25 +229,13 @@ export function CrearSolicitudesLicencias() {
                                 nombre: archivoAdjunto.name,
                                 tamaño: archivoAdjunto.size,
                                 tipo: archivoAdjunto.type,
+                                uso: 'LICENCIA',
                             },
                         });
                         adjuntarArchivoMutation(
                             {
                                 solicitudId: nuevaSolicitud.id,
-                                archivo: {
-                                    uri: archivoAdjunto.uri,
-                                    name: archivoAdjunto.name,
-                                    type: archivoAdjunto.type,
-                                    size: archivoAdjunto.size,
-                                },
-                                archivoData: {
-                                    id: archivoSubido.id,
-                                    nombre: archivoSubido.nombre,
-                                    ruta_r2: archivoSubido.url ?? '',
-                                    tamaño: archivoSubido.tamaño ?? 0,
-                                    tipo: archivoSubido.tipo,
-                                    created_at: archivoSubido.createdAt?.toString() ?? '',
-                                },
+                                archivoId: archivoSubido.id,
                             },
                             {
                                 onSuccess: () => {
@@ -277,6 +267,7 @@ export function CrearSolicitudesLicencias() {
                 }
             },
             onError: (err: any) => {
+                isSubmittingRef.current = false;
                 Alert.alert('Error', err?.message || 'Hubo un problema al crear la solicitud');
             },
         });

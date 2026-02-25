@@ -4,12 +4,12 @@ import { Colors } from '@/constants/theme';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
-    ActivityIndicator,
-    FlatList,
-    ListRenderItem,
-    StyleSheet,
-    TouchableOpacity,
-    View
+	ActivityIndicator,
+	FlatList,
+	ListRenderItem,
+	StyleSheet,
+	TouchableOpacity,
+	View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EstadoReporte, Reporte } from '../models/Reporte';
@@ -124,7 +124,7 @@ export function ReportesEmpleado({ userId, userNombre = '', userApellido = '' }:
 				data={reportes}
 				renderItem={renderItem}
 				keyExtractor={(item) => item.id.toString()}
-				scrollEnabled={false}
+				contentContainerStyle={{ paddingBottom: 80 }}
 				ItemSeparatorComponent={renderSeparator}
 			/>
 			{selectedReporte && (

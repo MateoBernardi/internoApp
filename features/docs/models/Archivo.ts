@@ -1,3 +1,10 @@
+export enum ArchivoUso {
+  EMPRESA = 'EMPRESA',
+  LICENCIA = 'LICENCIA',
+  MAYORISTA = 'MAYORISTA',
+  WEB = 'WEB',
+}
+
 export interface Archivo {
     id: number;
     nombre: string;
@@ -27,6 +34,7 @@ export interface UploadArchivoPayload {
   ruta_r2?: string;
   tamaño?: number;
   tipo?: string;
+  uso?: ArchivoUso;
   allowed_roles?: string[];
 
   // relaciones opcionales

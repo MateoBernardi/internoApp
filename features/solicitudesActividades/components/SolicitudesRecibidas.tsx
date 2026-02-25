@@ -1,13 +1,13 @@
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useRouter } from 'expo-router';
 import React, { useCallback } from 'react';
 import {
-    ActivityIndicator,
-    StyleSheet,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SolicitudEnviada, estadoInvitacionMapping } from '../models/Solicitud';
 import { useInvitaciones } from '../viewmodels/useSolicitudes';
@@ -65,7 +65,7 @@ export function SolicitudesRecibidas({ onRefresh, refreshing }: SolicitudesRecib
   }
 
   return (
-    <View>
+    <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
       {invitaciones.map((item, index) => {
         const estadoUI = estadoInvitacionMapping[item.estado];
         return (
@@ -87,7 +87,7 @@ export function SolicitudesRecibidas({ onRefresh, refreshing }: SolicitudesRecib
           </React.Fragment>
         );
       })}
-    </View>
+    </ScrollView>
   );
 }
 
@@ -98,9 +98,6 @@ interface SolicitudRecibidaItemProps {
 }
 
 function SolicitudRecibidaItem({ solicitud, estadoUI, onPress }: SolicitudRecibidaItemProps) {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
-
   const getEstadoColor = (estado: string): string => {
     switch (estado) {
       case 'Pendiente':
@@ -143,7 +140,7 @@ function SolicitudRecibidaItem({ solicitud, estadoUI, onPress }: SolicitudRecibi
         </ThemedText>
         <View style={styles.footerContainer}>
           <ThemedText style={[styles.dateText, { color: colors.secondaryText }]}>
-            {new Date(solicitud.fecha_inicio).toLocaleDateString()}
+            {solicitud.fecha_inicio ? new Date(solicitud.fecha_inicio).toLocaleDateString() : 'Sin fecha'}
           </ThemedText>
           <View
             style={[

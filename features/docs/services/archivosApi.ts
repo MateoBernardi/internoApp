@@ -246,6 +246,7 @@ export async function uploadArchivo(accessToken: string, archivo: archivos.Mobil
             ruta_r2: rutaR2,
             tamaño: archivo.size,
             tipo: contentType,
+            ...(archivoData.uso ? { uso: archivoData.uso } : {}),
             allowed_roles: archivoData.allowed_roles || [],
             usuarios_asociados: archivoData.usuarios_asociados || [],
             usuarios_compartidos: archivoData.usuarios_compartidos || [],

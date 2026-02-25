@@ -25,11 +25,17 @@ export const Colors = {
   },
   dark: {
     text: '#dddedfff',
+    secondaryText: '#9BA1A6',
     background: '#151718',
+    componentBackground: '#1E2022',
     tint: tintColorDark,
     icon: '#9BA1A6',
     tabIconDefault: '#9BA1A6',
     tabIconSelected: tintColorDark,
+    lightTint: '#4dabf7',
+    success: '#66BB6A',
+    error: '#EF5350',
+    warning: '#FFA726',
   },
   transparent: {
     text: '#11181C',

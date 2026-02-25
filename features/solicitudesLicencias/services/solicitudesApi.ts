@@ -69,51 +69,53 @@ export const getSolicitudesUsuario = async (accessToken: string): Promise<solici
 };    
 
 export const createSolicitudLicencia = async (accessToken: string, data: solicitudLicencia.CreateSolicitudDTO): Promise<solicitudLicencia.SolicitudLicencia> => {
-    const request = data;
     const response = await apiRequest({method: 'POST', endpoint: '/licencias/solicitudes', token: accessToken, body: data});
-    await response.json();
-    console.log('Create solicitud response:', response);
+
+    const body = await response.json();
+    console.log('Create solicitud response:', response.status, body);
+
     if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        throw new Error(`No se pudo crear la solicitud de licencia: ${error.message}`);
+        throw new Error(`No se pudo crear la solicitud de licencia: ${body.message ?? response.statusText}`);
     }
 
-    const solicitud = await response.json();
-    return solicitud;
+    return body;
 };
 
 export const adjuntarArchivo = async (accessToken: string, solicitudId: number, archivoId: number): Promise<{message: string}> => {
     const response = await apiRequest({method: 'POST', endpoint: `/licencias/solicitudes/${solicitudId}/archivo`, token: accessToken, body: { archivo_id: archivoId }});
 
+    const body = await response.json().catch(() => ({}));
+
     if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        throw new Error(`No se pudo adjuntar el archivo: ${error.message}`);
+        throw new Error(`No se pudo adjuntar el archivo: ${body.message ?? response.statusText}`);
     }
 
-    return response.json();
+    return body;
 };
 
 export const cancelarSolicitudLicencia = async (accessToken: string, solicitudId: number): Promise<{message: string}> => {  
     const response = await apiRequest({method: 'POST', endpoint: `/licencias/solicitudes/${solicitudId}/cancelar`, token: accessToken});
 
+    const body = await response.json().catch(() => ({}));
+
     if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        throw new Error(`No se pudo cancelar la solicitud de licencia: ${error.message}`);
+        throw new Error(`No se pudo cancelar la solicitud de licencia: ${body.message ?? response.statusText}`);
     }
 
-    return response.json();
+    return body;
 };
 
 export const aprobarSolicitudLicencia = async (accessToken: string, solicitudId: number, observacion?: string): Promise<{message: string}> => {  
     const body = observacion ? { observacion } : {};
     const response = await apiRequest({method: 'POST', endpoint: `/licencias/solicitudes/${solicitudId}/aprobar`, token: accessToken, body});
 
+    const data = await response.json().catch(() => ({}));
+
     if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        throw new Error(`No se pudo aprobar la solicitud de licencia: ${error.message}`);
+        throw new Error(`No se pudo aprobar la solicitud de licencia: ${data.message ?? response.statusText}`);
     }
 
-    return response.json();
+    return data;
 };
 
 export const rechazarSolicitudLicencia = async (accessToken: string, solicitudId: number, observacion: string): Promise<{message: string}> => {  

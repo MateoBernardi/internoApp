@@ -1,6 +1,4 @@
 import { useAuth } from '@/features/auth/context/AuthContext';
-import { MobileFile } from '@/features/docs/models/Archivo';
-import { uploadArchivo } from '@/features/docs/services/archivosApi';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as solicitudesLicencias from '../models/SolicitudLicencia';
 import {
@@ -155,15 +153,13 @@ export function useAdjuntarArchivo() {
     const { tokens } = useAuth();
 
     return useMutation({
-        mutationFn: async ({ solicitudId, archivo, archivoData }: { solicitudId: number; archivo: MobileFile; archivoData: solicitudesLicencias.ArchivoAdjunto }) => {
+        mutationFn: async ({ solicitudId, archivoId }: { solicitudId: number; archivoId: number }) => {
             const token = tokens?.accessToken;
             if (!token) {
                 throw new Error('No hay token de acceso');
             }
-            // Primero subir el archivo
-            const archivoSubido = await uploadArchivo(token, archivo, archivoData);
-            // Luego adjuntarlo a la solicitud
-            return adjuntarArchivo(token, solicitudId, archivoSubido.id);
+            // Adjuntar el archivo ya subido a la solicitud
+            return adjuntarArchivo(token, solicitudId, archivoId);
         },
         onSuccess: () => {
             // Invalidar las solicitudes para refrescar los datos

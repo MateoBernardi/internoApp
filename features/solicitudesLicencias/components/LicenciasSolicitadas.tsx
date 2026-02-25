@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   FlatList,
   ListRenderItem,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
@@ -41,7 +42,7 @@ export function LicenciasSolicitadas() {
   const [selectedEstado, setSelectedEstado] = useState<string>('ALL'); // "Todos" por defecto
   const [showFilters, setShowFilters] = useState(false);
 
-  const { data: solicitudes, isLoading } = useGetSolicitudesLicencias({});
+  const { data: solicitudes, isLoading, refetch, isRefetching } = useGetSolicitudesLicencias({});
   const { data: searchResults, isLoading: isSearching } = useSearchUsers(searchQuery);
 
   const handleOpenSolicitud = useCallback((solicitudId: number) => {
@@ -204,6 +205,14 @@ export function LicenciasSolicitadas() {
           keyExtractor={(item) => item.id.toString()}
           ItemSeparatorComponent={renderSeparator}
           contentContainerStyle={{ paddingBottom: 80 }}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefetching}
+              onRefresh={refetch}
+              colors={[colors.tint]}
+              tintColor={colors.tint}
+            />
+          }
         />
       )}
     </View>
@@ -233,7 +242,7 @@ function LicenciaSolicitadaItem({ solicitud, estadoUI, onPress }: LicenciaSolici
           {solicitud.usuario_nombre} {solicitud.usuario_apellido} • {solicitud.cantidad_dias} días
         </ThemedText>
         <View style={styles.footerContainer}>
-          <ThemedText style={styles.dateText}>{new Date(solicitud.fecha_inicio).toLocaleDateString()}</ThemedText>
+          <ThemedText style={styles.dateText}>{solicitud.fecha_inicio ? new Date(solicitud.fecha_inicio).toLocaleDateString() : 'Sin fecha'}</ThemedText>
           <View style={[styles.estadoBadge, { backgroundColor: getEstadoColor(estadoUI) + '15' }]}>
             <ThemedText style={[styles.estadoText, { color: getEstadoColor(estadoUI) }]}>{estadoUI}</ThemedText>
           </View>

@@ -1,8 +1,10 @@
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
+import { useUploadArchivo } from '@/features/docs/viewmodels/useArchivos';
 import { useArchivoUrl } from '@/features/docs/viewmodels/useArchivos';
 import { Ionicons } from '@expo/vector-icons';
+import * as DocumentPicker from 'expo-document-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
@@ -18,6 +20,7 @@ import {
 } from 'react-native';
 import { EstadoSolicitud } from '../models/SolicitudLicencia';
 import {
+    useAdjuntarArchivo,
     useAprobarSolicitudLicencia,
     useCancelarSolicitudLicencia,
     useGetSolicitudesLicencias,
@@ -79,6 +82,8 @@ export function SolicitudLicencia() {
     useRechazarSolicitudLicencia();
   const { mutate: cancelarSolicitud, isPending: isCanceling } =
     useCancelarSolicitudLicencia();
+  const { mutate: adjuntarArchivoMutation, isPending: isAdjuntando } = useAdjuntarArchivo();
+  const { mutateAsync: uploadArchivoAsync } = useUploadArchivo();
 
   // States
   const [showObservationModal, setShowObservationModal] = useState(false);
@@ -86,6 +91,7 @@ export function SolicitudLicencia() {
   const [actionType, setActionType] = useState<'approve' | 'reject' | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [selectedArchivoId, setSelectedArchivoId] = useState<number | undefined>();
+  const [isUploadingDoc, setIsUploadingDoc] = useState(false);
 
   // Get archivo URL
   const { data: archivoUrl, isLoading: isLoadingUrl } = useArchivoUrl(selectedArchivoId);
@@ -204,6 +210,58 @@ export function SolicitudLicencia() {
     ]);
   }, [solicitudId, cancelarSolicitud, router]);
 
+  const handleUploadDocument = useCallback(async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['application/pdf', 'application/msword',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'image/jpeg', 'image/png'],
+        copyToCacheDirectory: true,
+      });
+      if (result.canceled || !result.assets?.[0]) return;
+      const asset = result.assets[0];
+
+      setIsUploadingDoc(true);
+      try {
+        const archivoSubido = await uploadArchivoAsync({
+          archivo: {
+            uri: asset.uri,
+            name: asset.name,
+            type: asset.mimeType ?? 'application/octet-stream',
+            size: asset.size,
+          },
+          data: {
+            nombre: asset.name,
+            tamaño: asset.size,
+            tipo: asset.mimeType ?? 'application/octet-stream',
+            uso: 'LICENCIA',
+          },
+        });
+        adjuntarArchivoMutation(
+          {
+            solicitudId,
+            archivoId: archivoSubido.id,
+          },
+          {
+            onSuccess: () => {
+              setIsUploadingDoc(false);
+              Alert.alert('Éxito', 'Documento adjuntado correctamente.');
+            },
+            onError: () => {
+              setIsUploadingDoc(false);
+              Alert.alert('Error', 'No se pudo adjuntar el documento.');
+            },
+          }
+        );
+      } catch {
+        setIsUploadingDoc(false);
+        Alert.alert('Error', 'No se pudo subir el archivo.');
+      }
+    } catch {
+      Alert.alert('Error', 'No se pudo abrir el selector de archivos.');
+    }
+  }, [solicitudId, uploadArchivoAsync, adjuntarArchivoMutation]);
+
   const fechaInicio = solicitud ? new Date(solicitud.fecha_inicio) : new Date();
   const fechaFin = solicitud ? new Date(solicitud.fecha_fin) : new Date();
 
@@ -217,7 +275,9 @@ export function SolicitudLicencia() {
 
   const estadoUI = estadoMapping[solicitud.estado];
   const canTakeAction = isFromReceivedView && !isCreator && solicitud.estado === 'PENDIENTE';
-  const canCancel = isFromSentView && isCreator && solicitud.estado !== 'CANCELADA';
+  const isExpired = solicitud.fecha_fin ? new Date(solicitud.fecha_fin) < new Date() : false;
+  const canCancel = isFromSentView && isCreator && solicitud.estado !== 'CANCELADA' && solicitud.estado !== 'CONSUMIDA' && solicitud.estado !== 'RECHAZADA' && !isExpired;
+  const canUploadDoc = isCreator && solicitud.estado === 'PENDIENTE_DOCUMENTACION';
 
   return (
     <View style={styles.container}>
@@ -384,6 +444,29 @@ export function SolicitudLicencia() {
               ))}
             </View>
           </>
+        )}
+
+        {/* Upload documento pendiente */}
+        {canUploadDoc && (
+          <View style={styles.uploadSection}>
+            <ThemedText style={styles.uploadLabel}>
+              Esta solicitud requiere documentación adjunta.
+            </ThemedText>
+            <TouchableOpacity
+              style={[styles.uploadBtn, isUploadingDoc && { opacity: 0.6 }]}
+              onPress={handleUploadDocument}
+              disabled={isUploadingDoc || isAdjuntando}
+            >
+              {isUploadingDoc ? (
+                <ActivityIndicator size="small" color={colors.componentBackground} />
+              ) : (
+                <>
+                  <Ionicons name="cloud-upload-outline" size={20} color={colors.componentBackground} />
+                  <ThemedText style={styles.uploadBtnText}>Adjuntar documento</ThemedText>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
         )}
       </ScrollView>
 
@@ -737,5 +820,30 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlignVertical: 'top',
     minHeight: 100,
+  },
+  uploadSection: {
+    padding: 16,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.background,
+    gap: 12,
+  },
+  uploadLabel: {
+    fontSize: 14,
+    color: colors.warning,
+    fontWeight: '600',
+  },
+  uploadBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.lightTint,
+    borderRadius: 8,
+    paddingVertical: 12,
+    gap: 8,
+  },
+  uploadBtnText: {
+    color: colors.componentBackground,
+    fontWeight: '600',
+    fontSize: 14,
   },
 });

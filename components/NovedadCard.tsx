@@ -63,7 +63,6 @@ export function NovedadCard({ novedad, onPress }: NovedadCardProps) {
         {/* Header con icono y categoría */}
         <View style={styles.header}>
           <Text style={styles.icon}>{getCategoriaIcon(novedad.categoria)}</Text>
-          <Text style={styles.categoria}>{novedad.categoria.toUpperCase()}</Text>
         </View>
 
         {/* Título */}

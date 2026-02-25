@@ -7,12 +7,16 @@ import React, { useCallback, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
+    Dimensions,
+    Modal,
     ScrollView,
     StyleSheet,
     TextInput,
     TouchableOpacity,
     View,
 } from 'react-native';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import {
     useReporteImagenes,
     useUnlinkReporteImage,
@@ -34,6 +38,85 @@ interface ImagenesReporteProps {
 const colors = Colors['light'];
 const PLACEHOLDER = require('@/assets/images/react-logo.png');
 
+const IMAGE_SIZE = 120;
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+const AnimatedImage = Animated.createAnimatedComponent(Image);
+
+function ZoomableImage({ uri }: { uri: string }) {
+    const scale = useSharedValue(1);
+    const savedScale = useSharedValue(1);
+    const translateX = useSharedValue(0);
+    const translateY = useSharedValue(0);
+    const savedTranslateX = useSharedValue(0);
+    const savedTranslateY = useSharedValue(0);
+
+    const pinchGesture = Gesture.Pinch()
+        .onUpdate((e) => {
+            scale.value = savedScale.value * e.scale;
+        })
+        .onEnd(() => {
+            if (scale.value < 1) {
+                scale.value = withTiming(1);
+                savedScale.value = 1;
+                translateX.value = withTiming(0);
+                translateY.value = withTiming(0);
+                savedTranslateX.value = 0;
+                savedTranslateY.value = 0;
+            } else {
+                savedScale.value = scale.value;
+            }
+        });
+
+    const panGesture = Gesture.Pan()
+        .onUpdate((e) => {
+            if (savedScale.value > 1) {
+                translateX.value = savedTranslateX.value + e.translationX;
+                translateY.value = savedTranslateY.value + e.translationY;
+            }
+        })
+        .onEnd(() => {
+            savedTranslateX.value = translateX.value;
+            savedTranslateY.value = translateY.value;
+        });
+
+    const doubleTap = Gesture.Tap()
+        .numberOfTaps(2)
+        .onStart(() => {
+            if (savedScale.value > 1) {
+                scale.value = withTiming(1);
+                savedScale.value = 1;
+                translateX.value = withTiming(0);
+                translateY.value = withTiming(0);
+                savedTranslateX.value = 0;
+                savedTranslateY.value = 0;
+            } else {
+                scale.value = withTiming(2.5);
+                savedScale.value = 2.5;
+            }
+        });
+
+    const composed = Gesture.Simultaneous(pinchGesture, panGesture, doubleTap);
+
+    const animatedStyle = useAnimatedStyle(() => ({
+        transform: [
+            { translateX: translateX.value },
+            { translateY: translateY.value },
+            { scale: scale.value },
+        ],
+    }));
+
+    return (
+        <GestureDetector gesture={composed}>
+            <AnimatedImage
+                source={{ uri }}
+                style={[styles.fullscreenImage, animatedStyle]}
+                contentFit="contain"
+            />
+        </GestureDetector>
+    );
+}
+
 export function ImagenesReporte({
     reporteId,
     imagenesUrl,
@@ -41,13 +124,14 @@ export function ImagenesReporte({
 }: ImagenesReporteProps) {
     const [showUploadForm, setShowUploadForm] = useState(false);
     const [uploadDescription, setUploadDescription] = useState('');
+    const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
 
     // Datos completos solo se necesitan cuando el usuario puede gestionar imágenes
     const {
         data: imagenesDetalle,
         isLoading: loadingDetalle,
         refetch,
-    } = useReporteImagenes(canManage ? reporteId : undefined);
+    } = useReporteImagenes(reporteId);
 
     const { mutate: uploadImage, isPending: uploading } = useUploadReporteImage();
     const { mutate: unlinkImage, isPending: unlinking } = useUnlinkReporteImage();
@@ -127,10 +211,9 @@ export function ImagenesReporte({
 
     // ── Render ──────────────────────────────────────────────────────────────────
 
-    // Cuando canManage=true usamos imagenesDetalle; sino las URLs simples
-    const hasImages = canManage
-        ? (imagenesDetalle?.length ?? 0) > 0
-        : (imagenesUrl?.length ?? 0) > 0;
+    // Usamos imagenesDetalle cuando están disponibles, sino las URLs simples
+    const hasImages = (imagenesDetalle?.length ?? 0) > 0
+        || (imagenesUrl?.length ?? 0) > 0;
 
     return (
         <View style={styles.container}>
@@ -184,52 +267,66 @@ export function ImagenesReporte({
             )}
 
             {/* Lista de imágenes */}
-            {canManage && loadingDetalle ? (
+            {loadingDetalle ? (
                 <ActivityIndicator size="small" color={colors.tint} style={styles.loader} />
             ) : hasImages ? (
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.imageScroll}>
-                    {canManage && imagenesDetalle
+                    {imagenesDetalle && imagenesDetalle.length > 0
                         ? imagenesDetalle.map((img) => (
                               <View key={img.id} style={styles.imageWrapper}>
-                                  <Image
-                                      source={{ uri: img.url }}
-                                      style={styles.image}
-                                      contentFit="cover"
-                                      placeholder={PLACEHOLDER}
-                                  />
+                                  <TouchableOpacity onPress={() => setFullscreenImage(img.url)}>
+                                      <Image
+                                          source={{ uri: img.url }}
+                                          style={styles.image}
+                                          contentFit="cover"
+                                          placeholder={PLACEHOLDER}
+                                      />
+                                  </TouchableOpacity>
                                   {img.imagen_descripcion ? (
                                       <ThemedText style={styles.imageCaption} numberOfLines={2}>
                                           {img.imagen_descripcion}
                                       </ThemedText>
                                   ) : null}
-                                  <TouchableOpacity
-                                      style={styles.deleteBtn}
-                                      onPress={() => handleUnlink(img.image_id, img.orden)}
-                                      disabled={unlinking}
-                                  >
-                                      <Ionicons name="trash-outline" size={16} color={colors.error} />
-                                  </TouchableOpacity>
+                                  {canManage && (
+                                      <TouchableOpacity
+                                          style={styles.deleteBtn}
+                                          onPress={() => handleUnlink(img.image_id, img.orden)}
+                                          disabled={unlinking}
+                                      >
+                                          <Ionicons name="trash-outline" size={16} color={colors.error} />
+                                      </TouchableOpacity>
+                                  )}
                               </View>
                           ))
                         : (imagenesUrl ?? []).map((url, idx) => (
                               <View key={idx} style={styles.imageWrapper}>
-                                  <Image
-                                      source={{ uri: url }}
-                                      style={styles.image}
-                                      contentFit="cover"
-                                      placeholder={PLACEHOLDER}
-                                  />
+                                  <TouchableOpacity onPress={() => setFullscreenImage(url)}>
+                                      <Image
+                                          source={{ uri: url }}
+                                          style={styles.image}
+                                          contentFit="cover"
+                                          placeholder={PLACEHOLDER}
+                                      />
+                                  </TouchableOpacity>
                               </View>
                           ))}
                 </ScrollView>
             ) : (
                 <ThemedText style={styles.emptyText}>Sin imágenes adjuntas</ThemedText>
             )}
+
+            {/* Modal pantalla completa con zoom */}
+            <Modal visible={!!fullscreenImage} transparent animationType="fade" onRequestClose={() => setFullscreenImage(null)}>
+                <GestureHandlerRootView style={styles.fullscreenOverlay}>
+                    <ZoomableImage uri={fullscreenImage ?? ''} />
+                    <TouchableOpacity style={styles.fullscreenCloseBtn} onPress={() => setFullscreenImage(null)}>
+                        <Ionicons name="close-circle" size={36} color="#fff" />
+                    </TouchableOpacity>
+                </GestureHandlerRootView>
+            </Modal>
         </View>
     );
 }
-
-const IMAGE_SIZE = 120;
 
 const styles = StyleSheet.create({
     container: {
@@ -328,5 +425,20 @@ const styles = StyleSheet.create({
         fontSize: 14,
         textAlign: 'center',
         paddingVertical: 8,
+    },
+    fullscreenOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.95)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    fullscreenImage: {
+        width: SCREEN_WIDTH,
+        height: SCREEN_HEIGHT * 0.8,
+    },
+    fullscreenCloseBtn: {
+        position: 'absolute',
+        top: 50,
+        right: 20,
     },
 });

@@ -3,10 +3,11 @@ import { Colors } from '@/constants/theme';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useMemo } from 'react';
 import {
-    ActivityIndicator,
-    StyleSheet,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { InvitadoResumen, SolicitudEnviada, SolicitudEnviadaAgrupada, estadoInvitacionMapping } from '../models/Solicitud';
 import { useSolicitudesCreadas } from '../viewmodels/useSolicitudes';
@@ -95,7 +96,7 @@ export function SolicitudesEnviadas({ onRefresh, refreshing }: SolicitudesEnviad
   }
 
   return (
-    <View>
+    <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
       {agrupadas.map((item, index) => (
         <React.Fragment key={item.solicitud_id.toString()}>
           {index > 0 && (
@@ -113,7 +114,7 @@ export function SolicitudesEnviadas({ onRefresh, refreshing }: SolicitudesEnviad
           />
         </React.Fragment>
       ))}
-    </View>
+    </ScrollView>
   );
 }
 
@@ -181,7 +182,7 @@ function SolicitudEnviadaItem({ solicitud, onPress }: SolicitudEnviadaItemProps)
         </View>
 
         <ThemedText style={[styles.dateText, { color: colors.secondaryText }]}>
-          {new Date(solicitud.fecha_inicio).toLocaleDateString()}
+          {solicitud.fecha_inicio ? new Date(solicitud.fecha_inicio).toLocaleDateString() : 'Sin fecha'}
         </ThemedText>
       </View>
     </TouchableOpacity>

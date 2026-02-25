@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   FlatList,
   ListRenderItem,
+  RefreshControl,
   StyleSheet,
   TouchableOpacity,
   View,
@@ -34,7 +35,7 @@ export function MisSolicitudes() {
   const insets = useSafeAreaInsets();
 
   // 1. Obtención de datos
-  const { data: solicitudes, isLoading, error } = useGetSolicitudesUsuario();
+  const { data: solicitudes, isLoading, error, refetch, isRefetching } = useGetSolicitudesUsuario();
 
   // 2. Navegación
   const handleOpenSolicitud = useCallback(
@@ -118,6 +119,14 @@ export function MisSolicitudes() {
           scrollEnabled={true}
           ItemSeparatorComponent={renderSeparator}
           contentContainerStyle={[styles.listContent, { paddingBottom: 80 }]}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefetching}
+              onRefresh={refetch}
+              colors={[colors.tint]}
+              tintColor={colors.tint}
+            />
+          }
         />
       )}
 
@@ -159,8 +168,8 @@ function MiSolicitudItem({ solicitud, estadoUI, onPress }: MiSolicitudItemProps)
     }
   };
 
-  const fechaInicioStr = new Date(solicitud.fecha_inicio).toLocaleDateString();
-  const fechaFinStr = new Date(solicitud.fecha_fin).toLocaleDateString();
+  const fechaInicioStr = solicitud.fecha_inicio ? new Date(solicitud.fecha_inicio).toLocaleDateString() : null;
+  const fechaFinStr = solicitud.fecha_fin ? new Date(solicitud.fecha_fin).toLocaleDateString() : null;
 
   return (
     <TouchableOpacity
@@ -181,7 +190,7 @@ function MiSolicitudItem({ solicitud, estadoUI, onPress }: MiSolicitudItemProps)
           numberOfLines={2}
           style={[styles.description, { color: colors.icon }]}
         >
-          {solicitud.cantidad_dias} días | {fechaInicioStr} a {fechaFinStr}
+          {solicitud.cantidad_dias} días{fechaInicioStr && fechaFinStr ? ` | ${fechaInicioStr} a ${fechaFinStr}` : ''}
         </ThemedText>
 
         {/* Footer: Fecha creación + Badge de Estado */}

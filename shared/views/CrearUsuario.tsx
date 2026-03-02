@@ -1,11 +1,15 @@
+import { InputWithIcon } from '@/components/InputWithIcon';
 import { ThemedText } from '@/components/themed-text';
+import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useRegisterUser } from '@/features/auth/hooks/useAuthActions';
 import { CreateUserData } from '@/features/auth/types';
-import { Ionicons } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+
+const colors = Colors['light'];
 
 // Regex para validaciones
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -19,7 +23,6 @@ type ValidationErrors = {
   confirmPassword?: string;
   nombre?: string;
   apellido?: string;
-  telefono?: string;
 };
 
 export default function CrearUsuario() {
@@ -40,6 +43,7 @@ export default function CrearUsuario() {
   const [successMessage, setSuccessMessage] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Validar campo individual
   const validateField = (field: keyof CreateUserData, value: string): string => {
@@ -116,7 +120,7 @@ export default function CrearUsuario() {
   };
 
   // Verificar si el formulario está completo
-  const isFormComplete = (): boolean => {
+  const isFormComplete = useMemo(() => {
     const hasAllFields = (
       formData.username.trim() !== '' &&
       formData.email.trim() !== '' &&
@@ -132,10 +136,10 @@ export default function CrearUsuario() {
     const passwordsMatch = confirmPassword === formData.password;
 
     return hasAllFields && noErrors && passwordsMatch;
-  };
+  }, [formData, confirmPassword, errors]);
 
   // Manejar envío
-  const handleSubmit = async () => {
+  const handleSubmit = useCallback(async () => {
     if (!validateForm()) {
       Alert.alert('Error', 'Por favor, corrija los errores en el formulario');
       return;
@@ -156,20 +160,24 @@ export default function CrearUsuario() {
           nombre: '',
           apellido: '',
         });
+        setConfirmPassword('');
 
-        // Redirigir al login después de 1.5 segundos
         setTimeout(() => {
           router.replace('/login');
         }, 1500);
       } else {
-        Alert.alert('Error', response.message || 'Error al crear el usuario');
+        Alert.alert('Error', response.message || 'Intenta nuevamente');
       }
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Error al crear el usuario');
+      Alert.alert('Error', error.message || 'Intenta nuevamente');
     } finally {
       setLoading(false);
     }
-  };
+  }, [formData, registerMutation, router]);
+
+  // Dynamic button styles
+  const buttonBg = loading ? colors.lightTint : isFormComplete ? colors.lightTint : colors.background;
+  const buttonColor = loading || isFormComplete ? colors.componentBackground : colors.secondaryText;
 
   return (
     <KeyboardAvoidingView
@@ -178,243 +186,218 @@ export default function CrearUsuario() {
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
     >
       <ScrollView
-        contentContainerStyle={{ paddingHorizontal: 20, paddingVertical: 40, backgroundColor: Colors.light.componentBackground, flexGrow: 1 }}
+        style={styles.container}
+        contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <ThemedText type="title" style={{ marginBottom: 30, textAlign: 'center' }}>
-          Crear Usuario
-        </ThemedText>
+        <ThemedView style={styles.formSection}>
+          <ThemedText style={styles.title}>Crear Usuario</ThemedText>
+          <ThemedText style={styles.subtitle}>Completá tus datos para registrarte</ThemedText>
 
-      {successMessage ? (
-        <View style={{ marginBottom: 20, padding: 12, backgroundColor: '#d4edda', borderRadius: 8 }}>
-          <ThemedText style={{ color: '#155724', textAlign: 'center' }}>
-            {successMessage}
-          </ThemedText>
-        </View>
-      ) : null}
+          {successMessage ? (
+            <View style={styles.successContainer}>
+              <ThemedText style={styles.successText}>{successMessage}</ThemedText>
+            </View>
+          ) : null}
 
-      {/* Username */}
-      <View style={{ marginBottom: 16 }}>
-        <TextInput
-          placeholder="Tu nombre de usuario"
-          placeholderTextColor={Colors.light.secondaryText}
-          value={formData.username}
-          onChangeText={(value) => handleInputChange('username', value)}
-          editable={!loading}
-          style={{
-            borderWidth: 1,
-            borderColor: errors.username ? '#dc3545' : Colors.light.secondaryText,
-            borderRadius: 6,
-            paddingHorizontal: 12,
-            paddingVertical: 10,
-            fontSize: 14,
-          }}
-        />
-        {errors.username && (
-          <ThemedText style={{ color: '#dc3545', fontSize: 12, marginTop: 4 }}>
-            {errors.username}
-          </ThemedText>
-        )}
-      </View>
-
-      {/* Email */}
-      <View style={{ marginBottom: 16 }}>
-        <TextInput
-          placeholder="tu@email.com"
-          placeholderTextColor={Colors.light.secondaryText}
-          value={formData.email}
-          onChangeText={(value) => handleInputChange('email', value)}
-          keyboardType="email-address"
-          editable={!loading}
-          style={{
-            borderWidth: 1,
-            borderColor: errors.email ? '#dc3545' : Colors.light.secondaryText,
-            borderRadius: 6,
-            paddingHorizontal: 12,
-            paddingVertical: 10,
-            fontSize: 14,
-          }}
-        />
-        {errors.email && (
-          <ThemedText style={{ color: '#dc3545', fontSize: 12, marginTop: 4 }}>
-            {errors.email}
-          </ThemedText>
-        )}
-      </View>
-
-      {/* Password */}
-      <View style={{ marginBottom: 16 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', position: 'relative' }}>
-          <TextInput
-            placeholder="Tu contraseña"
-            placeholderTextColor={Colors.light.secondaryText}
-            value={formData.password}
-            onChangeText={(value) => handleInputChange('password', value)}
-            secureTextEntry={!showPassword}
-            editable={!loading}
-            style={{
-              flex: 1,
-              borderWidth: 1,
-              borderColor: errors.password ? '#dc3545' : Colors.light.secondaryText,
-              borderRadius: 6,
-              paddingHorizontal: 12,
-              paddingVertical: 10,
-              paddingRight: 40,
-              fontSize: 14,
-            }}
-          />
-          <TouchableOpacity
-            onPress={() => setShowPassword(!showPassword)}
-            style={{ position: 'absolute', right: 12 }}
-          >
-            <Ionicons
-              name={showPassword ? 'eye' : 'eye-off'}
-              size={20}
-              color="#666"
+          <ThemedView style={styles.formContainer}>
+            <InputWithIcon
+              icon="📝"
+              placeholder="Nombre"
+              value={formData.nombre}
+              onChangeText={(v) => handleInputChange('nombre', v)}
+              hasError={!!errors.nombre}
+              textContentType="givenName"
             />
-          </TouchableOpacity>
-        </View>
-        {errors.password && (
-          <ThemedText style={{ color: '#dc3545', fontSize: 12, marginTop: 4 }}>
-            {errors.password}
-          </ThemedText>
-        )}
-      </View>
+            {errors.nombre ? <ThemedText style={styles.errorText}>{errors.nombre}</ThemedText> : null}
 
-      {/* Confirm Password */}
-      <View style={{ marginBottom: 16 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', position: 'relative' }}>
-          <TextInput
-            placeholder="Confirma tu contraseña"
-            placeholderTextColor={Colors.light.secondaryText}
-            value={confirmPassword}
-            onChangeText={(value) => {
-              setConfirmPassword(value);
-              const error = validateConfirmPassword(value);
-              setErrors(prev => ({
-                ...prev,
-                confirmPassword: error,
-              }));
-            }}
-            secureTextEntry={!showPassword}
-            editable={!loading}
-            style={{
-              flex: 1,
-              borderWidth: 1,
-              borderColor: errors.confirmPassword ? '#dc3545' : Colors.light.secondaryText,
-              borderRadius: 6,
-              paddingHorizontal: 12,
-              paddingVertical: 10,
-              paddingRight: 40,
-              fontSize: 14,
-            }}
-          />
-          <TouchableOpacity
-            onPress={() => setShowPassword(!showPassword)}
-            style={{ position: 'absolute', right: 12 }}
-          >
-            <Ionicons
-              name={showPassword ? 'eye' : 'eye-off'}
-              size={20}
-              color="#666"
+            <InputWithIcon
+              icon="📝"
+              placeholder="Apellido"
+              value={formData.apellido}
+              onChangeText={(v) => handleInputChange('apellido', v)}
+              hasError={!!errors.apellido}
+              textContentType="familyName"
             />
-          </TouchableOpacity>
-        </View>
-        {errors.confirmPassword && (
-          <ThemedText style={{ color: '#dc3545', fontSize: 12, marginTop: 4 }}>
-            {errors.confirmPassword}
-          </ThemedText>
-        )}
-      </View>
+            {errors.apellido ? <ThemedText style={styles.errorText}>{errors.apellido}</ThemedText> : null}
 
-      {/* Nombre */}
-      <View style={{ marginBottom: 16 }}>
-        <TextInput
-          placeholder="Tu nombre"
-          placeholderTextColor={Colors.light.secondaryText}
-          value={formData.nombre}
-          onChangeText={(value) => handleInputChange('nombre', value)}
-          editable={!loading}
-          style={{
-            borderWidth: 1,
-            borderColor: errors.nombre ? '#dc3545' : Colors.light.secondaryText,
-            borderRadius: 6,
-            paddingHorizontal: 12,
-            paddingVertical: 10,
-            fontSize: 14,
-          }}
-        />
-        {errors.nombre && (
-          <ThemedText style={{ color: '#dc3545', fontSize: 12, marginTop: 4 }}>
-            {errors.nombre}
-          </ThemedText>
-        )}
-      </View>
+            <InputWithIcon
+              icon="👤"
+              placeholder="Usuario"
+              value={formData.username}
+              onChangeText={(v) => handleInputChange('username', v)}
+              hasError={!!errors.username}
+              textContentType="username"
+            />
+            {errors.username ? <ThemedText style={styles.errorText}>{errors.username}</ThemedText> : null}
 
-      {/* Apellido */}
-      <View style={{ marginBottom: 16 }}>
-        <TextInput
-          placeholder="Tu apellido"
-          placeholderTextColor={Colors.light.secondaryText}
-          value={formData.apellido}
-          onChangeText={(value) => handleInputChange('apellido', value)}
-          editable={!loading}
-          style={{
-            borderWidth: 1,
-            borderColor: errors.apellido ? '#dc3545' : Colors.light.secondaryText,
-            borderRadius: 6,
-            paddingHorizontal: 12,
-            paddingVertical: 10,
-            fontSize: 14,
-            color: Colors.light.text,
-          }}
-        />
-        {errors.apellido && (
-          <ThemedText style={{ color: '#dc3545', fontSize: 12, marginTop: 4 }}>
-            {errors.apellido}
-          </ThemedText>
-        )}
-      </View>
+            <InputWithIcon
+              icon="✉️"
+              placeholder="Email"
+              value={formData.email}
+              onChangeText={(v) => handleInputChange('email', v)}
+              hasError={!!errors.email}
+              keyboardType="email-address"
+              textContentType="emailAddress"
+            />
+            {errors.email ? <ThemedText style={styles.errorText}>{errors.email}</ThemedText> : null}
 
-      {/* Submit Button */}
-      <TouchableOpacity
-        onPress={handleSubmit}
-        disabled={!isFormComplete() || loading}
-        style={{
-          backgroundColor: isFormComplete() && !loading ? '#007AFF' : '#cccccc',
-          paddingVertical: 14,
-          borderRadius: 8,
-          alignItems: 'center',
-          marginBottom: 12,
-          flexDirection: 'row',
-          justifyContent: 'center',
-        }}
-      >
-        {loading ? (
-          <>
-            <ActivityIndicator color="#fff" style={{ marginRight: 8 }} />
-            <ThemedText style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>
-              Creando usuario...
-            </ThemedText>
-          </>
-        ) : (
-          <ThemedText style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>
-            Crear Usuario
-          </ThemedText>
-        )}
-      </TouchableOpacity>
+            <InputWithIcon
+              icon="🔒"
+              placeholder="Contraseña"
+              value={formData.password}
+              onChangeText={(v) => handleInputChange('password', v)}
+              secureTextEntry={!showPassword}
+              onToggleSecure={() => setShowPassword(!showPassword)}
+              hasError={!!errors.password}
+              textContentType="newPassword"
+            />
+            {errors.password ? <ThemedText style={styles.errorText}>{errors.password}</ThemedText> : null}
 
-      {/* Volver al Login */}
-      <TouchableOpacity
-        onPress={() => router.replace('/login')}
-        disabled={loading}
-      >
-        <ThemedText style={{ color: '#007AFF', textAlign: 'center', fontSize: 14 }}>
-          Volver al Login
-        </ThemedText>
-      </TouchableOpacity>
+            <InputWithIcon
+              icon="🔒"
+              placeholder="Confirmar contraseña"
+              value={confirmPassword}
+              onChangeText={(v) => {
+                setConfirmPassword(v);
+                const error = validateConfirmPassword(v);
+                setErrors(prev => ({ ...prev, confirmPassword: error }));
+              }}
+              secureTextEntry={!showConfirmPassword}
+              onToggleSecure={() => setShowConfirmPassword(!showConfirmPassword)}
+              hasError={!!errors.confirmPassword}
+              textContentType="newPassword"
+            />
+            {errors.confirmPassword ? <ThemedText style={styles.errorText}>{errors.confirmPassword}</ThemedText> : null}
+
+            <Pressable
+              style={[styles.button, { backgroundColor: buttonBg }]}
+              onPress={handleSubmit}
+              disabled={!isFormComplete || loading}
+            >
+              {loading ? (
+                <ActivityIndicator color={colors.componentBackground} style={{ marginRight: 8 }} />
+              ) : (
+                <Feather name="user-plus" size={20} color={buttonColor} style={{ marginRight: 8 }} />
+              )}
+              <ThemedText style={[styles.buttonText, { color: buttonColor }]}>
+                {loading ? 'Creando...' : 'Crear Usuario'}
+              </ThemedText>
+            </Pressable>
+          </ThemedView>
+
+          <View style={styles.linksContainer}>
+            <View style={styles.linkRow}>
+              <ThemedText style={styles.linkLabel}>¿Ya tenés cuenta? </ThemedText>
+              <Pressable onPress={() => router.replace('/login')}>
+                <ThemedText style={styles.linkText}>Iniciar sesión</ThemedText>
+              </Pressable>
+            </View>
+          </View>
+        </ThemedView>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.componentBackground,
+  },
+  contentContainer: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 40,
+  },
+  formSection: {
+    backgroundColor: 'transparent',
+    alignItems: 'center',
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: colors.secondaryText,
+    marginBottom: 24,
+  },
+  formContainer: {
+    width: '100%',
+    maxWidth: 380,
+    backgroundColor: colors.componentBackground,
+    borderRadius: 16,
+    padding: 24,
+    gap: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  successContainer: {
+    marginBottom: 16,
+    padding: 12,
+    backgroundColor: '#d4edda',
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.success,
+    width: '100%',
+    maxWidth: 380,
+  },
+  successText: {
+    color: '#155724',
+    fontSize: 13,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  errorText: {
+    color: colors.error,
+    fontSize: 12,
+    marginTop: -4,
+    marginBottom: 2,
+    marginLeft: 4,
+  },
+  button: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    marginTop: 16,
+    elevation: 4,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+  },
+  buttonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+  linksContainer: {
+    marginTop: 20,
+    gap: 12,
+  },
+  linkRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  linkLabel: {
+    fontSize: 14,
+    color: colors.secondaryText,
+  },
+  linkText: {
+    fontSize: 14,
+    color: colors.tint,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
+  },
+});

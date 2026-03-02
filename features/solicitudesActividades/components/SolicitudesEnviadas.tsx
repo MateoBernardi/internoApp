@@ -1,13 +1,13 @@
 import { ThemedText } from '@/components/themed-text';
+import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { Colors } from '@/constants/theme';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useMemo } from 'react';
 import {
-  ActivityIndicator,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  View,
+    ScrollView,
+    StyleSheet,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { InvitadoResumen, SolicitudEnviada, SolicitudEnviadaAgrupada, estadoInvitacionMapping } from '../models/Solicitud';
 import { useSolicitudesCreadas } from '../viewmodels/useSolicitudes';
@@ -65,18 +65,13 @@ export function SolicitudesEnviadas({ onRefresh, refreshing }: SolicitudesEnviad
 
   if (isLoading) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={colors.tint} />
-      </View>
+      <ScreenSkeleton rows={3} showHeader={false} />
     );
   }
 
   if (error) {
     return (
       <View style={styles.centerContainer}>
-        <ThemedText type="subtitle" style={styles.errorText}>
-          No se encontraron solicitudes enviadas por vos.
-        </ThemedText>
         <ThemedText style={{ color: colors.icon }}>
           {error instanceof Error ? error.message : 'Intenta nuevamente'}
         </ThemedText>
@@ -195,6 +190,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 16,
+    backgroundColor: colors.componentBackground,
   },
   errorText: {
     marginBottom: 8,

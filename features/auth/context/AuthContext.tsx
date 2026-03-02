@@ -54,6 +54,7 @@ interface AuthContextType {
   requiresAssociation: boolean;
   signIn: (username: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  isLoggingOut: boolean;
   refreshTokens: () => Promise<void>;
   reloadUserContext: () => Promise<void>;
   /** Setea tokens directamente (ej: post-asociación) sin llamar al endpoint de login */
@@ -67,6 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [tokens, setTokens] = useState<AuthTokens | null>(null);
   const [requiresAssociation, setRequiresAssociation] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const refreshPromiseRef = useRef<Promise<void> | null>(null);
   const tokensRef = useRef<AuthTokens | null>(null);
@@ -276,6 +278,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
    * Sign Out
    */
   const signOut = useCallback(async () => {
+    setIsLoggingOut(true);
     try {
       const currentRT = tokensRef.current?.refreshToken;
       if (currentRT) {
@@ -289,6 +292,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await clearStoredTokens();
       const queryClient = getQueryClient();
       queryClient.clear();
+      setIsLoggingOut(false);
     }
   }, [logoutMutation, clearStoredTokens]);
 
@@ -395,6 +399,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         requiresAssociation,
         signIn,
         signOut,
+        isLoggingOut,
         refreshTokens,
         reloadUserContext,
         setAuthTokens,

@@ -1,11 +1,11 @@
 import { ConfigContext, ExpoConfig } from "expo/config";
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
-  name: "internoApp",
+  name: "Italo Argentina",
   slug: "internoApp",
   version: "1.0.0",
   orientation: "portrait",
-  icon: "./assets/images/icon.png",
+  icon: "./assets/images/icon-1024.png",
   scheme: "internoapp",
   userInterfaceStyle: "automatic",
   newArchEnabled: true,
@@ -23,7 +23,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       process.env.GOOGLE_SERVICES_JSON ?? "./google-services.json",
     adaptiveIcon: {
       backgroundColor: "#E6F4FE",
-      foregroundImage: "./assets/images/android-icon-foreground.png",
+      foregroundImage: "./assets/images/icon-1024.png",
       backgroundImage: "./assets/images/android-icon-background.png",
       monochromeImage: "./assets/images/android-icon-monochrome.png",
     },
@@ -38,7 +38,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     [
       "expo-notifications",
       {
-        icon: "./assets/images/icon.png",
+        icon: "./assets/images/icon-1024.png",
         color: "#E6F4FE",
       },
     ],
@@ -46,7 +46,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     [
       "expo-splash-screen",
       {
-        image: "./assets/images/splash-icon.png",
+        image: "./assets/images/icon-1024.png",
         imageWidth: 200,
         resizeMode: "contain",
         backgroundColor: "#ffffff",
@@ -64,7 +64,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     reactCompiler: true,
   },
   extra: {
-    API_BASE_URL: "http://192.168.1.12:3000",
+    API_BASE_URL: "http://192.168.0.4:3000",
     router: {},
     eas: {
       projectId: "f7cef901-9e89-441f-8cb3-ceb9c01a8b6c",

@@ -170,12 +170,12 @@ export function ImagenesReporte({
                         setShowUploadForm(false);
                     },
                     onError: (error: any) => {
-                        Alert.alert('Error', error?.message ?? 'No se pudo subir la imagen.');
+                        Alert.alert('Error', error?.message ?? 'Intenta nuevamente');
                     },
                 },
             );
         } catch (err: any) {
-            Alert.alert('Error', err?.message ?? 'No se pudo abrir el selector de archivos.');
+            Alert.alert('Error', err?.message ?? 'Intenta nuevamente');
         }
     }, [uploadDescription, uploadImage, reporteId, imagenesDetalle, imagenesUrl]);
 
@@ -196,7 +196,7 @@ export function ImagenesReporte({
                                     onError: (error: any) => {
                                         Alert.alert(
                                             'Error',
-                                            error?.message ?? 'No se pudo eliminar la imagen.',
+                                            error?.message ?? 'Intenta nuevamente',
                                         );
                                     },
                                 },

@@ -30,7 +30,8 @@ export async function updatePassword(accessToken: string, oldPassword: string, n
   });
   
   if (!response.ok) {
-    throw new Error('Error al actualizar contraseña');
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.message || data.error || 'Intenta nuevamente');
   }
   
   const data = await response.json();
@@ -42,7 +43,8 @@ export async function updateUserData(accessToken: string, userData: UpdateUserRe
   });
   
   if (!response.ok) {
-    throw new Error('Error al actualizar usuario');
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.message || data.error || 'Intenta nuevamente');
   }
   
   const data = await response.json();
@@ -54,7 +56,8 @@ export async function updateUserRole(accessToken: string, userId: number, roleId
   });
   
   if (!response.ok) {
-    throw new Error('Error al actualizar rol del usuario');
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.message || data.error || 'Intenta nuevamente');
   }
   
   const data = await response.json();
@@ -75,7 +78,13 @@ export async function bajaUsuario(accessToken: string, userId: number) {
   if (!response.ok) {
     const errorText = await response.text();
     console.error('Error al dar de baja usuario:', response.status, errorText);
-    throw new Error('Error al dar de baja al usuario');
+    try {
+      const error = JSON.parse(errorText);
+      throw new Error(error.message || error.error || 'Intenta nuevamente');
+    } catch (e) {
+      if (e instanceof Error && e.message !== errorText) throw e;
+      throw new Error(errorText || 'Intenta nuevamente');
+    }
   }
   
   const data = await response.json();
@@ -100,9 +109,9 @@ export async function obtenerCuentasDisponibles(accessToken: string, cuit: strin
     console.error("❌ obtenerCuentasDisponibles - Status:", response.statusText, "Response:", textResponse);
     try {
       const error = JSON.parse(textResponse);
-      throw new Error(error.error || 'Error al obtener cuentas disponibles');
+      throw new Error(error.error || 'Intenta nuevamente');
     } catch (e) {
-      throw new Error(textResponse || 'Error al obtener cuentas disponibles');
+      throw new Error(textResponse || 'Intenta nuevamente');
     }
   }
 
@@ -140,9 +149,9 @@ export async function requestVerificationToken(
     console.error("❌ requestVerificationToken - Status:", response.statusText, "Response:", textResponse);
     try {
       const error = JSON.parse(textResponse);
-      throw new Error(error.error || 'Error al enviar token de verificación');
+      throw new Error(error.error || 'Intenta nuevamente');
     } catch (e) {
-      throw new Error(textResponse || 'Error al enviar token de verificación');
+      throw new Error(textResponse || 'Intenta nuevamente');
     }
   }
 
@@ -175,9 +184,9 @@ export async function verifyAndAssociateAccount(
     console.error("❌ verifyAndAssociateAccount - Status:", response.statusText, "Response:", textResponse);
     try {
       const error = JSON.parse(textResponse);
-      throw new Error(error.message || error.error || 'Error al verificar y asociar cuenta');
+      throw new Error(error.message || error.error || 'Intenta nuevamente');
     } catch (e) {
-      throw new Error(textResponse || 'Error al verificar y asociar cuenta');
+      throw new Error(textResponse || 'Intenta nuevamente');
     }
   }
 
@@ -204,9 +213,9 @@ export async function generatePasswordToken(email: string) {
     console.error("❌ generatePasswordToken - Status:", response.statusText, "Response:", textResponse);
     try {
       const error = JSON.parse(textResponse);
-      throw new Error(error.message || error.error || 'Error al generar token');
+      throw new Error(error.message || error.error || 'Intenta nuevamente');
     } catch (e) {
-      throw new Error(textResponse || 'Error al generar token');
+      throw new Error(textResponse || 'Intenta nuevamente');
     }
   }
 
@@ -233,9 +242,9 @@ export async function validatePasswordToken(email: string, token: string) {
     console.error("❌ validatePasswordToken - Status:", response.statusText, "Response:", textResponse);
     try {
       const error = JSON.parse(textResponse);
-      throw new Error(error.message || error.error || 'Token inválido o expirado');
+      throw new Error(error.message || error.error || 'Intenta nuevamente');
     } catch (e) {
-      throw new Error(textResponse || 'Token inválido o expirado');
+      throw new Error(textResponse || 'Intenta nuevamente');
     }
   }
 
@@ -262,9 +271,9 @@ export async function changePasswordWithToken(accessToken: string, newPassword: 
     console.error("❌ changePasswordWithToken - Status:", response.statusText, "Response:", textResponse);
     try {
       const error = JSON.parse(textResponse);
-      throw new Error(error.message || error.error || 'Error al cambiar contraseña');
+      throw new Error(error.message || error.error || 'Intenta nuevamente');
     } catch (e) {
-      throw new Error(textResponse || 'Error al cambiar contraseña');
+      throw new Error(textResponse || 'Intenta nuevamente');
     }
   }
 

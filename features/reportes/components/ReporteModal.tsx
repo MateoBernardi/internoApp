@@ -68,7 +68,7 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 					onClose();
 				},
 				onError: (error: any) => {
-					Alert.alert('Error', error?.message || 'No se pudo actualizar');
+					Alert.alert('Error', error?.message || 'Intenta nuevamente');
 				},
 			}
 		);

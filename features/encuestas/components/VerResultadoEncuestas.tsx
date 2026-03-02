@@ -1,4 +1,5 @@
 import { ThemedText } from '@/components/themed-text';
+import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
@@ -62,7 +63,7 @@ export const VerResultadosEncuestas: React.FC<VerResultadosEncuestasProps> = ({ 
                 refetch();
               },
               onError: (error) => {
-                Alert.alert('Error', 'No se pudo eliminar la encuesta. Verifica tus permisos.');
+                Alert.alert('Error', error instanceof Error ? error.message : 'Intenta nuevamente');
                 console.error(error);
               },
             });
@@ -82,10 +83,7 @@ export const VerResultadosEncuestas: React.FC<VerResultadosEncuestasProps> = ({ 
           <ThemedText type="title" style={styles.headerTitleCentered}>Resultados</ThemedText>
           <View style={{ width: 40 }} />
         </View>
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={colors.lightTint} />
-          <Text style={styles.loadingText}>Cargando resultados...</Text>
-        </View>
+        <ScreenSkeleton rows={4} />
       </View>
     );
   }
@@ -102,7 +100,6 @@ export const VerResultadosEncuestas: React.FC<VerResultadosEncuestasProps> = ({ 
         </View>
         <View style={styles.centerContainer}>
           <Ionicons name="alert-circle-outline" size={48} color={colors.error} />
-          <Text style={styles.errorText}>Error al cargar resultados</Text>
           <Text style={styles.errorSubtext}>{error.message}</Text>
           <TouchableOpacity style={styles.retryButton} onPress={() => refetch()}>
             <Text style={styles.retryButtonText}>Reintentar</Text>

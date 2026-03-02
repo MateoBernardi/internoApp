@@ -6,7 +6,8 @@ export const getTiposLicencia = async (accessToken: string): Promise<solicitudLi
 
     if (!response.ok) {
         console.error('Error fetching tipos de licencia:', response.status, response.statusText);
-        throw new Error(`No se pudieron obtener los tipos de licencia: ${response.statusText}`);
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.message || errData.error || response.statusText);
     }
 
     const data = await response.json();
@@ -19,7 +20,8 @@ export const getSaldosLicencia = async (accessToken: string): Promise<solicitudL
 
     if (!response.ok) {
         console.error('Error fetching saldos de licencia:', response.status, response.statusText);
-        throw new Error(`No se pudieron obtener los saldos de licencia: ${response.statusText}`);
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.message || errData.error || response.statusText);
     }
 
     const raw = await response.json();
@@ -49,7 +51,7 @@ export const getSolicitudesLicencias = async (accessToken: string, filters?: sol
 
     if (!response.ok) {
         const error = await response.json().catch(() => ({}));
-        throw new Error(`No se pudieron obtener las solicitudes de licencias: ${error.message}`);
+        throw new Error(error.message || response.statusText);
     }
 
     const data = await response.json();
@@ -61,7 +63,7 @@ export const getSolicitudesUsuario = async (accessToken: string): Promise<solici
 
     if (!response.ok) {
         const error = await response.json().catch(() => ({}));
-        throw new Error(`No se pudieron obtener las solicitudes de licencias del usuario: ${error.message}`);
+        throw new Error(error.message || response.statusText);
     }
 
     const data = await response.json();
@@ -75,7 +77,7 @@ export const createSolicitudLicencia = async (accessToken: string, data: solicit
     console.log('Create solicitud response:', response.status, body);
 
     if (!response.ok) {
-        throw new Error(`No se pudo crear la solicitud de licencia: ${body.message ?? response.statusText}`);
+        throw new Error(body.message || response.statusText);
     }
 
     return body;
@@ -87,7 +89,7 @@ export const adjuntarArchivo = async (accessToken: string, solicitudId: number, 
     const body = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-        throw new Error(`No se pudo adjuntar el archivo: ${body.message ?? response.statusText}`);
+        throw new Error(body.message || response.statusText);
     }
 
     return body;
@@ -99,7 +101,7 @@ export const cancelarSolicitudLicencia = async (accessToken: string, solicitudId
     const body = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-        throw new Error(`No se pudo cancelar la solicitud de licencia: ${body.message ?? response.statusText}`);
+        throw new Error(body.message || response.statusText);
     }
 
     return body;
@@ -112,7 +114,7 @@ export const aprobarSolicitudLicencia = async (accessToken: string, solicitudId:
     const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-        throw new Error(`No se pudo aprobar la solicitud de licencia: ${data.message ?? response.statusText}`);
+        throw new Error(data.message || response.statusText);
     }
 
     return data;
@@ -128,7 +130,7 @@ export const rechazarSolicitudLicencia = async (accessToken: string, solicitudId
     if (!response.ok) {
         const error = await response.json().catch(() => ({}));
         console.error('[rechazarSolicitudLicencia] Error en la respuesta:', error);
-        throw new Error(`No se pudo rechazar la solicitud de licencia: ${error.message}`);
+        throw new Error(error.message || response.statusText);
     }
 
     const data = await response.json();

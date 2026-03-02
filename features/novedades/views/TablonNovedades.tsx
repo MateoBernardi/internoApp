@@ -2,9 +2,10 @@ import { CrearNovedadCard } from '@/components/CrearNovedadCard';
 import { NovedadCard } from '@/components/NovedadCard';
 import { NovedadFormModal } from '@/components/NovedadFormModal';
 import { NovedadModal } from '@/components/NovedadModal';
+import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { Novedad } from '../models/Novedades';
 import { useNovedad } from '../viewmodels/useNovedad';
 
@@ -129,7 +130,7 @@ export default function TablonNovedades({ refreshTrigger }: TablonNovedadesProps
               setIsDetailModalOpen(false);
               setSelectedNovedad(null);
             } else {
-              Alert.alert('Error', result.error || 'No se pudo eliminar la novedad');
+              Alert.alert('Error', result.error || 'Intenta nuevamente');
             }
           },
         },
@@ -151,7 +152,7 @@ export default function TablonNovedades({ refreshTrigger }: TablonNovedadesProps
         };
         setNovedades((prev) => [newNovedadView, ...prev]);
       } else {
-        Alert.alert('Error', result.error || 'No se pudo crear la novedad');
+        Alert.alert('Error', result.error || 'Intenta nuevamente');
       }
     } else if (formMode === 'edit' && selectedNovedad?.id) {
       const result = await actualizarNovedad({
@@ -173,7 +174,7 @@ export default function TablonNovedades({ refreshTrigger }: TablonNovedadesProps
         );
         setSelectedNovedad(null);
       } else {
-        Alert.alert('Error', result.error || 'No se pudo actualizar la novedad');
+        Alert.alert('Error', result.error || 'Intenta nuevamente');
       }
     }
   };
@@ -197,10 +198,7 @@ export default function TablonNovedades({ refreshTrigger }: TablonNovedadesProps
 
   if (localLoading || isLoading) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#3b82f6" />
-        <Text style={styles.loadingText}>Cargando novedades...</Text>
-      </View>
+      <ScreenSkeleton rows={4} />
     );
   }
 

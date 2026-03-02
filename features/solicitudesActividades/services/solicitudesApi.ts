@@ -25,13 +25,25 @@ export async function crearSolicitud(accessToken: string, data: solicitudes.Crea
     return await response.json();
 }
 
+export async function validarFechas(accessToken: string, data: solicitudes.ValidarFechasRequest): Promise<solicitudes.ValidarFechasResponse> {
+    const response = await apiRequest({method: 'POST', endpoint: '/solicitudes-actividades/solicitudes/validar-fechas', token: accessToken, body: data});
+
+    if (!response.ok) {
+        const errorMsg = await extractErrorText(response);
+        console.error('Error en validarFechas:', response.status, errorMsg);
+        throw new Error(errorMsg);
+    }
+
+    return await response.json();
+}
+
 export async function cancelarSolicitud(accessToken: string, data: solicitudes.CancelarSolicitudRequest): Promise<void> {
     const response = await apiRequest({method: 'DELETE', endpoint: `/solicitudes-actividades/solicitudes/cancelar`, token: accessToken, body: data});
 
     if (!response.ok) {
         const errorText = await response.text();
         console.error('Error en cancelarSolicitud:', response.status, errorText);
-        throw new Error(`No se pudo cancelar la solicitud: ${response.status} - ${errorText}`);
+        try { const errData = JSON.parse(errorText); throw new Error(errData.message || errData.error || errorText); } catch (e) { if (e instanceof Error && e.message !== errorText) throw e; throw new Error(errorText || response.statusText); }
     }
 }
 
@@ -41,7 +53,7 @@ export async function modificarSolicitudFechas(accessToken: string, data: solici
     if (!response.ok) {
         const errorText = await response.text();
         console.error('Error en modificarSolicitudFechas:', response.status, errorText);
-        throw new Error(`No se pudo modificar las fechas de la solicitud: ${response.status} - ${errorText}`);
+        try { const errData = JSON.parse(errorText); throw new Error(errData.message || errData.error || errorText); } catch (e) { if (e instanceof Error && e.message !== errorText) throw e; throw new Error(errorText || response.statusText); }
     }
 
     return await response.json();
@@ -53,7 +65,7 @@ export async function aceptarModificaciones(accessToken: string, solicitudId: nu
     if (!response.ok) {
         const errorText = await response.text();
         console.error('Error en aceptarModificaciones:', response.status, errorText);
-        throw new Error(`No se pudo aceptar las modificaciones de la solicitud: ${response.status} - ${errorText}`);
+        try { const errData = JSON.parse(errorText); throw new Error(errData.message || errData.error || errorText); } catch (e) { if (e instanceof Error && e.message !== errorText) throw e; throw new Error(errorText || response.statusText); }
     }
 
     return await response.json();
@@ -65,7 +77,7 @@ export async function reenviarSolicitud(accessToken: string, data: solicitudes.R
     if (!response.ok) {
         const errorText = await response.text();
         console.error('Error en reenviarSolicitud:', response.status, errorText);
-        throw new Error(`No se pudo reenviar la solicitud: ${response.status} - ${errorText}`);
+        try { const errData = JSON.parse(errorText); throw new Error(errData.message || errData.error || errorText); } catch (e) { if (e instanceof Error && e.message !== errorText) throw e; throw new Error(errorText || response.statusText); }
     }
 
     return await response.json();
@@ -77,7 +89,7 @@ export async function getSolicitudBitacora(accessToken: string, solicitudId: num
     if (!response.ok) {
         const errorText = await response.text();
         console.error('Error en getSolicitudBitacora:', response.status, errorText);
-        throw new Error(`No se pudo obtener la bitácora de la solicitud: ${response.status} - ${errorText}`);
+        try { const errData = JSON.parse(errorText); throw new Error(errData.message || errData.error || errorText); } catch (e) { if (e instanceof Error && e.message !== errorText) throw e; throw new Error(errorText || response.statusText); }
     }
 
     return await response.json();
@@ -89,7 +101,7 @@ export async function getSolicitudesCreadas(accessToken: string): Promise<solici
     if (!response.ok) {
         const errorText = await response.text();
         console.error('Error en getSolicitudesCreadas:', response.status, errorText);
-        throw new Error(`No se pudo obtener las solicitudes creadas: ${response.status} - ${errorText}`);
+        try { const errData = JSON.parse(errorText); throw new Error(errData.message || errData.error || errorText); } catch (e) { if (e instanceof Error && e.message !== errorText) throw e; throw new Error(errorText || response.statusText); }
     }
 
     return await response.json();
@@ -101,7 +113,7 @@ export async function obtenerMisInvitaciones(accessToken: string): Promise<solic
     if (!response.ok) {
         const errorText = await response.text();
         console.error('Error en obtenerMisInvitaciones:', response.status, errorText);
-        throw new Error(`No se pudo obtener mis invitaciones: ${response.status} - ${errorText}`);
+        try { const errData = JSON.parse(errorText); throw new Error(errData.message || errData.error || errorText); } catch (e) { if (e instanceof Error && e.message !== errorText) throw e; throw new Error(errorText || response.statusText); }
     }
 
     return await response.json();

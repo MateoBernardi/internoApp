@@ -1,12 +1,13 @@
 import { OwnFlatList } from '@/components/FlatList';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { Colors } from '@/constants/theme';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Linking from 'expo-linking';
 import * as Sharing from 'expo-sharing';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
 import { DocumentoItem } from '../components/DocumentoItem';
 import { EditArchivoModal } from '../components/EditArchivoModal';
 import { Archivo } from '../models/Archivo';
@@ -123,12 +124,9 @@ export default function DocumentosEmpresa({ query = '' }: { query?: string }) {
   return (
     <ThemedView style={styles.container}>
       {isLoadingAny ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={colors.tint} />
-        </View>
+        <ScreenSkeleton rows={5} />
       ) : errorAll && !isSearching ? (
         <View style={styles.center}>
-          <ThemedText style={{ marginBottom: 8 }}>Error al cargar documentos</ThemedText>
           <ThemedText style={{ color: colors.secondaryText, fontSize: 13 }}>
             {errorAll instanceof Error ? errorAll.message : 'Intenta nuevamente'}
           </ThemedText>

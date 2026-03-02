@@ -34,7 +34,7 @@ export function useNovedad() {
       setIsLoading(false);
       return { success: true, data: novedades };
     } catch (err: any) {
-      const errorMsg = err.message || 'Error al obtener las novedades';
+      const errorMsg = err.message || 'Intenta nuevamente';
       setError(errorMsg);
       setIsLoading(false);
       console.error('Error en obtenerNovedades:', err);
@@ -58,7 +58,7 @@ export function useNovedad() {
         setIsLoading(false);
         return { success: true, data: nuevaNovedad };
       } catch (err: any) {
-        const errorMsg = err.message || 'Error al crear la novedad';
+        const errorMsg = err.message || 'Intenta nuevamente';
         setError(errorMsg);
         setIsLoading(false);
         console.error('Error en crearNovedad:', err);
@@ -84,7 +84,7 @@ export function useNovedad() {
         setIsLoading(false);
         return { success: true, data: novedadActualizada };
       } catch (err: any) {
-        const errorMsg = err.message || 'Error al actualizar la novedad';
+        const errorMsg = err.message || 'Intenta nuevamente';
         setError(errorMsg);
         setIsLoading(false);
         console.error('Error en actualizarNovedad:', err);
@@ -110,7 +110,7 @@ export function useNovedad() {
         setIsLoading(false);
         return { success: true };
       } catch (err: any) {
-        const errorMsg = err.message || 'Error al eliminar la novedad';
+        const errorMsg = err.message || 'Intenta nuevamente';
         setError(errorMsg);
         setIsLoading(false);
         console.error('Error en eliminarNovedad:', err);

@@ -1,13 +1,13 @@
 import { ThemedText } from '@/components/themed-text';
+import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { Colors } from '@/constants/theme';
 import { useRouter } from 'expo-router';
 import React, { useCallback } from 'react';
 import {
-  ActivityIndicator,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  View,
+    ScrollView,
+    StyleSheet,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { SolicitudEnviada, estadoInvitacionMapping } from '../models/Solicitud';
 import { useInvitaciones } from '../viewmodels/useSolicitudes';
@@ -34,18 +34,13 @@ export function SolicitudesRecibidas({ onRefresh, refreshing }: SolicitudesRecib
 
   if (isLoading) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={colors.tint} />
-      </View>
+      <ScreenSkeleton rows={3} showHeader={false} />
     );
   }
 
   if (error) {
     return (
       <View style={styles.centerContainer}>
-        <ThemedText type="subtitle" style={styles.errorText}>
-          No se encontró ninguna solicitud recibida.
-        </ThemedText>
         <ThemedText style={{ color: colors.icon }}>
           {error instanceof Error ? error.message : 'Intenta nuevamente'}
         </ThemedText>
@@ -130,7 +125,7 @@ function SolicitudRecibidaItem({ solicitud, estadoUI, onPress }: SolicitudRecibi
           {solicitud.titulo}
         </ThemedText>
         <ThemedText style={[styles.creador, { color: colors.secondaryText }]}>
-          De: {solicitud.creador_nombre} {solicitud.creador_apellido}
+          De: {solicitud.nombre_creador} {solicitud.apellido_creador}
         </ThemedText>
         <ThemedText
           numberOfLines={2}
@@ -166,6 +161,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 16,
+    backgroundColor: colors.componentBackground,
   },
   errorText: {
     marginBottom: 8,

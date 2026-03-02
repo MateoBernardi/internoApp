@@ -1,4 +1,5 @@
 import { ThemedText } from '@/components/themed-text';
+import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
 import { SearchBar } from '@/components/ui/SearchBar';
 import { Colors } from '@/constants/theme';
 import { useBajaUsuario, useSearchUsers, useUpdateUserRole } from '@/shared/users/useUser';
@@ -91,7 +92,7 @@ export function CambiarRolEmpleado() {
             } catch (error: any) {
               Alert.alert(
                 'Error',
-                error.message || 'No se pudo cambiar el rol'
+                error.message || 'Intenta nuevamente'
               );
               setSelectedRoleId(null);
             }
@@ -131,7 +132,7 @@ export function CambiarRolEmpleado() {
             } catch (error: any) {
               Alert.alert(
                 'Error',
-                error.message || 'No se pudo dar de baja al usuario'
+                error.message || 'Intenta nuevamente'
               );
             }
           },
@@ -141,6 +142,7 @@ export function CambiarRolEmpleado() {
   };
 
   return (
+    <>
     <ScrollView 
       style={[{ backgroundColor: colors.componentBackground }]}
       contentContainerStyle={[styles.container]}
@@ -173,7 +175,9 @@ export function CambiarRolEmpleado() {
               <View style={styles.errorContainer}>
                 <Ionicons name="alert-circle" size={20} color={colors.error} />
                 <ThemedText style={[styles.errorText, { color: colors.error }]}>
-                  Error al buscar usuarios
+                  {searchUsersQuery.error instanceof Error
+                    ? searchUsersQuery.error.message
+                    : 'Intenta nuevamente'}
                 </ThemedText>
               </View>
             )}
@@ -408,13 +412,15 @@ export function CambiarRolEmpleado() {
                   ? updateRolMutation.error.message
                   : bajaMutation.error instanceof Error
                   ? bajaMutation.error.message
-                  : 'Error en la operación'}
+                  : 'Intenta nuevamente'}
               </ThemedText>
             </View>
           )}
         </View>
       )}
     </ScrollView>
+    <OperacionPendienteModal visible={updateRolMutation.isPending || bajaMutation.isPending} />
+    </>
   );
 }
 

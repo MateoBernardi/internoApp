@@ -7,9 +7,10 @@ interface AgendaSemanalProps {
   activities: Activity[];
   today: Date;
   onDeleteActivity: (id: string) => void;
+  onPressActivity?: (activity: Activity) => void;
 }
 
-export const AgendaSemanal: React.FC<AgendaSemanalProps> = ({ activities, today, onDeleteActivity }) => {
+export const AgendaSemanal: React.FC<AgendaSemanalProps> = ({ activities, today, onDeleteActivity, onPressActivity }) => {
   const dayLabels = [
     'Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado',
   ];
@@ -56,28 +57,53 @@ export const AgendaSemanal: React.FC<AgendaSemanalProps> = ({ activities, today,
             <Text style={styles.noActivitiesText}>Sin actividades</Text>
           ) : (
             <View style={styles.activitiesContainer}>
-              {day.activities.map((activity) => (
-                <View key={activity.id} style={styles.activityCard}>
-                  <View style={styles.timeColumn}>
-                    <Text style={styles.timeText}>{activity.time || '—'}</Text>
-                  </View>
+              {day.activities.map((activity) => {
+                const esReunionVacia =
+                  activity.tipo_actividad === 'REUNION' &&
+                  (activity.participantes?.length ?? 0) <= 1;
 
-                  <View style={styles.contentColumn}>
-                    <Text style={styles.titleText} numberOfLines={2}>
-                      {activity.title}
-                    </Text>
-                  </View>
+                return (
+                  <TouchableOpacity
+                    key={activity.id}
+                    activeOpacity={activity.tipo === 'licencia' ? 1 : 0.7}
+                    onPress={() => {
+                      if (activity.tipo !== 'licencia' && onPressActivity) {
+                        onPressActivity(activity);
+                      }
+                    }}
+                  >
+                    <View style={[
+                      styles.activityCard,
+                      esReunionVacia && { borderColor: '#EF4444', borderWidth: 1 },
+                    ]}>
+                      <View style={styles.timeColumn}>
+                        <Text style={styles.timeText}>{activity.time || '—'}</Text>
+                      </View>
 
-                  {activity.tipo !== 'licencia' && (
-                    <TouchableOpacity
-                      onPress={() => onDeleteActivity(activity.id)}
-                      style={styles.deleteButton}
-                    >
-                      <Ionicons name="close-circle" size={20} color="#EF4444" />
-                    </TouchableOpacity>
-                  )}
-                </View>
-              ))}
+                      <View style={styles.contentColumn}>
+                        <Text
+                          style={[styles.titleText, esReunionVacia && { color: '#EF4444' }]}
+                          numberOfLines={2}
+                        >
+                          {activity.title}
+                        </Text>
+                      </View>
+
+                      {activity.tipo !== 'licencia' && (
+                        <TouchableOpacity
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            onDeleteActivity(activity.id);
+                          }}
+                          style={styles.deleteButton}
+                        >
+                          <Ionicons name="close-circle" size={20} color="#EF4444" />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           )}
         </View>

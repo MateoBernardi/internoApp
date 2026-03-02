@@ -1,4 +1,5 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
@@ -15,7 +16,7 @@ interface MenuOption {
 }
 
 export default function TabLayout() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, isLoggingOut } = useAuth();
   const { hasRole, isKnownRole } = useRoleCheck();
   const router = useRouter();
 
@@ -134,6 +135,9 @@ export default function TabLayout() {
 
   return (
     <View style={{ flex: 1 }}>
+      {/* Modal de espera para cierre de sesión */}
+      <OperacionPendienteModal visible={isLoggingOut} message="Cerrando sesión..." />
+
       {/* El menú aparece sobre el contenido pero debajo de la barra si quieres, 
           o sobre todo si lo pones aquí */}
       {renderMenu()}

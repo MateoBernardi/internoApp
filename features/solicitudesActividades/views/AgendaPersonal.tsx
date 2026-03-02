@@ -1,46 +1,52 @@
 import { ThemedText } from '@/components/themed-text';
+import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
+import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { Colors } from '@/constants/theme';
+import { useAuth } from '@/features/auth/context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import React, { useMemo, useState } from 'react';
+import { useRouter } from 'expo-router';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  View,
+    ActivityIndicator,
+    Alert,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    TouchableWithoutFeedback,
+    View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Activity } from '../components/activityTypes';
 import { AgendaDiaria } from '../components/AgendaDiaria';
 import { AgendaSemanal } from '../components/AgendaSemanal';
+import { ValidacionFechasModal } from '../components/ValidacionFechasModal';
 import type { Actividad, Licencia } from '../models/Actividad';
 import {
-  useActividadesSemanaAnterior,
-  useActividadesSemanales,
-  useCancelarActividad,
-  useCrearActividad,
+    useActividadesSemanales,
+    useCancelarActividad,
+    useCrearActividad,
 } from '../viewmodels/useActividades';
+import { useValidacionFechas } from '../viewmodels/useValidacionFechas';
 
 const colors = Colors['light'];
 
 const AgendaPersonal: React.FC = () => {
   // Queries
   const actividadesSemanalesQuery = useActividadesSemanales();
-  const actividadesSemanaAnteriorQuery = useActividadesSemanaAnterior();
   const insets = useSafeAreaInsets();
+  const { user } = useAuth();
+  const router = useRouter();
 
   // Mutations
   const crearActividadMutation = useCrearActividad();
   const cancelarActividadMutation = useCancelarActividad();
+  const validacion = useValidacionFechas();
 
   const today = new Date();
   const dayName = today.toLocaleDateString('es-ES', { weekday: 'long' });
@@ -52,7 +58,6 @@ const AgendaPersonal: React.FC = () => {
 
   const [viewMode, setViewMode] = useState<'day' | 'week'>('day');
   const [showAddForm, setShowAddForm] = useState(false);
-  const [showRepeatForm, setShowRepeatForm] = useState(false);
   const [showFloatingMenu, setShowFloatingMenu] = useState(false);
 
   const [newActivity, setNewActivity] = useState({
@@ -63,16 +68,12 @@ const AgendaPersonal: React.FC = () => {
     description: '',
   });
 
-  const [selectedActivitiesToRepeat, setSelectedActivitiesToRepeat] = useState<string[]>([]);
-
   // Date picker state
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [datePickerMode, setDatePickerMode] = useState<'date' | 'time'>('date');
   const [activeDateType, setActiveDateType] = useState<'startDate' | 'startTime' | 'endTime' | null>(null);
 
-  const isLoading =
-    actividadesSemanalesQuery.isLoading ||
-    actividadesSemanaAnteriorQuery.isLoading;
+  const isLoading = actividadesSemanalesQuery.isLoading;
 
   const isMutating =
     crearActividadMutation.isPending ||
@@ -99,6 +100,7 @@ const AgendaPersonal: React.FC = () => {
         solicitud_id: act.solicitud_id,
         fecha_fin: act.fecha_fin,
         tipo: 'actividad',
+        tipo_actividad: act.tipo_actividad,
       };
     });
   };
@@ -137,12 +139,6 @@ const AgendaPersonal: React.FC = () => {
       : [];
     return weekActivities;
   }, [actividadesSemanalesQuery.data]);
-
-  const lastWeekActivities = useMemo(() => {
-    return actividadesSemanaAnteriorQuery.data
-      ? mapActivities(actividadesSemanaAnteriorQuery.data.actividades || [])
-      : [];
-  }, [actividadesSemanaAnteriorQuery.data]);
 
   const filteredActivities = useMemo(() => {
     if (viewMode === 'day') {
@@ -231,7 +227,7 @@ const AgendaPersonal: React.FC = () => {
               await cancelarActividadMutation.mutateAsync({ actividadId });
               Alert.alert('Éxito', 'Actividad cancelada correctamente.');
             } catch (error: any) {
-              Alert.alert('Error', error.message || 'Error al cancelar la actividad');
+              Alert.alert('Error', error.message || 'Intenta nuevamente');
             }
           },
         },
@@ -239,21 +235,16 @@ const AgendaPersonal: React.FC = () => {
     );
   };
 
-  const handleAddActivity = async () => {
-    if (!newActivity.title.trim()) {
-      Alert.alert('Error', 'El título es requerido');
-      return;
-    }
+  const handlePressActivity = useCallback((activity: Activity) => {
+    if (activity.tipo === 'licencia') return;
+    router.push({
+      pathname: '/(extras)/actividad-detalle' as any,
+      params: { actividadId: activity.id },
+    });
+  }, [router]);
 
+  const ejecutarCrearActividad = useCallback(async (fechaInicio: string, fechaFin: string) => {
     try {
-      const startHours = String(newActivity.startTime.getHours()).padStart(2, '0');
-      const startMinutes = String(newActivity.startTime.getMinutes()).padStart(2, '0');
-      const endHours = String(newActivity.endTime.getHours()).padStart(2, '0');
-      const endMinutes = String(newActivity.endTime.getMinutes()).padStart(2, '0');
-
-      const fechaInicio = `${newActivity.date}T${startHours}:${startMinutes}:00`;
-      const fechaFin = `${newActivity.date}T${endHours}:${endMinutes}:00`;
-
       await crearActividadMutation.mutateAsync({
         titulo: newActivity.title,
         descripcion: newActivity.description,
@@ -271,80 +262,37 @@ const AgendaPersonal: React.FC = () => {
       setShowAddForm(false);
       Alert.alert('Éxito', 'Actividad creada correctamente.');
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Error al crear la actividad');
+      Alert.alert('Error', error.message || 'Intenta nuevamente');
     }
-  };
+  }, [crearActividadMutation, newActivity.title, newActivity.description, today]);
 
-  const toggleActivitySelection = (id: string) => {
-    setSelectedActivitiesToRepeat((prev) =>
-      prev.includes(id) ? prev.filter((aid) => aid !== id) : [...prev, id]
+  const handleAddActivity = async () => {
+    if (!newActivity.title.trim()) {
+      Alert.alert('Error', 'El título es requerido');
+      return;
+    }
+
+    const startHours = String(newActivity.startTime.getHours()).padStart(2, '0');
+    const startMinutes = String(newActivity.startTime.getMinutes()).padStart(2, '0');
+    const endHours = String(newActivity.endTime.getHours()).padStart(2, '0');
+    const endMinutes = String(newActivity.endTime.getMinutes()).padStart(2, '0');
+
+    const fechaInicio = `${newActivity.date}T${startHours}:${startMinutes}:00`;
+    const fechaFin = `${newActivity.date}T${endHours}:${endMinutes}:00`;
+
+    const participantes: number[] = [];
+    if (user?.user_context_id) {
+      participantes.push(user.user_context_id);
+    }
+
+    validacion.validate(
+      {
+        fechaInicio,
+        fechaFin,
+        participantes,
+      },
+      () => ejecutarCrearActividad(fechaInicio, fechaFin)
     );
-  };
-
-  const selectAllActivities = () => {
-    if (selectedActivitiesToRepeat.length === lastWeekActivities.length) {
-      setSelectedActivitiesToRepeat([]);
-    } else {
-      setSelectedActivitiesToRepeat(lastWeekActivities.map((a) => a.id));
-    }
-  };
-
-  const handleRepeatActivities = async () => {
-    if (selectedActivitiesToRepeat.length === 0) return;
-
-    const activitiesToRepeat = lastWeekActivities.filter((a) =>
-      selectedActivitiesToRepeat.includes(a.id)
-    );
-
-    let successCount = 0;
-    let errorCount = 0;
-
-    for (const activity of activitiesToRepeat) {
-      try {
-        // Calcular la nueva fecha: misma hora, pero en la semana actual
-        const originalDate = new Date(activity.date + 'T' + activity.time + ':00');
-        const dayOfWeek = originalDate.getDay();
-
-        const newDate = new Date(today);
-        const currentDay = newDate.getDay();
-        const daysOffset = dayOfWeek - currentDay;
-        newDate.setDate(newDate.getDate() + daysOffset);
-        const newDateStr = newDate.toISOString().split('T')[0];
-
-        const fechaInicio = `${newDateStr}T${activity.time}:00`;
-
-        // Calcular fecha fin basándose en la duración original
-        let fechaFin = `${newDateStr}T${activity.time}:00`;
-        if (activity.fecha_fin) {
-          const finMatch = activity.fecha_fin.match(/[T ](\d{2}:\d{2})/);
-          if (finMatch) {
-            fechaFin = `${newDateStr}T${finMatch[1]}:00`;
-          }
-        }
-
-        await crearActividadMutation.mutateAsync({
-          titulo: activity.title,
-          descripcion: activity.description || '',
-          fecha_inicio: fechaInicio,
-          fecha_fin: fechaFin,
-        });
-        successCount++;
-      } catch {
-        errorCount++;
-      }
-    }
-
-    setSelectedActivitiesToRepeat([]);
-    setShowRepeatForm(false);
-
-    if (errorCount === 0) {
-      Alert.alert('Éxito', `Se repitieron ${successCount} actividades correctamente.`);
-    } else {
-      Alert.alert(
-        'Resultado',
-        `${successCount} actividades creadas, ${errorCount} con error.`
-      );
-    }
   };
 
   return (
@@ -399,10 +347,7 @@ const AgendaPersonal: React.FC = () => {
       {/* Activities */}
       <ScrollView style={styles.activitiesContainer} contentContainerStyle={{ paddingBottom: 80 }}>
         {isLoading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={colors.lightTint} />
-            <Text style={styles.loadingText}>Cargando actividades...</Text>
-          </View>
+          <ScreenSkeleton rows={4} showHeader={false} />
         ) : filteredActivities.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Ionicons name="calendar-outline" size={48} color="#D1D5DB" />
@@ -413,11 +358,13 @@ const AgendaPersonal: React.FC = () => {
             activities={filteredActivities}
             today={today}
             onDeleteActivity={handleDeleteActivity}
+            onPressActivity={handlePressActivity}
           />
         ) : (
           <AgendaDiaria
             activities={filteredActivities}
             onDeleteActivity={handleDeleteActivity}
+            onPressActivity={handlePressActivity}
           />
         )}
       </ScrollView>
@@ -434,15 +381,6 @@ const AgendaPersonal: React.FC = () => {
               }}
             >
               <Ionicons name="add" size={24} color="#FFFFFF" />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.fabMenuItemRepeat}
-              onPress={() => {
-                setShowRepeatForm(true);
-                setShowFloatingMenu(false);
-              }}
-            >
-              <Ionicons name="refresh" size={24} color="#FFFFFF" />
             </TouchableOpacity>
           </>
         )}
@@ -587,135 +525,6 @@ const AgendaPersonal: React.FC = () => {
         </View>
       </Modal>
 
-      {/* ==================== Repeat Activities Modal ==================== */}
-      <Modal
-        visible={showRepeatForm}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowRepeatForm(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <TouchableWithoutFeedback onPress={() => setShowRepeatForm(false)}>
-            <View style={StyleSheet.absoluteFill} />
-          </TouchableWithoutFeedback>
-
-          <View style={[styles.modalContainer, { maxHeight: '85%' }]}>
-            <ScrollView
-              contentContainerStyle={styles.modalScrollContent}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-            >
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Repetir actividades</Text>
-                <TouchableOpacity
-                  onPress={() => setShowRepeatForm(false)}
-                  style={styles.closeButton}
-                >
-                  <Ionicons name="close" size={24} color={colors.secondaryText} />
-                </TouchableOpacity>
-              </View>
-
-              {actividadesSemanaAnteriorQuery.isLoading ? (
-                <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="large" color={colors.lightTint} />
-                  <Text style={styles.loadingText}>Cargando semana anterior...</Text>
-                </View>
-              ) : actividadesSemanaAnteriorQuery.isError ? (
-                <View style={styles.emptyContainer}>
-                  <Ionicons name="alert-circle-outline" size={48} color={colors.error} />
-                  <Text style={[styles.emptyText, { color: colors.error }]}>
-                    No se pudieron cargar las actividades de la semana anterior.
-                  </Text>
-                </View>
-              ) : lastWeekActivities.length === 0 ? (
-                <View style={styles.emptyContainer}>
-                  <Ionicons name="calendar-outline" size={48} color="#D1D5DB" />
-                  <Text style={styles.emptyText}>No hay actividades de la semana anterior</Text>
-                </View>
-              ) : (
-                <>
-                  {/* Select all button */}
-                  <View style={styles.selectAllContainer}>
-                    <Text style={styles.selectAllText}>
-                      {lastWeekActivities.length} actividades disponibles
-                    </Text>
-                    <TouchableOpacity style={styles.selectAllButton} onPress={selectAllActivities}>
-                      <Text style={styles.selectAllButtonText}>
-                        {selectedActivitiesToRepeat.length === lastWeekActivities.length
-                          ? 'Deseleccionar'
-                          : 'Seleccionar'}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  {/* Activities list */}
-                  <FlatList
-                    data={lastWeekActivities.sort((a, b) => a.time.localeCompare(b.time))}
-                    keyExtractor={(item) => item.id}
-                    renderItem={({ item: activity }) => {
-                      const isSelected = selectedActivitiesToRepeat.includes(activity.id);
-                      const hasParticipants = (activity.participantes?.length ?? 0) > 1;
-
-                      return (
-                        <TouchableOpacity
-                          style={[
-                            styles.repeatActivityCard,
-                            isSelected && styles.repeatActivityCardSelected,
-                          ]}
-                          onPress={() => toggleActivitySelection(activity.id)}
-                        >
-                          <View style={styles.checkboxContainer}>
-                            <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
-                              {isSelected && (
-                                <Ionicons name="checkmark" size={14} color="#FFFFFF" />
-                              )}
-                            </View>
-                            <View style={styles.repeatActivityInfo}>
-                              <Text style={styles.repeatActivityTime}>{activity.time}</Text>
-                              <Text style={styles.repeatActivityTitle}>{activity.title}</Text>
-                              {hasParticipants && (
-                                <Text style={styles.repeatParticipantsText}>
-                                  {activity.participantes!.length} participantes
-                                </Text>
-                              )}
-                            </View>
-                          </View>
-                        </TouchableOpacity>
-                      );
-                    }}
-                    scrollEnabled={false}
-                  />
-                </>
-              )}
-
-              {/* Footer buttons */}
-              <View style={styles.buttonContainer}>
-                <TouchableOpacity
-                  style={styles.cancelButton}
-                  onPress={() => setShowRepeatForm(false)}
-                >
-                  <Text style={styles.cancelButtonText}>Cancelar</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.submitButton,
-                    selectedActivitiesToRepeat.length === 0 && styles.submitButtonDisabled,
-                  ]}
-                  disabled={selectedActivitiesToRepeat.length === 0 || isMutating}
-                  onPress={handleRepeatActivities}
-                >
-                  {isMutating ? (
-                    <ActivityIndicator color="#FFFFFF" size="small" />
-                  ) : (
-                    <Text style={styles.submitButtonText}>Repetir</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-
       {/* Date Picker */}
       {showDatePicker && (
         <DateTimePicker
@@ -733,6 +542,18 @@ const AgendaPersonal: React.FC = () => {
           onChange={onDateChange}
         />
       )}
+
+      {/* Modal de validación de fechas */}
+      <ValidacionFechasModal
+        state={validacion.state}
+        avisos={validacion.avisos}
+        errorMessage={validacion.errorMessage}
+        onConfirm={validacion.confirm}
+        onCancel={validacion.cancel}
+      />
+
+      {/* Modal operación pendiente */}
+      <OperacionPendienteModal visible={isMutating} />
     </View>
   );
 };
@@ -844,20 +665,6 @@ const styles = StyleSheet.create({
     height: 56,
     borderRadius: 28,
     backgroundColor: colors.success,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-    elevation: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-  },
-  fabMenuItemRepeat: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.error,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
@@ -983,82 +790,6 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 15,
     fontWeight: '600',
-  },
-  selectAllContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e0e0e0',
-    marginBottom: 8,
-  },
-  selectAllText: {
-    fontSize: 12,
-    color: '#5f6368',
-    fontWeight: '500',
-  },
-  selectAllButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: '#d2e3fc',
-    borderRadius: 6,
-  },
-  selectAllButtonText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.lightTint,
-  },
-  repeatActivityCard: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#dadce0',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginBottom: 8,
-    backgroundColor: '#f9f9f9',
-  },
-  repeatActivityCardSelected: {
-    backgroundColor: '#f1f3f4',
-    borderColor: colors.lightTint,
-  },
-  checkboxContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#dadce0',
-    borderRadius: 4,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-  },
-  checkboxSelected: {
-    backgroundColor: colors.lightTint,
-    borderColor: colors.lightTint,
-  },
-  repeatActivityInfo: {
-    flex: 1,
-  },
-  repeatActivityTime: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#202124',
-  },
-  repeatActivityTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#202124',
-    marginTop: 2,
-  },
-  repeatParticipantsText: {
-    fontSize: 11,
-    color: colors.secondaryText,
-    marginTop: 2,
   },
 });
 

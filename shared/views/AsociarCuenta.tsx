@@ -148,7 +148,7 @@ export default function AsociarCuenta() {
     } catch (error: any) {
       Alert.alert(
         "Error",
-        error.message || "No se pudo enviar el token de verificación"
+        error.message || "Intenta nuevamente"
       );
     }
   };
@@ -185,7 +185,7 @@ export default function AsociarCuenta() {
         router.replace("/(tabs)");
       }, 2000);
     } catch (error: any) {
-      Alert.alert("Error", error.message || "No se pudo asociar la cuenta");
+      Alert.alert("Error", error.message || "Intenta nuevamente");
     }
   };
 
@@ -258,7 +258,7 @@ export default function AsociarCuenta() {
                 <Text style={styles.errorText}>
                   {obtenerCuentasQuery.error instanceof Error
                     ? obtenerCuentasQuery.error.message
-                    : "Error al buscar cuentas"}
+                    : "Intenta nuevamente"}
                 </Text>
               </View>
             )}
@@ -375,7 +375,7 @@ export default function AsociarCuenta() {
                 <Text style={styles.errorText}>
                   {requestVerificationMutation.error instanceof Error
                     ? requestVerificationMutation.error.message
-                    : "Error al enviar el código"}
+                    : "Intenta nuevamente"}
                 </Text>
               </View>
             )}
@@ -447,7 +447,7 @@ export default function AsociarCuenta() {
                 <Text style={styles.errorText}>
                   {verifyAndAssociateMutation.error instanceof Error
                     ? verifyAndAssociateMutation.error.message
-                    : "Error al verificar"}
+                    : "Intenta nuevamente"}
                 </Text>
               </View>
             )}

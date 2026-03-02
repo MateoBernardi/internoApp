@@ -26,7 +26,7 @@ export function EncuestasPendientes() {
 
   if (error) {
     console.error(error);
-    return <ThemedText style={styles.errorText}>Error al cargar las encuestas.</ThemedText>;
+    return <ThemedText style={styles.errorText}>{error instanceof Error ? error.message : 'Intenta nuevamente'}</ThemedText>;
   }
 
   if (!encuestas || encuestas.length === 0) {

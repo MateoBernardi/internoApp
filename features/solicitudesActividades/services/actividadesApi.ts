@@ -42,16 +42,6 @@ export async function obtenerActividadesSemanales(accessToken: string): Promise<
     return await response.json();
 }
 
-export async function obtenerActividadesSemanaAnterior(accessToken: string): Promise<actividades.ActividadesSemanalesResponse> {
-    const response = await apiRequest({ method: "GET", endpoint: "/solicitudes-actividades/actividades/participantes/semana-anterior", token: accessToken });
-    if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Error en obtenerActividadesSemanaAnterior:", response.status, errorText);
-        throw new Error(`No se pudo obtener las actividades de la semana anterior: ${response.status} - ${errorText}`);
-    }   
-    return await response.json();
-}
-
 export async function cancelarActividad(accessToken: string, data: actividades.CancelarActividadRequest): Promise<actividades.CancelarActividadResponse> {
     const response = await apiRequest({ method: "PUT", endpoint: `/solicitudes-actividades/actividades/cancelar`, token: accessToken, body: data });
     if (!response.ok) {
@@ -61,3 +51,13 @@ export async function cancelarActividad(accessToken: string, data: actividades.C
     }
     return await response.json();
 }   
+
+export async function modificarActividadFechas(accessToken: string, data: actividades.ModificarActividadFechasRequest): Promise<actividades.ModificarActividadFechasResponse> {
+    const response = await apiRequest({ method: "PUT", endpoint: `/solicitudes-actividades/actividades/modificar-fechas`, token: accessToken, body: data });
+    if (!response.ok) {
+        const errorMsg = await extractErrorText(response);
+        console.error("Error en modificarActividadFechas:", response.status, errorMsg);
+        throw new Error(errorMsg);
+    }
+    return await response.json();
+}

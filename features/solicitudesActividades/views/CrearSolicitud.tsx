@@ -1,4 +1,5 @@
 import { ThemedText } from '@/components/themed-text';
+import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
 import { Colors } from '@/constants/theme';
 import { UserSummary } from '@/shared/users/User';
 import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
@@ -20,7 +21,9 @@ import {
 } from 'react-native';
 import { RoleUserSelectionModal } from '../components/RoleUserSelectionModal';
 import { UserSelector } from '../components/UserSelector';
+import { ValidacionFechasModal } from '../components/ValidacionFechasModal';
 import { useCrearSolicitud } from '../viewmodels/useSolicitudes';
+import { useValidacionFechas } from '../viewmodels/useValidacionFechas';
 
 const colors = Colors['light'];
 
@@ -34,6 +37,15 @@ export function CrearSolicitud() {
   const [allDay, setAllDay] = useState(false);
   const [tipoActividad, setTipoActividad] = useState<'REUNION' | 'MANDATO'>('REUNION');
   const [includeDates, setIncludeDates] = useState(true); // MANDATO can skip dates
+
+  const handleToggleIncludeDates = useCallback((value: boolean) => {
+    setIncludeDates(value);
+    if (!value) {
+      // Borrar las fechas de la memoria cuando el usuario desactiva las fechas
+      setFechaInicio(new Date());
+      setFechaFin(new Date(Date.now() + 3600000));
+    }
+  }, []);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [datePickerMode, setDatePickerMode] = useState<'date' | 'time'>('date');
   const [activeDateType, setActiveDateType] = useState<'start' | 'end' | null>(null);
@@ -98,6 +110,7 @@ export function CrearSolicitud() {
   }, []);
 
   const { mutate: crearSolicitud, isPending } = useCrearSolicitud();
+  const validacion = useValidacionFechas();
 
   const handleSearchUsers = useCallback((query: string) => {
       setSearchQuery(query);
@@ -166,25 +179,13 @@ export function CrearSolicitud() {
     );
   }, [titulo, descripcion, selectedUsers, fechaInicio, fechaFin, tipoActividad, includeDates]);
 
-  const handleCrearSolicitud = useCallback(() => {
-    if (!isFormValid) {
-      Alert.alert('Formulario incompleto', 'Por favor completa todos los campos');
-      return;
-    }
-
-    let start = new Date(fechaInicio);
-    let end = new Date(fechaFin);
-
-    if (allDay) {
-        start.setHours(0, 0, 0, 0);
-        end.setHours(23, 59, 59, 999);
-    }
-
+  const ejecutarCreacion = useCallback((start: Date, end: Date) => {
+    const hasDates = tipoActividad === 'REUNION' || includeDates;
     crearSolicitud(
       {
         titulo: titulo.trim(),
         descripcion: descripcion.trim(),
-        ...(tipoActividad === 'REUNION' || includeDates
+        ...(hasDates
           ? { fecha_inicio: start.toISOString(), fecha_fin: end.toISOString() }
           : {}),
         tipo_actividad: tipoActividad,
@@ -198,12 +199,46 @@ export function CrearSolicitud() {
         onError: (error: any) => {
           Alert.alert(
             'Error',
-            error instanceof Error ? error.message : 'No se pudo crear la solicitud'
+            error instanceof Error ? error.message : 'Intenta nuevamente'
           );
         },
       }
     );
-  }, [isFormValid, crearSolicitud, titulo, descripcion, fechaInicio, fechaFin, selectedUsers, router, allDay]);
+  }, [crearSolicitud, titulo, descripcion, selectedUsers, router, tipoActividad, includeDates]);
+
+  const handleCrearSolicitud = useCallback(() => {
+    if (!isFormValid) {
+      Alert.alert('Formulario incompleto', 'Por favor completa todos los campos');
+      return;
+    }
+
+    let start = new Date(fechaInicio);
+    let end = new Date(fechaFin);
+
+    if (allDay) {
+        // Usar hora actual + 5 minutos como inicio para evitar errores con fechas pasadas
+        const now = new Date();
+        start.setHours(now.getHours(), now.getMinutes() + 5, 0, 0);
+        end.setHours(23, 59, 59, 999);
+    }
+
+    const hasDates = tipoActividad === 'REUNION' || includeDates;
+
+    if (hasDates) {
+      // Validar fechas antes de crear
+      validacion.validate(
+        {
+          fechaInicio: start.toISOString(),
+          fechaFin: end.toISOString(),
+          participantes: selectedUsers.map((u: UserSummary) => u.user_context_id),
+        },
+        () => ejecutarCreacion(start, end)
+      );
+    } else {
+      // Sin fechas, crear directamente
+      ejecutarCreacion(start, end);
+    }
+  }, [isFormValid, fechaInicio, fechaFin, selectedUsers, allDay, tipoActividad, includeDates, validacion, ejecutarCreacion]);
 
   const handleCancel = useCallback(() => {
     if (
@@ -267,7 +302,7 @@ export function CrearSolicitud() {
                  <View style={{ flex: 1 }} />
                  <Switch
                    value={includeDates}
-                   onValueChange={setIncludeDates}
+                   onValueChange={handleToggleIncludeDates}
                    trackColor={{ false: colors.secondaryText, true: colors.success }}
                    thumbColor={colors.componentBackground}
                  />
@@ -450,6 +485,18 @@ export function CrearSolicitud() {
           onChange={onDateChange}
         />
       )}
+
+      {/* Modal de validación de fechas */}
+      <ValidacionFechasModal
+        state={validacion.state}
+        avisos={validacion.avisos}
+        errorMessage={validacion.errorMessage}
+        onConfirm={validacion.confirm}
+        onCancel={validacion.cancel}
+      />
+
+      {/* Modal operación pendiente */}
+      <OperacionPendienteModal visible={isPending} />
     </View>
   );
 }

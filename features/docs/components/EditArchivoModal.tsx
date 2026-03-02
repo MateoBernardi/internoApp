@@ -1,4 +1,5 @@
 import { ThemedText } from '@/components/themed-text';
+import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
 import { Colors } from '@/constants/theme';
 import { RoleUserSelectionModal } from '@/features/solicitudesActividades/components/RoleUserSelectionModal';
 import { UserSelector } from '@/features/solicitudesActividades/components/UserSelector';
@@ -8,16 +9,16 @@ import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Archivo, UpdateArchivoPayload } from '../models/Archivo';
@@ -141,7 +142,7 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
       {
         onSuccess: () => { Alert.alert('Éxito', 'Archivo actualizado correctamente'); onClose(); },
         onError: (error: any) => {
-          Alert.alert('Error', error instanceof Error ? error.message : 'No se pudo actualizar el archivo');
+          Alert.alert('Error', error instanceof Error ? error.message : 'Intenta nuevamente');
         },
       }
     );
@@ -163,6 +164,7 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
   }, [nombre, descripcion, archivo.nombre, archivo.titulo, usuariosCompartidos, onClose, resetForm]);
 
   return (
+    <>
     <Modal visible={visible} animationType="slide" onRequestClose={handleCancel}>
       {/*
         Misma estructura que CrearDocumento:
@@ -335,10 +337,10 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
         </View>
       </View>
     </Modal>
+    <OperacionPendienteModal visible={isUpdating} />
+    </>
   );
 }
-
-const BUTTON_MARGIN = 16;
 
 const styles = StyleSheet.create({
   container: {

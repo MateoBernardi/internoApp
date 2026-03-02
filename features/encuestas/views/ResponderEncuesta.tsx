@@ -2,14 +2,14 @@ import { Colors } from '@/constants/theme';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Encuesta, Pregunta, Respuesta } from '../models/Encuesta';
@@ -143,7 +143,7 @@ export const ResponderEncuesta: React.FC<ResponderEncuestaProps> = ({
           );
         },
         onError: (error) => {
-          Alert.alert('Error', 'No se pudo enviar la encuesta. Intenta nuevamente.');
+          Alert.alert('Error', error instanceof Error ? error.message : 'Intenta nuevamente');
           console.error(error);
         },
       }

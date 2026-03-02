@@ -83,7 +83,7 @@ export const CambiarContrasenaView: React.FC<CambiarContrasenaViewProps> = ({ on
       await generatePasswordToken(email.trim());
       setCurrentStep('token');
     } catch (err: any) {
-      setError(err.message || 'Error al generar token');
+      setError(err.message || 'Intenta nuevamente');
     } finally {
       setLoading(false);
       isProcessingRef.current = false;
@@ -105,10 +105,10 @@ export const CambiarContrasenaView: React.FC<CambiarContrasenaViewProps> = ({ on
         setAccessToken(response.accessToken);
         setCurrentStep('password');
       } else {
-        setError(response.message || 'Error al validar token');
+        setError(response.message || 'Intenta nuevamente');
       }
     } catch (err: any) {
-      setError(err.message || 'Token inválido o expirado');
+      setError(err.message || 'Intenta nuevamente');
     } finally {
       setLoading(false);
       isProcessingRef.current = false;
@@ -144,7 +144,7 @@ export const CambiarContrasenaView: React.FC<CambiarContrasenaViewProps> = ({ on
       await changePasswordWithToken(accessToken, newPassword.trim());
       setCurrentStep('success');
     } catch (err: any) {
-      setError(err.message || 'Error al cambiar contraseña');
+      setError(err.message || 'Intenta nuevamente');
     } finally {
       setLoading(false);
       isProcessingRef.current = false;

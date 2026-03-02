@@ -5,7 +5,8 @@ export async function fetchObjetivos(accessToken: string): Promise<Objetivo[]> {
     const response = await apiRequest({method: 'GET', endpoint: '/kanban', token: accessToken});
 
     if (!response.ok) {
-        throw new Error(`No se pudo obtener los objetivos: ${response.statusText}`);
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.message || data.error || response.statusText);
     }
 
     const data: Objetivo[] = await response.json();
@@ -19,7 +20,8 @@ export async function createObjetivo(
     const response = await apiRequest({method: 'POST', endpoint: '/kanban', token: accessToken, body: data});
 
     if (!response.ok) {
-        throw new Error(`No se pudo crear el objetivo: ${response.statusText}`);
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.message || errData.error || response.statusText);
     }
 
     return response.json();
@@ -33,7 +35,8 @@ export async function updateObjetivo(
     const response = await apiRequest({method: 'PUT', endpoint: `/kanban/${objetivoId}`, token: accessToken, body: data});
 
     if (!response.ok) {
-        throw new Error(`No se pudo actualizar el objetivo: ${response.statusText}`);
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.message || errData.error || response.statusText);
     }
 
     return response.json();
@@ -46,6 +49,7 @@ export async function deleteObjetivo(
     const response = await apiRequest({method: 'DELETE', endpoint: `/kanban/${objetivoId}`, token: accessToken});
 
     if (!response.ok) {
-        throw new Error(`No se pudo eliminar el objetivo: ${response.statusText}`);
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.message || errData.error || response.statusText);
     }
 }

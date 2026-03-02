@@ -1,15 +1,15 @@
 import { ThemedText } from '@/components/themed-text';
 import { CreateButton } from '@/components/ui/CreateButton';
+import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { Colors } from '@/constants/theme';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
-	ActivityIndicator,
-	FlatList,
-	ListRenderItem,
-	StyleSheet,
-	TouchableOpacity,
-	View
+    FlatList,
+    ListRenderItem,
+    StyleSheet,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EstadoReporte, Reporte } from '../models/Reporte';
@@ -84,21 +84,14 @@ export function ReportesEmpleado({ userId, userNombre = '', userApellido = '' }:
 
 	if (isLoading) {
 		return (
-			<View style={styles.centerContainer}>
-				<ActivityIndicator size="large" color={colors.tint} />
-			</View>
+			<ScreenSkeleton rows={4} showHeader={false} />
 		);
 	}
 
 	if (error) {
 		return (
 			<View style={styles.centerContainer}>
-				<ThemedText type="subtitle" style={styles.errorText}>
-					Error al cargar reportes
-				</ThemedText>
-				<ThemedText style={{ color: colors.icon }}>
-					{error instanceof Error ? error.message : 'Intenta nuevamente'}
-				</ThemedText>
+
 			</View>
 		);
 	}

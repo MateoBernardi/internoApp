@@ -1,4 +1,5 @@
 import { ThemedText } from '@/components/themed-text';
+import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
 import { Colors } from '@/constants/theme';
 import { useUploadArchivo } from '@/features/docs/viewmodels/useArchivos';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,21 +8,21 @@ import * as DocumentPicker from 'expo-document-picker';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import {
-  useAdjuntarArchivo,
-  useCreateSolicitudLicencia,
-  useGetSaldosLicencias,
-  useGetTiposLicencias,
+    useAdjuntarArchivo,
+    useCreateSolicitudLicencia,
+    useGetSaldosLicencias,
+    useGetTiposLicencias,
 } from '../viewmodels/useSolicitudes';
 
 const colors = Colors['light'];
@@ -268,7 +269,7 @@ export function CrearSolicitudesLicencias() {
             },
             onError: (err: any) => {
                 isSubmittingRef.current = false;
-                Alert.alert('Error', err?.message || 'Hubo un problema al crear la solicitud');
+                Alert.alert('Error', err?.message || 'Intenta nuevamente');
             },
         });
     }, [isPending, crearSolicitud, tipoLicenciaId, fechaInicio, fechaFin, horaInicioEfectiva, horaFinEfectiva, dayMode, observacion, archivoAdjunto, uploadArchivo, adjuntarArchivoMutation, router]);
@@ -321,7 +322,7 @@ export function CrearSolicitudesLicencias() {
                                 {isLoadingTipos ? (
                                     <ActivityIndicator size="small" color={colors.lightTint} style={{ margin: 20 }} />
                                 ) : isErrorTipos ? (
-                                    <ThemedText style={styles.errorText}>Error al cargar tipos</ThemedText>
+                                    <ThemedText style={styles.errorText}>Intenta nuevamente</ThemedText>
                                 ) : (
                                     tiposLicencias?.map((tipo) => (
                                         <TouchableOpacity
@@ -433,7 +434,7 @@ export function CrearSolicitudesLicencias() {
                             <View style={{ flex: 1, marginLeft: 12 }}>
                                 <ThemedText style={styles.saldoTitle}>Saldo Disponible</ThemedText>
                                 <ThemedText style={styles.saldoSubtitle}>
-                                    {isLoadingSaldos ? 'Cargando saldo...' : `${saldoDisponible} días restantes`}
+                                    {isLoadingSaldos ? '...' : `${saldoDisponible} días restantes`}
                                 </ThemedText>
                                 {saldoDisponible < diasSolicitados && (
                                     <ThemedText style={styles.warningText}>No tenés saldo suficiente para estos días.</ThemedText>
@@ -539,11 +540,10 @@ export function CrearSolicitudesLicencias() {
                 )}
 
             </KeyboardAvoidingView>
+        <OperacionPendienteModal visible={isPending} />
         </View>
     );
-}
-
-const styles = StyleSheet.create({
+}const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: colors.componentBackground,

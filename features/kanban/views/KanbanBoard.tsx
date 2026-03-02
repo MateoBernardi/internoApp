@@ -3,6 +3,8 @@
  * Incluye gestión completa: crear, mover con observación, ver bitácora y eliminar
 */
 
+import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
+import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -83,7 +85,7 @@ function FormObjetivoModal({ visible, objetivo, onClose, onSuccess }: FormObjeti
         } catch (error) {
             Alert.alert(
                 'Error',
-                error instanceof Error ? error.message : 'Error al guardar objetivo'
+                error instanceof Error ? error.message : 'Intenta nuevamente'
             );
         }
     };
@@ -640,8 +642,9 @@ export function KanbanBoard() {
                 setOptimisticObjetivoId(null);
                 Alert.alert(
                     'Error',
-                    err instanceof Error ? err.message : 'Error al mover objetivo. El cambio ha sido revertido.'
+                    err instanceof Error ? err.message : 'Intenta nuevamente'
                 );
+                setMoveModalVisible(false);
             }
         },
         [updateMutation]
@@ -654,7 +657,7 @@ export function KanbanBoard() {
                 Alert.alert('Éxito', 'Objetivo eliminado correctamente');
                 setDetailModalVisible(false);
             } catch (err) {
-                Alert.alert('Error', err instanceof Error ? err.message : 'Error al eliminar objetivo');
+                Alert.alert('Error', err instanceof Error ? err.message : 'Intenta nuevamente');
             }
         },
         [deleteMutation]
@@ -662,19 +665,15 @@ export function KanbanBoard() {
 
     if (isLoading) {
         return (
-            <View style={styles.centered}>
-                <ActivityIndicator size="large" color="#007AFF" />
-                <Text style={styles.loadingText}>Cargando objetivos...</Text>
-            </View>
+            <ScreenSkeleton rows={6} />
         );
     }
 
     if (error) {
         return (
             <View style={styles.centered}>
-                <Text style={styles.errorText}>Error al cargar objetivos</Text>
                 <Text style={styles.errorSubtext}>
-                    {error instanceof Error ? error.message : 'Error desconocido'}
+                    {error instanceof Error ? error.message : 'Intenta nuevamente'}
                 </Text>
             </View>
         );
@@ -747,12 +746,8 @@ export function KanbanBoard() {
                 isLoading={updateMutation.isPending}
             />
 
-            {/* Loading overlay */}
-            {(updateMutation.isPending || deleteMutation.isPending) && (
-                <View style={styles.loadingOverlay}>
-                    <ActivityIndicator size="small" color="#fff" />
-                </View>
-            )}
+            {/* Modal operación pendiente */}
+            <OperacionPendienteModal visible={updateMutation.isPending || deleteMutation.isPending} />
         </View>
     );
 }
@@ -804,6 +799,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         padding: 16,
+        backgroundColor: '#fafafa',
     },
     loadingText: {
         marginTop: 8,

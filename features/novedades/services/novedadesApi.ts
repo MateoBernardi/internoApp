@@ -7,7 +7,8 @@ export async function fetchNovedades(accessToken: string): Promise<Novedad[]> {
     const response = await apiRequest({method: 'GET', endpoint: '/novedades', token: accessToken});
 
     if (!response.ok) {
-        throw new Error(`No se pudo obtener las novedades: ${response.statusText}`);
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.message || errData.error || response.statusText);
     }
 
     const data: NovedadDTO[] = await response.json();
@@ -20,7 +21,13 @@ export async function crearNovedad(novedadData: Novedad, accessToken: string): P
     if (!response.ok) {
         const errorText = await response.text();
         console.error('Error en crearNovedad:', response.status, errorText);
-        throw new Error(`No se pudo crear la novedad: ${response.status} - ${errorText}`);
+        try {
+            const errData = JSON.parse(errorText);
+            throw new Error(errData.message || errData.error || errorText);
+        } catch (e) {
+            if (e instanceof Error && e.message !== errorText) throw e;
+            throw new Error(errorText || response.statusText);
+        }
     }
 
     const data: NovedadDTO = await response.json();
@@ -31,7 +38,8 @@ export async function actualizarNovedad(novedadData: Novedad, accessToken: strin
     const response = await apiRequest({method: 'PUT', endpoint: `/novedades/${novedadData.id}`, token: accessToken, body: novedadData});
 
     if (!response.ok) {
-        throw new Error(`No se pudo actualizar: ${response.statusText}`);
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.message || errData.error || response.statusText);
     }
 
     const data: NovedadDTO = await response.json();
@@ -42,6 +50,7 @@ export async function eliminarNovedad(id: number, accessToken: string): Promise<
     const response = await apiRequest({method: 'DELETE', endpoint: `/novedades/${id}`, token: accessToken});
 
     if (!response.ok) {
-        throw new Error(`No se pudo eliminar: ${response.statusText}`);
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.message || errData.error || response.statusText);
     }
 }

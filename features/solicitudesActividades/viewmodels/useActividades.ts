@@ -7,7 +7,6 @@ import * as actividadesApi from '../services/actividadesApi';
 const actividadesQueryKeys = {
   all: ['actividades'] as const,
   semanales: () => [...actividadesQueryKeys.all, 'semanales'] as const,
-  semanaAnterior: () => [...actividadesQueryKeys.all, 'semana-anterior'] as const,
 };
 
 // ==================== QUERIES ====================
@@ -34,29 +33,7 @@ export function useActividadesSemanales() {
   });
 }
 
-/**
- * Hook para obtener las actividades de la semana anterior del usuario
- */
-export function useActividadesSemanaAnterior() {
-  const { tokens } = useAuth();
-
-  return useQuery({
-    queryKey: actividadesQueryKeys.semanaAnterior(),
-    queryFn: async () => {
-      const accessToken = tokens?.accessToken;
-      if (!accessToken) {
-        throw new Error('No access token available');
-      }
-      return actividadesApi.obtenerActividadesSemanaAnterior(accessToken);
-    },
-    staleTime: 1000 * 60 * 5, // 5 minutos
-    gcTime: 1000 * 60 * 10, // 10 minutos
-    retry: 3,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-  });
-}
-
-// ==================== MUTATIONS ====================
+// ==================== MUTATIONS ==
 
 /**
  * Hook para crear una nueva actividad (con actualización optimista)
@@ -141,9 +118,6 @@ export function useAgregarParticipante() {
       queryClient.invalidateQueries({
         queryKey: actividadesQueryKeys.semanales(),
       });
-      queryClient.invalidateQueries({
-        queryKey: actividadesQueryKeys.semanaAnterior(),
-      });
     },
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
@@ -197,7 +171,6 @@ export function useCancelarActividad() {
     onSettled: () => {
       // Siempre revalidar con el servidor
       queryClient.invalidateQueries({ queryKey: actividadesQueryKeys.semanales() });
-      queryClient.invalidateQueries({ queryKey: actividadesQueryKeys.semanaAnterior() });
     },
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
@@ -207,31 +180,24 @@ export function useCancelarActividad() {
 // ==================== COMPOSABLE HOOKS ====================
 
 /**
- * Hook compuesto para obtener todas las actividades (semanales + semana anterior)
+ * Hook para modificar las fechas de una actividad (solo para el creador/host)
  */
-export function useTodasActividades() {
-  const actividadesSemanales = useActividadesSemanales();
-  const actividadesSemanaAnterior = useActividadesSemanaAnterior();
+export function useModificarActividadFechas() {
+  const { tokens } = useAuth();
+  const queryClient = useQueryClient();
 
-  const isLoading = actividadesSemanales.isLoading || actividadesSemanaAnterior.isLoading;
-  const isError = actividadesSemanales.isError || actividadesSemanaAnterior.isError;
-  const error = actividadesSemanales.error || actividadesSemanaAnterior.error;
-
-  const data = {
-    semanales: actividadesSemanales.data ?? { actividades: [], licencias: [] },
-    semanaAnterior: actividadesSemanaAnterior.data ?? { actividades: [], licencias: [] },
-  };
-
-  return {
-    data,
-    isLoading,
-    isError,
-    error: error as Error | null,
-    refetch: async () => {
-      await Promise.all([
-        actividadesSemanales.refetch(),
-        actividadesSemanaAnterior.refetch(),
-      ]);
+  return useMutation({
+    mutationFn: async (data: actividadesModels.ModificarActividadFechasRequest) => {
+      const accessToken = tokens?.accessToken;
+      if (!accessToken) {
+        throw new Error('No access token available');
+      }
+      return actividadesApi.modificarActividadFechas(accessToken, data);
     },
-  };
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: actividadesQueryKeys.semanales() });
+    },
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+  });
 }

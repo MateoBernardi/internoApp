@@ -50,10 +50,10 @@ export interface SolicitudEnviada{
   fecha_fin: string | null; // ISO 8601 UTC — null para MANDATOs sin fechas
   tipo_actividad?: TipoActividadDB;
   estado: EstadoInvitacionDB; // Estado de la invitación
-  creador_nombre: string; // Opcional: nombre del creador de la solicitud
-  creador_apellido: string; // Opcional: apellido del creador de la solicitud
-  invitado_nombre: string; // Opcional: nombre del creador de la solicitud
-  invitado_apellido: string; // Opcional: apellido del creador de la solicitud
+  nombre_creador: string; // Nombre del creador de la solicitud
+  apellido_creador: string; // Apellido del creador de la solicitud
+  invitado_nombre: string; // Nombre del invitado
+  invitado_apellido: string; // Apellido del invitado
 }
 
 export interface InvitadoResumen {
@@ -161,4 +161,18 @@ export interface BitacoraSolicitud {
   usuario_nombre: string;
   usuario_apellido: string;
   estado: EstadoInvitacionDB;
+}
+
+/* ==================== VALIDACIÓN DE FECHAS ==================== */
+
+export interface ValidarFechasRequest {
+  fecha_inicio: string; // ISO 8601
+  fecha_fin: string; // ISO 8601
+  participantes: number[]; // IDs de usuario_entidad
+  solicitudIdExcluir?: number; // Excluir esta solicitud de la validación (para modificaciones)
+}
+
+export interface ValidarFechasResponse {
+  success: boolean;
+  avisos: string[];
 }

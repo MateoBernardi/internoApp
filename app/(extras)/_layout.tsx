@@ -7,6 +7,7 @@ export default function ExtrasLayout() {
         headerShown: false,
       }}
     >
+      <Stack.Screen name="actividad-detalle" options={{ headerShown: false }} />
       <Stack.Screen name="agenda-personal" options={{ headerShown: false }} />
       <Stack.Screen name="cambiar-rol" options={{ headerShown: false }} />
       <Stack.Screen name="crear-reporte" options={{ headerShown: false }} />

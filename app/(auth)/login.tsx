@@ -4,7 +4,7 @@ import { StyleSheet } from "react-native";
 
 export default function LogInScreen() {
   return (
-    <ThemedView style={styles.container}>
+    <ThemedView style={styles.container} lightColor="#ffffff">
       <LogIn />
     </ThemedView>
   );

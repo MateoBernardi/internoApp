@@ -19,6 +19,19 @@ export async function login(username: string, password: string) {
 export async function refresh(refreshToken: string) {
   // User requested refreshToken in body
   const response = await apiRequest({method: "POST", endpoint: "/auth/refresh", token:'', body: { refreshToken }});
+
+  if (!response.ok) {
+    const text = await response.text();
+    let message: string;
+    try {
+      const errorData = JSON.parse(text);
+      message = errorData.message || errorData.error || text;
+    } catch {
+      message = text || response.statusText;
+    }
+    throw new Error(message);
+  }
+
   const data = await response.json();
   console.log("Respuesta de /auth/refresh:", data);
   return data;
@@ -31,7 +44,8 @@ export async function logout(refreshToken: string) {
 export async function getUserContext(accessToken: string): Promise<UserContext> {
   const response = await apiRequest({method: "GET", endpoint: "/auth/usuario-contexto", token: accessToken});
   if (!response.ok) {
-    throw new Error('Error al obtener el contexto del usuario');
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.message || data.error || 'Intenta nuevamente');
   }
   return await response.json();
 }
@@ -54,7 +68,7 @@ export async function registerUser(
   const data: CreateUserResponse = await response.json();
 
   if (!response.ok) {
-    throw new Error(data.message || 'Error al crear el usuario');
+    throw new Error(data.message || 'Intenta nuevamente');
   }
 
   return data;

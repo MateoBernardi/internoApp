@@ -59,18 +59,22 @@ export function Reportes() {
 			</View>
 
 			<ScrollView style={styles.scrollContent} contentContainerStyle={styles.scrollContentContainer}>
-				{/* Tarjetas de empleados destacados */}
-				<View style={styles.cardsContainer}>
-					<TopEmployee />
-					<UpgradedEmployee />
-				</View>
+				{/* Tarjetas de empleados destacados - ocultas durante búsqueda */}
+				{!searchQuery.trim() && (
+					<View style={styles.cardsContainer}>
+						<TopEmployee />
+						<UpgradedEmployee />
+					</View>
+				)}
 
-				{/* Título del semáforo */}
-				<View style={styles.titleContainer}>
-					<ThemedText type="subtitle" style={styles.semaforoTitle}>
-						Semáforo de Desempeño
-					</ThemedText>
-				</View>
+				{/* Título del semáforo - oculto durante búsqueda */}
+				{!searchQuery.trim() && (
+					<View style={styles.titleContainer}>
+						<ThemedText type="subtitle" style={styles.semaforoTitle}>
+							Semáforo de Desempeño
+						</ThemedText>
+					</View>
+				)}
 
 				{/* Semáforo con datos filtrados */}
 				<View style={styles.semaforoContainer}>

@@ -10,7 +10,8 @@ export async function fetchEncuestas(accessToken: string){
     const response = await apiRequest({ method: 'GET', endpoint: '/encuestas/categoria/interna', token: accessToken });
     if (!response.ok) {
         console.error('Error fetching encuestas:', response.status, response.statusText);
-        throw new Error('Error al obtener las encuestas');
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.message || data.error || 'Intenta nuevamente');
     }
     const result = await response.json();
     console.log('Encuestas completas:', result);
@@ -44,7 +45,8 @@ export async function getRespuestasEncuesta(accessToken: string): Promise<Encues
 
     if (!response.ok) {
         console.error('Error fetching respuestas de encuestas:', response.status, response.statusText);
-        throw new Error('Error al obtener las respuestas de las encuestas');
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.message || data.error || 'Intenta nuevamente');
     }
 
     const result = await response.json();
@@ -69,7 +71,7 @@ export async function createEncuestaCompleta(accessToken: string, encuestaData: 
         console.error('Error creating encuesta with preguntas:', response.status, response.statusText);
         const errorText = await response.text();
         console.error('Response body:', errorText);
-        throw new Error(`Error al crear la encuesta con preguntas: ${response.statusText}`);
+        throw new Error(`${response.statusText}`);
     }
 
     const data: EncuestaConPreguntas = await response.json();
@@ -87,7 +89,7 @@ export async function enviarRespuestas(accessToken: string, data: {respuestas: R
         const errorText = await response.text();
         console.error('Error sending respuestas de encuesta:', response.status, response.statusText);
         console.error('Response body:', errorText);
-        throw new Error(`Error al enviar las respuestas de la encuesta: ${errorText}`);
+        throw new Error(`${errorText || response.statusText}`);
     }
 
     const responseData: Respuesta[] = await response.json();
@@ -108,6 +110,6 @@ export async function eliminarEncuesta(accessToken: string, encuestaId: number):
         const errorText = await response.text();
         console.error('Error eliminando encuesta:', response.status, response.statusText);
         console.error('Response body:', errorText);
-        throw new Error(`Error al eliminar la encuesta: ${errorText}`);
+        throw new Error(`${errorText || response.statusText}`);
     }
 }

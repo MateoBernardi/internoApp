@@ -1,15 +1,15 @@
 import { ThemedText } from '@/components/themed-text';
+import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { Colors } from '@/constants/theme';
 import { useRouter } from 'expo-router';
 import React, { useCallback } from 'react';
 import {
-  ActivityIndicator,
-  FlatList,
-  ListRenderItem,
-  RefreshControl,
-  StyleSheet,
-  TouchableOpacity,
-  View,
+    FlatList,
+    ListRenderItem,
+    RefreshControl,
+    StyleSheet,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 // Componentes y Hooks propios
@@ -81,18 +81,13 @@ export function MisSolicitudes() {
   // 4. Estados de UI (Carga, Error, Vacío)
   if (isLoading) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={colors.tint} />
-      </View>
+      <ScreenSkeleton rows={4} showHeader={false} />
     );
   }
 
   if (error) {
     return (
       <View style={styles.centerContainer}>
-        <ThemedText type="subtitle" style={styles.errorText}>
-          Error al cargar solicitudes
-        </ThemedText>
         <ThemedText style={{ color: colors.icon }}>
           {error instanceof Error ? error.message : 'Intenta nuevamente'}
         </ThemedText>

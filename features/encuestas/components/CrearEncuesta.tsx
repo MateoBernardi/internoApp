@@ -4,17 +4,17 @@ import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import React, { useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Switch,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Encuesta, Pregunta, TipoPregunta } from '../models/Encuesta';
@@ -104,7 +104,7 @@ export const CrearEncuesta: React.FC<CrearEncuestaProps> = ({ onEncuestaCreada, 
           );
         },
         onError: (error) => {
-          Alert.alert('Error', 'No se pudo crear la encuesta. Intenta nuevamente.');
+          Alert.alert('Error', error instanceof Error ? error.message : 'Intenta nuevamente');
           console.error(error);
         },
       }

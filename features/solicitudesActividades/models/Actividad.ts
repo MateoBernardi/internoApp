@@ -1,5 +1,13 @@
 import { RolActividad } from './Solicitud';
 
+// Participante de una actividad (devuelto por el backend)
+export interface ParticipanteActividad {
+  user_context_id: number;
+  nombre: string;
+  apellido: string;
+  rol: string;
+}
+
 // Actividad
 export interface Actividad {
   id: number;
@@ -8,8 +16,9 @@ export interface Actividad {
   fecha_inicio: string; // ISO 8601 UTC
   fecha_fin: string; // ISO 8601 UTC
   rol: RolActividad;
-  participantes?: number[]; // IDs de los participantes (usuario_entidad)
+  participantes?: ParticipanteActividad[]; // Participantes con datos completos
   solicitud_id?: number | null; // ID de la solicitud (null si fue creada directamente)
+  tipo_actividad?: 'MANDATO' | 'REUNION'; // Tipo de actividad heredado de la solicitud
 }
 
 // Licencia
@@ -50,6 +59,7 @@ export interface CrearActividadRequest {
   fecha_inicio: string;
   fecha_fin: string;
   solicitud_id?: number; // Si se provee, vincula la actividad a esa solicitud
+  participantes?: number[]; // IDs de participantes (para REUNION: todos los aceptados)
 }
 
 export interface CrearActividadResponse {
@@ -63,6 +73,17 @@ export interface CancelarActividadRequest {
 }
 
 export interface CancelarActividadResponse {
+  success: boolean;
+  mensaje?: string;
+}
+
+export interface ModificarActividadFechasRequest {
+  actividadId: number;
+  nuevaFechaInicio: string; // ISO 8601 UTC
+  nuevaFechaFin: string; // ISO 8601 UTC
+}
+
+export interface ModificarActividadFechasResponse {
   success: boolean;
   mensaje?: string;
 }

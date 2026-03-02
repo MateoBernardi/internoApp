@@ -8,16 +8,16 @@ import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MobileFile, UploadArchivoPayload } from '../models/Archivo';
@@ -61,7 +61,7 @@ export function CrearDocumento({ visible, onClose, initialFile }: CrearDocumento
       setRoleUsers(roleUsersData);
       setShowRoleModal(true);
     } else if (roleError) {
-      Alert.alert('No se encontraron usuarios con ese rol');
+      Alert.alert('Intenta nuevamente');
       setActiveRole('');
     }
   }, [roleUsersData, activeRole, roleError]);
@@ -214,7 +214,7 @@ export function CrearDocumento({ visible, onClose, initialFile }: CrearDocumento
       {
         onSuccess: () => { Alert.alert('Éxito', 'Archivo subido correctamente'); onClose(); resetForm(); },
         onError: (error: any) => {
-          Alert.alert('Error', error instanceof Error ? error.message : 'No se pudo subir el archivo');
+          Alert.alert('Error', error instanceof Error ? error.message : 'Intenta nuevamente');
         },
       }
     );

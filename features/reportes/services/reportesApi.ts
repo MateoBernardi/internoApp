@@ -10,7 +10,7 @@ export async function createReporte (accessToken: string, payload: reporte.Creat
     if (!response.ok) {
         const errorText = await response.text();
         console.error('Error:', { status: response.status, statusText: response.statusText, body: errorText });
-        throw new Error(`No se pudo crear el reporte: ${response.status} ${response.statusText} - ${errorText}`);
+        try { const errData = JSON.parse(errorText); throw new Error(errData.message || errData.error || errorText); } catch (e) { if (e instanceof Error && e.message !== errorText) throw e; throw new Error(errorText || response.statusText); }
     }
 
     const data: reporte.Reporte = await response.json();
@@ -26,7 +26,7 @@ export async function fetchReportes (accessToken: string, usuarioId?: string): P
         if (!response.ok) {
             const errorText = await response.text();
             console.error('[fetchReportes] Error response:', errorText);
-            throw new Error(`No se pudo obtener los reportes: ${response.statusText}`);
+            try { const errData = JSON.parse(errorText); throw new Error(errData.message || errData.error || errorText); } catch (e) { if (e instanceof Error && e.message !== errorText) throw e; throw new Error(errorText || response.statusText); }
         }
 
         const data: reporte.Reporte[] = await response.json();
@@ -40,7 +40,8 @@ export async function updateReporte (accessToken: string, payload: reporte.Updat
     const response = await apiRequest({ method: 'PUT', endpoint: `/reportes/${id}`, token: accessToken, body: payload});
 
     if (!response.ok) {
-        throw new Error(`No se pudo actualizar el reporte: ${response.statusText}`);
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.message || errData.error || response.statusText);
     }
 
     const data: reporte.Reporte = await response.json();
@@ -56,7 +57,8 @@ export async function getReporteStats (accessToken: string): Promise<reporte.Rep
         });
                 
         if (!response.ok) {
-            throw new Error(`No se pudo obtener las estadísticas de reportes: ${response.statusText}`);
+            const errData = await response.json().catch(() => ({}));
+            throw new Error(errData.message || errData.error || response.statusText);
         }
 
         const rawData: any[] = await response.json();
@@ -85,7 +87,8 @@ export async function getTopEmployee (accessToken: string): Promise<reporte.TopP
 
     if (!response.ok) {
         console.error('Error fetching top employee:', { status: response.status, statusText: response.statusText });
-        throw new Error(`No se pudo obtener los mejores empleados: ${response.statusText}`);
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.message || errData.error || response.statusText);
     }
 
     const data: reporte.TopPositiveUser = await response.json();
@@ -97,7 +100,8 @@ export async function getUpgradedEmployee (accessToken: string): Promise<reporte
 
     if (!response.ok) {
         console.error('Error fetching upgraded employee:', { status: response.status, statusText: response.statusText });
-        throw new Error(`No se pudo obtener los empleados mejorados: ${response.statusText}`);
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.message || errData.error || response.statusText);
     }
 
     const data: reporte.MostImprovedUser = await response.json();
@@ -121,7 +125,8 @@ export async function getReporteImagenes (
     });
 
     if (!response.ok) {
-        throw new Error(`No se pudieron obtener las imágenes del reporte: ${response.statusText}`);
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.message || errData.error || response.statusText);
     }
 
     return response.json();
@@ -163,7 +168,7 @@ export async function uploadReporteImage (
 
     if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`No se pudo subir la imagen: ${response.status} - ${errorText}`);
+        try { const errData = JSON.parse(errorText); throw new Error(errData.message || errData.error || errorText); } catch (e) { if (e instanceof Error && e.message !== errorText) throw e; throw new Error(errorText || response.statusText); }
     }
 
     return response.json();
@@ -187,7 +192,7 @@ export async function unlinkReporteImage (
 
     if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`No se pudo desvincular la imagen: ${response.status} - ${errorText}`);
+        try { const errData = JSON.parse(errorText); throw new Error(errData.message || errData.error || errorText); } catch (e) { if (e instanceof Error && e.message !== errorText) throw e; throw new Error(errorText || response.statusText); }
     }
 }
 
@@ -209,7 +214,8 @@ export async function updateReporteImageOrder (
     });
 
     if (!response.ok) {
-        throw new Error(`No se pudo actualizar el orden: ${response.statusText}`);
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.message || errData.error || response.statusText);
     }
 
     return response.json();

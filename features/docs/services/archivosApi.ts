@@ -47,7 +47,7 @@ export async function fetchArchivos(accessToken: string) : Promise<archivos.Arch
     if (!response.ok) {
         const errorText = await response.text();
         console.error('[fetchArchivos] Error:', { status: response.status, statusText: response.statusText, body: errorText });
-        throw new Error(`No se pudo obtener los archivos: ${response.status} ${response.statusText}`);
+        try { const errData = JSON.parse(errorText); throw new Error(errData.message || errData.error || errorText); } catch (e) { if (e instanceof Error && e.message !== errorText) throw e; throw new Error(errorText || response.statusText); }
     }
 
     const data: ArchivoDTO[] = await response.json();
@@ -96,7 +96,8 @@ export async function getArchivosByIdUsuario(accessToken: string, idUsuario: num
     const response = await apiRequest({method: 'GET', endpoint: `/archivos/usuario/${idUsuario}`, token: accessToken});
 
     if (!response.ok) {
-        throw new Error(`No se pudo obtener los archivos del usuario: ${response.statusText}`);
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.message || errData.error || response.statusText);
     }
 
     const data: ArchivoDTO[] = await response.json();
@@ -150,7 +151,8 @@ export async function getArchivosPersonales(accessToken: string) : Promise<archi
     const response = await apiRequest({method: 'GET', endpoint: '/archivos/personales', token: accessToken});
 
     if (!response.ok) {
-        throw new Error(`No se pudo obtener los archivos personales: ${response.statusText}`);
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.message || errData.error || response.statusText);
     }
 
     const data: ArchivoDTO[] = await response.json();
@@ -170,7 +172,7 @@ export async function getUrlCargaArchivo(accessToken: string, data:archivos.Pedi
         } catch {
             errorDetails = response.statusText || `Error ${response.status}`;
         }
-        throw new Error(`No se pudo obtener el enlace de subida: ${errorDetails}`);
+        throw new Error(errorDetails);
     }
 
     const responseData = await response.json();
@@ -194,7 +196,7 @@ export async function uploadArchivoR2(uploadUrl: string, fileUri: string, mimeTy
         if (!response.ok) {
             const errorText = await response.text();
             console.error('Error en R2:', { status: response.status, statusText: response.statusText, body: errorText });
-            throw new Error(`No se pudo subir el archivo a R2: ${response.status} ${response.statusText} - ${errorText}`);
+            try { const errData = JSON.parse(errorText); throw new Error(errData.message || errData.error || errorText); } catch (e) { if (e instanceof Error && e.message !== errorText) throw e; throw new Error(errorText || response.statusText); }
         }
         
     } catch (error) {
@@ -214,7 +216,7 @@ export async function confirmarUploadArchivo(accessToken: string, archivoData: a
         } catch {
             errorDetails = response.statusText || `Error ${response.status}`;
         }
-        throw new Error(`No se pudo confirmar la subida del archivo: ${errorDetails}`);
+        throw new Error(errorDetails);
     }
 
     const data: ArchivoDTO = await response.json();
@@ -265,7 +267,8 @@ export async function updateArchivo(accessToken: string, idArchivo: number, arch
     const response = await apiRequest({method: 'PUT', endpoint: `/archivos/${idArchivo}`, token: accessToken, body: archivoData});
 
     if (!response.ok) {
-        throw new Error(`No se pudo actualizar el archivo: ${response.statusText}`);
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.message || errData.error || response.statusText);
     }
 
     const data: ArchivoDTO = await response.json();
@@ -278,7 +281,8 @@ export async function deleteArchivo(accessToken: string, idArchivo: number) : Pr
     const response = await apiRequest({method: 'DELETE', endpoint: `/archivos/${idArchivo}`, token: accessToken});
 
     if (!response.ok) {
-        throw new Error(`No se pudo eliminar el archivo: ${response.statusText}`);
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.message || errData.error || response.statusText);
     }
 }
 
@@ -286,7 +290,8 @@ export async function getArchivoUrlFirmada(accessToken: string, idArchivo: numbe
     const response = await apiRequest({method: 'GET', endpoint: `/archivos/${idArchivo}/url`, token: accessToken});
 
     if (!response.ok) {
-        throw new Error(`No se pudo obtener la URL del archivo: ${response.status}`);
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.message || errData.error || response.statusText);
     }
 
     const data: { url: string } = await response.json();

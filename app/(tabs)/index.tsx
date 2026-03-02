@@ -28,31 +28,34 @@ export default function HomeScreen() {
   }, [queryClient]);
 
   return (
-    <ThemedView style={styles.container}>
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        nestedScrollEnabled
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            colors={[colors.lightTint]}
-            tintColor={colors.lightTint}
-          />
-        }
-      >
-        <TablonNovedades refreshTrigger={refreshTrigger} />
-        <EncuestasPendientes />
-        <View style={styles.mainSection}>
-          {isEmployeeOrEncargado() ? (
-            <SolicitudesView onRefresh={handleRefresh} refreshing={refreshing} />
-          ) : (
-            <KanbanBoard />
-          )}
-        </View>
-      </ScrollView>
+    <ThemedView style={styles.container} lightColor={colors.componentBackground}>
+      {/* Sección superior scrollable: novedades y encuestas */}
+      <View style={styles.topSection}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          nestedScrollEnabled
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              colors={[colors.lightTint]}
+              tintColor={colors.lightTint}
+            />
+          }
+        >
+          <TablonNovedades refreshTrigger={refreshTrigger} />
+          <EncuestasPendientes />
+        </ScrollView>
+      </View>
+
+      {/* Sección principal: solicitudes o kanban (fuera del ScrollView para que el FAB flote) */}
+      <View style={styles.mainSection}>
+        {isEmployeeOrEncargado() ? (
+          <SolicitudesView onRefresh={handleRefresh} refreshing={refreshing} />
+        ) : (
+          <KanbanBoard />
+        )}
+      </View>
     </ThemedView>
   );
 }
@@ -62,13 +65,10 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingTop: '10%',
   },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
+  topSection: {
+    maxHeight: SCREEN_HEIGHT * 0.35,
   },
   mainSection: {
-    minHeight: SCREEN_HEIGHT * 0.7,
+    flex: 1,
   },
 });

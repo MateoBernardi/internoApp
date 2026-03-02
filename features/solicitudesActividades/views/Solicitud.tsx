@@ -1,5 +1,7 @@
 import { ThemedText } from '@/components/themed-text';
+import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
 import { Colors } from '@/constants/theme';
+import { useAuth } from '@/features/auth/context/AuthContext';
 import { UserSummary } from '@/shared/users/User';
 import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,6 +23,7 @@ import {
 } from 'react-native';
 import { RoleUserSelectionModal } from '../components/RoleUserSelectionModal';
 import { UserSelector } from '../components/UserSelector';
+import { ValidacionFechasModal } from '../components/ValidacionFechasModal';
 import { EstadoInvitacionDB, estadoInvitacionMapping, ModificarSolicitudFechasRequest, ReenviarSolicitudRequest } from '../models/Solicitud';
 import { useCrearActividad } from '../viewmodels/useActividades';
 import {
@@ -32,6 +35,7 @@ import {
     useSolicitudBitacora,
     useSolicitudesCreadas
 } from '../viewmodels/useSolicitudes';
+import { useValidacionFechas } from '../viewmodels/useValidacionFechas';
 
 const colors = Colors['light'];
 
@@ -39,6 +43,7 @@ const colors = Colors['light'];
 export function Solicitud() {
   const router = useRouter();
   const { id, type } = useLocalSearchParams<{ id: string; type: string }>();
+  const { user } = useAuth();
 
   const solicitudId = parseInt(id);
 
@@ -48,9 +53,12 @@ export function Solicitud() {
   const { mutate: modificarSolicitud, isPending: isModifying } = useModificarSolicitudFechas();
   const { mutate: reenviarSolicitud, isPending: isSharing } = useReenviarSolicitud();
   const { mutate: crearActividad, isPending: isCreatingActividad } = useCrearActividad();
+  const validacion = useValidacionFechas();
   
   const { data: enviadas } = useSolicitudesCreadas();
   const { data: recibidas } = useInvitaciones();
+
+  const isMutating = isUpdatingEstado || isAcceptingMod || isModifying || isSharing || isCreatingActividad;
 
   // Estados para modales
   const [showAcceptModal, setShowAcceptModal] = useState(false);
@@ -103,6 +111,43 @@ export function Solicitud() {
     return recibidas?.find(s => s.solicitud_id === solicitudId);
   }, [type, solicitudId, enviadas, recibidas]);
 
+  // Para REUNION: obtener todos los invitados de esta solicitud (desde enviadas)
+  const todosInvitados = useMemo(() => {
+    if (!enviadas) return [];
+    return enviadas.filter(s => s.solicitud_id === solicitudId);
+  }, [enviadas, solicitudId]);
+
+  // IDs de participantes aceptados (para REUNION "agregar a la agenda")
+  const participantesAceptados = useMemo(() => {
+    const ids: number[] = [];
+    // Agregar al creador
+    if (solicitud?.created_by) ids.push(solicitud.created_by);
+    // Agregar a todos los invitados aceptados
+    // Necesitamos obtener los IDs de invitados — el modelo SolicitudEnviada no tiene invitado_id directamente
+    // Usamos los datos disponibles: para REUNION el backend debe agregar a todos
+    return [...new Set(ids)];
+  }, [solicitud, todosInvitados]);
+
+  // Determinar si se puede "agregar a la agenda" según tipo
+  const puedeAgregarAAgenda = useMemo(() => {
+    if (!solicitud) return false;
+    const esReunion = solicitud.tipo_actividad === 'REUNION';
+    const esMandato = solicitud.tipo_actividad === 'MANDATO';
+
+    if (esReunion) {
+      // REUNION: solo el creador (ve la solicitud como "enviada") puede agregar
+      // Y al menos un invitado debe haber aceptado
+      const algunAceptado = todosInvitados.some(inv => inv.estado === 'ACCEPTED');
+      return type === 'enviada' && algunAceptado;
+    }
+    if (esMandato) {
+      // MANDATO: el invitado (recibida) agrega a su propia agenda cuando acepta
+      return type === 'recibida' && solicitud.estado === 'ACCEPTED';
+    }
+    // Fallback: comportamiento anterior
+    return type === 'recibida' && solicitud.estado === 'ACCEPTED';
+  }, [solicitud, type, todosInvitados]);
+
   // Marcar como visto
   useEffect(() => {
     if (!solicitud) return;
@@ -140,7 +185,7 @@ export function Solicitud() {
                 Alert.alert('Éxito', 'Modificaciones aceptadas');
             },
             onError: (error) => {
-                Alert.alert('Error', error instanceof Error ? error.message : 'Error al aceptar modificaciones');
+                Alert.alert('Error', error instanceof Error ? error.message : 'Intenta nuevamente');
             }
         });
         return;
@@ -159,7 +204,7 @@ export function Solicitud() {
              // router.back(); // Opcional: volver atrás o quedarse
           },
           onError: (error) => {
-            Alert.alert('Error', error instanceof Error ? error.message : 'Error al aceptar');
+            Alert.alert('Error', error instanceof Error ? error.message : 'Intenta nuevamente');
           },
         }
       );
@@ -198,7 +243,7 @@ export function Solicitud() {
       }
   }, [solicitud]);
 
-  const confirmModificar = useCallback(() => {
+  const ejecutarModificar = useCallback(() => {
       const payload: ModificarSolicitudFechasRequest = {
           solicitudId,
           nuevaFechaInicio: modStartDate.toISOString(),
@@ -212,10 +257,30 @@ export function Solicitud() {
               Alert.alert('Éxito', 'Solicitud modificada');
           },
           onError: (error) => {
-              Alert.alert('Error', error instanceof Error ? error.message : 'Error al modificar');
+              Alert.alert('Error', error instanceof Error ? error.message : 'Intenta nuevamente');
           }
       });
   }, [solicitudId, modStartDate, modEndDate, modObservation, modificarSolicitud]);
+
+  const confirmModificar = useCallback(() => {
+      // Obtener participantes disponibles
+      const participantes: number[] = [solicitud?.created_by ?? 0].filter(id => id > 0);
+      if (user?.user_context_id) {
+          participantes.push(user.user_context_id);
+      }
+      // Deduplicar
+      const uniqueParticipantes = [...new Set(participantes)];
+
+      validacion.validate(
+        {
+          fechaInicio: modStartDate.toISOString(),
+          fechaFin: modEndDate.toISOString(),
+          participantes: uniqueParticipantes,
+          solicitudIdExcluir: solicitudId,
+        },
+        () => ejecutarModificar()
+      );
+  }, [solicitudId, modStartDate, modEndDate, solicitud, user, validacion, ejecutarModificar]);
 
   const onDateChange = (event: any, selectedDate?: Date) => {
       const currentTarget = showDatePicker.target;
@@ -278,12 +343,10 @@ export function Solicitud() {
     }
   };
 
-  const confirmAgregarAAgenda = useCallback(() => {
-    if (agendaFechaInicio >= agendaFechaFin) {
-      Alert.alert('Error', 'La fecha de fin debe ser posterior a la de inicio');
-      return;
-    }
+  const ejecutarAgregarAAgenda = useCallback(() => {
     if (!solicitud) return;
+    const esReunion = solicitud.tipo_actividad === 'REUNION';
+
     crearActividad(
       {
         titulo: solicitud.titulo,
@@ -291,26 +354,49 @@ export function Solicitud() {
         fecha_inicio: agendaFechaInicio.toISOString(),
         fecha_fin: agendaFechaFin.toISOString(),
         solicitud_id: solicitud.solicitud_id,
+        // Para REUNION: enviar todos los participantes aceptados
+        ...(esReunion ? { participantes: participantesAceptados } : {}),
       },
       {
         onSuccess: () => {
           setShowAddToAgendaModal(false);
-          Alert.alert('Éxito', 'Actividad agregada a tu agenda');
+          Alert.alert('Éxito', esReunion
+            ? 'Actividad agregada a la agenda de todos los participantes'
+            : 'Actividad agregada a tu agenda');
         },
         onError: (error) => {
-          const msg = error instanceof Error ? error.message : 'Error al agregar a la agenda';
+          const msg = error instanceof Error ? error.message : 'Intenta nuevamente';
           Alert.alert('Error', msg);
         },
       }
     );
-  }, [agendaFechaInicio, agendaFechaFin, solicitud, crearActividad]);
+  }, [agendaFechaInicio, agendaFechaFin, solicitud, crearActividad, participantesAceptados]);
 
-  const confirmCompartir = useCallback(() => {
-    if (selectedUsersToShare.length === 0) {
-      Alert.alert('Error', 'Selecciona al menos un usuario');
+  const confirmAgregarAAgenda = useCallback(() => {
+    if (agendaFechaInicio >= agendaFechaFin) {
+      Alert.alert('Error', 'La fecha de fin debe ser posterior a la de inicio');
       return;
     }
+    if (!solicitud) return;
 
+    const esReunion = solicitud.tipo_actividad === 'REUNION';
+
+    // Para REUNION: validar con todos los participantes; para MANDATO: solo el usuario actual
+    const participantes: number[] = esReunion
+      ? [...participantesAceptados]
+      : (user?.user_context_id ? [user.user_context_id] : []);
+
+    validacion.validate(
+      {
+        fechaInicio: agendaFechaInicio.toISOString(),
+        fechaFin: agendaFechaFin.toISOString(),
+        participantes,
+      },
+      () => ejecutarAgregarAAgenda()
+    );
+  }, [agendaFechaInicio, agendaFechaFin, solicitud, user, validacion, ejecutarAgregarAAgenda, participantesAceptados]);
+
+  const ejecutarCompartir = useCallback(() => {
     const payload: ReenviarSolicitudRequest = {
       solicitudId,
       nuevosInvitadosIds: selectedUsersToShare.map(u => u.user_context_id),
@@ -322,10 +408,35 @@ export function Solicitud() {
         Alert.alert('Éxito', 'Solicitud reenviada correctamente');
       },
       onError: (error) => {
-        Alert.alert('Error', error instanceof Error ? error.message : 'Error al reenviar');
+        Alert.alert('Error', error instanceof Error ? error.message : 'Intenta nuevamente');
       },
     });
   }, [solicitudId, selectedUsersToShare, reenviarSolicitud]);
+
+  const confirmCompartir = useCallback(() => {
+    if (selectedUsersToShare.length === 0) {
+      Alert.alert('Error', 'Selecciona al menos un usuario');
+      return;
+    }
+
+    const hasDates = !!(solicitud?.fecha_inicio && solicitud?.fecha_fin);
+
+    if (hasDates) {
+      // Validar fechas para los nuevos participantes
+      validacion.validate(
+        {
+          fechaInicio: solicitud!.fecha_inicio!,
+          fechaFin: solicitud!.fecha_fin!,
+          participantes: selectedUsersToShare.map(u => u.user_context_id),
+          solicitudIdExcluir: solicitudId,
+        },
+        () => ejecutarCompartir()
+      );
+    } else {
+      // Sin fechas, compartir directamente
+      ejecutarCompartir();
+    }
+  }, [solicitudId, selectedUsersToShare, solicitud, validacion, ejecutarCompartir]);
 
   const handleToggleUserShare = useCallback((user: UserSummary) => {
     setSelectedUsersToShare(prev => {
@@ -445,7 +556,7 @@ export function Solicitud() {
                      <ThemedText style={{ color: colors.lightTint }}>
                          {type === 'enviada' 
                             ? `${solicitud?.invitado_nombre || ''} ${solicitud?.invitado_apellido || ''}` 
-                            : `${solicitud?.creador_nombre || ''} ${solicitud?.creador_apellido || ''}`}
+                            : `${solicitud?.nombre_creador || ''} ${solicitud?.apellido_creador || ''}`}
                      </ThemedText>
                  </View>
              </View>
@@ -542,16 +653,18 @@ export function Solicitud() {
                     <TouchableOpacity style={[styles.fab, { backgroundColor: colors.lightTint, marginRight: 16 }]} onPress={handleModificarPress}>
                         <Ionicons name="create-outline" size={24} color={colors.background} />
                     </TouchableOpacity>
-                    <TouchableOpacity style={[styles.fab, { backgroundColor: colors.icon, marginRight: 16 }]} onPress={handleCompartir}>
-                        <Ionicons name="share-social-outline" size={24} color={colors.background} />
-                    </TouchableOpacity>
+                    {solicitud?.created_by === user?.user_context_id && (
+                      <TouchableOpacity style={[styles.fab, { backgroundColor: colors.icon, marginRight: 16 }]} onPress={handleCompartir}>
+                          <Ionicons name="share-social-outline" size={24} color={colors.background} />
+                      </TouchableOpacity>
+                    )}
                   </>
                 )}
               </>
           )}
 
-          {/* Agregar a la agenda (solo para recibidas aceptadas) */}
-          {type === 'recibida' && solicitud?.estado === 'ACCEPTED' && (
+          {/* Agregar a la agenda (REUNION: solo creador/enviada; MANDATO: invitado/recibida aceptada) */}
+          {puedeAgregarAAgenda && (
             <TouchableOpacity style={[styles.fab, { backgroundColor: colors.success, marginRight: 16 }]} onPress={handleAgregarAAgenda}>
               <Ionicons name="calendar-outline" size={24} color={colors.background} />
             </TouchableOpacity>
@@ -769,6 +882,18 @@ export function Solicitud() {
         )}
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* Modal de validación de fechas */}
+      <ValidacionFechasModal
+        state={validacion.state}
+        avisos={validacion.avisos}
+        errorMessage={validacion.errorMessage}
+        onConfirm={validacion.confirm}
+        onCancel={validacion.cancel}
+      />
+
+      {/* Modal operación pendiente */}
+      <OperacionPendienteModal visible={isMutating} />
 
     </View>
   );

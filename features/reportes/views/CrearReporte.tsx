@@ -185,7 +185,7 @@ export default function CrearReporte(props?: CrearReporteProps) {
 			Alert.alert('Éxito', 'Reporte creado correctamente');
 			router.back();
 		} catch (error: any) {
-			Alert.alert('Error', error?.message || 'No se pudo crear el reporte');
+			Alert.alert('Error', error?.message || 'Intenta nuevamente');
 		}
 	}, [isFormValid, tokens, crearReporte, usuarioId, titulo, descripcion, categoria, fechaIncidente, pendingImages, router]);
 

@@ -54,9 +54,9 @@ export const LoginForm: React.FC = () => {
       setUser("");
       setPass("");
       if (err instanceof Error) {
-        setError(err.message || "Usuario o contraseña incorrectos");
+        setError(err.message || "Intenta nuevamente");
       } else {
-        setError("Usuario o contraseña incorrectos");
+        setError("Intenta nuevamente");
       }
     } finally {
       setLoading(false);

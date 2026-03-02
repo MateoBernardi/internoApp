@@ -1,8 +1,8 @@
 import { ThemedText } from '@/components/themed-text';
+import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
-import { useUploadArchivo } from '@/features/docs/viewmodels/useArchivos';
-import { useArchivoUrl } from '@/features/docs/viewmodels/useArchivos';
+import { useArchivoUrl, useUploadArchivo } from '@/features/docs/viewmodels/useArchivos';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -143,7 +143,7 @@ export function SolicitudLicencia() {
             'Error',
             error instanceof Error
               ? error.message
-              : 'No se pudo aprobar la solicitud'
+              : 'Intenta nuevamente'
           );
         },
       }
@@ -176,7 +176,7 @@ export function SolicitudLicencia() {
             'Error',
             error instanceof Error
               ? error.message
-              : 'No se pudo rechazar la solicitud'
+              : 'Intenta nuevamente'
           );
         },
       }
@@ -200,7 +200,7 @@ export function SolicitudLicencia() {
                 'Error',
                 error instanceof Error
                   ? error.message
-                  : 'No se pudo cancelar la solicitud'
+                  : 'Intenta nuevamente'
               );
             },
           });
@@ -588,11 +588,10 @@ export function SolicitudLicencia() {
           </View>
         </View>
       </Modal>
+      <OperacionPendienteModal visible={isApproving || isRejecting || isCanceling || isAdjuntando} />
     </View>
   );
-}
-
-const styles = StyleSheet.create({
+}const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.componentBackground,

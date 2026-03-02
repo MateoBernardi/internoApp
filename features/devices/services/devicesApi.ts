@@ -26,7 +26,8 @@ export async function registerDevice(
     const response = await apiRequest({ method: 'POST', endpoint: '/devices', token: accessToken, body: deviceData });
 
     if (!response.ok) {
-      throw new Error(`Error al registrar dispositivo: ${response.statusText}`);
+      const errData = await response.json().catch(() => ({}));
+      throw new Error(errData.message || errData.error || response.statusText);
     }
 
     return await response.json();

@@ -1,4 +1,5 @@
 import { ThemedText } from '@/components/themed-text';
+import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { Colors } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -69,21 +70,14 @@ export function Semaforo({ query = '', filteredData, comparingWith }: SemaforoPr
 
 	if (isLoading) {
 		return (
-			<View style={styles.centerContainer}>
-				<ThemedText>Cargando semáforo...</ThemedText>
-			</View>
+			<ScreenSkeleton rows={4} />
 		);
 	}
 
 	if (error) {
 		return (
 			<View style={styles.centerContainer}>
-				<ThemedText type="subtitle" style={styles.errorText}>
-					No se pudo obtener los datos.
-				</ThemedText>
-				<ThemedText style={{ color: colors.secondaryText }}>
-					{error instanceof Error ? error.message : 'Intenta nuevamente'}
-				</ThemedText>
+
 			</View>
 		);
 	}

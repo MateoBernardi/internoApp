@@ -33,7 +33,6 @@ export async function refresh(refreshToken: string) {
   }
 
   const data = await response.json();
-  console.log("Respuesta de /auth/refresh:", data);
   return data;
 }
 

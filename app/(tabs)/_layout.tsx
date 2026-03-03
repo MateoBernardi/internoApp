@@ -223,7 +223,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingBottom: 20,
-    paddingTop: 20,
+    paddingTop: '5%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -3 },
     shadowOpacity: 0.1,
@@ -231,7 +231,7 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   menuHeader: {
-    paddingHorizontal: 20,
+    paddingHorizontal: '5%',
     paddingBottom: 15,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: Colors.light.background,
@@ -246,8 +246,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 15,
-    paddingHorizontal: 25,
+    paddingVertical: '4%',
+    paddingHorizontal: '6%',
   },
   menuItemText: {
     fontSize: 16,

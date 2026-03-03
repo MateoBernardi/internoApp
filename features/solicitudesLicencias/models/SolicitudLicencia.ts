@@ -36,7 +36,8 @@ export interface SolicitudLicencia {
   tipo_licencia_id: number;
   fecha_inicio: string;           // YYYY-MM-DD
   fecha_fin: string;              // YYYY-MM-DD
-  cantidad_dias: number;          // Días calendario solicitados
+  cantidad_dias: number | null;   // Días ×10 (dividir por 10 para mostrar)
+  cantidad_horas: number | null;  // Horas ×10 (dividir por 10 para mostrar)
   estado: EstadoSolicitud;
   aprobador_id?: number;
   fecha_respuesta?: string;       // ISO 8601
@@ -67,9 +68,10 @@ export interface ArchivoAdjunto {
 // DTO para crear una solicitud
 export interface CreateSolicitudDTO {
   tipo_licencia_id: number;
-  fecha_inicio: string;  // YYYY-MM-DD
-  fecha_fin: string;      // YYYY-MM-DD
-  observacion?: string;  // Opcional
+  fecha_inicio: string;       // YYYY-MM-DD
+  cantidad_dias?: number | null;     // Días solicitados (múltiplos de 0.5), null si es 0
+  cantidad_horas?: number | null;    // Horas solicitadas (múltiplos de 0.5), null si es 0
+  observacion?: string;       // Opcional
 }
 
 export interface GetSolicitudesFilters {

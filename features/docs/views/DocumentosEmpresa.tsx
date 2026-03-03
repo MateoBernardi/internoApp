@@ -169,7 +169,7 @@ const styles = StyleSheet.create({
   center: {
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: '5%',
     flex: 1
   },
   listContent: {
@@ -178,5 +178,6 @@ const styles = StyleSheet.create({
   },
   separator: {
     height: StyleSheet.hairlineWidth,
+    marginHorizontal: '4%',
   },
 });

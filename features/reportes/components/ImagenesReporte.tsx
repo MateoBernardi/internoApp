@@ -137,11 +137,6 @@ export function ImagenesReporte({
     const { mutate: unlinkImage, isPending: unlinking } = useUnlinkReporteImage();
 
     const handlePickAndUpload = useCallback(async () => {
-        if (!uploadDescription.trim()) {
-            Alert.alert('Descripción requerida', 'Ingresá una descripción para la imagen.');
-            return;
-        }
-
         try {
             const result = await DocumentPicker.getDocumentAsync({
                 type: 'image/*',
@@ -160,7 +155,7 @@ export function ImagenesReporte({
                     fileUri: asset.uri,
                     fileName: asset.name,
                     mimeType: asset.mimeType ?? 'image/jpeg',
-                    description: uploadDescription.trim(),
+                    description: uploadDescription.trim() || 'Imagen de reporte',
                     orden: currentCount,
                 },
                 {
@@ -243,7 +238,7 @@ export function ImagenesReporte({
                 <View style={styles.uploadForm}>
                     <TextInput
                         style={styles.descInput}
-                        placeholder="Descripción de la imagen"
+                        placeholder="Descripción de la imagen (opcional)"
                         placeholderTextColor={colors.secondaryText}
                         value={uploadDescription}
                         onChangeText={setUploadDescription}

@@ -19,6 +19,7 @@ import {
     View,
 } from 'react-native';
 import { EstadoSolicitud } from '../models/SolicitudLicencia';
+import { formatCantidadLicencia } from '../utils/formatCantidad';
 import {
     useAdjuntarArchivo,
     useAprobarSolicitudLicencia,
@@ -359,10 +360,12 @@ export function SolicitudLicencia() {
           </View>
         </View>
 
-        {/* Cantidad de Días */}
+        {/* Cantidad */}
         <View style={styles.inputSection}>
-          <ThemedText style={styles.label}>Cantidad de Días</ThemedText>
-          <ThemedText style={styles.valueText}>{solicitud.cantidad_dias}</ThemedText>
+          <ThemedText style={styles.label}>Cantidad</ThemedText>
+          <ThemedText style={styles.valueText}>
+            {formatCantidadLicencia(solicitud.cantidad_dias, solicitud.cantidad_horas)}
+          </ThemedText>
         </View>
 
         {/* Observación del Solicitante */}

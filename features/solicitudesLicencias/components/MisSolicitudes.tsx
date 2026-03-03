@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 // Componentes y Hooks propios
 import { CreateButton } from '@/components/ui/CreateButton';
 import { EstadoSolicitud, SolicitudLicencia } from '../models/SolicitudLicencia';
+import { formatCantidadLicencia } from '../utils/formatCantidad';
 import { useGetSolicitudesUsuario } from '../viewmodels/useSolicitudes';
 
 const estadoMapping: Record<EstadoSolicitud, string> = {
@@ -185,7 +186,7 @@ function MiSolicitudItem({ solicitud, estadoUI, onPress }: MiSolicitudItemProps)
           numberOfLines={2}
           style={[styles.description, { color: colors.icon }]}
         >
-          {solicitud.cantidad_dias} días{fechaInicioStr && fechaFinStr ? ` | ${fechaInicioStr} a ${fechaFinStr}` : ''}
+          {formatCantidadLicencia(solicitud.cantidad_dias, solicitud.cantidad_horas)}{fechaInicioStr && fechaFinStr ? ` | ${fechaInicioStr} a ${fechaFinStr}` : ''}
         </ThemedText>
 
         {/* Footer: Fecha creación + Badge de Estado */}
@@ -222,9 +223,9 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
     backgroundColor: colors.componentBackground,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    marginHorizontal: 16,
+    paddingVertical: '3%',
+    paddingHorizontal: '4%',
+    marginHorizontal: '4%',
     marginTop: 16,
     marginBottom: 12,
     borderRadius: 8,
@@ -238,15 +239,16 @@ const styles = StyleSheet.create({
   },
   separator: {
     height: StyleSheet.hairlineWidth,
+    marginHorizontal: '4%',
   },
   errorText: {
     marginBottom: 8,
   },
   itemContainer: {
-    marginHorizontal: 16,
+    marginHorizontal: '4%',
     marginVertical: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
+    paddingHorizontal: '3%',
+    paddingVertical: '3%',
     borderRadius: 8,
   },
   itemContent: {

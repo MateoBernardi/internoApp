@@ -4,6 +4,7 @@ import { Colors } from '@/constants/theme';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useMemo } from 'react';
 import {
+    RefreshControl,
     ScrollView,
     StyleSheet,
     TouchableOpacity,
@@ -47,7 +48,7 @@ interface SolicitudesEnviadasProps {
 
 export function SolicitudesEnviadas({ onRefresh, refreshing }: SolicitudesEnviadasProps = {}) {
   const router = useRouter();
-  const { data: solicitudes, isLoading, error } = useSolicitudesCreadas();
+  const { data: solicitudes, isLoading, error, refetch } = useSolicitudesCreadas();
 
   const agrupadas = useMemo(() => {
     if (!solicitudes) return [];
@@ -60,6 +61,11 @@ export function SolicitudesEnviadas({ onRefresh, refreshing }: SolicitudesEnviad
       params: { id: solicitudId.toString(), type: 'enviada' },
     });
   }, [router]);
+
+  const handleRefresh = useCallback(async () => {
+    await refetch();
+    if (onRefresh) await onRefresh();
+  }, [refetch, onRefresh]);
 
 
 
@@ -91,7 +97,17 @@ export function SolicitudesEnviadas({ onRefresh, refreshing }: SolicitudesEnviad
   }
 
   return (
-    <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
+    <ScrollView
+      contentContainerStyle={{ paddingBottom: 100 }}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing ?? false}
+          onRefresh={handleRefresh}
+          colors={[colors.lightTint]}
+          tintColor={colors.lightTint}
+        />
+      }
+    >
       {agrupadas.map((item, index) => (
         <React.Fragment key={item.solicitud_id.toString()}>
           {index > 0 && (
@@ -99,7 +115,7 @@ export function SolicitudesEnviadas({ onRefresh, refreshing }: SolicitudesEnviad
               style={{
                 height: StyleSheet.hairlineWidth,
                 backgroundColor: colors.secondaryText,
-                marginHorizontal: 16,
+                marginHorizontal: '4%',
               }}
             />
           )}
@@ -133,6 +149,8 @@ function SolicitudEnviadaItem({ solicitud, onPress }: SolicitudEnviadaItemProps)
       case 'Modificado por creador':
       case 'Aceptado por creador':
         return '#9C27B0';
+      case 'Actividad creada':
+        return '#00897B';
       default:
         return colors.icon;
     }
@@ -189,17 +207,17 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: '4%',
     backgroundColor: colors.componentBackground,
   },
   errorText: {
     marginBottom: 8,
   },
   itemContainer: {
-    marginHorizontal: 16,
+    marginHorizontal: '4%',
     marginVertical: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
+    paddingHorizontal: '3%',
+    paddingVertical: '3%',
     borderRadius: 8,
   },
   itemContent: {

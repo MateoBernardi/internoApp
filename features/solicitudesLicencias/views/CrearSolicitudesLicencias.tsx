@@ -14,10 +14,13 @@ import {
     Platform,
     ScrollView,
     StyleSheet,
+    Switch,
     TextInput,
     TouchableOpacity,
     View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { CreateSolicitudDTO } from '../models/SolicitudLicencia';
 import {
     useAdjuntarArchivo,
     useCreateSolicitudLicencia,
@@ -27,53 +30,51 @@ import {
 
 const colors = Colors['light'];
 
-type DayMode = 'full' | 'morning' | 'afternoon';
+/** Modo de cantidad: días u horas */
+type CantidadMode = 'dias' | 'horas';
 
-const DAY_MODE_OPTIONS: { value: DayMode; label: string; icon: string }[] = [
-    { value: 'full', label: 'Día completo', icon: 'sunny-outline' },
-    { value: 'morning', label: 'Mañana', icon: 'sunny-outline' },
-    { value: 'afternoon', label: 'Tarde', icon: 'moon-outline' },
-];
-
-// Morning: 08:00 - 13:00 | Afternoon: 13:00 - 17:00 | Full: 08:00 - 17:00
-const HORARIOS: Record<DayMode, { inicio: [number, number]; fin: [number, number] }> = {
-    full:      { inicio: [8, 0],  fin: [17, 0] },
-    morning:   { inicio: [8, 0],  fin: [13, 0] },
-    afternoon: { inicio: [13, 0], fin: [17, 0] },
-};
-
-function buildTime(hours: number, minutes: number): Date {
-    const d = new Date();
-    d.setHours(hours, minutes, 0, 0);
-    return d;
+/** Formatea la fecha como YYYY-MM-DD para el backend */
+function formatDateYMD(date: Date): string {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
 }
 
-function isMedicalLicense(nombre?: string, codigo?: string): boolean {
-    if (!nombre && !codigo) return false;
-    const lowerNombre = (nombre ?? '').toLowerCase();
-    const lowerCodigo = (codigo ?? '').toLowerCase();
-    return lowerNombre.includes('médic') || lowerNombre.includes('medic') || lowerCodigo === 'med';
+/** Texto legible para la cantidad de días seleccionada */
+function formatDiasLabel(wholeDays: number, halfDay: boolean): string {
+    const total = wholeDays + (halfDay ? 0.5 : 0);
+    if (total === 0) return '0 días';
+    if (total === 0.5) return 'Medio día';
+    if (total === 1) return '1 día';
+    if (halfDay) return `${wholeDays} día${wholeDays !== 1 ? 's' : ''} y medio`;
+    return `${wholeDays} días`;
 }
 
 export function CrearSolicitudesLicencias() {
     const router = useRouter();
+    const insets = useSafeAreaInsets();
 
-    // --- Estados ---
-    const [fechaInicio, setFechaInicio] = useState<Date>(new Date());
-    const [fechaFin, setFechaFin] = useState<Date>(new Date());
+    // --- Estado del formulario ---
     const [tipoLicenciaId, setTipoLicenciaId] = useState<number | null>(null);
+    const [showTipoLicenciaModal, setShowTipoLicenciaModal] = useState(false);
+    const [fechaInicio, setFechaInicio] = useState<Date>(new Date());
+    const [showDatePicker, setShowDatePicker] = useState(false);
+    const [showTimePicker, setShowTimePicker] = useState(false);
+
+    // Cantidad — Días
+    const [wholeDays, setWholeDays] = useState(0);
+    const [halfDay, setHalfDay] = useState(false);
+
+    // Cantidad — Horas
+    const [horas, setHoras] = useState(0);
+
+    // Modo cantidad (solo visible si !requiere_saldo)
+    const [cantidadMode, setCantidadMode] = useState<CantidadMode>('dias');
+
     const [observacion, setObservacion] = useState('');
     const [archivoAdjunto, setArchivoAdjunto] = useState<{ name: string; uri: string; type: string; size?: number } | null>(null);
-    const [showDatePicker, setShowDatePicker] = useState(false);
-    const [activeDateType, setActiveDateType] = useState<'start' | 'end' | null>(null);
-    const [showTipoLicenciaModal, setShowTipoLicenciaModal] = useState(false);
-    const [dayMode, setDayMode] = useState<DayMode>('full');
-    const [horaInicio, setHoraInicio] = useState<Date>(() => buildTime(8, 0));
-    const [horaFin, setHoraFin] = useState<Date>(() => buildTime(17, 0));
-    const [showTimePicker, setShowTimePicker] = useState(false);
-    const [activeTimeType, setActiveTimeType] = useState<'start' | 'end' | null>(null);
     const [isUploadingFile, setIsUploadingFile] = useState(false);
-    const [solicitudIdParaAdjunto, setSolicitudIdParaAdjunto] = useState<number | null>(null);
     const isSubmittingRef = useRef(false);
 
     // --- Hooks de Datos ---
@@ -83,90 +84,69 @@ export function CrearSolicitudesLicencias() {
     const { mutate: adjuntarArchivoMutation, isPending: isAdjuntando } = useAdjuntarArchivo();
     const { mutateAsync: uploadArchivo } = useUploadArchivo();
 
-    // --- Lógica de Negocio ---
+    // --- Derivados ---
     const selectedTipo = useMemo(() =>
         tiposLicencias?.find((t) => t.id === tipoLicenciaId),
         [tiposLicencias, tipoLicenciaId]);
 
-    const esMedica = useMemo(() =>
-        isMedicalLicense(selectedTipo?.nombre, selectedTipo?.codigo),
-        [selectedTipo]);
+    /** El modo efectivo: si requiere saldo, siempre es días */
+    const effectiveMode = useMemo<CantidadMode>(() =>
+        selectedTipo?.requiere_saldo ? 'dias' : cantidadMode,
+        [selectedTipo, cantidadMode]);
+
+    const cantidadDias = useMemo(() => wholeDays + (halfDay ? 0.5 : 0), [wholeDays, halfDay]);
 
     const saldoCorrespondiente = useMemo(() => {
         if (!tipoLicenciaId || !saldosLicencias) return null;
         return saldosLicencias.find(s => s.tipo_licencia_id === tipoLicenciaId);
     }, [tipoLicenciaId, saldosLicencias]);
 
-    const diasSolicitados = useMemo(() => {
-        if (dayMode !== 'full') return 0.5;
-        const diffTime = fechaFin.getTime() - fechaInicio.getTime();
-        if (diffTime < 0) return 0;
-        return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-    }, [fechaInicio, fechaFin, dayMode]);
-
     const saldoDisponible = useMemo(() => {
         if (!saldoCorrespondiente) return 0;
         return saldoCorrespondiente.dias_otorgados - saldoCorrespondiente.dias_consumidos;
     }, [saldoCorrespondiente]);
 
-    // Horario efectivo: si es médica y modo full, se puede editar libremente.
-    // Para otros modos, los horarios vienen predefinidos.
-    const horaInicioEfectiva = useMemo(() => {
-        if (esMedica) return horaInicio;
-        return buildTime(...HORARIOS[dayMode].inicio);
-    }, [esMedica, horaInicio, dayMode]);
-
-    const horaFinEfectiva = useMemo(() => {
-        if (esMedica) return horaFin;
-        return buildTime(...HORARIOS[dayMode].fin);
-    }, [esMedica, horaFin, dayMode]);
-
     const isFormValid = useMemo(() => {
-        const tieneTipo = !!tipoLicenciaId;
-        const fechasCorrectas = fechaInicio <= fechaFin;
-        const saldoSuficiente = selectedTipo?.requiere_saldo
-            ? saldoDisponible >= diasSolicitados
-            : true;
-        const horasCorrectas = horaInicioEfectiva < horaFinEfectiva;
-        return tieneTipo && fechasCorrectas && saldoSuficiente && horasCorrectas && !isPending && !isAdjuntando;
-    }, [tipoLicenciaId, fechaInicio, fechaFin, selectedTipo, saldoDisponible, diasSolicitados, isPending, isAdjuntando, horaInicioEfectiva, horaFinEfectiva]);
+        if (!tipoLicenciaId) return false;
+        if (effectiveMode === 'dias' && cantidadDias <= 0) return false;
+        if (effectiveMode === 'horas' && horas <= 0) return false;
+        if (selectedTipo?.requiere_saldo && saldoDisponible < cantidadDias) return false;
+        if (isPending || isAdjuntando) return false;
+        return true;
+    }, [tipoLicenciaId, effectiveMode, cantidadDias, horas, selectedTipo, saldoDisponible, isPending, isAdjuntando]);
 
-    // --- Handlers de Fecha ---
-    const onDateChange = (event: any, selectedDate?: Date) => {
+    // --- Handlers Fecha ---
+    const onDateChange = useCallback((event: any, selectedDate?: Date) => {
         if (Platform.OS === 'android') setShowDatePicker(false);
-        if (event.type === 'dismissed') { setActiveDateType(null); return; }
-        const currentDate = selectedDate || (activeDateType === 'start' ? fechaInicio : fechaFin);
-        if (activeDateType === 'start') {
-            setFechaInicio(currentDate);
-            if (currentDate > fechaFin) setFechaFin(currentDate);
-        } else {
-            setFechaFin(currentDate);
-        }
-        setActiveDateType(null);
-    };
+        if (event.type === 'dismissed') return;
+        if (selectedDate) setFechaInicio(selectedDate);
+    }, []);
 
-    const onTimeChange = (event: any, selectedTime?: Date) => {
+    const onTimeChange = useCallback((event: any, selectedTime?: Date) => {
         if (Platform.OS === 'android') setShowTimePicker(false);
-        if (event.type === 'dismissed') { setActiveTimeType(null); return; }
-        const currentTime = selectedTime || (activeTimeType === 'start' ? horaInicio : horaFin);
-        if (activeTimeType === 'start') setHoraInicio(currentTime);
-        else setHoraFin(currentTime);
-        setActiveTimeType(null);
-    };
+        if (event.type === 'dismissed') return;
+        if (selectedTime) {
+            const updated = new Date(fechaInicio);
+            updated.setHours(selectedTime.getHours(), selectedTime.getMinutes(), 0, 0);
+            setFechaInicio(updated);
+        }
+    }, [fechaInicio]);
 
-    // --- Handler Modo Día ---
-    const handleDayModeChange = useCallback((mode: DayMode) => {
-        setDayMode(mode);
-        // Para médica, actualizar también los horarios
-        if (esMedica) {
-            setHoraInicio(buildTime(...HORARIOS[mode].inicio));
-            setHoraFin(buildTime(...HORARIOS[mode].fin));
-        }
-        // Para múltiples días, si cambia a medio día usar solo fecha de inicio
-        if (mode !== 'full') {
-            setFechaFin(fechaInicio);
-        }
-    }, [esMedica, fechaInicio]);
+    // --- Handlers Stepper ---
+    const incrementDays = useCallback(() => setWholeDays(prev => Math.min(prev + 1, 60)), []);
+    const decrementDays = useCallback(() => setWholeDays(prev => Math.max(prev - 1, 0)), []);
+
+    const incrementHours = useCallback(() => setHoras(prev => Math.min(prev + 0.5, 99)), []);
+    const decrementHours = useCallback(() => setHoras(prev => Math.max(prev - 0.5, 0)), []);
+
+    // --- Handler cambio de modo ---
+    const handleModeChange = useCallback((mode: CantidadMode) => {
+        setCantidadMode(mode);
+        // Resetear ambos valores al cambiar de modo
+        setWholeDays(0);
+        setHalfDay(false);
+        setHoras(0);
+    }, []);
 
     // --- Selección de Archivo ---
     const handleSeleccionarArchivo = useCallback(async () => {
@@ -190,32 +170,25 @@ export function CrearSolicitudesLicencias() {
         }
     }, []);
 
-    // --- Formato Timestamp ---
-    const formatTimestamp = (fecha: Date, hora: Date): string => {
-        const year = fecha.getFullYear();
-        const month = String(fecha.getMonth() + 1).padStart(2, '0');
-        const day = String(fecha.getDate()).padStart(2, '0');
-        const hours = String(hora.getHours()).padStart(2, '0');
-        const minutes = String(hora.getMinutes()).padStart(2, '0');
-        const seconds = String(hora.getSeconds()).padStart(2, '0');
-        const ms = String(hora.getMilliseconds()).padStart(3, '0');
-        return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${ms}`;
-    };
-
-    // --- Crear Solicitud + Adjuntar ---
+    // --- Crear Solicitud ---
     const procederCrearSolicitud = useCallback(() => {
         if (isPending || isSubmittingRef.current) return;
         isSubmittingRef.current = true;
-        const payload: any = {
+
+        const payload: CreateSolicitudDTO = {
             tipo_licencia_id: tipoLicenciaId!,
+            fecha_inicio: formatDateYMD(fechaInicio),
             observacion: observacion.trim() || undefined,
-            fecha_inicio: formatTimestamp(fechaInicio, horaInicioEfectiva),
-            fecha_fin: formatTimestamp(dayMode === 'full' ? fechaFin : fechaInicio, horaFinEfectiva),
         };
+
+        if (effectiveMode === 'dias') {
+            payload.cantidad_dias = cantidadDias > 0 ? cantidadDias : null;
+        } else if (effectiveMode === 'horas') {
+            payload.cantidad_horas = horas > 0 ? horas : null;
+        }
 
         crearSolicitud(payload, {
             onSuccess: async (nuevaSolicitud: any) => {
-                // Si hay archivo adjunto, subirlo y adjuntarlo
                 if (archivoAdjunto && nuevaSolicitud?.id) {
                     setIsUploadingFile(true);
                     try {
@@ -234,10 +207,7 @@ export function CrearSolicitudesLicencias() {
                             },
                         });
                         adjuntarArchivoMutation(
-                            {
-                                solicitudId: nuevaSolicitud.id,
-                                archivoId: archivoSubido.id,
-                            },
+                            { solicitudId: nuevaSolicitud.id, archivoId: archivoSubido.id },
                             {
                                 onSuccess: () => {
                                     setIsUploadingFile(false);
@@ -246,20 +216,14 @@ export function CrearSolicitudesLicencias() {
                                 },
                                 onError: () => {
                                     setIsUploadingFile(false);
-                                    Alert.alert(
-                                        'Solicitud creada',
-                                        'La solicitud fue creada pero no se pudo adjuntar el archivo. Podés adjuntarlo desde el detalle de la solicitud.',
-                                    );
+                                    Alert.alert('Solicitud creada', 'La solicitud fue creada pero no se pudo adjuntar el archivo. Podés adjuntarlo desde el detalle.');
                                     router.back();
                                 },
                             }
                         );
                     } catch {
                         setIsUploadingFile(false);
-                        Alert.alert(
-                            'Solicitud creada',
-                            'La solicitud fue creada pero no se pudo subir el archivo. Podés adjuntarlo desde el detalle de la solicitud.',
-                        );
+                        Alert.alert('Solicitud creada', 'La solicitud fue creada pero no se pudo subir el archivo. Podés adjuntarlo desde el detalle.');
                         router.back();
                     }
                 } else {
@@ -272,7 +236,7 @@ export function CrearSolicitudesLicencias() {
                 Alert.alert('Error', err?.message || 'Intenta nuevamente');
             },
         });
-    }, [isPending, crearSolicitud, tipoLicenciaId, fechaInicio, fechaFin, horaInicioEfectiva, horaFinEfectiva, dayMode, observacion, archivoAdjunto, uploadArchivo, adjuntarArchivoMutation, router]);
+    }, [isPending, crearSolicitud, tipoLicenciaId, fechaInicio, effectiveMode, cantidadDias, horas, observacion, archivoAdjunto, uploadArchivo, adjuntarArchivoMutation, router]);
 
     const handleCrearSolicitud = useCallback(() => {
         if (!isFormValid || isPending) return;
@@ -292,6 +256,7 @@ export function CrearSolicitudesLicencias() {
 
     const isSubmitting = isPending || isUploadingFile || isAdjuntando;
 
+    // ==================== RENDER ====================
     return (
         <View style={styles.container}>
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
@@ -305,9 +270,9 @@ export function CrearSolicitudesLicencias() {
                     <View style={{ width: 40 }} />
                 </View>
 
-                <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: 100 }}>
+                <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: 120 + insets.bottom }}>
 
-                    {/* Selector de Tipo de Licencia */}
+                    {/* ── Tipo de Licencia ── */}
                     <View style={styles.sectionCard}>
                         <TouchableOpacity onPress={() => setShowTipoLicenciaModal(!showTipoLicenciaModal)} style={styles.selectInput}>
                             <Ionicons name="ribbon-outline" size={20} color={colors.icon} />
@@ -330,7 +295,10 @@ export function CrearSolicitudesLicencias() {
                                             onPress={() => {
                                                 setTipoLicenciaId(tipo.id);
                                                 setShowTipoLicenciaModal(false);
-                                                setDayMode('full');
+                                                setCantidadMode('dias');
+                                                setWholeDays(0);
+                                                setHalfDay(false);
+                                                setHoras(0);
                                             }}
                                             style={[styles.dropdownItem, tipoLicenciaId === tipo.id && styles.activeItem]}
                                         >
@@ -343,107 +311,161 @@ export function CrearSolicitudesLicencias() {
                         )}
                     </View>
 
-                    {/* Selector Día Completo / Medio Día */}
-                    <View style={styles.sectionCard}>
-                        <View style={styles.rowInfo}>
-                            <Ionicons name="today-outline" size={20} color={colors.lightTint} />
-                            <ThemedText style={styles.sectionLabel}>Modalidad</ThemedText>
-                        </View>
-                        <View style={styles.dayModeContainer}>
-                            {DAY_MODE_OPTIONS.map((opt) => (
-                                <TouchableOpacity
-                                    key={opt.value}
-                                    style={[styles.dayModeButton, dayMode === opt.value && styles.dayModeButtonActive]}
-                                    onPress={() => handleDayModeChange(opt.value)}
-                                >
-                                    <ThemedText style={[styles.dayModeLabel, dayMode === opt.value && styles.dayModeLabelActive]}>
-                                        {opt.label}
-                                    </ThemedText>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
-                    </View>
-
-                    {/* Selección de Fechas */}
+                    {/* ── Fecha de Inicio ── */}
                     <View style={styles.sectionCard}>
                         <View style={styles.rowInfo}>
                             <Ionicons name="calendar-outline" size={20} color={colors.lightTint} />
-                            <ThemedText style={styles.sectionLabel}>Periodo</ThemedText>
+                            <ThemedText style={styles.sectionLabel}>Fecha de Inicio</ThemedText>
                         </View>
 
-                        <TouchableOpacity onPress={() => { setActiveDateType('start'); setShowDatePicker(true); }} style={styles.datePickerRow}>
-                            <ThemedText style={styles.dateLabel}>Desde</ThemedText>
+                        <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.datePickerRow}>
+                            <ThemedText style={styles.dateLabel}>Día</ThemedText>
                             <ThemedText style={styles.dateValue}>
                                 {fechaInicio.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}
                             </ThemedText>
                         </TouchableOpacity>
 
-                        {dayMode === 'full' && (
-                            <TouchableOpacity onPress={() => { setActiveDateType('end'); setShowDatePicker(true); }} style={styles.datePickerRow}>
-                                <ThemedText style={styles.dateLabel}>Hasta</ThemedText>
-                                <ThemedText style={styles.dateValue}>
-                                    {fechaFin.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}
-                                </ThemedText>
-                            </TouchableOpacity>
-                        )}
-
-                        <View style={styles.summaryContainer}>
-                            <ThemedText style={styles.summaryText}>
-                                Duración:{' '}
-                                <ThemedText type="defaultSemiBold" style={{ color: colors.lightTint }}>
-                                    {dayMode === 'full' ? `${diasSolicitados} día${diasSolicitados !== 1 ? 's' : ''}` : 'Medio día'}
-                                </ThemedText>
+                        <TouchableOpacity onPress={() => setShowTimePicker(true)} style={styles.datePickerRow}>
+                            <ThemedText style={styles.dateLabel}>Hora</ThemedText>
+                            <ThemedText style={styles.dateValue}>
+                                {fechaInicio.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
                             </ThemedText>
-                        </View>
+                        </TouchableOpacity>
                     </View>
 
-                    {/* Selector de Horario — solo para licencia médica */}
-                    {esMedica && (
+                    {/* ── Cantidad ── */}
+                    {tipoLicenciaId && (
                         <View style={styles.sectionCard}>
                             <View style={styles.rowInfo}>
-                                <Ionicons name="time-outline" size={20} color={colors.lightTint} />
-                                <ThemedText style={styles.sectionLabel}>Horario</ThemedText>
+                                <Ionicons name="timer-outline" size={20} color={colors.lightTint} />
+                                <ThemedText style={styles.sectionLabel}>Cantidad</ThemedText>
                             </View>
 
-                            <TouchableOpacity onPress={() => { setActiveTimeType('start'); setShowTimePicker(true); }} style={styles.datePickerRow}>
-                                <ThemedText style={styles.dateLabel}>Desde</ThemedText>
-                                <ThemedText style={styles.dateValue}>
-                                    {horaInicioEfectiva.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
-                                </ThemedText>
-                            </TouchableOpacity>
+                            {/* Toggle días/horas — solo si NO requiere saldo */}
+                            {!selectedTipo?.requiere_saldo && (
+                                <View style={styles.modeToggleContainer}>
+                                    <TouchableOpacity
+                                        style={[styles.modeToggleBtn, effectiveMode === 'dias' && styles.modeToggleBtnActive]}
+                                        onPress={() => handleModeChange('dias')}
+                                    >
+                                        <ThemedText style={[styles.modeToggleText, effectiveMode === 'dias' && styles.modeToggleTextActive]}>
+                                            Días
+                                        </ThemedText>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={[styles.modeToggleBtn, effectiveMode === 'horas' && styles.modeToggleBtnActive]}
+                                        onPress={() => handleModeChange('horas')}
+                                    >
+                                        <ThemedText style={[styles.modeToggleText, effectiveMode === 'horas' && styles.modeToggleTextActive]}>
+                                            Horas
+                                        </ThemedText>
+                                    </TouchableOpacity>
+                                </View>
+                            )}
 
-                            <TouchableOpacity onPress={() => { setActiveTimeType('end'); setShowTimePicker(true); }} style={styles.datePickerRow}>
-                                <ThemedText style={styles.dateLabel}>Hasta</ThemedText>
-                                <ThemedText style={styles.dateValue}>
-                                    {horaFinEfectiva.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
-                                </ThemedText>
-                            </TouchableOpacity>
+                            {/* ─── Stepper de DÍAS ─── */}
+                            {effectiveMode === 'dias' && (
+                                <View style={styles.stepperSection}>
+                                    <View style={styles.stepperRow}>
+                                        <TouchableOpacity
+                                            onPress={decrementDays}
+                                            style={[styles.stepperButton, wholeDays <= 0 && styles.stepperButtonDisabled]}
+                                            disabled={wholeDays <= 0}
+                                        >
+                                            <Ionicons name="remove" size={22} color={wholeDays <= 0 ? colors.secondaryText : colors.lightTint} />
+                                        </TouchableOpacity>
 
-                            {horaInicioEfectiva >= horaFinEfectiva && (
-                                <ThemedText style={[styles.warningText, { marginTop: 12, color: colors.error }]}>
-                                    La hora final debe ser posterior a la hora inicial
-                                </ThemedText>
+                                        <View style={styles.stepperValueContainer}>
+                                            <ThemedText style={styles.stepperValue}>{wholeDays}</ThemedText>
+                                            <ThemedText style={styles.stepperUnit}>día{wholeDays !== 1 ? 's' : ''}</ThemedText>
+                                        </View>
+
+                                        <TouchableOpacity
+                                            onPress={incrementDays}
+                                            style={styles.stepperButton}
+                                        >
+                                            <Ionicons name="add" size={22} color={colors.lightTint} />
+                                        </TouchableOpacity>
+                                    </View>
+
+                                    {/* Toggle medio día */}
+                                    <View style={styles.halfDayRow}>
+                                        <ThemedText style={styles.halfDayLabel}>Incluir medio día (+½)</ThemedText>
+                                        <Switch
+                                            value={halfDay}
+                                            onValueChange={setHalfDay}
+                                            trackColor={{ false: colors.background, true: colors.lightTint + '40' }}
+                                            thumbColor={halfDay ? colors.lightTint : colors.secondaryText}
+                                        />
+                                    </View>
+
+                                    {/* Resumen */}
+                                    <View style={styles.summaryContainer}>
+                                        <ThemedText style={styles.summaryText}>
+                                            Total:{' '}
+                                            <ThemedText type="defaultSemiBold" style={{ color: colors.lightTint }}>
+                                                {formatDiasLabel(wholeDays, halfDay)}
+                                            </ThemedText>
+                                        </ThemedText>
+                                    </View>
+                                </View>
+                            )}
+
+                            {/* ─── Stepper de HORAS ─── */}
+                            {effectiveMode === 'horas' && (
+                                <View style={styles.stepperSection}>
+                                    <View style={styles.stepperRow}>
+                                        <TouchableOpacity
+                                            onPress={decrementHours}
+                                            style={[styles.stepperButton, horas <= 0 && styles.stepperButtonDisabled]}
+                                            disabled={horas <= 0}
+                                        >
+                                            <Ionicons name="remove" size={22} color={horas <= 0 ? colors.secondaryText : colors.lightTint} />
+                                        </TouchableOpacity>
+
+                                        <View style={styles.stepperValueContainer}>
+                                            <ThemedText style={styles.stepperValue}>{horas}</ThemedText>
+                                            <ThemedText style={styles.stepperUnit}>hs</ThemedText>
+                                        </View>
+
+                                        <TouchableOpacity
+                                            onPress={incrementHours}
+                                            style={styles.stepperButton}
+                                        >
+                                            <Ionicons name="add" size={22} color={colors.lightTint} />
+                                        </TouchableOpacity>
+                                    </View>
+
+                                    <View style={styles.summaryContainer}>
+                                        <ThemedText style={styles.summaryText}>
+                                            Total:{' '}
+                                            <ThemedText type="defaultSemiBold" style={{ color: colors.lightTint }}>
+                                                {horas} hora{horas !== 1 ? 's' : ''}
+                                            </ThemedText>
+                                        </ThemedText>
+                                    </View>
+                                </View>
                             )}
                         </View>
                     )}
 
-                    {/* Información de Saldo */}
+                    {/* ── Saldo ── */}
                     {selectedTipo?.requiere_saldo && (
-                        <View style={[styles.sectionCard, styles.saldoCard, saldoDisponible < diasSolicitados && styles.saldoError]}>
-                            <Ionicons name="information-circle" size={20} color={saldoDisponible < diasSolicitados ? colors.error : colors.lightTint} />
+                        <View style={[styles.sectionCard, styles.saldoCard, saldoDisponible < cantidadDias && styles.saldoError]}>
+                            <Ionicons name="information-circle" size={20} color={saldoDisponible < cantidadDias ? colors.error : colors.lightTint} />
                             <View style={{ flex: 1, marginLeft: 12 }}>
                                 <ThemedText style={styles.saldoTitle}>Saldo Disponible</ThemedText>
                                 <ThemedText style={styles.saldoSubtitle}>
                                     {isLoadingSaldos ? '...' : `${saldoDisponible} días restantes`}
                                 </ThemedText>
-                                {saldoDisponible < diasSolicitados && (
+                                {saldoDisponible < cantidadDias && (
                                     <ThemedText style={styles.warningText}>No tenés saldo suficiente para estos días.</ThemedText>
                                 )}
                             </View>
                         </View>
                     )}
 
-                    {/* Observaciones */}
+                    {/* ── Observación ── */}
                     <View style={styles.sectionCard}>
                         <View style={styles.obsContainer}>
                             <Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.icon} style={{ marginTop: 4 }} />
@@ -458,7 +480,7 @@ export function CrearSolicitudesLicencias() {
                         </View>
                     </View>
 
-                    {/* Sección de Adjuntos — solo si el tipo lo requiere */}
+                    {/* ── Adjunto ── */}
                     {selectedTipo?.requiere_adjunto && (
                         <View style={[styles.sectionCard, !archivoAdjunto && styles.adjuntoRequerido]}>
                             <View style={styles.rowInfo}>
@@ -509,7 +531,7 @@ export function CrearSolicitudesLicencias() {
 
                 {/* FAB */}
                 <TouchableOpacity
-                    style={[styles.fab, (!isFormValid || isSubmitting) && styles.fabDisabled]}
+                    style={[styles.fab, { bottom: 24 + insets.bottom }, (!isFormValid || isSubmitting) && styles.fabDisabled]}
                     onPress={handleCrearSolicitud}
                     disabled={!isFormValid || isSubmitting}
                 >
@@ -521,17 +543,16 @@ export function CrearSolicitudesLicencias() {
 
                 {showDatePicker && (
                     <DateTimePicker
-                        value={activeDateType === 'start' ? fechaInicio : fechaFin}
+                        value={fechaInicio}
                         mode="date"
-                        minimumDate={activeDateType === 'end' ? fechaInicio : undefined}
                         display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                         onChange={onDateChange}
                     />
                 )}
 
-                {showTimePicker && esMedica && (
+                {showTimePicker && (
                     <DateTimePicker
-                        value={activeTimeType === 'start' ? horaInicioEfectiva : horaFinEfectiva}
+                        value={fechaInicio}
                         mode="time"
                         is24Hour={true}
                         display={Platform.OS === 'ios' ? 'spinner' : 'default'}
@@ -540,10 +561,12 @@ export function CrearSolicitudesLicencias() {
                 )}
 
             </KeyboardAvoidingView>
-        <OperacionPendienteModal visible={isPending} />
+            <OperacionPendienteModal visible={isPending} />
         </View>
     );
-}const styles = StyleSheet.create({
+}
+
+const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: colors.componentBackground,
@@ -582,32 +605,83 @@ export function CrearSolicitudesLicencias() {
     dateValue: { fontSize: 15, color: colors.text, fontWeight: '500' },
     summaryContainer: { marginTop: 12, alignItems: 'flex-end' },
     summaryText: { fontSize: 14, color: colors.secondaryText },
-    // Modalidad día
-    dayModeContainer: {
+    // Toggle Días / Horas
+    modeToggleContainer: {
         flexDirection: 'row',
-        gap: 8,
+        marginBottom: 16,
+        borderRadius: 8,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: colors.background,
     },
-    dayModeButton: {
+    modeToggleBtn: {
         flex: 1,
         paddingVertical: 10,
-        borderRadius: 8,
-        borderWidth: 1.5,
-        borderColor: colors.background,
         alignItems: 'center',
         backgroundColor: colors.componentBackground,
     },
-    dayModeButtonActive: {
-        borderColor: colors.lightTint,
-        backgroundColor: colors.lightTint + '15',
+    modeToggleBtnActive: {
+        backgroundColor: colors.lightTint,
     },
-    dayModeLabel: {
+    modeToggleText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: colors.secondaryText,
+    },
+    modeToggleTextActive: {
+        color: colors.componentBackground,
+    },
+    // Stepper
+    stepperSection: {
+        marginTop: 4,
+    },
+    stepperRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 16,
+    },
+    stepperButton: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        borderWidth: 1.5,
+        borderColor: colors.lightTint,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: colors.componentBackground,
+    },
+    stepperButtonDisabled: {
+        borderColor: colors.background,
+        backgroundColor: colors.background,
+    },
+    stepperValueContainer: {
+        alignItems: 'center',
+        minWidth: 80,
+    },
+    stepperValue: {
+        fontSize: 32,
+        fontWeight: '700',
+        color: colors.lightTint,
+    },
+    stepperUnit: {
         fontSize: 13,
         color: colors.secondaryText,
-        fontWeight: '500',
+        marginTop: -2,
     },
-    dayModeLabelActive: {
-        color: colors.lightTint,
-        fontWeight: '700',
+    // Medio día
+    halfDayRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginTop: 16,
+        paddingTop: 12,
+        borderTopWidth: StyleSheet.hairlineWidth,
+        borderTopColor: colors.background,
+    },
+    halfDayLabel: {
+        fontSize: 14,
+        color: colors.text,
     },
     // Tipo de licencia
     selectInput: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4 },
@@ -673,7 +747,6 @@ export function CrearSolicitudesLicencias() {
     fab: {
         position: 'absolute',
         right: 24,
-        bottom: 32,
         width: 64,
         height: 64,
         borderRadius: 32,

@@ -41,7 +41,6 @@ const getMimeType = (fileName: string, providedType?: string): string => {
 };
 
 export async function fetchArchivos(accessToken: string) : Promise<archivos.Archivo[]> {   
-    console.log('[fetchArchivos] Llamando API /archivos...');
     const response = await apiRequest({method: 'GET', endpoint: '/archivos', token: accessToken})
 
     if (!response.ok) {
@@ -52,7 +51,6 @@ export async function fetchArchivos(accessToken: string) : Promise<archivos.Arch
 
     const data: ArchivoDTO[] = await response.json();
     const archivosFormateados = data.map(mapArchivoDTOToArchivo);
-    console.log('[fetchArchivos] Archivos obtenidos:', archivosFormateados);
     return archivosFormateados;
 }
 
@@ -70,7 +68,6 @@ export async function searchArchivosByNombre(accessToken: string, query: string)
         return [];
     }
     const archivosFormateados = data.map(mapArchivoDTOToArchivo);
-    console.log('[searchArchivosByNombre] Archivos encontrados:', archivosFormateados);
     return archivosFormateados;
 }
 
@@ -88,7 +85,6 @@ export async function searchArchivosByPersona(accessToken: string, query: string
         return [];
     }
     const archivosFormateados = data.map(mapArchivoDTOToArchivo);
-    console.log('[searchArchivosByPersona] Archivos encontrados:', archivosFormateados);
     return archivosFormateados;
 }
 
@@ -102,7 +98,6 @@ export async function getArchivosByIdUsuario(accessToken: string, idUsuario: num
 
     const data: ArchivoDTO[] = await response.json();
     const archivosFormateados = data.map(mapArchivoDTOToArchivo);
-    console.log('[getArchivosByIdUsuario] Archivos del usuario:', archivosFormateados);
     return archivosFormateados;
 }
 
@@ -157,7 +152,6 @@ export async function getArchivosPersonales(accessToken: string) : Promise<archi
 
     const data: ArchivoDTO[] = await response.json();
     const archivosFormateados = data.map(mapArchivoDTOToArchivo);
-    console.log('[getArchivosPersonales] Archivos personales:', archivosFormateados);
     return archivosFormateados;
 }
 
@@ -221,7 +215,6 @@ export async function confirmarUploadArchivo(accessToken: string, archivoData: a
 
     const data: ArchivoDTO = await response.json();
     const archivoConfirmado = mapArchivoDTOToArchivo(data);
-    console.log('[confirmarUploadArchivo] Archivo confirmado:', archivoConfirmado);
     return archivoConfirmado;
 }   
 
@@ -273,7 +266,6 @@ export async function updateArchivo(accessToken: string, idArchivo: number, arch
 
     const data: ArchivoDTO = await response.json();
     const archivoFormateado = mapArchivoDTOToArchivo(data);
-    console.log('[updateArchivo] Archivo actualizado:', archivoFormateado);
     return archivoFormateado;
 }
 
@@ -295,6 +287,5 @@ export async function getArchivoUrlFirmada(accessToken: string, idArchivo: numbe
     }
 
     const data: { url: string } = await response.json();
-    console.log('[getArchivoUrlFirmada] URL obtenida para archivo ID:', idArchivo, 'URL:', data.url);
     return data.url;
 }

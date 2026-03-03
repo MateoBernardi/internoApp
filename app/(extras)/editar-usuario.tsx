@@ -1,18 +1,18 @@
-import { ThemedView } from '@/components/themed-view';
 import EditarUsuario from '@/shared/views/EditarUsuario';
 import { StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function EditarUsuarioScreen() {
   return (
-        <ThemedView style={styles.container}>
+        <SafeAreaView style={styles.container}>
           <EditarUsuario />
-        </ThemedView>
+        </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: '10%',
+    backgroundColor: '#ffffff',
   },
 });

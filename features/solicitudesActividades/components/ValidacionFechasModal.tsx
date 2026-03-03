@@ -10,6 +10,7 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
+import type { RangoOcupado } from '../models/Solicitud';
 
 const colors = Colors['light'];
 
@@ -18,6 +19,7 @@ export type ValidacionState = 'idle' | 'validating' | 'success' | 'warnings' | '
 interface ValidacionFechasModalProps {
     state: ValidacionState;
     avisos: string[];
+    rangosOcupados?: RangoOcupado[];
     errorMessage?: string;
     onConfirm: () => void;
     onCancel: () => void;
@@ -26,6 +28,7 @@ interface ValidacionFechasModalProps {
 export function ValidacionFechasModal({
     state,
     avisos,
+    rangosOcupados,
     errorMessage,
     onConfirm,
     onCancel,
@@ -77,6 +80,33 @@ export function ValidacionFechasModal({
                                         <ThemedText style={styles.avisoText}>{aviso}</ThemedText>
                                     </View>
                                 ))}
+
+                                {/* Rangos ocupados detallados */}
+                                {rangosOcupados && rangosOcupados.length > 0 && (
+                                    <View style={styles.rangosContainer}>
+                                        <ThemedText style={styles.rangosTitle}>Detalle de solapamientos:</ThemedText>
+                                        {rangosOcupados.map((rango, idx) => {
+                                            const desde = new Date(rango.desde);
+                                            const hasta = new Date(rango.hasta);
+                                            return (
+                                                <View key={idx} style={styles.rangoItem}>
+                                                    <View style={styles.rangoHeader}>
+                                                        <Ionicons name="person" size={14} color={colors.lightTint} />
+                                                        <ThemedText style={styles.rangoUsuario}>{rango.usuario}</ThemedText>
+                                                        <View style={[styles.rangoTipoBadge, { backgroundColor: rango.tipo === 'actividad' ? colors.lightTint + '20' : colors.warning + '20' }]}>
+                                                            <ThemedText style={[styles.rangoTipoText, { color: rango.tipo === 'actividad' ? colors.lightTint : colors.warning }]}>
+                                                                {rango.tipo}
+                                                            </ThemedText>
+                                                        </View>
+                                                    </View>
+                                                    <ThemedText style={styles.rangoFechas}>
+                                                        {desde.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })} {desde.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })} → {hasta.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                                                    </ThemedText>
+                                                </View>
+                                            );
+                                        })}
+                                    </View>
+                                )}
                             </ScrollView>
 
                             <ThemedText style={styles.confirmQuestion}>
@@ -206,5 +236,50 @@ const styles = StyleSheet.create({
         paddingVertical: 10,
         paddingHorizontal: 20,
         borderRadius: 8,
+    },
+    rangosContainer: {
+        marginTop: 12,
+        paddingTop: 12,
+        borderTopWidth: StyleSheet.hairlineWidth,
+        borderTopColor: colors.secondaryText + '40',
+    },
+    rangosTitle: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: colors.secondaryText,
+        marginBottom: 8,
+    },
+    rangoItem: {
+        backgroundColor: colors.warning + '08',
+        borderRadius: 8,
+        padding: 10,
+        marginBottom: 6,
+    },
+    rangoHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 4,
+        gap: 6,
+    },
+    rangoUsuario: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: colors.text,
+        flex: 1,
+    },
+    rangoTipoBadge: {
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 4,
+    },
+    rangoTipoText: {
+        fontSize: 11,
+        fontWeight: '600',
+        textTransform: 'capitalize',
+    },
+    rangoFechas: {
+        fontSize: 12,
+        color: colors.secondaryText,
+        marginLeft: 20,
     },
 });

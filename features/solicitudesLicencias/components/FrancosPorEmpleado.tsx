@@ -4,13 +4,12 @@ import { Colors } from '@/constants/theme';
 import { useRouter } from 'expo-router';
 import React, { useCallback } from 'react';
 import {
-    FlatList,
-    ListRenderItem,
     StyleSheet,
     TouchableOpacity,
     View
 } from 'react-native';
 import { EstadoSolicitud, SolicitudLicencia } from '../models/SolicitudLicencia';
+import { formatCantidadLicencia } from '../utils/formatCantidad';
 import { useGetSolicitudesLicencias } from '../viewmodels/useSolicitudes';
 
 const estadoMapping: Record<EstadoSolicitud, string> = {
@@ -54,22 +53,9 @@ export function FrancosPorEmpleado({ usuarioId }: FrancosPorEmpleadoProps) {
     });
   }, [router]);
 
-  const renderSeparator = useCallback(() => {
-    return (
-      <View style={[styles.separator, { backgroundColor: colors.icon }]} />
-    );
-  }, []);
-
-  const renderItem: ListRenderItem<SolicitudLicencia> = useCallback(({ item }) => {
-    const estadoUI = estadoMapping[item.estado] || item.estado;
-    return (
-      <FrancoItem
-        item={item}
-        estadoUI={estadoUI}
-        onPress={() => handleOpenSolicitud(item.id)}
-      />
-    );
-  }, [handleOpenSolicitud]);
+  const Separator = useCallback(() => (
+    <View style={[styles.separator, { backgroundColor: colors.icon }]} />
+  ), []);
 
   if (isLoading) {
     return <ScreenSkeleton rows={3} showHeader={false} />;
@@ -95,14 +81,21 @@ export function FrancosPorEmpleado({ usuarioId }: FrancosPorEmpleadoProps) {
 
   return (
     <View style={styles.container}>
-      <FlatList
-        data={data}
-        keyExtractor={item => item.id.toString()}
-        renderItem={renderItem}
-        scrollEnabled={false}
-        ItemSeparatorComponent={renderSeparator}
-        contentContainerStyle={{ paddingBottom: 80 }}
-      />
+      <View style={{ paddingBottom: 80 }}>
+        {data.map((item, index) => {
+          const estadoUI = estadoMapping[item.estado] || item.estado;
+          return (
+            <React.Fragment key={item.id.toString()}>
+              {index > 0 && <Separator />}
+              <FrancoItem
+                item={item}
+                estadoUI={estadoUI}
+                onPress={() => handleOpenSolicitud(item.id)}
+              />
+            </React.Fragment>
+          );
+        })}
+      </View>
     </View>
   );
 }
@@ -124,7 +117,7 @@ function FrancoItem({ item, estadoUI, onPress }: FrancoItemProps) {
           {item.tipo_nombre || 'Franco'}
         </ThemedText>
         <ThemedText numberOfLines={2} style={{ color: colors.icon, fontSize: 13, marginTop: 4 }}>
-          {item.cantidad_dias} días{fechaInicioStr && fechaFinStr ? ` | ${fechaInicioStr} a ${fechaFinStr}` : ''}
+          {formatCantidadLicencia(item.cantidad_dias, item.cantidad_horas)}{fechaInicioStr && fechaFinStr ? ` | ${fechaInicioStr} a ${fechaFinStr}` : ''}
         </ThemedText>
         <View style={styles.footerContainer}>
           <ThemedText style={styles.dateText}>
@@ -150,14 +143,14 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: '4%',
     backgroundColor: colors.componentBackground,
   },
   itemContainer: {
-    marginHorizontal: 16,
+    marginHorizontal: '4%',
     marginVertical: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
+    paddingHorizontal: '3%',
+    paddingVertical: '3%',
     borderRadius: 8,
     backgroundColor: colors.componentBackground,
   },
@@ -185,6 +178,6 @@ const styles = StyleSheet.create({
   },
   separator: {
     height: 1,
-    marginHorizontal: 16,
+    marginHorizontal: '4%',
   },
 });

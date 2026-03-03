@@ -131,6 +131,8 @@ export function Solicitud() {
   // Determinar si se puede "agregar a la agenda" según tipo
   const puedeAgregarAAgenda = useMemo(() => {
     if (!solicitud) return false;
+    // Si ya se creó la actividad, no se puede agregar nuevamente
+    if (solicitud.estado === 'ACTIVIDAD_CREADA') return false;
     const esReunion = solicitud.tipo_actividad === 'REUNION';
     const esMandato = solicitud.tipo_actividad === 'MANDATO';
 
@@ -147,6 +149,8 @@ export function Solicitud() {
     // Fallback: comportamiento anterior
     return type === 'recibida' && solicitud.estado === 'ACCEPTED';
   }, [solicitud, type, todosInvitados]);
+
+  const esActividadCreada = solicitud?.estado === 'ACTIVIDAD_CREADA';
 
   // Marcar como visto
   useEffect(() => {
@@ -632,8 +636,16 @@ export function Solicitud() {
 
       {/* Footer Actions (FABs) */}
       <View style={styles.fabContainer}>
+          {/* Indicador de actividad creada */}
+          {esActividadCreada && (
+            <View style={[styles.fab, { backgroundColor: '#00897B', marginRight: 16, width: 'auto', paddingHorizontal: 16, borderRadius: 28, flexDirection: 'row', gap: 6 }]}>
+              <Ionicons name="checkmark-done" size={20} color={colors.background} />
+              <ThemedText style={{ color: colors.background, fontSize: 13, fontWeight: '600' }}>Actividad creada</ThemedText>
+            </View>
+          )}
+
           {/* Secondary Actions (Revealed via Menu) */}
-          {menuOpen && (
+          {menuOpen && !esActividadCreada && (
               <>
                 {/* Opciones para Recibidas */}
                 {type === 'recibida' && solicitud?.estado !== 'ACCEPTED' && solicitud?.estado !== 'REJECTED' && !fechaInicioPasada && (
@@ -671,16 +683,18 @@ export function Solicitud() {
           )}
 
           {/* Main Action: Accept (Recibida or Enviada[MODIFIED]) - only if date not passed */}
-          {!fechaInicioPasada && ((type === 'recibida' && solicitud?.estado !== 'ACCEPTED') || (type === 'enviada' && solicitud?.estado === 'MODIFIED')) && (
+          {!esActividadCreada && !fechaInicioPasada && ((type === 'recibida' && solicitud?.estado !== 'ACCEPTED') || (type === 'enviada' && solicitud?.estado === 'MODIFIED')) && (
                <TouchableOpacity style={[styles.fab, { backgroundColor: colors.success, marginRight: 16 }]} onPress={handleAceptarPress}>
                    <Ionicons name="checkmark" size={24} color={colors.background} />
                </TouchableOpacity>
           )}
 
           {/* Menu Button */}
-          <TouchableOpacity style={[styles.fab, { backgroundColor: colors.icon }]} onPress={() => setMenuOpen(!menuOpen)}>
-               <Ionicons name={menuOpen ? "close" : "ellipsis-horizontal"} size={24} color={colors.background} />
-          </TouchableOpacity>
+          {!esActividadCreada && (
+            <TouchableOpacity style={[styles.fab, { backgroundColor: colors.icon }]} onPress={() => setMenuOpen(!menuOpen)}>
+                 <Ionicons name={menuOpen ? "close" : "ellipsis-horizontal"} size={24} color={colors.background} />
+            </TouchableOpacity>
+          )}
       </View>
 
       {/* Modal Aceptar */}
@@ -887,6 +901,7 @@ export function Solicitud() {
       <ValidacionFechasModal
         state={validacion.state}
         avisos={validacion.avisos}
+        rangosOcupados={validacion.rangosOcupados}
         errorMessage={validacion.errorMessage}
         onConfirm={validacion.confirm}
         onCancel={validacion.cancel}

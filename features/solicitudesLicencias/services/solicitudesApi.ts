@@ -11,7 +11,6 @@ export const getTiposLicencia = async (accessToken: string): Promise<solicitudLi
     }
 
     const data = await response.json();
-    console.log ('Tipos de licencia fetched', data);
     return data;
 };
 
@@ -74,7 +73,6 @@ export const createSolicitudLicencia = async (accessToken: string, data: solicit
     const response = await apiRequest({method: 'POST', endpoint: '/licencias/solicitudes', token: accessToken, body: data});
 
     const body = await response.json();
-    console.log('Create solicitud response:', response.status, body);
 
     if (!response.ok) {
         throw new Error(body.message || response.statusText);
@@ -121,11 +119,9 @@ export const aprobarSolicitudLicencia = async (accessToken: string, solicitudId:
 };
 
 export const rechazarSolicitudLicencia = async (accessToken: string, solicitudId: number, observacion: string): Promise<{message: string}> => {  
-    console.log('[rechazarSolicitudLicencia] Iniciando rechazo de solicitud:', { solicitudId, observacion, tokenPresente: !!accessToken });
     
     const response = await apiRequest({method: 'POST', endpoint: `/licencias/solicitudes/${solicitudId}/rechazar`, token: accessToken, body: { observacion }});
     
-    console.log('[rechazarSolicitudLicencia] Respuesta del servidor:', { status: response.status, ok: response.ok });
 
     if (!response.ok) {
         const error = await response.json().catch(() => ({}));
@@ -134,6 +130,5 @@ export const rechazarSolicitudLicencia = async (accessToken: string, solicitudId
     }
 
     const data = await response.json();
-    console.log('[rechazarSolicitudLicencia] Solicitud rechazada exitosamente:', data);
     return data;
 };  

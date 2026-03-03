@@ -174,7 +174,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20
+    padding: '5%'
   },
   listContent: {
     paddingBottom: 80,
@@ -182,5 +182,6 @@ const styles = StyleSheet.create({
   },
   separator: {
     height: StyleSheet.hairlineWidth,
+    marginHorizontal: '4%',
   },
 });

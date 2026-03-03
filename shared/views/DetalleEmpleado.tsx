@@ -5,9 +5,10 @@ import { FrancosPorEmpleado } from '@/features/solicitudesLicencias/components/F
 import { PermisosPorEmpleado } from '@/features/solicitudesLicencias/components/PermisosPorEmpleado';
 import { VacacionesPorEmpleado } from '@/features/solicitudesLicencias/components/VacacionesPorEmpleado';
 import { Ionicons } from '@expo/vector-icons';
+import { useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 type TabType = 'reportes' | 'permisos' | 'francos' | 'vacaciones' | 'rol';
 
@@ -23,8 +24,16 @@ const colors = Colors['light'];
 export function DetalleEmpleado() {
 	const router = useRouter();
 	const params = useLocalSearchParams();
+	const queryClient = useQueryClient();
+	const [isRefreshing, setIsRefreshing] = useState(false);
 	
 	const [activeTab, setActiveTab] = useState<TabType>('reportes');
+
+	const handleRefresh = useCallback(async () => {
+		setIsRefreshing(true);
+		await queryClient.invalidateQueries();
+		setIsRefreshing(false);
+	}, [queryClient]);
 
 	// Parsear usuarios desde los params
 	const usuarios = useMemo(() => {
@@ -88,7 +97,18 @@ export function DetalleEmpleado() {
 	}
 
 	return (
-		<View style={[styles.container, { backgroundColor: colors.background }]}>
+		<ScrollView
+			style={[styles.container, { backgroundColor: colors.background }]}
+			contentContainerStyle={{ flexGrow: 1 }}
+			refreshControl={
+				<RefreshControl
+					refreshing={isRefreshing}
+					onRefresh={handleRefresh}
+					colors={[colors.tint]}
+					tintColor={colors.tint}
+				/>
+			}
+		>
 			{/* Sección de búsqueda y usuarios seleccionados */}
 			<View style={[styles.selectionSection, { backgroundColor: colors.componentBackground, borderBottomColor: colors.background }]}>
 				<View style={styles.selectionHeader}>
@@ -221,7 +241,7 @@ export function DetalleEmpleado() {
 					</ScrollView>
 				)}
 			</View>
-		</View>
+		</ScrollView>
 	);
 }
 

@@ -2,8 +2,8 @@ import { ThemedText } from '@/components/themed-text';
 import { SearchBar } from '@/components/ui/SearchBar';
 import { Colors } from '@/constants/theme';
 import { useLocalSearchParams } from 'expo-router';
-import React, { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { Semaforo } from '../components/Semaforo';
 import { TopEmployee } from '../components/TopEmployee';
 import { UpgradedEmployee } from '../components/UpgradedEmployee';
@@ -14,7 +14,11 @@ const colors = Colors['light'];
 export function Reportes() {
 	const params = useLocalSearchParams<{ comparingWith?: string }>();
 	const [searchQuery, setSearchQuery] = useState('');
-	const { data: stats } = useReporteStats();
+	const { data: stats, refetch, isRefetching } = useReporteStats();
+
+	const handleRefresh = useCallback(async () => {
+		await refetch();
+	}, [refetch]);
 
 	// Filtrar datos del semáforo por búsqueda
 	const filteredStats = useMemo(() => {
@@ -40,7 +44,7 @@ export function Reportes() {
 
 			{/* Banner de comparación */}
 			{params.comparingWith && (
-				<View style={{ backgroundColor: colors.lightTint + '15', paddingVertical: 10, paddingHorizontal: 16 }}>
+				<View style={{ backgroundColor: colors.lightTint + '15', paddingVertical: '2.5%', paddingHorizontal: '4%' }}>
 					<ThemedText style={{ color: colors.lightTint, fontWeight: '600', textAlign: 'center', fontSize: 14 }}>
 						Seleccioná un empleado para comparar
 					</ThemedText>
@@ -58,7 +62,18 @@ export function Reportes() {
 				/>
 			</View>
 
-			<ScrollView style={styles.scrollContent} contentContainerStyle={styles.scrollContentContainer}>
+			<ScrollView
+				style={styles.scrollContent}
+				contentContainerStyle={styles.scrollContentContainer}
+				refreshControl={
+					<RefreshControl
+						refreshing={isRefetching}
+						onRefresh={handleRefresh}
+						colors={[colors.lightTint]}
+						tintColor={colors.lightTint}
+					/>
+				}
+			>
 				{/* Tarjetas de empleados destacados - ocultas durante búsqueda */}
 				{!searchQuery.trim() && (
 					<View style={styles.cardsContainer}>
@@ -91,23 +106,23 @@ const styles = StyleSheet.create({
 		backgroundColor: colors.componentBackground,
 	},
 	header: {
-		paddingHorizontal: 16,
-		paddingTop: 24,
-		paddingBottom: 8,
+		paddingHorizontal: '4%',
+		paddingTop: '6%',
+		paddingBottom: '2%',
 	},
 	headerTitle: {
 		fontSize: 20,
 		fontWeight: 'bold',
 		textAlign: 'center',
 		backgroundColor: colors.componentBackground,
-		paddingVertical: 12,
-		paddingHorizontal: 16,
+		paddingVertical: '3%',
+		paddingHorizontal: '4%',
 		borderRadius: 8,
 	},
 	searchBarContainer: {
-		paddingHorizontal: 12,
-		paddingTop: 12,
-		paddingBottom: 16,
+		paddingHorizontal: '3%',
+		paddingTop: '3%',
+		paddingBottom: '4%',
 	},
 	searchBar: {
 		marginHorizontal: 0,
@@ -123,13 +138,13 @@ const styles = StyleSheet.create({
 	cardsContainer: {
 		flexDirection: 'row',
 		justifyContent: 'space-evenly',
-		paddingHorizontal: 8,
+		paddingHorizontal: '2%',
 		marginBottom: 20,
 		gap: 12,
 	},
 	titleContainer: {
-		paddingHorizontal: 16,
-		paddingTop: 8,
+		paddingHorizontal: '4%',
+		paddingTop: '2%',
 	},
 	semaforoTitle: {
 		fontSize: 20,
@@ -138,7 +153,7 @@ const styles = StyleSheet.create({
 	},
 	semaforoContainer: {
 		flex: 1,
-		paddingHorizontal: 4,
+		paddingHorizontal: '1%',
 		minHeight: 300,
 	},
 });

@@ -154,8 +154,8 @@ const styles = StyleSheet.create({
 		flexDirection: 'row',
 		alignItems: 'center',
 		justifyContent: 'space-between',
-		paddingHorizontal: 16,
-		paddingVertical: 12,
+		paddingHorizontal: '4%',
+		paddingVertical: '3%',
 	},
 	headerTitle: {
 		fontSize: 18,
@@ -190,8 +190,8 @@ const styles = StyleSheet.create({
 	userItem: {
 		flexDirection: 'row',
 		alignItems: 'center',
-		paddingHorizontal: 16,
-		paddingVertical: 12,
+		paddingHorizontal: '4%',
+		paddingVertical: '3%',
 	},
 	userAvatar: {
 		width: 40,
@@ -218,13 +218,13 @@ const styles = StyleSheet.create({
 	separator: {
 		height: StyleSheet.hairlineWidth,
 		backgroundColor: colors.background,
-		marginHorizontal: 16,
+		marginHorizontal: '4%',
 	},
 	emptyContainer: {
 		flex: 1,
 		justifyContent: 'center',
 		alignItems: 'center',
-		paddingHorizontal: 32,
+		paddingHorizontal: '8%',
 		gap: 12,
 	},
 	emptyText: {

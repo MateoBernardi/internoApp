@@ -27,15 +27,12 @@ export function useReportes(usuarioId?: string) {
     return useQuery({
         queryKey: [...REPORTES_QUERY_KEY, usuarioId],
         queryFn: async () => {
-            console.log('[useReportes] Iniciando query con usuarioId:', usuarioId);
             const token = tokens?.accessToken;
             if (!token) {
                 console.error('[useReportes] No hay token de acceso');
                 throw new Error('No hay token de acceso');
             }
-            console.log('[useReportes] Token obtenido, llamando fetchReportes');
             const result = await fetchReportes(token, usuarioId);
-            console.log('[useReportes] Datos obtenidos:', result);
             return result;
         },
         staleTime: 1000 * 60 * 5, // 5 minutos
@@ -101,9 +98,7 @@ export function useReporteStats() {
             if (!token) {
                 throw new Error('No hay token de acceso');
             }
-            console.log('Fetching reporte stats with token');
             const result = await getReporteStats(token);
-            console.log('Reporte stats result:', result);
             return result;
         },
         staleTime: 1000 * 60 * 10, // 10 minutos

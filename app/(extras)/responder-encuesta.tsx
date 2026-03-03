@@ -81,11 +81,11 @@ const styles = StyleSheet.create({
   },
   backButton: {
     backgroundColor: colors.lightTint,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingHorizontal: '5%',
+    paddingVertical: '3%',
     borderRadius: 8,
     alignItems: 'center',
-    marginHorizontal: 16,
+    marginHorizontal: '4%',
     marginTop: 20,
   },
   backButtonText: {

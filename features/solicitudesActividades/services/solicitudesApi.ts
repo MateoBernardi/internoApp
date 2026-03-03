@@ -14,7 +14,6 @@ async function extractErrorText(response: Response): Promise<string> {
 
 export async function crearSolicitud(accessToken: string, data: solicitudes.CrearSolicitudRequest): Promise<solicitudes.CrearSolicitudResponse> {
     const response = await apiRequest({method: 'POST', endpoint: '/solicitudes-actividades/solicitudes', token: accessToken, body: data});
-    console.log('Solicitud enviada: ', data);
 
     if (!response.ok) {
         const errorMsg = await extractErrorText(response);

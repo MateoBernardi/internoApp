@@ -4,6 +4,7 @@ import { Colors } from '@/constants/theme';
 import { useRouter } from 'expo-router';
 import React, { useCallback } from 'react';
 import {
+    RefreshControl,
     ScrollView,
     StyleSheet,
     TouchableOpacity,
@@ -21,7 +22,7 @@ interface SolicitudesRecibidasProps {
 
 export function SolicitudesRecibidas({ onRefresh, refreshing }: SolicitudesRecibidasProps = {}) {
   const router = useRouter();
-  const { data: invitaciones, isLoading, error } = useInvitaciones();
+  const { data: invitaciones, isLoading, error, refetch } = useInvitaciones();
 
   const handleOpenSolicitud = useCallback((solicitudId: number) => {
     router.push({
@@ -29,6 +30,11 @@ export function SolicitudesRecibidas({ onRefresh, refreshing }: SolicitudesRecib
       params: { id: solicitudId.toString(), type: 'recibida' },
     });
   }, [router]);
+
+  const handleRefresh = useCallback(async () => {
+    await refetch();
+    if (onRefresh) await onRefresh();
+  }, [refetch, onRefresh]);
 
 
 
@@ -60,7 +66,17 @@ export function SolicitudesRecibidas({ onRefresh, refreshing }: SolicitudesRecib
   }
 
   return (
-    <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
+    <ScrollView
+      contentContainerStyle={{ paddingBottom: 100 }}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing ?? false}
+          onRefresh={handleRefresh}
+          colors={[colors.lightTint]}
+          tintColor={colors.lightTint}
+        />
+      }
+    >
       {invitaciones.map((item, index) => {
         const estadoUI = estadoInvitacionMapping[item.estado];
         return (
@@ -70,7 +86,7 @@ export function SolicitudesRecibidas({ onRefresh, refreshing }: SolicitudesRecib
                 style={{
                   height: StyleSheet.hairlineWidth,
                   backgroundColor: colors.secondaryText,
-                  marginHorizontal: 16,
+                  marginHorizontal: '4%',
                 }}
               />
             )}
@@ -107,6 +123,8 @@ function SolicitudRecibidaItem({ solicitud, estadoUI, onPress }: SolicitudRecibi
       case 'Modificado por creador':
       case 'Aceptado por creador':
         return '#9C27B0';
+      case 'Actividad creada':
+        return '#00897B';
       default:
         return colors.icon;
     }
@@ -160,17 +178,17 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: '4%',
     backgroundColor: colors.componentBackground,
   },
   errorText: {
     marginBottom: 8,
   },
   itemContainer: {
-    marginHorizontal: 16,
+    marginHorizontal: '4%',
     marginVertical: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
+    paddingHorizontal: '3%',
+    paddingVertical: '3%',
     borderRadius: 8,
   },
   itemContent: {

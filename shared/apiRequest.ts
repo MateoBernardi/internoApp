@@ -50,6 +50,13 @@ export async function apiRequest({
   }
 
   const fullUrl = `${API_BASE_URL}${endpoint}`;
-  
-  return fetch(fullUrl, options);
+
+  try {
+    return await fetch(fullUrl, options);
+  } catch (error: any) {
+    if (error?.message?.toLowerCase().includes('network request failed')) {
+      throw new Error('Error desconocido. Intentá nuevamente en unos minutos.');
+    }
+    throw error;
+  }
 }

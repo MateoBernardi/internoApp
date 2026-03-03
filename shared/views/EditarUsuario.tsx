@@ -337,8 +337,8 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     flexGrow: 1,
-    paddingHorizontal: 20,
-    paddingVertical: 30,
+    paddingHorizontal: '5%',
+    paddingVertical: '4%',
   },
   formSection: {
     backgroundColor: 'transparent',
@@ -366,7 +366,7 @@ const styles = StyleSheet.create({
     maxWidth: 380,
     backgroundColor: colors.componentBackground,
     borderRadius: 16,
-    padding: 24,
+    padding: '6%',
     gap: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -387,8 +387,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e0e3e7',
     borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingHorizontal: '3%',
+    paddingVertical: '2.5%',
     backgroundColor: colors.background,
   },
   readonlyText: {
@@ -396,7 +396,7 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   successContainer: {
-    padding: 12,
+    padding: '3%',
     backgroundColor: '#d4edda',
     borderRadius: 8,
     borderLeftWidth: 4,

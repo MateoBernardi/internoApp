@@ -7,22 +7,22 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  View,
+    ActivityIndicator,
+    Alert,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    TouchableOpacity,
+    TouchableWithoutFeedback,
+    View,
 } from 'react-native';
 import { ValidacionFechasModal } from '../components/ValidacionFechasModal';
 import {
-  useActividadesSemanales,
-  useCancelarActividad,
-  useModificarActividadFechas,
+    useActividadesSemanales,
+    useCancelarActividad,
+    useModificarActividadFechas,
 } from '../viewmodels/useActividades';
 import { useValidacionFechas } from '../viewmodels/useValidacionFechas';
 
@@ -475,6 +475,7 @@ export function ActividadDetalle() {
       <ValidacionFechasModal
         state={validacion.state}
         avisos={validacion.avisos}
+        rangosOcupados={validacion.rangosOcupados}
         errorMessage={validacion.errorMessage}
         onConfirm={validacion.confirm}
         onCancel={validacion.cancel}

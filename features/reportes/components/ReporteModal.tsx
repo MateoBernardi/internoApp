@@ -1,9 +1,11 @@
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
+import { useAuth } from '@/features/auth/context/AuthContext';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { Picker } from '@react-native-picker/picker';
 import React, { useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { EstadoReporte, Reporte } from '../models/Reporte';
 import { useUpdateReporte } from '../viewmodels/useReportes';
 import { ImagenesReporte } from './ImagenesReporte';
@@ -27,6 +29,7 @@ const colors = Colors['light'];
 export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModalProps) {
 	const { mutate: updateReporte, isPending } = useUpdateReporte();
 	const { hasRole } = useRoleCheck();
+	const { user } = useAuth();
 
 	// Estado para controles
 	const [nuevoEstado, setNuevoEstado] = useState<EstadoReporte | null>(null);
@@ -43,7 +46,10 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 	const canModify = !isReporteFinal || isGerencia;
 
 	// Roles supervisores que pueden gestionar imágenes
-	const canManageImages = hasRole(['gerencia', 'personasRelaciones', 'encargado']);
+	const hasSupervisorRole = hasRole(['gerencia', 'personasRelaciones', 'encargado']);
+	// Solo el creador del reporte puede adjuntar/eliminar imágenes
+	const isCreator = !!(user?.user_context_id && reporte.creador_id && user.user_context_id === reporte.creador_id);
+	const canManageImages = hasSupervisorRole && isCreator;
 
 	// Para MisReportes: solo puede aceptar (ASENTADO, obs opcional) o responder (DISPUTA, obs obligatoria)
 	// Para ReportesEmpleado: puede cambiar a cualquier estado, obs obligatoria
@@ -150,12 +156,13 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 
 	return (
 		<Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-			<KeyboardAvoidingView
-				style={styles.overlay}
-				behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-			>
-				<View style={[styles.modal, { backgroundColor: colors.componentBackground }]}>  
-					<ScrollView contentContainerStyle={styles.scrollContent}>
+			<SafeAreaView style={styles.safeArea}>
+				<KeyboardAvoidingView
+					style={styles.overlay}
+					behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+				>
+					<View style={[styles.modal, { backgroundColor: colors.componentBackground }]}>  
+						<ScrollView contentContainerStyle={styles.scrollContent}>
 						<TouchableOpacity style={styles.closeBtn} onPress={onClose}>
 							<ThemedText style={{ fontSize: 18, color: colors.error }}>Cerrar</ThemedText>
 						</TouchableOpacity>
@@ -207,16 +214,20 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 						{/* Acciones */}
 						{renderControles()}
 					</ScrollView>
-				</View>
-			</KeyboardAvoidingView>
+					</View>
+				</KeyboardAvoidingView>
+			</SafeAreaView>
 		</Modal>
 	);
 }
 
 const styles = StyleSheet.create({
-	overlay: {
+	safeArea: {
 		flex: 1,
 		backgroundColor: colors.componentBackground,
+	},
+	overlay: {
+		flex: 1,
 		justifyContent: 'center',
 		alignItems: 'center',
 	},
@@ -224,7 +235,7 @@ const styles = StyleSheet.create({
 		width: '92%',
 		maxHeight: '92%',
 		borderRadius: 16,
-		padding: 16,
+		padding: '4%',
 		shadowColor: '#000',
 		shadowOffset: { width: 0, height: 2 },
 		shadowOpacity: 0.2,
@@ -232,7 +243,7 @@ const styles = StyleSheet.create({
 		elevation: 5,
 	},
 	scrollContent: {
-		paddingBottom: 32,
+		paddingBottom: '8%',
 	},
 	closeBtn: {
 		alignSelf: 'flex-end',
@@ -271,7 +282,7 @@ const styles = StyleSheet.create({
 		marginBottom: 10,
 		backgroundColor: colors.componentBackground,
 		borderRadius: 8,
-		padding: 8,
+		padding: '2%',
 	},
 	bitacoraHeader: {
 		flexDirection: 'row',
@@ -297,7 +308,7 @@ const styles = StyleSheet.create({
 	bitacoraBubble: {
 		backgroundColor: colors.componentBackground,
 		borderRadius: 6,
-		padding: 6,
+		padding: '1.5%',
 		marginTop: 2,
 	},
 	bitacoraText: {
@@ -346,7 +357,7 @@ const styles = StyleSheet.create({
 		borderWidth: 1,
 		borderColor: colors.background,
 		borderRadius: 6,
-		padding: 8,
+		padding: '2%',
 		minHeight: 40,
 		marginBottom: 8,
 		marginTop: 2,

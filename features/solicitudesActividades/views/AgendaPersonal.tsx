@@ -13,6 +13,7 @@ import {
     KeyboardAvoidingView,
     Modal,
     Platform,
+    RefreshControl,
     ScrollView,
     StyleSheet,
     Text,
@@ -47,6 +48,10 @@ const AgendaPersonal: React.FC = () => {
   const crearActividadMutation = useCrearActividad();
   const cancelarActividadMutation = useCancelarActividad();
   const validacion = useValidacionFechas();
+
+  const handleRefresh = useCallback(async () => {
+    await actividadesSemanalesQuery.refetch();
+  }, [actividadesSemanalesQuery]);
 
   const today = new Date();
   const dayName = today.toLocaleDateString('es-ES', { weekday: 'long' });
@@ -345,7 +350,18 @@ const AgendaPersonal: React.FC = () => {
       </View>
 
       {/* Activities */}
-      <ScrollView style={styles.activitiesContainer} contentContainerStyle={{ paddingBottom: 80 }}>
+      <ScrollView
+        style={styles.activitiesContainer}
+        contentContainerStyle={{ paddingBottom: 80 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={actividadesSemanalesQuery.isRefetching}
+            onRefresh={handleRefresh}
+            colors={[colors.lightTint]}
+            tintColor={colors.lightTint}
+          />
+        }
+      >
         {isLoading ? (
           <ScreenSkeleton rows={4} showHeader={false} />
         ) : filteredActivities.length === 0 ? (
@@ -547,6 +563,7 @@ const AgendaPersonal: React.FC = () => {
       <ValidacionFechasModal
         state={validacion.state}
         avisos={validacion.avisos}
+        rangosOcupados={validacion.rangosOcupados}
         errorMessage={validacion.errorMessage}
         onConfirm={validacion.confirm}
         onCancel={validacion.cancel}

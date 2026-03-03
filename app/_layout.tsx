@@ -1,3 +1,4 @@
+import { DesktopGate } from '@/components/DesktopFallback';
 import { Colors } from '@/constants/theme';
 import { QueryProvider } from '@/context/QueryProvider';
 import { AuthProvider, useAuth } from '@/features/auth/context/AuthContext';
@@ -21,6 +22,14 @@ function RootNavigator() {
   const segments = useSegments();
   // Obtiene el push token y lo registra automáticamente cuando esté autenticado
   useRegisterDevice();
+
+  // Limpiar notificaciones y badge al entrar a la app autenticado
+  useEffect(() => {
+    if (isAuthenticated && !requiresAssociation) {
+      Notifications.dismissAllNotificationsAsync();
+      Notifications.setBadgeCountAsync(0);
+    }
+  }, [isAuthenticated, requiresAssociation]);
 
   // Mostrar loading mientras se verifica la sesión
   if (isLoading) {
@@ -75,7 +84,6 @@ export default function RootLayout() {
     });
 
     const responseListener = Notifications.addNotificationResponseReceivedListener((response) => {
-      console.log('Notificación presionada:', response);
     });
 
     return () => {
@@ -87,11 +95,13 @@ export default function RootLayout() {
   // Permitir que AuthProvider y el hook useRegisterDevice se encarguen de registrar el dispositivo
   // cuando el usuario esté autenticado
   return (
-    <QueryProvider>
-      <AuthProvider>
-        <RootNavigator />
-      </AuthProvider>
-    </QueryProvider>
+    <DesktopGate>
+      <QueryProvider>
+        <AuthProvider>
+          <RootNavigator />
+        </AuthProvider>
+      </QueryProvider>
+    </DesktopGate>
   );
 }
 

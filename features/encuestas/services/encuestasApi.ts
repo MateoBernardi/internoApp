@@ -14,8 +14,6 @@ export async function fetchEncuestas(accessToken: string){
         throw new Error(data.message || data.error || 'Intenta nuevamente');
     }
     const result = await response.json();
-    console.log('Encuestas completas:', result);
-    console.log('Array de encuestas:', result.data);
     
     // Mapear opciones a opcionesCompletas para que ResponderEncuesta lo encuentre
     const encuestasConOpciones = result.data?.map((encuesta: any) => ({
@@ -27,11 +25,8 @@ export async function fetchEncuestas(accessToken: string){
     })) || [];
 
     encuestasConOpciones.forEach((encuesta: any) => {
-        console.log(`Encuesta: ${encuesta.titulo}`, encuesta.preguntas);
         encuesta.preguntas?.forEach((pregunta: any) => {
-            console.log(`  Pregunta: ${pregunta.titulo} (${pregunta.tipo_pregunta})`, pregunta);
             if (pregunta.opcionesCompletas) {
-                console.log(`    Opciones:`, JSON.stringify(pregunta.opcionesCompletas, null, 2));
             }
         });
     });
@@ -50,7 +45,6 @@ export async function getRespuestasEncuesta(accessToken: string): Promise<Encues
     }
 
     const result = await response.json();
-    console.log('Respuestas de encuestas:', result);
     
     // El servidor retorna { data: [...], success: true }
     const encuestasConOpciones = result.data?.map((encuesta: any) => ({
@@ -79,7 +73,6 @@ export async function createEncuestaCompleta(accessToken: string, encuestaData: 
 }
 
 export async function enviarRespuestas(accessToken: string, data: {respuestas: Respuesta[]}): Promise<Respuesta[]> {
-    console.log('Enviando respuestas:', JSON.stringify(data, null, 2));
     const response = await apiRequest({ method: 'POST', endpoint: '/encuestas/respuestas', token: accessToken, body: data });
 
     if (!response.ok) {

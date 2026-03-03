@@ -156,10 +156,10 @@ export function DocumentoItem({ archivo, onPress, onOptions, onDelete }: Documen
 
 const styles = StyleSheet.create({
   itemContainer: {
-    marginHorizontal: 16,
+    marginHorizontal: '4%',
     marginVertical: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
+    paddingHorizontal: '3%',
+    paddingVertical: '3%',
     borderRadius: 8,
     flexDirection: 'row',
     alignItems: 'center',
@@ -202,14 +202,14 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.45)',
     justifyContent: 'flex-end',
-    paddingHorizontal: 16,
+    paddingHorizontal: '4%',
   },
   modalCard: {
     backgroundColor: colors.componentBackground,
     borderRadius: 16,
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 20,
+    paddingHorizontal: '5%',
+    paddingTop: '4%',
+    paddingBottom: '5%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.12,

@@ -151,7 +151,7 @@ export function NovedadFormModal({
                   placeholderStyle={styles.placeholderStyle}
                   selectedTextStyle={styles.selectedTextStyle}
                   data={TIPOS_NOVEDAD}
-                  maxHeight={300}
+                  maxHeight={180}
                   labelField="label"
                   valueField="value"
                   value={tipo}
@@ -165,6 +165,7 @@ export function NovedadFormModal({
                 <Dropdown
                   style={styles.dropdown}
                   data={PRIORIDADES}
+                  maxHeight={150}
                   labelField="label"
                   valueField="value"
                   value={prioridad}

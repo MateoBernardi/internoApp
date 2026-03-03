@@ -371,8 +371,8 @@ const styles = StyleSheet.create({
 		flexDirection: 'row',
 		alignItems: 'center',
 		justifyContent: 'space-between',
-		paddingHorizontal: 16,
-		paddingVertical: 12,
+		paddingHorizontal: '4%',
+		paddingVertical: '3%',
 		marginTop: Platform.OS === 'android' ? 0 : 0,
 	},
 	headerTitle: {
@@ -391,8 +391,8 @@ const styles = StyleSheet.create({
 	},
 	inputSection: {
 		flexDirection: 'row',
-		paddingVertical: 14,
-		paddingHorizontal: 16,
+		paddingVertical: '3.5%',
+		paddingHorizontal: '4%',
 		borderBottomWidth: StyleSheet.hairlineWidth,
 		borderBottomColor: colors.background,
 	},
@@ -425,7 +425,7 @@ const styles = StyleSheet.create({
 		flex: 1,
 		fontSize: 16,
 		color: colors.text,
-		padding: 16,
+		padding: '4%',
 		minHeight: 120,
 	},
 	fab: {
@@ -454,8 +454,8 @@ const styles = StyleSheet.create({
 	},
 	// ── Imágenes ──
 	imageSection: {
-		paddingHorizontal: 16,
-		paddingVertical: 12,
+		paddingHorizontal: '4%',
+		paddingVertical: '3%',
 		borderTopWidth: StyleSheet.hairlineWidth,
 		borderTopColor: colors.background,
 	},

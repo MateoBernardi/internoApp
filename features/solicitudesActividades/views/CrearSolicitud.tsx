@@ -54,7 +54,6 @@ export function CrearSolicitud() {
   const { data: searchResults, isLoading: isSearchingUsers } = useSearchUsers(searchQuery);
 
   const users = searchResults || [];
-  console.log('users:', users);
 
   // Role Selection Logic
   const [activeRole, setActiveRole] = useState('');
@@ -490,6 +489,7 @@ export function CrearSolicitud() {
       <ValidacionFechasModal
         state={validacion.state}
         avisos={validacion.avisos}
+        rangosOcupados={validacion.rangosOcupados}
         errorMessage={validacion.errorMessage}
         onConfirm={validacion.confirm}
         onCancel={validacion.cancel}

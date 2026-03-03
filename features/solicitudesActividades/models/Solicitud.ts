@@ -1,6 +1,6 @@
 // Estado de invitación (valores según el backend)
-export type EstadoInvitacionDB = 'SENT' | 'SEEN' | 'MODIFIED' | 'MODIFIED_BY_HOST' | 'ACCEPTED_BY_HOST' | 'ACCEPTED' | 'REJECTED';
-export type EstadoInvitacionUI = 'Pendiente' | 'Visto' | 'Modificado' | 'Modificado por creador' |'Aceptado por creador' | 'Aceptado' | 'Rechazado';
+export type EstadoInvitacionDB = 'SENT' | 'SEEN' | 'MODIFIED' | 'MODIFIED_BY_HOST' | 'ACCEPTED_BY_HOST' | 'ACCEPTED' | 'REJECTED' | 'ACTIVIDAD_CREADA';
+export type EstadoInvitacionUI = 'Pendiente' | 'Visto' | 'Modificado' | 'Modificado por creador' |'Aceptado por creador' | 'Aceptado' | 'Rechazado' | 'Actividad creada';
 
 // Mapeo de estados de DB a UI
 export const estadoInvitacionMapping: Record<EstadoInvitacionDB, EstadoInvitacionUI> = {
@@ -10,7 +10,8 @@ export const estadoInvitacionMapping: Record<EstadoInvitacionDB, EstadoInvitacio
   'MODIFIED_BY_HOST': 'Modificado por creador',
   'ACCEPTED_BY_HOST': 'Aceptado por creador',
   'ACCEPTED': 'Aceptado',
-  'REJECTED': 'Rechazado'
+  'REJECTED': 'Rechazado',
+  'ACTIVIDAD_CREADA': 'Actividad creada'
 };
 
 // Mapeo de estados de UI a DB
@@ -21,7 +22,8 @@ export const estadoInvitacionReverseMapping: Record<EstadoInvitacionUI, EstadoIn
   'Modificado por creador': 'MODIFIED_BY_HOST',
   'Aceptado por creador': 'ACCEPTED_BY_HOST',
   'Aceptado': 'ACCEPTED',
-  'Rechazado': 'REJECTED'
+  'Rechazado': 'REJECTED',
+  'Actividad creada': 'ACTIVIDAD_CREADA'
 };
 
 // Rol en actividad
@@ -172,7 +174,15 @@ export interface ValidarFechasRequest {
   solicitudIdExcluir?: number; // Excluir esta solicitud de la validación (para modificaciones)
 }
 
+export interface RangoOcupado {
+  usuario: string;
+  tipo: string;
+  desde: string;
+  hasta: string;
+}
+
 export interface ValidarFechasResponse {
   success: boolean;
   avisos: string[];
+  rangosOcupados?: RangoOcupado[];
 }

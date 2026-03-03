@@ -5,8 +5,6 @@ import { Colors } from '@/constants/theme';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
-    FlatList,
-    ListRenderItem,
     StyleSheet,
     TouchableOpacity,
     View
@@ -60,27 +58,15 @@ export function ReportesEmpleado({ userId, userNombre = '', userApellido = '' }:
 		});
 	}, [router, userId, userNombre, userApellido]);
 
-	const renderSeparator = useCallback(() => {
-		return (
-			<View
-				style={{
-					height: StyleSheet.hairlineWidth,
-					backgroundColor: colors.secondaryText,
-					marginHorizontal: 16,
-				}}
-			/>
-		);
-	}, []);
-
-	const renderItem: ListRenderItem<Reporte> = useCallback(({ item }) => {
-		return (
-			<MiReporteItem
-				reporte={item}
-				estadoUI={estadoMapping[item.estado] || item.estado}
-				onPress={() => handleOpenReporte(item)}
-			/>
-		);
-	}, [handleOpenReporte]);
+	const Separator = useCallback(() => (
+		<View
+			style={{
+				height: StyleSheet.hairlineWidth,
+				backgroundColor: colors.secondaryText,
+				marginHorizontal: '4%',
+			}}
+		/>
+	), []);
 
 	if (isLoading) {
 		return (
@@ -113,13 +99,18 @@ export function ReportesEmpleado({ userId, userNombre = '', userApellido = '' }:
 
 	return (
 		<View style={styles.container}>
-			<FlatList
-				data={reportes}
-				renderItem={renderItem}
-				keyExtractor={(item) => item.id.toString()}
-				contentContainerStyle={{ paddingBottom: 80 }}
-				ItemSeparatorComponent={renderSeparator}
-			/>
+			<View style={{ paddingBottom: 80 }}>
+				{reportes.map((item, index) => (
+					<React.Fragment key={item.id.toString()}>
+						{index > 0 && <Separator />}
+						<MiReporteItem
+							reporte={item}
+							estadoUI={estadoMapping[item.estado] || item.estado}
+							onPress={() => handleOpenReporte(item)}
+						/>
+					</React.Fragment>
+				))}
+			</View>
 			{selectedReporte && (
 				<ReporteModal
 					visible={modalVisible}
@@ -204,7 +195,7 @@ const styles = StyleSheet.create({
 		flex: 1,
 		justifyContent: 'center',
 		alignItems: 'center',
-		paddingHorizontal: 16,
+		paddingHorizontal: '4%',
 	},
 	errorText: {
 		marginBottom: 8,
@@ -214,8 +205,8 @@ const styles = StyleSheet.create({
 		right: 36,
 	},
 	itemContainer: {
-		paddingHorizontal: 16,
-		paddingVertical: 8,
+		paddingHorizontal: '4%',
+		paddingVertical: '2%',
 		backgroundColor: colors.componentBackground,
 	},
 	itemContent: {

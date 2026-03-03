@@ -1,12 +1,19 @@
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as actividadesModels from '../models/Actividad';
+import { SolicitudEnviada } from '../models/Solicitud';
 import * as actividadesApi from '../services/actividadesApi';
 
 // ==================== QUERY KEYS ====================
 const actividadesQueryKeys = {
   all: ['actividades'] as const,
   semanales: () => [...actividadesQueryKeys.all, 'semanales'] as const,
+};
+
+const solicitudesQueryKeys = {
+  all: ['solicitudes'] as const,
+  creadas: () => [...solicitudesQueryKeys.all, 'creadas'] as const,
+  invitaciones: () => [...solicitudesQueryKeys.all, 'invitaciones'] as const,
 };
 
 // ==================== QUERIES ====================
@@ -53,13 +60,21 @@ export function useCrearActividad() {
     onMutate: async (newData) => {
       // Cancelar refetches en curso
       await queryClient.cancelQueries({ queryKey: actividadesQueryKeys.semanales() });
+      await queryClient.cancelQueries({ queryKey: solicitudesQueryKeys.creadas() });
+      await queryClient.cancelQueries({ queryKey: solicitudesQueryKeys.invitaciones() });
 
       // Snapshot del estado previo
       const previousData = queryClient.getQueryData<actividadesModels.ActividadesSemanalesResponse>(
         actividadesQueryKeys.semanales()
       );
+      const previousCreadas = queryClient.getQueryData<SolicitudEnviada[]>(
+        solicitudesQueryKeys.creadas()
+      );
+      const previousInvitaciones = queryClient.getQueryData<SolicitudEnviada[]>(
+        solicitudesQueryKeys.invitaciones()
+      );
 
-      // Actualización optimista
+      // Actualización optimista de actividades semanales
       queryClient.setQueryData<actividadesModels.ActividadesSemanalesResponse>(
         actividadesQueryKeys.semanales(),
         (old) => {
@@ -81,17 +96,45 @@ export function useCrearActividad() {
         }
       );
 
-      return { previousData };
+      // Actualización optimista de solicitudes: marcar como ACTIVIDAD_CREADA
+      if (newData.solicitud_id) {
+        const updateSolicitudes = (old: SolicitudEnviada[] | undefined) => {
+          if (!old) return old;
+          return old.map(s =>
+            s.solicitud_id === newData.solicitud_id
+              ? { ...s, estado: 'ACTIVIDAD_CREADA' as const }
+              : s
+          );
+        };
+        queryClient.setQueryData<SolicitudEnviada[]>(
+          solicitudesQueryKeys.creadas(),
+          updateSolicitudes
+        );
+        queryClient.setQueryData<SolicitudEnviada[]>(
+          solicitudesQueryKeys.invitaciones(),
+          updateSolicitudes
+        );
+      }
+
+      return { previousData, previousCreadas, previousInvitaciones };
     },
     onError: (_err, _newData, context) => {
       // Revertir al estado previo en caso de error
       if (context?.previousData) {
         queryClient.setQueryData(actividadesQueryKeys.semanales(), context.previousData);
       }
+      if (context?.previousCreadas) {
+        queryClient.setQueryData(solicitudesQueryKeys.creadas(), context.previousCreadas);
+      }
+      if (context?.previousInvitaciones) {
+        queryClient.setQueryData(solicitudesQueryKeys.invitaciones(), context.previousInvitaciones);
+      }
     },
     onSettled: () => {
       // Siempre revalidar con el servidor
       queryClient.invalidateQueries({ queryKey: actividadesQueryKeys.semanales() });
+      queryClient.invalidateQueries({ queryKey: solicitudesQueryKeys.creadas() });
+      queryClient.invalidateQueries({ queryKey: solicitudesQueryKeys.invitaciones() });
     },
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),

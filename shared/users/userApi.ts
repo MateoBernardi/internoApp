@@ -3,14 +3,12 @@ import { UpdateUserRequest } from "./User";
 import type { CuentaDisponibleDTO, ObtenerCuentasResponse, RequestVerificationTokenResponse, VerifyAndAssociateResponse } from "./UserDTO";
 
 export async function searchUsers(accessToken: string, query: string, signal?: AbortSignal) {
-  console.log("Buscando usuarios con query:", query);
   const response = await apiRequest({method: "GET", endpoint: `/usuarios/search?q=${encodeURIComponent(query)}`, token: accessToken, signal: signal});
   
   if (!response.ok) {
     throw new Error('Error searching users');
   }
   const data = await response.json();
-  console.log("Resultados búsqueda:", data);
   return data;
 }
 
@@ -19,9 +17,7 @@ export async function getUserByRole(accessToken: string, rol_nombre: string) {
     if (!response.ok) {
       throw new Error('Error getting users by role');
     }
-    console.log("Se buscó el rol:", rol_nombre);
     const data = await response.json();
-    console.log("Usuarios por rol:", data);
     return data;
 }
 
@@ -96,7 +92,6 @@ export async function bajaUsuario(accessToken: string, userId: number) {
  * Requiere accessToken con rol readonly y requiresAssociation=true
  */
 export async function obtenerCuentasDisponibles(accessToken: string, cuit: string, entorno: string): Promise<ObtenerCuentasResponse> {
-  console.log("📋 obtenerCuentasDisponibles - Buscando cuentas para CUIT:", cuit);
   const response = await apiRequest({
     method: "GET",
     endpoint: `/asociar?cuit=${encodeURIComponent(cuit)}`,
@@ -116,13 +111,6 @@ export async function obtenerCuentasDisponibles(accessToken: string, cuit: strin
   }
 
   const data = await response.json();
-  console.log("✅ obtenerCuentasDisponibles - Cuentas encontradas");
-  console.log(`   Success: ${data.success}`);
-  console.log(`   Total: ${data.total}`);
-  console.log(`   CUIT: ${data.cuit}`);
-  console.log(`   Entorno: ${data.entorno}`);
-  console.log(`   Cantidad de cuentas: ${data.cuentas?.length || 0}`);
-  console.log(`   Respuesta completa:`, JSON.stringify(data, null, 2));
   return data;
 }
 
@@ -135,7 +123,6 @@ export async function requestVerificationToken(
   cuenta: CuentaDisponibleDTO,
   entorno: string
 ): Promise<RequestVerificationTokenResponse> {
-  console.log("📧 requestVerificationToken - Solicitando token para cuenta:", cuenta);
   const response = await apiRequest({
     method: "POST",
     endpoint: `/asociar`,
@@ -156,7 +143,6 @@ export async function requestVerificationToken(
   }
 
   const data = await response.json();
-  console.log("✅ requestVerificationToken - Token enviado a:", data.contact);
   return data;
 }
 
@@ -170,7 +156,6 @@ export async function verifyAndAssociateAccount(
   token: string,
   entorno: string
 ): Promise<VerifyAndAssociateResponse> {
-  console.log("🔐 verifyAndAssociateAccount - Verificando token y asociando cuenta:", cuenta);
   const response = await apiRequest({
     method: "POST",
     endpoint: `/asociar/verify`,
@@ -191,7 +176,6 @@ export async function verifyAndAssociateAccount(
   }
 
   const data = await response.json();
-  console.log("✅ verifyAndAssociateAccount - Cuenta asociada correctamente");
   return data;
 }
 
@@ -200,7 +184,6 @@ export async function verifyAndAssociateAccount(
  * Se envía email y se obtiene un token que será enviado al correo
  */
 export async function generatePasswordToken(email: string) {
-  console.log("📧 generatePasswordToken - Generando token para email:", email);
   const response = await apiRequest({
     method: "PUT",
     endpoint: `/usuarios/forgot-password`,
@@ -220,7 +203,6 @@ export async function generatePasswordToken(email: string) {
   }
 
   const data = await response.json();
-  console.log("✅ generatePasswordToken - Token generado y enviado");
   return data;
 }
 
@@ -229,7 +211,6 @@ export async function generatePasswordToken(email: string) {
  * Devuelve un access token readonly que se usa para cambiar la contraseña
  */
 export async function validatePasswordToken(email: string, token: string) {
-  console.log("🔐 validatePasswordToken - Validando token");
   const response = await apiRequest({
     method: "PUT",
     endpoint: `/usuarios/forgot-password/token`,
@@ -249,7 +230,6 @@ export async function validatePasswordToken(email: string, token: string) {
   }
 
   const data = await response.json();
-  console.log("✅ validatePasswordToken - Token validado");
   return data;
 }
 
@@ -258,7 +238,6 @@ export async function validatePasswordToken(email: string, token: string) {
  * Requiere accessToken con rol readonly (obtenido del paso anterior)
  */
 export async function changePasswordWithToken(accessToken: string, newPassword: string) {
-  console.log("🔄 changePasswordWithToken - Cambiando contraseña");
   const response = await apiRequest({
     method: "PUT",
     endpoint: `/usuarios/change-password`,
@@ -278,7 +257,6 @@ export async function changePasswordWithToken(accessToken: string, newPassword: 
   }
 
   const data = await response.json();
-  console.log("✅ changePasswordWithToken - Contraseña cambiada exitosamente");
   return data;
 }
 

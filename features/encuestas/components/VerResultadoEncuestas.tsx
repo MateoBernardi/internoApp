@@ -712,11 +712,9 @@ const RespuestasSiNo: React.FC<{ respuestas: Respuesta[] }> = ({ respuestas }) =
 // Funciones auxiliares
 const agruparEncuestas = (encuestas: any[]): RespuestaAgrupada[] => {
   if (!encuestas || !Array.isArray(encuestas)) {
-    console.log('agruparEncuestas: No hay encuestas');
     return [];
   }
 
-  console.log('agruparEncuestas - Encuestas recibidas:', encuestas.length);
 
   return encuestas
     .filter((encuesta) => encuesta.preguntas && encuesta.preguntas.length > 0)
@@ -726,7 +724,6 @@ const agruparEncuestas = (encuestas: any[]): RespuestaAgrupada[] => {
         respuestas: pregunta.respuestas || [], // Las respuestas vienen directamente del backend
       })) || [];
 
-      console.log(`Encuesta ${encuesta.titulo}: ${preguntasAgrupadas.length} preguntas agrupadas`);
 
       return {
         encuestaId: encuesta.id,

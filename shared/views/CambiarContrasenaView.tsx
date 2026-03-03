@@ -1,11 +1,12 @@
 import { InputWithIcon } from '@/components/InputWithIcon';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { Colors } from '@/constants/theme';
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Keyboard, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import {
   changePasswordWithToken,
   generatePasswordToken,
@@ -183,8 +184,21 @@ export const CambiarContrasenaView: React.FC<CambiarContrasenaViewProps> = ({ on
     );
   }, [error]);
 
+  // Si está cargando, mostrar skeleton
+  if (loading) {
+    return <ScreenSkeleton rows={3} />;
+  }
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+    <KeyboardAvoidingView
+      style={styles.keyboardAvoid}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+    >
+    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
+    >
       <ThemedView style={styles.formSection}>
         {/* Header */}
         <View style={styles.headerContainer}>
@@ -355,15 +369,29 @@ export const CambiarContrasenaView: React.FC<CambiarContrasenaViewProps> = ({ on
             </Pressable>
           </ThemedView>
         )}
+
+        {/* Volver al login (visible en email y token steps) */}
+        {(currentStep === 'email' || currentStep === 'token') && (
+          <View style={styles.backToLoginContainer}>
+            <Pressable onPress={handleBackToLogin}>
+              <ThemedText style={styles.backToLoginLink}>Volver al inicio de sesión</ThemedText>
+            </Pressable>
+          </View>
+        )}
       </ThemedView>
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 
 const styles = StyleSheet.create({
+  keyboardAvoid: {
+    flex: 1,
+    backgroundColor: colors.componentBackground,
+  },
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.componentBackground,
   },
   contentContainer: {
     flexGrow: 1,
@@ -505,5 +533,15 @@ const styles = StyleSheet.create({
     color: colors.secondaryText,
     textAlign: 'center',
     lineHeight: 20,
+  },
+  backToLoginContainer: {
+    marginTop: 20,
+    alignItems: 'center',
+  },
+  backToLoginLink: {
+    fontSize: 14,
+    color: colors.tint,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
   },
 });

@@ -21,7 +21,6 @@ export function TopEmployee() {
 		return null;
 	}
 
-	console.log('[TopEmployee] empleado:', empleado);
 	const iniciales = `${empleado.nombre?.[0] ?? ''}${empleado.apellido?.[0] ?? ''}`.toUpperCase();
 
 	return (

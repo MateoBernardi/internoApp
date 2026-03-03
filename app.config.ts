@@ -33,6 +33,16 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   web: {
     output: "static" as const,
     favicon: "./assets/images/favicon.png",
+    name: "Italo Argentina",
+    shortName: "Italo Arg",
+    description: "App interna de Italo Argentina",
+    lang: "es",
+    themeColor: "#00054b",
+    backgroundColor: "#eeeeee",
+    display: "standalone",
+    orientation: "portrait",
+    startUrl: "/",
+    scope: "/",
   },
   plugins: [
     [
@@ -64,7 +74,18 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     reactCompiler: true,
   },
   extra: {
-    API_BASE_URL: "http://192.168.0.4:3000",
+    API_BASE_URL: "http://192.168.1.189:3000",
+    // TODO: Reemplazar con los valores de Firebase Console → Project Settings → General → Web App
+    FIREBASE_WEB: {
+      apiKey: "TU_API_KEY_WEB",
+      authDomain: "italoapp-7def0.firebaseapp.com",
+      projectId: "italoapp-7def0",
+      storageBucket: "italoapp-7def0.firebasestorage.app",
+      messagingSenderId: "444092191215",
+      appId: "TU_APP_ID_WEB",
+    },
+    // TODO: Reemplazar con la VAPID key de Firebase Console → Cloud Messaging → Web Push certificates
+    VAPID_PUBLIC_KEY: "TU_VAPID_PUBLIC_KEY",
     router: {},
     eas: {
       projectId: "f7cef901-9e89-441f-8cb3-ceb9c01a8b6c",

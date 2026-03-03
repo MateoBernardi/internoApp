@@ -83,11 +83,10 @@ export default function TablonNovedades({ refreshTrigger }: TablonNovedadesProps
   const formatFecha = (fecha?: Date | string): string => {
     if (!fecha) return 'Fecha no disponible';
     const date = typeof fecha === 'string' ? new Date(fecha) : fecha;
-    return date.toLocaleDateString('es-ES', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    });
+    const dd = String(date.getDate()).padStart(2, '0');
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const yyyy = date.getFullYear();
+    return `${dd}/${mm}/${yyyy}`;
   };
 
   const getTipoString = (tipo: number): string => {
@@ -268,7 +267,8 @@ const styles = StyleSheet.create({
     flexGrow: 0,
   },
   scrollContent: {
-    paddingHorizontal: 10,
+    paddingLeft: 10,
+    paddingRight: 0,
     paddingVertical: 16,
     gap: 4,
   },

@@ -6,16 +6,17 @@ import { Ionicons } from '@expo/vector-icons'; // Importar iconos
 import { useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
-  FlatList,
-  ListRenderItem,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    FlatList,
+    ListRenderItem,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { SolicitudLicencia } from '../models/SolicitudLicencia';
+import { formatCantidadLicencia } from '../utils/formatCantidad';
 import { useGetSolicitudesLicencias } from '../viewmodels/useSolicitudes';
 
 // Mapeo incluyendo "TODOS" para la UI
@@ -239,7 +240,7 @@ function LicenciaSolicitadaItem({ solicitud, estadoUI, onPress }: LicenciaSolici
       <View style={styles.itemContent}>
         <ThemedText type="defaultSemiBold">{solicitud.tipo_nombre || 'Licencia'}</ThemedText>
         <ThemedText style={{ color: colors.icon, fontSize: 13 }}>
-          {solicitud.usuario_nombre} {solicitud.usuario_apellido} • {solicitud.cantidad_dias} días
+          {solicitud.usuario_nombre} {solicitud.usuario_apellido} • {formatCantidadLicencia(solicitud.cantidad_dias, solicitud.cantidad_horas)}
         </ThemedText>
         <View style={styles.footerContainer}>
           <ThemedText style={styles.dateText}>{solicitud.fecha_inicio ? new Date(solicitud.fecha_inicio).toLocaleDateString() : 'Sin fecha'}</ThemedText>
@@ -254,16 +255,16 @@ function LicenciaSolicitadaItem({ solicitud, estadoUI, onPress }: LicenciaSolici
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.componentBackground },
-  header: { paddingHorizontal: 16, paddingTop: 16, marginBottom: 12 },
-  headerTitle: { fontSize: 20, fontWeight: 'bold', textAlign: 'center', backgroundColor: colors.componentBackground, paddingVertical: 12, paddingHorizontal: 16, borderRadius: 8 },
+  header: { paddingHorizontal: '4%', paddingTop: '4%', marginBottom: 12 },
+  headerTitle: { fontSize: 20, fontWeight: 'bold', textAlign: 'center', backgroundColor: colors.componentBackground, paddingVertical: '3%', paddingHorizontal: '4%', borderRadius: 8 },
   title: { color: colors.tint, fontSize: 14, justifyContent: 'center' },
   underline: { height: 3, backgroundColor: colors.tint, width: 100, marginTop: 4, borderRadius: 2 },
-  centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
+  centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: '5%' },
   
   // Buscador y Sugerencias
   suggestionsContainer: {
     backgroundColor: colors.componentBackground,
-    marginHorizontal: 16,
+    marginHorizontal: '4%',
     borderRadius: 8,
     elevation: 5,
     shadowOpacity: 0.1,
@@ -273,7 +274,7 @@ const styles = StyleSheet.create({
   suggestionItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
+    padding: '3%',
     borderBottomWidth: 0.5,
     borderBottomColor: colors.background,
     gap: 10
@@ -281,7 +282,7 @@ const styles = StyleSheet.create({
   suggestionText: { fontSize: 14, color: colors.text },
 
   // Filtros Collapsible
-  filtersSection: { marginHorizontal: 16, marginBottom: 10 },
+  filtersSection: { marginHorizontal: '4%', marginBottom: 10 },
   filterToggle: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -292,8 +293,8 @@ const styles = StyleSheet.create({
   collapsibleContent: { marginTop: 5 },
   chipsScroll: { flexDirection: 'row', paddingVertical: 5 },
   chip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: '4%',
+    paddingVertical: '2%',
     borderRadius: 20,
     backgroundColor: colors.componentBackground,
     marginRight: 8,
@@ -305,13 +306,13 @@ const styles = StyleSheet.create({
   chipTextSelected: { color: colors.componentBackground, fontWeight: '600' },
 
   // Lista
-  itemContainer: { padding: 16, marginHorizontal: 16, marginVertical: 4, backgroundColor: colors.componentBackground, borderRadius: 12 },
+  itemContainer: { padding: '4%', marginHorizontal: '4%', marginVertical: 4, backgroundColor: colors.componentBackground, borderRadius: 12 },
   itemContent: { gap: 4 },
   footerContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 },
   dateText: { fontSize: 12, color: colors.secondaryText },
   estadoBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
   estadoText: { fontSize: 11, fontWeight: '700', color: colors.text },
-  separator: { height: 1, marginHorizontal: 16 },
+  separator: { height: 1, marginHorizontal: '4%' },
 
   // Empty State
   emptyTitle: { fontSize: 16, fontWeight: '600', color: colors.text, marginTop: 12, textAlign: 'center' },

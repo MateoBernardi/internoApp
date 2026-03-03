@@ -5,6 +5,7 @@ import * as Notifications from 'expo-notifications';
 import { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 import { registerDeviceSafely } from '../services/devicesApi';
+import { getWebPushToken, onForegroundMessage } from '../services/webPush';
 
 /**
  * Hook para gestionar el registro del dispositivo
@@ -28,14 +29,59 @@ export function useRegisterDevice() {
     }
   }, []);
 
-  // Request de permisos de notificaciones y obtener el push token
+  // Web push: obtener FCM token via Firebase Messaging
   useEffect(() => {
+    if (Platform.OS !== 'web') return;
+
+    let isMounted = true;
+
+    const setupWebPush = async () => {
+      try {
+        const token = await getWebPushToken();
+        if (isMounted && token) {
+          setExpoPushToken(token);
+        }
+      } catch (error) {
+        console.error('[WebPush] Error:', error);
+      } finally {
+        if (isMounted) setIsLoadingToken(false);
+      }
+    };
+
+    setupWebPush();
+    return () => { isMounted = false; };
+  }, []);
+
+  // Web push: escuchar mensajes en foreground
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+
+    let unsubscribe: (() => void) | null = null;
+
+    onForegroundMessage((payload) => {
+      // Mostrar notificación nativa del browser cuando la app está en foreground
+      if (Notification.permission === 'granted' && payload.title) {
+        new Notification(payload.title, {
+          body: payload.body,
+          icon: '/assets/images/icon-1024.png',
+        });
+      }
+    }).then((unsub) => {
+      unsubscribe = unsub;
+    });
+
+    return () => { unsubscribe?.(); };
+  }, []);
+
+  // Request de permisos de notificaciones y obtener el push token (nativo)
+  useEffect(() => {
+    if (Platform.OS === 'web') return; // Web se maneja arriba con FCM
+
     let isMounted = true;
 
     const setupPushNotifications = async () => {
       try {
         if (!Device.isDevice) {
-          console.log('Push notifications disabled: not a physical device');
           if (isMounted) {
             setIsLoadingToken(false);
           }
@@ -86,7 +132,6 @@ export function useRegisterDevice() {
 
         if (isMounted) {
           setExpoPushToken(token);
-          console.log('✓ Push token obtenido:', token.substring(0, 20) + '...');
         }
       } catch (error) {
         console.error('Error setting up push notifications:', error);
@@ -107,8 +152,11 @@ export function useRegisterDevice() {
   // Registrar el dispositivo cuando esté autenticado y tengamos el token
   useEffect(() => {
     if (expoPushToken && tokens?.accessToken && isAuthenticated) {
-      const deviceName = Device.modelName || Device.osName || 'Unknown Device';
-      const platform = (Platform.OS as 'ios' | 'android') || 'android';
+      const deviceName = Platform.OS === 'web'
+        ? `Web ${navigator.userAgent.includes('Safari') ? 'Safari' : 'Browser'}`
+        : Device.modelName || Device.osName || 'Unknown Device';
+      const platform: 'ios' | 'android' | 'web' =
+        Platform.OS === 'web' ? 'web' : (Platform.OS as 'ios' | 'android') || 'android';
 
       registerDeviceSafely(tokens.accessToken, expoPushToken, platform, deviceName);
     }

@@ -1,16 +1,11 @@
 import { ThemedView } from '@/components/themed-view';
 import { CambiarContrasenaView } from '@/shared/views/CambiarContrasenaView';
-import { StyleSheet, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StyleSheet } from 'react-native';
 
 export default function CambiarContrasenaScreen() {
-  const insets = useSafeAreaInsets();
-
   return (
-    <ThemedView style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
-      <View style={styles.content}>
-        <CambiarContrasenaView />
-      </View>
+    <ThemedView style={styles.container} lightColor="#ffffff">
+      <CambiarContrasenaView />
     </ThemedView>
   );
 }
@@ -18,8 +13,6 @@ export default function CambiarContrasenaScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  content: {
-    flex: 1,
+    paddingTop: '10%',
   },
 });

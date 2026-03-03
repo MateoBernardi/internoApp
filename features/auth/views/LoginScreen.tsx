@@ -50,12 +50,12 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingVertical: 20,
+    paddingVertical: '5%',
   },
   formSection: {
     backgroundColor: 'transparent',
     flex: 1,
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: '5%',
   },
 });

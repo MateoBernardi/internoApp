@@ -395,7 +395,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    paddingHorizontal: '4%',
     paddingBottom: 12,
     backgroundColor: colors.componentBackground,
     borderBottomWidth: 1,
@@ -413,7 +413,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   contentContainer: {
-    paddingHorizontal: 16,
+    paddingHorizontal: '4%',
     paddingTop: 12,
     // overflow visible necesario para que los dropdowns salgan del scroll
     overflow: 'visible',
@@ -468,7 +468,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.componentBackground,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.icon,
-    paddingHorizontal: 16,
+    paddingHorizontal: '4%',
     paddingTop: 24,
   },
   uploadButton: {

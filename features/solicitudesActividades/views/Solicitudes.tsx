@@ -112,8 +112,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.componentBackground,
   },
   headerContent: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: '4%',
+    paddingVertical: '3%',
   },
   header: {
     backgroundColor: colors.componentBackground,
@@ -127,8 +127,8 @@ const styles = StyleSheet.create({
   },
   tabs: {
     flexDirection: 'row',
-    marginHorizontal: -16,
-    paddingHorizontal: 16,
+    marginHorizontal: '-4%',
+    paddingHorizontal: '4%',
   },
   tab: {
     flex: 1,

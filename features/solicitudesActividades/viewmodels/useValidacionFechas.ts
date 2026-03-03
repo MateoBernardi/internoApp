@@ -1,7 +1,7 @@
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { useCallback, useRef, useState } from 'react';
 import type { ValidacionState } from '../components/ValidacionFechasModal';
-import type { ValidarFechasRequest } from '../models/Solicitud';
+import type { RangoOcupado, ValidarFechasRequest } from '../models/Solicitud';
 import * as solicitudesApi from '../services/solicitudesApi';
 
 interface ValidateParams {
@@ -42,12 +42,14 @@ export function useValidacionFechas() {
     const { tokens } = useAuth();
     const [state, setState] = useState<ValidacionState>('idle');
     const [avisos, setAvisos] = useState<string[]>([]);
+    const [rangosOcupados, setRangosOcupados] = useState<RangoOcupado[]>([]);
     const [errorMessage, setErrorMessage] = useState<string | undefined>();
     const onConfirmRef = useRef<(() => void) | null>(null);
 
     const reset = useCallback(() => {
         setState('idle');
         setAvisos([]);
+        setRangosOcupados([]);
         setErrorMessage(undefined);
         onConfirmRef.current = null;
     }, []);
@@ -63,6 +65,7 @@ export function useValidacionFechas() {
         onConfirmRef.current = onConfirm;
         setState('validating');
         setAvisos([]);
+        setRangosOcupados([]);
         setErrorMessage(undefined);
 
         try {
@@ -77,6 +80,7 @@ export function useValidacionFechas() {
 
             if (result.avisos && result.avisos.length > 0) {
                 setAvisos(result.avisos);
+                setRangosOcupados(result.rangosOcupados ?? []);
                 setState('warnings');
             } else {
                 setState('success');
@@ -105,6 +109,7 @@ export function useValidacionFechas() {
     return {
         state,
         avisos,
+        rangosOcupados,
         errorMessage,
         validate,
         confirm,

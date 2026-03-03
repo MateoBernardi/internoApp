@@ -132,13 +132,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.componentBackground,
   },
   headerContent: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: '4%',
+    paddingVertical: '3%',
   },
   tabs: {
     flexDirection: 'row',
-    marginHorizontal: -16,
-    paddingHorizontal: 16,
+    marginHorizontal: '-4%',
+    paddingHorizontal: '4%',
   },
   tab: {
     flex: 1,
@@ -156,9 +156,9 @@ const styles = StyleSheet.create({
     paddingBottom: 10
   },
   searchContainer: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 8,
+    paddingHorizontal: '4%',
+    paddingTop: '2%',
+    paddingBottom: '2%',
     backgroundColor: colors.componentBackground,
   },
   contentContainer: {

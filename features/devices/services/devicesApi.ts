@@ -2,7 +2,7 @@ import { apiRequest } from '@/shared/apiRequest';
 
 interface RegisterDeviceData {
   token: string;
-  platform: 'ios' | 'android';
+  platform: 'ios' | 'android' | 'web';
   device_name: string;
 }
 
@@ -47,7 +47,7 @@ export async function registerDevice(
 export async function registerDeviceSafely(
   accessToken: string,
   pushToken: string,
-  platform: 'ios' | 'android',
+  platform: 'ios' | 'android' | 'web',
   deviceName: string
 ): Promise<void> {
   try {
@@ -62,7 +62,6 @@ export async function registerDeviceSafely(
       device_name: deviceName,
     });
 
-    console.log('✓ Dispositivo registrado exitosamente:', response);
   } catch (error) {
     console.error('✗ Error registrando dispositivo:', error);
     // No lanzar error para evitar interrumpir el flujo de la app

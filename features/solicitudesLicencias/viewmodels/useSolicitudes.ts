@@ -68,6 +68,7 @@ export function useGetSolicitudesLicencias(filters?: solicitudesLicencias.GetSol
                 fecha_inicio: solicitud.fecha_inicio,
                 fecha_fin: solicitud.fecha_fin,
                 cantidad_dias: solicitud.cantidad_dias,
+                cantidad_horas: solicitud.cantidad_horas,
                 estado: solicitud.estado,
                 aprobador_id: solicitud.aprobador_id,
                 fecha_respuesta: solicitud.fecha_respuesta,
@@ -109,6 +110,7 @@ export function useGetSolicitudesUsuario(enabled: boolean = true) {
                 fecha_inicio: solicitud.fecha_inicio,
                 fecha_fin: solicitud.fecha_fin,
                 cantidad_dias: solicitud.cantidad_dias,
+                cantidad_horas: solicitud.cantidad_horas,
                 estado: solicitud.estado,
                 aprobador_id: solicitud.aprobador_id,
                 fecha_respuesta: solicitud.fecha_respuesta,
@@ -213,18 +215,15 @@ export function useRechazarSolicitudLicencia() {
 
     return useMutation({
         mutationFn: async (data: { solicitudId: number; observacion: string }) => {
-            console.log('[useRechazarSolicitudLicencia] Iniciando mutación:', data);
             const token = tokens?.accessToken;
             if (!token) {
                 console.error('[useRechazarSolicitudLicencia] No hay token de acceso disponible');
                 throw new Error('No hay token de acceso');
             }
-            console.log('[useRechazarSolicitudLicencia] Token presente, llamando a rechazarSolicitudLicencia');
             // Llamar al endpoint de rechazar solicitud
             return rechazarSolicitudLicencia(token, data.solicitudId, data.observacion);
         },
         onSuccess: () => {
-            console.log('[useRechazarSolicitudLicencia] Rechazo exitoso, invalidando queries');
             // Invalidar las solicitudes para refrescar los datos       
             queryClient.invalidateQueries({ queryKey: ['solicitudes-licencias'] });
         },

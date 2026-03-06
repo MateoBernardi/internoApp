@@ -8,7 +8,7 @@ import * as Notifications from 'expo-notifications';
 import { Redirect, Stack, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
 import 'react-native-reanimated';
 
 export const unstable_settings = {
@@ -23,9 +23,9 @@ function RootNavigator() {
   // Obtiene el push token y lo registra automáticamente cuando esté autenticado
   useRegisterDevice();
 
-  // Limpiar notificaciones y badge al entrar a la app autenticado
+  // Limpiar notificaciones y badge al entrar a la app autenticado (solo native)
   useEffect(() => {
-    if (isAuthenticated && !requiresAssociation) {
+    if (isAuthenticated && !requiresAssociation && Platform.OS !== 'web') {
       Notifications.dismissAllNotificationsAsync();
       Notifications.setBadgeCountAsync(0);
     }
@@ -78,7 +78,9 @@ export default function RootLayout() {
   );
 
   useEffect(() => {
-    // Configurar el manejador de notificaciones
+    if (Platform.OS === 'web') return;
+
+    // Configurar el manejador de notificaciones (solo native)
     const notificationListener = Notifications.addNotificationReceivedListener((notification) => {
       setNotification(notification);
     });
@@ -105,14 +107,16 @@ export default function RootLayout() {
   );
 }
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+if (Platform.OS !== 'web') {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    }),
+  });
+}
 
 const styles = StyleSheet.create({
   loadingContainer: {

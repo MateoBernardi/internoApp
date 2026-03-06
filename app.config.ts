@@ -10,7 +10,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   userInterfaceStyle: "automatic",
   newArchEnabled: true,
   ios: {
-    googleServicesFile: "./GoogleService-Info.plist",
+    ...(process.env.GOOGLE_SERVICES_IOS
+      ? { googleServicesFile: process.env.GOOGLE_SERVICES_IOS }
+      : {}),
     supportsTablet: true,
     bundleIdentifier: "italoarg.com.ar",
     infoPlist: {
@@ -20,7 +22,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   android: {
     package: "italoarg.com.ar",
     googleServicesFile:
-      process.env.GOOGLE_SERVICES_JSON ?? "./google-services.json",
+      process.env.GOOGLE_SERVICES_JSON ?? "./android/app/google-services.json",
     adaptiveIcon: {
       backgroundColor: "#E6F4FE",
       foregroundImage: "./assets/images/icon-1024.png",

@@ -1,8 +1,28 @@
 import { getQueryClient } from '@/context/QueryProvider';
 import * as SecureStore from 'expo-secure-store';
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { Platform } from 'react-native';
 import { useGetUserContext, useLogin, useLogout, useRefresh } from '../hooks/useAuthActions';
 import { ExtendedUserContext } from '../models/User';
+
+/**
+ * Web-safe storage wrapper.
+ * Uses expo-secure-store on native (encrypted), localStorage on web (PWA fallback).
+ */
+const storage = {
+  getItem: (key: string) =>
+    Platform.OS === 'web'
+      ? Promise.resolve(localStorage.getItem(key))
+      : SecureStore.getItemAsync(key),
+  setItem: (key: string, value: string) =>
+    Platform.OS === 'web'
+      ? Promise.resolve(localStorage.setItem(key, value))
+      : SecureStore.setItemAsync(key, value),
+  deleteItem: (key: string) =>
+    Platform.OS === 'web'
+      ? Promise.resolve(localStorage.removeItem(key))
+      : SecureStore.deleteItemAsync(key),
+};
 
 /**
  * Decodifica un JWT y devuelve el payload
@@ -84,9 +104,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
    */
   const loadStoredTokens = useCallback(async (): Promise<{ tokens: AuthTokens; requiresAssociation: boolean } | null> => {
     try {
-      const accessToken = await SecureStore.getItemAsync('accessToken');
-      const refreshToken = await SecureStore.getItemAsync('refreshToken');
-      const requiresAssociationStr = await SecureStore.getItemAsync('requiresAssociation');
+      const accessToken = await storage.getItem('accessToken');
+      const refreshToken = await storage.getItem('refreshToken');
+      const requiresAssociationStr = await storage.getItem('requiresAssociation');
       const requiresAssociation = requiresAssociationStr === 'true';
 
       if (accessToken && (refreshToken || requiresAssociation)) {
@@ -115,11 +135,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error('Invalid accessToken: must be a non-empty string');
       }
 
-      await SecureStore.setItemAsync('accessToken', accessToken);
+      await storage.setItem('accessToken', accessToken);
       if (refreshToken && refreshToken !== 'null' && refreshToken !== 'undefined') {
-        await SecureStore.setItemAsync('refreshToken', refreshToken);
+        await storage.setItem('refreshToken', refreshToken);
       } else {
-        await SecureStore.deleteItemAsync('refreshToken');
+        await storage.deleteItem('refreshToken');
       }
       const saved = {
         accessToken,
@@ -138,9 +158,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
    */
   const clearStoredTokens = useCallback(async () => {
     try {
-      await SecureStore.deleteItemAsync('accessToken');
-      await SecureStore.deleteItemAsync('refreshToken');
-      await SecureStore.deleteItemAsync('requiresAssociation');
+      await storage.deleteItem('accessToken');
+      await storage.deleteItem('refreshToken');
+      await storage.deleteItem('requiresAssociation');
       tokensRef.current = null;
       setTokens(null);
       setUser(null);
@@ -235,9 +255,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setRequiresAssociation(reqAssoc);
           
           if (reqAssoc) {
-            await SecureStore.setItemAsync('requiresAssociation', 'true');
+            await storage.setItem('requiresAssociation', 'true');
           } else {
-            await SecureStore.deleteItemAsync('requiresAssociation');
+            await storage.deleteItem('requiresAssociation');
           }
 
           // Solo cargar contexto del usuario si NO requiere asociación
@@ -267,7 +287,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
     await saveTokens(newTokens);
     setRequiresAssociation(false);
-    await SecureStore.deleteItemAsync('requiresAssociation');
+    await storage.deleteItem('requiresAssociation');
 
     // Disparar carga del user context
     const queryClient = getQueryClient();

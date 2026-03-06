@@ -31,7 +31,7 @@ export default function Root({ children }: PropsWithChildren) {
           httpEquiv="Content-Security-Policy"
           content={`
             default-src 'self';
-            script-src 'self' 'unsafe-inline' https://www.gstatic.com;
+            script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com;
             style-src 'self' 'unsafe-inline';
             img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com;
             font-src 'self' https://fonts.gstatic.com;
@@ -53,7 +53,8 @@ export default function Root({ children }: PropsWithChildren) {
         <meta name="theme-color" content="#00054b" />
         <meta name="background-color" content="#eeeeee" />
 
-        {/* iOS PWA meta tags */}
+        {/* PWA meta tags */}
+        <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="Italo Arg" />

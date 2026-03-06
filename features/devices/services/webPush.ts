@@ -54,10 +54,18 @@ export async function getWebPushToken(): Promise<string | null> {
     const messaging = await getMessaging();
     if (!messaging) return null;
 
-    // Request notification permission
-    const permission = await Notification.requestPermission();
+    // Check current permission status before requesting to avoid spam when already denied
+    if (Notification.permission === 'denied') {
+      return null;
+    }
+
+    // Only request if not yet decided
+    const permission =
+      Notification.permission === 'granted'
+        ? 'granted'
+        : await Notification.requestPermission();
+
     if (permission !== 'granted') {
-      console.warn('[WebPush] Notification permission denied');
       return null;
     }
 

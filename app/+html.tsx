@@ -20,6 +20,35 @@ export default function Root({ children }: PropsWithChildren) {
         {/* PWA manifest */}
         <link rel="manifest" href="/manifest.json" />
 
+        {/*
+          Content Security Policy
+          - unsafe-inline en script-src/style-src: necesario por los bloques inline (SW registration + estilos)
+          - connect-src: API backend + Firebase Cloud Messaging endpoints
+          - worker-src blob: requerido por algunos bundlers para web workers
+          - Actualizar la IP/dominio de connect-src si cambia API_BASE_URL
+        */}
+        <meta
+          httpEquiv="Content-Security-Policy"
+          content={`
+            default-src 'self';
+            script-src 'self' 'unsafe-inline' https://www.gstatic.com;
+            style-src 'self' 'unsafe-inline';
+            img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com;
+            font-src 'self' https://fonts.gstatic.com;
+            connect-src 'self'
+              http://192.168.1.189:3000
+              https://fcm.googleapis.com
+              https://fcmregistrations.googleapis.com
+              https://firebaseinstallations.googleapis.com
+              https://firebaselogging-pa.googleapis.com;
+            worker-src 'self' blob:;
+            manifest-src 'self';
+            object-src 'none';
+            base-uri 'self';
+            form-action 'self';
+          `.replace(/\s+/g, ' ').trim()}
+        />
+
         {/* Theme & status bar */}
         <meta name="theme-color" content="#00054b" />
         <meta name="background-color" content="#eeeeee" />

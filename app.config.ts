@@ -75,17 +75,15 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   extra: {
     API_BASE_URL: "http://192.168.1.189:3000",
-    // TODO: Reemplazar con los valores de Firebase Console → Project Settings → General → Web App
     FIREBASE_WEB: {
-      apiKey: "TU_API_KEY_WEB",
-      authDomain: "italoapp-7def0.firebaseapp.com",
-      projectId: "italoapp-7def0",
-      storageBucket: "italoapp-7def0.firebasestorage.app",
-      messagingSenderId: "444092191215",
-      appId: "TU_APP_ID_WEB",
+      apiKey: process.env.FIREBASE_API_KEY ?? "",
+      authDomain: process.env.FIREBASE_AUTH_DOMAIN ?? "",
+      projectId: process.env.FIREBASE_PROJECT_ID ?? "",
+      storageBucket: process.env.FIREBASE_STORAGE_BUCKET ?? "",
+      messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID ?? "",
+      appId: process.env.FIREBASE_APP_ID ?? "",
     },
-    // TODO: Reemplazar con la VAPID key de Firebase Console → Cloud Messaging → Web Push certificates
-    VAPID_PUBLIC_KEY: "TU_VAPID_PUBLIC_KEY",
+    VAPID_PUBLIC_KEY: process.env.FIREBASE_VAPID_PUBLIC_KEY ?? "",
     router: {},
     eas: {
       projectId: "f7cef901-9e89-441f-8cb3-ceb9c01a8b6c",

@@ -7,6 +7,8 @@
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo start --android",
     "ios": "expo start --ios",
+    "generate:sw": "node scripts/generate-sw.js",
+    "preweb": "node scripts/generate-sw.js",
     "web": "expo start --web",
     "lint": "expo lint"
   },

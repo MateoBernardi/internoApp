@@ -15,7 +15,7 @@ ios/DerivedData/
 dist/
 web-build/
 expo-env.d.ts
-italoapp-7def0-firebase-adminsdk-fbsvc-ff054e782e.json
+italoapp-7def0-firebase-adminsdk-fbsvc-ce20e40ec1.json
 
 # Native
 .kotlin/
@@ -39,7 +39,11 @@ yarn-error.*
 *.pem
 
 # local env files
+.env
 .env*.local
+
+# generated service worker (contains Firebase keys from .env)
+public/firebase-messaging-sw.js
 
 # typescript
 *.tsbuildinfo

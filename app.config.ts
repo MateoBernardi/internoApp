@@ -22,7 +22,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   android: {
     package: "italoarg.com.ar",
     googleServicesFile:
-      process.env.GOOGLE_SERVICES_JSON ?? "./android/app/google-services.json",
+      process.env.GOOGLE_SERVICES_JSON,
     adaptiveIcon: {
       backgroundColor: "#E6F4FE",
       foregroundImage: "./assets/images/icon-1024.png",
@@ -76,7 +76,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     reactCompiler: true,
   },
   extra: {
-    API_BASE_URL: "http://192.168.1.189:3000",
+    API_BASE_URL: "https://italoapp-backend-production.up.railway.app",
     FIREBASE_WEB: {
       apiKey: process.env.FIREBASE_API_KEY ?? "",
       authDomain: process.env.FIREBASE_AUTH_DOMAIN ?? "",

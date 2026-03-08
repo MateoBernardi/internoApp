@@ -37,6 +37,7 @@ export default function Root({ children }: PropsWithChildren) {
             font-src 'self' https://fonts.gstatic.com;
             connect-src 'self'
               http://192.168.1.189:3000
+              https://italoapp-backend-production.up.railway.app
               https://fcm.googleapis.com
               https://fcmregistrations.googleapis.com
               https://firebaseinstallations.googleapis.com

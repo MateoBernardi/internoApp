@@ -35,7 +35,6 @@ export default function HomeScreen() {
           showsVerticalScrollIndicator={false}
           nestedScrollEnabled
           alwaysBounceVertical={true}
-          contentContainerStyle={{ minHeight: '100%' }}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -69,7 +68,6 @@ const styles = StyleSheet.create({
   },
   topSection: {
     maxHeight: SCREEN_HEIGHT * 0.35,
-    minHeight: SCREEN_HEIGHT * 0.15,
   },
   mainSection: {
     flex: 1,

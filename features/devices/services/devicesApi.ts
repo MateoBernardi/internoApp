@@ -48,22 +48,52 @@ export async function registerDeviceSafely(
   accessToken: string,
   pushToken: string,
   platform: 'ios' | 'android' | 'web',
-  deviceName: string
-): Promise<void> {
+  deviceName: string,
+  maxRetries: number = 2
+): Promise<boolean> {
   try {
     if (!accessToken || !pushToken) {
       console.warn('Dispositivo: No se puede registrar sin token de acceso o push token');
-      return;
+      return false;
     }
 
-    const response = await registerDevice(accessToken, {
-      token: pushToken,
-      platform,
-      device_name: deviceName,
-    });
+    for (let attempt = 1; attempt <= maxRetries + 1; attempt += 1) {
+      try {
+        const response = await registerDevice(accessToken, {
+          token: pushToken,
+          platform,
+          device_name: deviceName,
+        });
+
+        console.log('[Devices] Device registered', {
+          platform,
+          deviceName,
+          success: response.success,
+          deviceId: response.device_id,
+          attempt,
+        });
+        return true;
+      } catch (error) {
+        if (attempt > maxRetries) {
+          throw error;
+        }
+
+        const delayMs = Math.min(1000 * 2 ** attempt, 5000);
+        console.warn('[Devices] Device registration failed, retrying', {
+          platform,
+          deviceName,
+          attempt,
+          delayMs,
+        });
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+    }
+
+    return false;
 
   } catch (error) {
     console.error('✗ Error registrando dispositivo:', error);
     // No lanzar error para evitar interrumpir el flujo de la app
+    return false;
   }
 }

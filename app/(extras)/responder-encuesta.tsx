@@ -8,8 +8,6 @@ import {
     KeyboardAvoidingView,
     Platform,
     StyleSheet,
-    Text,
-    TouchableOpacity,
     View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -25,12 +23,6 @@ export default function ResponderEncuestaScreen() {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <ThemedText style={styles.errorText}>Error: No se encontró la encuesta</ThemedText>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <Text style={styles.backButtonText}>Volver</Text>
-        </TouchableOpacity>
       </View>
     );
   }
@@ -43,12 +35,6 @@ export default function ResponderEncuestaScreen() {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <ThemedText style={styles.errorText}>Error: No se pudo cargar la encuesta</ThemedText>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <Text style={styles.backButtonText}>Volver</Text>
-        </TouchableOpacity>
       </View>
     );
   }
@@ -78,19 +64,5 @@ const styles = StyleSheet.create({
     color: colors.error,
     textAlign: 'center',
     marginVertical: 20,
-  },
-  backButton: {
-    backgroundColor: colors.lightTint,
-    paddingHorizontal: '5%',
-    paddingVertical: '3%',
-    borderRadius: 8,
-    alignItems: 'center',
-    marginHorizontal: '4%',
-    marginTop: 20,
-  },
-  backButtonText: {
-    color: colors.componentBackground,
-    fontSize: 16,
-    fontWeight: '600',
   },
 });

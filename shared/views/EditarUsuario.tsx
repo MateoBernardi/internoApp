@@ -333,7 +333,7 @@ export default function EditarUsuario() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.componentBackground,
   },
   contentContainer: {
     flexGrow: 1,
@@ -345,7 +345,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    fontSize: 28,
+    fontSize: 20,
     fontWeight: '700',
     color: colors.text,
     marginBottom: 8,

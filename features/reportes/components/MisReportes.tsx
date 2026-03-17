@@ -22,7 +22,10 @@ export function MisReportes() {
 	const { user } = useAuth();
 
 	// Pasar usuarioId del usuario autenticado
-	const { data: reportes, isLoading, error } = useReportes(user?.user_context_id?.toString());
+	const { data: reportes, isLoading, error } = useReportes(
+		user?.user_context_id?.toString(),
+		!!user?.user_context_id
+	);
 
 	const [modalVisible, setModalVisible] = useState(false);
 	const [selectedReporte, setSelectedReporte] = useState<Reporte | null>(null);

@@ -2,7 +2,7 @@ import { useAuth } from '@/features/auth/context/AuthContext';
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import { registerDeviceSafely } from '../services/devicesApi';
 import { getWebPushToken, onForegroundMessage } from '../services/webPush';
@@ -16,6 +16,7 @@ export function useRegisterDevice() {
   const { tokens, isAuthenticated } = useAuth();
   const [expoPushToken, setExpoPushToken] = useState<string | null>(null);
   const [isLoadingToken, setIsLoadingToken] = useState(true);
+  const lastRegistrationFingerprintRef = useRef<string | null>(null);
 
   // Configurar los canales de notificación para Android
   useEffect(() => {
@@ -32,6 +33,20 @@ export function useRegisterDevice() {
   // Web push: obtener FCM token via Firebase Messaging
   useEffect(() => {
     if (Platform.OS !== 'web') return;
+
+    const firebaseConfig = Constants.expoConfig?.extra?.FIREBASE_WEB;
+    const hasFirebaseConfig =
+      !!firebaseConfig &&
+      typeof firebaseConfig.apiKey === 'string' &&
+      firebaseConfig.apiKey.length > 0 &&
+      firebaseConfig.apiKey !== 'TU_API_KEY_WEB';
+    const vapidKey = Constants.expoConfig?.extra?.VAPID_PUBLIC_KEY;
+    const hasVapid = !!vapidKey && vapidKey !== 'TU_VAPID_PUBLIC_KEY';
+
+    console.log('[WebPush] Config status', {
+      hasFirebaseConfig,
+      hasVapid,
+    });
 
     let isMounted = true;
 
@@ -158,7 +173,17 @@ export function useRegisterDevice() {
       const platform: 'ios' | 'android' | 'web' =
         Platform.OS === 'web' ? 'web' : (Platform.OS as 'ios' | 'android') || 'android';
 
-      registerDeviceSafely(tokens.accessToken, expoPushToken, platform, deviceName);
+      const registrationFingerprint = `${platform}:${tokens.accessToken.slice(0, 10)}:${expoPushToken}`;
+      if (lastRegistrationFingerprintRef.current === registrationFingerprint) {
+        return;
+      }
+
+      lastRegistrationFingerprintRef.current = registrationFingerprint;
+      registerDeviceSafely(tokens.accessToken, expoPushToken, platform, deviceName, 3).then((ok) => {
+        if (!ok) {
+          lastRegistrationFingerprintRef.current = null;
+        }
+      });
     }
   }, [expoPushToken, tokens?.accessToken, isAuthenticated]);
 

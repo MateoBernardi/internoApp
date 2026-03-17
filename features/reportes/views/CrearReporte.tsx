@@ -3,7 +3,7 @@ import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
 import { Image } from 'expo-image';
 import type * as ImagePickerTypes from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -197,9 +197,7 @@ export default function CrearReporte(props?: CrearReporteProps) {
 			>
 				{/* Header */}
 				<View style={styles.header}>
-					<TouchableOpacity onPress={() => router.back()} style={styles.iconButton}>
-						<Ionicons name="close" size={24} color={colors.icon} />
-					</TouchableOpacity>
+					<View style={styles.iconButton} />
 					<ThemedText style={styles.headerTitle}>Nuevo Reporte</ThemedText>
 					<View style={{ width: 40 }} />
 				</View>

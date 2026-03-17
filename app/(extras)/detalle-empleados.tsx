@@ -14,6 +14,5 @@ export default function DetalleEmpleadosScreen(props: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: '5%',
   },    
 });

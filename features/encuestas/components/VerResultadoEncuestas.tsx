@@ -77,9 +77,7 @@ export const VerResultadosEncuestas: React.FC<VerResultadosEncuestasProps> = ({ 
     return (
       <View style={styles.container}>
         <View style={styles.headerContainer}>
-          <TouchableOpacity onPress={onVolver} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color={colors.text} />
-          </TouchableOpacity>
+          <View style={styles.backButton} />
           <ThemedText type="title" style={styles.headerTitleCentered}>Resultados</ThemedText>
           <View style={{ width: 40 }} />
         </View>
@@ -92,9 +90,7 @@ export const VerResultadosEncuestas: React.FC<VerResultadosEncuestasProps> = ({ 
     return (
       <View style={styles.container}>
         <View style={styles.headerContainer}>
-          <TouchableOpacity onPress={onVolver} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color={colors.text} />
-          </TouchableOpacity>
+          <View style={styles.backButton} />
           <ThemedText type="title" style={styles.headerTitleCentered}>Resultados</ThemedText>
           <View style={{ width: 40 }} />
         </View>
@@ -113,9 +109,7 @@ export const VerResultadosEncuestas: React.FC<VerResultadosEncuestasProps> = ({ 
     return (
       <View style={styles.container}>
         <View style={styles.headerContainer}>
-          <TouchableOpacity onPress={onVolver} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color={colors.text} />
-          </TouchableOpacity>
+          <View style={styles.backButton} />
           <ThemedText type="title" style={styles.headerTitleCentered}>Resultados</ThemedText>
           <View style={{ width: 40 }} />
         </View>
@@ -139,9 +133,7 @@ export const VerResultadosEncuestas: React.FC<VerResultadosEncuestasProps> = ({ 
     return (
       <View style={styles.container}>
         <View style={styles.headerContainer}>
-          <TouchableOpacity onPress={onVolver} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color={colors.text} />
-          </TouchableOpacity>
+          <View style={styles.backButton} />
           <ThemedText type="title" style={styles.headerTitleCentered}>Resultados</ThemedText>
           <View style={{ width: 40 }} />
         </View>
@@ -177,9 +169,7 @@ export const VerResultadosEncuestas: React.FC<VerResultadosEncuestasProps> = ({ 
   return (
     <View style={styles.container}>
       <View style={styles.headerContainer}>
-        <TouchableOpacity onPress={onVolver} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={colors.text} />
-        </TouchableOpacity>
+        <View style={styles.backButton} />
         <ThemedText type="title" style={styles.headerTitleCentered}>Resultados</ThemedText>
         <View style={{ width: 40 }} />
       </View>
@@ -267,8 +257,8 @@ const DetalleResultados: React.FC<DetalleResultadosProps> = ({
   return (
     <View style={styles.container}>
       <View style={styles.detailHeaderContainer}>
-        <TouchableOpacity onPress={onVolver} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={colors.text} />
+        <TouchableOpacity onPress={onVolver} style={styles.resultadosButton}>
+          <Text style={styles.resultadosButtonText}>Resultados</Text>
         </TouchableOpacity>
         <View style={styles.detailTitleContainer}>
           <Text style={styles.detailHeaderTitle} numberOfLines={1}>{encuesta.encuestaTitulo}</Text>
@@ -783,6 +773,16 @@ const styles = StyleSheet.create({
     height: 40,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  resultadosButton: {
+    minWidth: 80,
+    height: 40,
+    justifyContent: 'center',
+  },
+  resultadosButtonText: {
+    fontSize: 14,
+    color: colors.lightTint,
+    fontWeight: '600',
   },
   headerTitleCentered: {
     fontSize: 18,

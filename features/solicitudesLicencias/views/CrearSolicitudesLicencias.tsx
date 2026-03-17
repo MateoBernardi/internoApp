@@ -1,9 +1,10 @@
 import { ThemedText } from '@/components/themed-text';
 import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
 import { Colors } from '@/constants/theme';
+import { ArchivoUso } from '@/features/docs/models/Archivo';
 import { useUploadArchivo } from '@/features/docs/viewmodels/useArchivos';
 import { Ionicons } from '@expo/vector-icons';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
 import * as DocumentPicker from 'expo-document-picker';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
@@ -97,12 +98,25 @@ export function CrearSolicitudesLicencias() {
     const cantidadDias = useMemo(() => wholeDays + (halfDay ? 0.5 : 0), [wholeDays, halfDay]);
 
     const saldoCorrespondiente = useMemo(() => {
-        if (!tipoLicenciaId || !saldosLicencias) return null;
-        return saldosLicencias.find(s => s.tipo_licencia_id === tipoLicenciaId);
+        if (!saldosLicencias || saldosLicencias.length === 0) return null;
+        if (!tipoLicenciaId) {
+            return saldosLicencias.length === 1 ? saldosLicencias[0] : null;
+        }
+
+        const porTipo = saldosLicencias.find(s => s.tipo_licencia_id === tipoLicenciaId);
+        if (porTipo) return porTipo;
+
+        // Fallback para respuestas con un unico saldo sin tipo_licencia_id.
+        return saldosLicencias.length === 1 ? saldosLicencias[0] : null;
     }, [tipoLicenciaId, saldosLicencias]);
 
     const saldoDisponible = useMemo(() => {
         if (!saldoCorrespondiente) return 0;
+
+        if (typeof saldoCorrespondiente.dias_disponibles === 'number' && Number.isFinite(saldoCorrespondiente.dias_disponibles)) {
+            return saldoCorrespondiente.dias_disponibles;
+        }
+
         return saldoCorrespondiente.dias_otorgados - saldoCorrespondiente.dias_consumidos;
     }, [saldoCorrespondiente]);
 
@@ -203,7 +217,7 @@ export function CrearSolicitudesLicencias() {
                                 nombre: archivoAdjunto.name,
                                 tamaño: archivoAdjunto.size,
                                 tipo: archivoAdjunto.type,
-                                uso: 'LICENCIA',
+                                uso: ArchivoUso.LICENCIA,
                             },
                         });
                         adjuntarArchivoMutation(
@@ -263,9 +277,7 @@ export function CrearSolicitudesLicencias() {
 
                 {/* Header */}
                 <View style={styles.header}>
-                    <TouchableOpacity onPress={() => router.back()} style={styles.iconButton}>
-                        <Ionicons name="close" size={24} color={colors.icon} />
-                    </TouchableOpacity>
+                    <View style={styles.iconButton} />
                     <ThemedText style={styles.headerTitle}>Nueva Solicitud</ThemedText>
                     <View style={{ width: 40 }} />
                 </View>

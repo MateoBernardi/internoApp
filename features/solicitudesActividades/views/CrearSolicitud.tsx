@@ -4,7 +4,7 @@ import { Colors } from '@/constants/theme';
 import { UserSummary } from '@/shared/users/User';
 import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
 import { Ionicons } from '@expo/vector-icons';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
@@ -239,25 +239,6 @@ export function CrearSolicitud() {
     }
   }, [isFormValid, fechaInicio, fechaFin, selectedUsers, allDay, tipoActividad, includeDates, validacion, ejecutarCreacion]);
 
-  const handleCancel = useCallback(() => {
-    if (
-      titulo.trim() ||
-      descripcion.trim() ||
-      selectedUsers.length > 0
-    ) {
-      Alert.alert(
-        'Descartar cambios',
-        '¿Deseas descartar los cambios?',
-        [
-          { text: 'Cancelar', onPress: () => {} },
-          { text: 'Descartar', onPress: () => router.back() },
-        ]
-      );
-    } else {
-      router.back();
-    }
-  }, [titulo, descripcion, selectedUsers, router]);
-
   return (
     <View style={styles.container}>
       <KeyboardAvoidingView
@@ -267,9 +248,7 @@ export function CrearSolicitud() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={handleCancel} style={styles.iconButton}>
-            <Ionicons name="close" size={24} color={colors.icon} />
-          </TouchableOpacity>
+          <View style={styles.iconButton} />
           <ThemedText style={styles.headerTitle}>Redactar invitación</ThemedText>
           <View style={{ width: 40 }} />
         </View>

@@ -58,22 +58,13 @@ export default function CrearReporteEncargado() {
 		<View style={styles.container}>
 			{/* Header */}
 			<View style={styles.header}>
-				<TouchableOpacity
-					onPress={() => {
-						if (selectedUser) {
-							handleClearSelection();
-						} else {
-							router.back();
-						}
-					}}
-					style={styles.iconButton}
-				>
-					<Ionicons
-						name={selectedUser ? 'arrow-back' : 'close'}
-						size={24}
-						color={colors.icon}
-					/>
-				</TouchableOpacity>
+				{selectedUser ? (
+					<TouchableOpacity onPress={handleClearSelection} style={styles.clearButton}>
+						<ThemedText style={styles.clearButtonText}>Cambiar</ThemedText>
+					</TouchableOpacity>
+				) : (
+					<View style={styles.iconButton} />
+				)}
 				<ThemedText style={styles.headerTitle}>
 					{selectedUser
 						? `${selectedUser.nombre} ${selectedUser.apellido}`
@@ -166,6 +157,15 @@ const styles = StyleSheet.create({
 	},
 	iconButton: {
 		padding: 8,
+	},
+	clearButton: {
+		paddingHorizontal: 8,
+		paddingVertical: 6,
+	},
+	clearButtonText: {
+		fontSize: 14,
+		fontWeight: '600',
+		color: colors.lightTint,
 	},
 	searchSection: {
 		flex: 1,

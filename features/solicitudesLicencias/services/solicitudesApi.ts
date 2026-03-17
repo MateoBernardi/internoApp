@@ -24,15 +24,34 @@ export const getSaldosLicencia = async (accessToken: string): Promise<solicitudL
     }
 
     const raw = await response.json();
-    const data: solicitudLicencia.SaldoLicencia[] = raw.map((item: solicitudLicencia.SaldoLicencia) => ({
-        id: item.id,
-        usuario_id: item.usuario_id,
-        tipo_licencia_id: item.tipo_licencia_id,
-        anio: item.anio,
-        dias_otorgados: item.dias_otorgados,
-        dias_consumidos: item.dias_consumidos,
-        tipo_nombre: item.tipo_nombre,
-    }));
+    const rawList = Array.isArray(raw)
+        ? raw
+        : Array.isArray(raw?.data)
+            ? raw.data
+            : raw
+                ? [raw]
+                : [];
+
+    const data: solicitudLicencia.SaldoLicencia[] = rawList.map((item: any) => {
+        const diasOtorgados = Number(item?.dias_otorgados ?? 0);
+        const diasConsumidos = Number(item?.dias_consumidos ?? 0);
+        const diasDisponibles = item?.dias_disponibles !== undefined && item?.dias_disponibles !== null
+            ? Number(item.dias_disponibles)
+            : diasOtorgados - diasConsumidos;
+
+        return {
+            id: Number(item?.id),
+            usuario_id: item?.usuario_id !== undefined && item?.usuario_id !== null ? Number(item.usuario_id) : undefined,
+            tipo_licencia_id: item?.tipo_licencia_id !== undefined && item?.tipo_licencia_id !== null ? Number(item.tipo_licencia_id) : undefined,
+            anio: Number(item?.anio ?? new Date().getFullYear()),
+            dias_otorgados: diasOtorgados,
+            dias_consumidos: diasConsumidos,
+            dias_disponibles: Number.isNaN(diasDisponibles) ? undefined : diasDisponibles,
+            residuo: item?.residuo !== undefined && item?.residuo !== null ? Number(item.residuo) : undefined,
+            tipo_nombre: item?.tipo_nombre,
+        };
+    }).filter((item: solicitudLicencia.SaldoLicencia) => Number.isFinite(item.id));
+
     return data;
 };
 

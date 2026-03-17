@@ -85,12 +85,6 @@ export function DetalleEmpleado() {
 				<View style={styles.emptyContainer}>
 					<Ionicons name="people-outline" size={64} color={colors.icon} />
 					<ThemedText style={styles.emptyText}>No hay usuarios seleccionados</ThemedText>
-					<TouchableOpacity 
-						style={[styles.backButton, { backgroundColor: colors.tint }]} 
-						onPress={() => router.back()}
-					>
-						<ThemedText style={styles.backButtonText}>Volver</ThemedText>
-					</TouchableOpacity>
 				</View>
 			</View>
 		);

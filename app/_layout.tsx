@@ -1,13 +1,16 @@
 import { DesktopGate } from '@/components/DesktopFallback';
 import { Colors } from '@/constants/theme';
-import { QueryProvider } from '@/context/QueryProvider';
+import { getQueryClient, QueryProvider } from '@/context/QueryProvider';
 import { AuthProvider, useAuth } from '@/features/auth/context/AuthContext';
 import { useRegisterDevice } from '@/features/devices/hooks/useRegisterDevice';
+import { prefetchCoreRealtimeData } from '@/features/realtime/prefetchOrchestrator';
+import { usePushCacheSync } from '@/features/realtime/usePushCacheSync';
 import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 import { Redirect, Stack, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
 import 'react-native-reanimated';
 
@@ -17,11 +20,36 @@ export const unstable_settings = {
 
 const colors = Colors['light']; // Usar siempre el tema claro
 
+function isPushCacheSyncEnabled(): boolean {
+  const rawValue = Constants.expoConfig?.extra?.ENABLE_PUSH_CACHE_SYNC;
+  if (typeof rawValue !== 'string') {
+    return true;
+  }
+
+  const normalized = rawValue.trim().toLowerCase();
+  return normalized !== 'false' && normalized !== '0' && normalized !== 'off';
+}
+
 function RootNavigator() {
-  const { isAuthenticated, isLoading, requiresAssociation } = useAuth();
+  const { isAuthenticated, isLoading, requiresAssociation, tokens, user } = useAuth();
   const segments = useSegments();
   // Obtiene el push token y lo registra automáticamente cuando esté autenticado
   useRegisterDevice();
+  const pushCacheSyncEnabled = isPushCacheSyncEnabled();
+  usePushCacheSync(pushCacheSyncEnabled && isAuthenticated && !requiresAssociation);
+
+  useEffect(() => {
+    if (!isAuthenticated || requiresAssociation || !tokens?.accessToken) {
+      return;
+    }
+
+    prefetchCoreRealtimeData(getQueryClient(), {
+      accessToken: tokens.accessToken,
+      roleName: user?.rol_nombre,
+      userContextId: user?.user_context_id,
+      reason: 'post-auth',
+    });
+  }, [isAuthenticated, requiresAssociation, tokens?.accessToken, user?.rol_nombre, user?.user_context_id]);
 
   // Limpiar notificaciones y badge al entrar a la app autenticado (solo native)
   useEffect(() => {
@@ -73,27 +101,6 @@ function RootNavigator() {
 }
 
 export default function RootLayout() {
-  const [notification, setNotification] = useState<Notifications.Notification | undefined>(
-    undefined
-  );
-
-  useEffect(() => {
-    if (Platform.OS === 'web') return;
-
-    // Configurar el manejador de notificaciones (solo native)
-    const notificationListener = Notifications.addNotificationReceivedListener((notification) => {
-      setNotification(notification);
-    });
-
-    const responseListener = Notifications.addNotificationResponseReceivedListener((response) => {
-    });
-
-    return () => {
-      notificationListener.remove();
-      responseListener.remove();
-    };
-  }, []);
-
   // Permitir que AuthProvider y el hook useRegisterDevice se encarguen de registrar el dispositivo
   // cuando el usuario esté autenticado
   return (

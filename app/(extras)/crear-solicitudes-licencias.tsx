@@ -13,6 +13,5 @@ export default function CrearSolicitudesLicenciasScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: '10%',
   },
 });

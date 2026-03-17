@@ -13,6 +13,5 @@ export default function MisSolicitudesLicenciasScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: '10%',
   },
 });

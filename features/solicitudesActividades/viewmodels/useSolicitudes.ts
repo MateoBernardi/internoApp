@@ -13,10 +13,11 @@ const solicitudesQueryKeys = {
 /**
  * Hook para obtener las solicitudes creadas por el usuario
  */
-export function useSolicitudesCreadas() {
+export function useSolicitudesCreadas(enabled: boolean = true) {
     const { tokens } = useAuth();
     return useQuery({
         queryKey: solicitudesQueryKeys.creadas(),
+    enabled,
         queryFn: async () => {
             const token = tokens?.accessToken;
             if (!token) {
@@ -34,11 +35,12 @@ export function useSolicitudesCreadas() {
 /**
  * Hook para obtener las invitaciones recibidas por el usuario
  */
-export function useInvitaciones() {
+export function useInvitaciones(enabled: boolean = true) {
     const { tokens } = useAuth();
 
     return useQuery({
         queryKey: solicitudesQueryKeys.invitaciones(),
+      enabled,
         queryFn: async () => {
             const accessToken = tokens?.accessToken;
             if (!accessToken) {

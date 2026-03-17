@@ -21,11 +21,13 @@ export interface TipoLicencia {
 // Saldo de Ausencia (SaldoAusenciaDTO según API)
 export interface SaldoLicencia {
   id: number;
-  usuario_id: number;
-  tipo_licencia_id: number;
+  usuario_id?: number;
+  tipo_licencia_id?: number;
   anio: number;
   dias_otorgados: number;
   dias_consumidos: number;
+  dias_disponibles?: number;      // Calculado por backend (opcional)
+  residuo?: number;               // Calculado por backend (opcional)
   tipo_nombre?: string;           // Nombre del tipo (joined)
 }
 

@@ -6,9 +6,8 @@ import {
     StyleSheet,
     Text,
     TouchableOpacity,
-    View
+    View,
 } from 'react-native';
-import { Encuesta } from '../models/Encuesta';
 import { useGetEncuestas } from '../viewmodels/useEncuestas';
 
 const colors = Colors['light'];
@@ -17,11 +16,8 @@ export function EncuestasPendientes() {
   const router = useRouter();
   const { data: encuestas, error } = useGetEncuestas();
 
-  const handleResponderEncuesta = (encuesta: Encuesta) => {
-    router.push({
-      pathname: '/(extras)/responder-encuesta',
-      params: { encuesta: JSON.stringify(encuesta) }
-    });
+  const handleVerPendientes = () => {
+    router.push('/(extras)/encuestas-pendientes');
   };
 
   if (error) {
@@ -33,53 +29,6 @@ export function EncuestasPendientes() {
     return null;
   }
 
-  const renderEncuestaItem = ({ item }: { item: Encuesta }) => {
-    const fechaFin = new Date(item.fecha_fin);
-    const fechaFinFormateada = fechaFin.toLocaleDateString('es-ES', {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric',
-    })
-
-    return (
-      <TouchableOpacity
-        style={styles.encuestaCard}
-        onPress={() => handleResponderEncuesta(item)}
-        activeOpacity={0.7}
-      >
-        <View style={styles.cardHeader}>
-          <View style={styles.alertBadge}>
-            <Text style={styles.alertText}>📋 Pendiente</Text>
-          </View>
-          {item.es_anonima && (
-            <View style={styles.anonimaBadge}>
-              <Text style={styles.anonimaText}>🔒 Anónima</Text>
-            </View>
-          )}
-        </View>
-
-        <Text style={styles.titulo}>{item.titulo}</Text>
-
-        {item.descripcion && (
-          <Text style={styles.descripcion} numberOfLines={3}>
-            {item.descripcion}
-          </Text>
-        )}
-
-        <View style={styles.cardFooter}>
-          <View style={styles.fechaContainer}>
-            <Text style={styles.fechaLabel}>Finaliza:</Text>
-            <Text style={styles.fechaValue}>{fechaFinFormateada}</Text>
-          </View>
-        </View>
-
-        <View style={styles.buttonContainer}>
-          <Text style={styles.buttonText}>Responder ahora</Text>
-        </View>
-      </TouchableOpacity>
-    );
-  };
-
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -88,14 +37,10 @@ export function EncuestasPendientes() {
           Tienes {encuestas.length} encuesta{encuestas.length !== 1 ? 's' : ''}{' '}
           pendiente{encuestas.length !== 1 ? 's' : ''}
         </Text>
-      </View>
 
-      <View style={styles.listContent}>
-        {encuestas.map((item) => (
-          <React.Fragment key={item.id.toString()}>
-            {renderEncuestaItem({ item })}
-          </React.Fragment>
-        ))}
+        <TouchableOpacity style={styles.viewButton} onPress={handleVerPendientes} activeOpacity={0.8}>
+          <Text style={styles.viewButtonText}>Ver</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -127,101 +72,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.secondaryText,
   },
-  listContent: {
-    padding: 15,
-  },
-  encuestaCard: {
-    backgroundColor: colors.componentBackground,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  alertBadge: {
-    backgroundColor: colors.componentBackground,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 6,
-  },
-  alertText: {
-    fontSize: 12,
-    color: colors.text,
-    fontWeight: '600',
-  },
-  anonimaBadge: {
-    backgroundColor: colors.componentBackground,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 6,
-  },
-  anonimaText: {
-    fontSize: 12,
-    color: colors.text,
-    fontWeight: '600',
-  },
-  titulo: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: 8,
-  },
-  descripcion: {
-    fontSize: 14,
-    color: colors.secondaryText,
-    lineHeight: 20,
-    marginBottom: 15,
-  },
-  cardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 15,
-    paddingTop: 15,
-    borderTopWidth: 1,
-    borderTopColor: colors.background,
-  },
-  categoriaContainer: {
-    flex: 1,
-  },
-  categoriaLabel: {
-    fontSize: 12,
-    color: colors.secondaryText,
-    marginBottom: 3,
-  },
-  categoriaValue: {
-    fontSize: 14,
-    color: colors.text,
-    fontWeight: '600',
-  },
-  fechaContainer: {
-    flex: 1,
-    alignItems: 'flex-end',
-  },
-  fechaLabel: {
-    fontSize: 12,
-    color: colors.secondaryText,
-    marginBottom: 3,
-  },
-  fechaValue: {
-    fontSize: 14,
-    color: colors.error,
-    fontWeight: '600',
-  },
-  buttonContainer: {
+  viewButton: {
     backgroundColor: colors.lightTint,
+    marginTop: 14,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 18,
     paddingVertical: 12,
     borderRadius: 8,
     alignItems: 'center',
   },
-  buttonText: {
+  viewButtonText: {
     color: colors.componentBackground,
     fontSize: 16,
     fontWeight: '600',

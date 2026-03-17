@@ -13,6 +13,5 @@ export default function AgendaPersonalScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: '10%',
   },
 });

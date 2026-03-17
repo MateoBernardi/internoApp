@@ -1,7 +1,6 @@
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
-import { Ionicons } from '@expo/vector-icons';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
 import React, { useState } from 'react';
 import {
     ActivityIndicator,
@@ -128,9 +127,7 @@ export const CrearEncuesta: React.FC<CrearEncuestaProps> = ({ onEncuestaCreada, 
     >
       {/* Header con botón de volver */}
       <View style={styles.headerContainer}>
-        <TouchableOpacity onPress={onVolver} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={colors.text} />
-        </TouchableOpacity>
+        <View style={styles.backButton} />
         <ThemedText type="title" style={styles.headerTitle}>Crear Encuesta</ThemedText>
         <View style={{ width: 40 }} />
       </View>

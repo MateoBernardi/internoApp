@@ -5,7 +5,7 @@ import { useAuth } from '@/features/auth/context/AuthContext';
 import { UserSummary } from '@/shared/users/User';
 import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
 import { Ionicons } from '@expo/vector-icons';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -504,9 +504,7 @@ export function Solicitud() {
     <View style={styles.container}>
       {/* Header sin paddingTop extra */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.iconButton}>
-          <Ionicons name="arrow-back" size={24} color={colors.icon} />
-        </TouchableOpacity>
+        <View style={styles.iconButton} />
         <ThemedText style={styles.headerTitle}>
             {type === 'enviada' ? 'Enviada' : 'Recibida'}
         </ThemedText>

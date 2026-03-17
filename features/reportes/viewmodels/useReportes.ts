@@ -18,21 +18,37 @@ const REPORTES_STATS_QUERY_KEY = ['reportes', 'stats'];
 const TOP_EMPLOYEE_QUERY_KEY = ['reportes', 'top-employee'];
 const UPGRADED_EMPLOYEE_QUERY_KEY = ['reportes', 'upgraded-employee'];
 
+function normalizeUsuarioId(usuarioId?: string): string | undefined {
+    if (typeof usuarioId !== 'string') {
+        return undefined;
+    }
+
+    const trimmed = usuarioId.trim();
+    if (!trimmed || trimmed === 'undefined' || trimmed === 'null' || trimmed === 'NaN') {
+        return undefined;
+    }
+
+    return trimmed;
+}
+
 /**
  * Hook para obtener todos los reportes de un usuario en una fecha específica
  */
-export function useReportes(usuarioId?: string) {
+export function useReportes(usuarioId?: string, enabled: boolean = true) {
     const { tokens } = useAuth();
+    const normalizedUsuarioId = normalizeUsuarioId(usuarioId);
+    const shouldRunQuery = enabled && (usuarioId === undefined || normalizedUsuarioId !== undefined);
     
     return useQuery({
-        queryKey: [...REPORTES_QUERY_KEY, usuarioId],
+        queryKey: [...REPORTES_QUERY_KEY, normalizedUsuarioId ?? 'all'],
+        enabled: shouldRunQuery,
         queryFn: async () => {
             const token = tokens?.accessToken;
             if (!token) {
                 console.error('[useReportes] No hay token de acceso');
                 throw new Error('No hay token de acceso');
             }
-            const result = await fetchReportes(token, usuarioId);
+            const result = await fetchReportes(token, normalizedUsuarioId);
             return result;
         },
         staleTime: 1000 * 60 * 5, // 5 minutos

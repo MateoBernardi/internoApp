@@ -82,15 +82,21 @@ export default function Root({ children }: PropsWithChildren) {
 }
 
 const responsiveBackground = `
+html,
 body {
-  background-color: #eeeeee;
+  margin: 0;
+  min-height: 100%;
+  background-color: #ffffff;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+body {
+  min-height: 100vh;
 }
 #root {
   display: flex;
   flex: 1;
-  height: 100%;
+  min-height: 100vh;
 }
 `;
 

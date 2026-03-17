@@ -8,9 +8,8 @@ import SolicitudesView from '@/features/solicitudesActividades/views/Solicitudes
 import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { useQueryClient } from '@tanstack/react-query';
 import React, { useCallback, useState } from 'react';
-import { Dimensions, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
-const SCREEN_HEIGHT = Dimensions.get('window').height;
 const colors = Colors['light'];
 
 export default function HomeScreen() {
@@ -29,24 +28,10 @@ export default function HomeScreen() {
 
   return (
     <ThemedView style={styles.container} lightColor={colors.componentBackground}>
-      {/* Sección superior scrollable: novedades y encuestas */}
+      {/* Sección superior: novedades y encuestas */}
       <View style={styles.topSection}>
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          nestedScrollEnabled
-          alwaysBounceVertical={true}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              colors={[colors.lightTint]}
-              tintColor={colors.lightTint}
-            />
-          }
-        >
-          <TablonNovedades refreshTrigger={refreshTrigger} />
-          <EncuestasPendientes />
-        </ScrollView>
+        <TablonNovedades refreshTrigger={refreshTrigger} />
+        <EncuestasPendientes />
       </View>
 
       {/* Sección principal: solicitudes o kanban (fuera del ScrollView para que el FAB flote) */}
@@ -67,7 +52,7 @@ const styles = StyleSheet.create({
     paddingTop: '10%',
   },
   topSection: {
-    maxHeight: SCREEN_HEIGHT * 0.35,
+    paddingBottom: 8,
   },
   mainSection: {
     flex: 1,

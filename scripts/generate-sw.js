@@ -57,6 +57,15 @@ var messaging = firebase.messaging();
 messaging.onBackgroundMessage(function(payload) {
   console.log('[SW] Background message received:', payload);
 
+  clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
+    clientList.forEach(function(client) {
+      client.postMessage({
+        type: 'PUSH_NOTIFICATION',
+        payload: payload,
+      });
+    });
+  });
+
   var title = (payload.notification && payload.notification.title) || 'Nueva notificación';
   var options = {
     body: (payload.notification && payload.notification.body) || '',

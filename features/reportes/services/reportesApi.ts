@@ -19,8 +19,19 @@ export async function createReporte (accessToken: string, payload: reporte.Creat
 
 export async function fetchReportes (accessToken: string, usuarioId?: string): Promise<reporte.Reporte[]> {    
     try {
-        // Si hay usuarioId, agregarlo como parámetro de query
-        const endpoint = usuarioId ? `/reportes?usuarioId=${usuarioId}` : '/reportes';        
+        const normalizedUsuarioId =
+            typeof usuarioId === 'string' &&
+            usuarioId.trim() !== '' &&
+            usuarioId !== 'undefined' &&
+            usuarioId !== 'null' &&
+            usuarioId !== 'NaN'
+                ? usuarioId.trim()
+                : undefined;
+
+        // Compatibilidad: algunos backends esperan `usuarioId` y otros `user_context_id`.
+        const endpoint = normalizedUsuarioId
+            ? `/reportes?usuarioId=${encodeURIComponent(normalizedUsuarioId)}&user_context_id=${encodeURIComponent(normalizedUsuarioId)}`
+            : '/reportes';        
         const response = await apiRequest({ method: 'GET', endpoint: endpoint, token: accessToken});
         
         if (!response.ok) {

@@ -2,10 +2,24 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
+import { useReportes } from '@/features/reportes/viewmodels/useReportes';
+import {
+  useInvitaciones,
+  useSolicitudesCreadas,
+} from '@/features/solicitudesActividades/viewmodels/useSolicitudes';
+import {
+  useGetSolicitudesLicencias,
+  useGetSolicitudesUsuario,
+} from '@/features/solicitudesLicencias/viewmodels/useSolicitudes';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { Href, Redirect, Tabs, useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { LayoutChangeEvent, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+const TAB_BAR_BASE_HEIGHT = 56;
+const MENU_MAX_WIDTH = 280;
+const MENU_SIDE_PADDING = 8;
 
 interface MenuOption {
   id: string;
@@ -13,12 +27,16 @@ interface MenuOption {
   route?: Href;
   onPress?: () => void;
   textColor?: string;
+  hasBadge?: boolean;
+  showChevron?: boolean;
 }
 
 export default function TabLayout() {
   const { user, signOut, isLoggingOut } = useAuth();
   const { hasRole, isKnownRole } = useRoleCheck();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const tabBarHeight = TAB_BAR_BASE_HEIGHT + insets.bottom;
 
   // Redirect unknown roles to login
   if (user?.rol_nombre && !isKnownRole()) {
@@ -30,19 +48,77 @@ export default function TabLayout() {
   const isEncargado = hasRole('encargado');
   const hideExplore = isEmployee || isEncargado;
   const hideAdmin = isEmployee;
+  const hasSolicitudesTab = !hideExplore;
+  const hasAdminTab = !hideAdmin;
+  const canSeeActivityRequests = isEmployee || isEncargado;
+  const canSeeLicenciasAdmin = hasAdminTab;
+  const canSeeReportesAdmin = hasAdminTab;
+  const canSeeLicenciasPersonal = !hasAdminTab;
+  const canSeeReportesPersonal = !hasAdminTab;
+  const userContextId = user?.user_context_id?.toString();
   const colors = Colors['light'];
   const [activeMenu, setActiveMenu] = useState<'personal' | 'admin' | null>(null);
+  const [containerWidth, setContainerWidth] = useState(0);
+
+  const { data: invitaciones = [] } = useInvitaciones(canSeeActivityRequests);
+  const { data: solicitudesEnviadas = [] } = useSolicitudesCreadas(canSeeActivityRequests);
+  const { data: solicitudesLicenciasAdmin = [] } = useGetSolicitudesLicencias(
+    canSeeLicenciasAdmin ? {} : undefined
+  );
+  const { data: solicitudesLicenciasPersonal = [] } = useGetSolicitudesUsuario(
+    canSeeLicenciasPersonal
+  );
+  const { data: reportesAdmin = [] } = useReportes(
+    userContextId,
+    canSeeReportesAdmin && !!user?.user_context_id
+  );
+  const { data: reportesPersonal = [] } = useReportes(
+    userContextId,
+    canSeeReportesPersonal && !!user?.user_context_id
+  );
+
+  const hasSolicitudesActividadesPendientesRecibidas = invitaciones.some((item) =>
+    ['SENT', 'MODIFIED_BY_HOST', 'ACCEPTED_BY_HOST'].includes(item.estado)
+  );
+
+  const hasSolicitudesActividadesPendientesEnviadas = solicitudesEnviadas.some(
+    (item) => item.estado === 'MODIFIED'
+  );
+
+  const hasSolicitudesActividadesPendientes =
+    hasSolicitudesActividadesPendientesRecibidas ||
+    hasSolicitudesActividadesPendientesEnviadas;
+
+  const hasSolicitudesLicenciasPendientesAdmin = solicitudesLicenciasAdmin.some((item) =>
+    ['PENDIENTE', 'PENDIENTE_DOCUMENTACION', 'PENDIENTE_APROBACION'].includes(item.estado)
+  );
+
+  const hasSolicitudesLicenciasPendientesPersonal = solicitudesLicenciasPersonal.some((item) =>
+    ['PENDIENTE', 'PENDIENTE_DOCUMENTACION', 'PENDIENTE_APROBACION'].includes(item.estado)
+  );
+
+  const hasReportesPendientesAdmin = reportesAdmin.some((item) => item.estado === 'PENDIENTE');
+  const hasReportesPendientesPersonal = reportesPersonal.some((item) => item.estado === 'PENDIENTE');
+
+  const hasSolicitudesBadgeInTab = hasSolicitudesTab && hasSolicitudesActividadesPendientes;
+  const hasSolicitudesBadgeInHome = !hasSolicitudesTab && hasSolicitudesActividadesPendientes;
+
+  const hasAdminBadge =
+    hasAdminTab &&
+    (hasSolicitudesLicenciasPendientesAdmin || hasReportesPendientesAdmin);
 
   const administrationMenuOptions: MenuOption[] = [
     {
       id: 'reportes',
       label: 'Reportes',
       route: isEncargado ? '/(extras)/reportes-encargado' as Href : '/(extras)/reportes' as Href,
+      hasBadge: hasReportesPendientesAdmin,
     },
     {
       id: 'solicitudes-licencias',
       label: 'Solicitudes de Licencias',
       route: '/(extras)/solicitudes-licencias' as Href,
+      hasBadge: hasSolicitudesLicenciasPendientesAdmin,
     },
     ...(!isEncargado ? [{
       id: 'encuestas',
@@ -68,11 +144,13 @@ export default function TabLayout() {
       id: 'mis-solicitudes',
       label: 'Mis Licencias',
       route: '/(extras)/mis-solicitudes-licencias' as Href,
+      hasBadge: hasSolicitudesLicenciasPendientesPersonal,
     },
     ...(!hideMisReportes ? [{
       id: 'mis-reportes',
       label: 'Mis Reportes',
       route: '/(extras)/mis-reportes' as Href,
+      hasBadge: hasReportesPendientesPersonal,
     }] : []),
     {
       id: 'configuracion-cuenta',
@@ -84,8 +162,11 @@ export default function TabLayout() {
       label: 'Cerrar Sesión',
       onPress: signOut,
       textColor: '#FF3B30',
+      showChevron: false,
     }
   ];
+
+  const hasPersonalBadge = personalMenuOptions.some((option) => !!option.hasBadge);
 
   const handlePress = (menuType: 'personal' | 'admin') => {
     if (activeMenu === menuType) {
@@ -110,9 +191,34 @@ export default function TabLayout() {
     const options = activeMenu === 'personal' ? personalMenuOptions : administrationMenuOptions;
     const title = activeMenu === 'personal' ? 'Mi Área Personal' : 'Administración';
 
+    const visibleTabs = [
+      'index',
+      !hideExplore ? 'explore' : null,
+      'documentos',
+      !hideAdmin ? 'administracionMenu' : null,
+      'areaPersonalMenu',
+    ].filter(Boolean) as string[];
+
+    const targetTab = activeMenu === 'personal' ? 'areaPersonalMenu' : 'administracionMenu';
+    const tabIndex = Math.max(visibleTabs.indexOf(targetTab), 0);
+    const currentWidth = Math.max(containerWidth, 320);
+    const tabWidth = currentWidth / Math.max(visibleTabs.length, 1);
+    const tabCenterX = tabWidth * tabIndex + tabWidth / 2;
+
+    const menuWidth = Math.min(MENU_MAX_WIDTH, currentWidth - MENU_SIDE_PADDING * 2);
+    const minLeft = MENU_SIDE_PADDING;
+    const maxLeft = Math.max(currentWidth - menuWidth - MENU_SIDE_PADDING, MENU_SIDE_PADDING);
+    const rawLeft = tabCenterX - menuWidth / 2;
+    const menuLeft = Math.min(Math.max(rawLeft, minLeft), maxLeft);
+
+    const rawArrowLeft = tabCenterX - menuLeft - 6;
+    const arrowLeft = Math.min(Math.max(rawArrowLeft, 14), Math.max(menuWidth - 26, 14));
+
     return (
-      <Pressable style={styles.overlay} onPress={() => setActiveMenu(null)}>
-        <View style={styles.menuContainer}>
+      <View style={styles.menuLayer} pointerEvents="box-none">
+        <Pressable style={styles.dismissArea} onPress={() => setActiveMenu(null)} />
+        <View style={[styles.menuContainer, { bottom: tabBarHeight + 10, left: menuLeft, width: menuWidth }]}> 
+          <View style={[styles.menuArrow, { left: arrowLeft }]} />
           <View style={styles.menuHeader}>
             <Text style={styles.menuTitle}>{title}</Text>
           </View>
@@ -122,19 +228,27 @@ export default function TabLayout() {
               style={styles.menuItem} 
               onPress={() => handleMenuOptionPress(opt)}
             >
-              <Text style={[styles.menuItemText, opt.textColor && { color: opt.textColor }]}>
-                {opt.label}
-              </Text>
-              <IconSymbol name="chevron.right" size={16} color={colors.tint} />
+              <View style={styles.menuItemLabelRow}>
+                <Text style={[styles.menuItemText, opt.textColor && { color: opt.textColor }]}>
+                  {opt.label}
+                </Text>
+                {opt.hasBadge && <View style={styles.menuPendingDot} />}
+              </View>
+              {opt.showChevron !== false && (
+                <IconSymbol name="chevron.right" size={16} color={colors.tint} />
+              )}
             </TouchableOpacity>
           ))}
         </View>
-      </Pressable>
+      </View>
     );
   };
 
   return (
-    <View style={{ flex: 1 }}>
+    <View
+      style={{ flex: 1 }}
+      onLayout={(event: LayoutChangeEvent) => setContainerWidth(event.nativeEvent.layout.width)}
+    >
       {/* Modal de espera para cierre de sesión */}
       <OperacionPendienteModal visible={isLoggingOut} message="Cerrando sesión..." />
 
@@ -146,13 +260,25 @@ export default function TabLayout() {
         screenOptions={{
           tabBarActiveTintColor: colors.tint,
           headerShown: false,
-          tabBarStyle: { position: 'relative' } // Asegura que los tabs estén al frente
+          tabBarStyle: {
+            position: 'relative',
+            height: tabBarHeight,
+            paddingBottom: insets.bottom,
+          }, // Asegura que los tabs estén al frente
         }}>
         
         <Tabs.Screen 
           name="index" 
           listeners={{ tabPress: () => setActiveMenu(null) }}
-          options={{ title: 'Inicio', tabBarIcon: ({ color }) => <IconSymbol size={24} name="house.fill" color={color} /> }} 
+          options={{
+            title: 'Inicio',
+            tabBarIcon: ({ color }) => (
+              <View style={styles.tabIconContainer}>
+                <IconSymbol size={24} name="house.fill" color={color} />
+                {hasSolicitudesBadgeInHome && <View style={styles.tabPendingDot} />}
+              </View>
+            ),
+          }} 
         />
 
         <Tabs.Screen 
@@ -161,7 +287,12 @@ export default function TabLayout() {
           options={{ 
             href: hideExplore ? null : undefined,
             title: 'Solicitudes', 
-            tabBarIcon: ({ color }) => <IconSymbol size={24} name="paperplane.fill" color={color} /> 
+            tabBarIcon: ({ color }) => (
+              <View style={styles.tabIconContainer}>
+                <IconSymbol size={24} name="paperplane.fill" color={color} />
+                {hasSolicitudesBadgeInTab && <View style={styles.tabPendingDot} />}
+              </View>
+            ),
           }} 
         />
 
@@ -178,11 +309,14 @@ export default function TabLayout() {
             href: hideAdmin ? null : undefined,
             title: 'Admin',
             tabBarIcon: ({ color }) => (
-              <IconSymbol 
-                size={24} 
-                name={activeMenu === 'admin' ? 'xmark' : 'chart.bar.fill'} 
-                color={activeMenu === 'admin' ? colors.tint : color} 
-              />
+              <View style={styles.tabIconContainer}>
+                <IconSymbol 
+                  size={24} 
+                  name={activeMenu === 'admin' ? 'xmark' : 'chart.bar.fill'} 
+                  color={activeMenu === 'admin' ? colors.tint : color} 
+                />
+                {hasAdminBadge && <View style={styles.tabPendingDot} />}
+              </View>
             ),
           }}
         />
@@ -193,11 +327,14 @@ export default function TabLayout() {
           options={{
             title: user?.nombre || 'Usuario',
             tabBarIcon: ({ color }) => (
-              <IconSymbol 
-                size={24} 
-                name={activeMenu === 'personal' ? 'xmark' : 'user.fill'} 
-                color={activeMenu === 'personal' ? colors.tint : color} 
-              />
+              <View style={styles.tabIconContainer}>
+                <IconSymbol 
+                  size={24} 
+                  name={activeMenu === 'personal' ? 'xmark' : 'user.fill'} 
+                  color={activeMenu === 'personal' ? colors.tint : color} 
+                />
+                {hasPersonalBadge && <View style={styles.tabPendingDot} />}
+              </View>
             ),
           }}
         />
@@ -207,50 +344,84 @@ export default function TabLayout() {
 }
 
 const styles = StyleSheet.create({
-  overlay: {
+  menuLayer: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    bottom: 100, // Deja espacio para la tab bar
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    bottom: 0,
     zIndex: 10,
-    justifyContent: 'flex-end',
+  },
+  dismissArea: {
+    ...StyleSheet.absoluteFillObject,
   },
   menuContainer: {
+    position: 'absolute',
     backgroundColor: Colors.light.componentBackground,
-    width: '100%',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingBottom: 20,
-    paddingTop: '5%',
+    borderRadius: 16,
+    paddingBottom: 8,
+    paddingTop: 8,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-    elevation: 10,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 12,
+  },
+  menuArrow: {
+    position: 'absolute',
+    bottom: -6,
+    width: 12,
+    height: 12,
+    backgroundColor: Colors.light.componentBackground,
+    transform: [{ rotate: '45deg' }],
   },
   menuHeader: {
-    paddingHorizontal: '5%',
-    paddingBottom: 15,
+    paddingHorizontal: 14,
+    paddingBottom: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: Colors.light.background,
-    marginBottom: 10,
+    marginBottom: 4,
   },
   menuTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 15,
+    fontWeight: '700',
     color: Colors.light.text,
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: '4%',
-    paddingHorizontal: '6%',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
   },
   menuItemText: {
     fontSize: 16,
     color: Colors.light.text,
+  },
+  menuItemLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  menuPendingDot: {
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+    backgroundColor: '#FF3B30',
+    marginLeft: 8,
+  },
+  tabIconContainer: {
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tabPendingDot: {
+    position: 'absolute',
+    top: -2,
+    right: -6,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#FF3B30',
   },
 });

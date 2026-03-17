@@ -284,9 +284,7 @@ export function SolicitudLicencia() {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.iconButton}>
-          <Ionicons name="arrow-back" size={24} color={colors.secondaryText} />
-        </TouchableOpacity>
+        <View style={styles.iconButton} />
         <ThemedText style={styles.headerTitle}>
           {type === 'enviada' ? 'Enviada' : 'Recibida'}
         </ThemedText>

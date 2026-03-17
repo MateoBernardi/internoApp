@@ -1,11 +1,6 @@
 import type { Novedad } from '@/features/novedades/models/Novedades';
 import React from 'react';
-import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-
-const { width } = Dimensions.get('window');
-const REFERENCE_WIDTH = 375;
-const SCALE_FACTOR = width / REFERENCE_WIDTH;
-const scale = (size: number) => Math.round(size * SCALE_FACTOR);
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface NovedadCardProps {
   novedad: Novedad & { categoria: string; fecha: string };
@@ -67,75 +62,75 @@ export function NovedadCard({ novedad, onPress }: NovedadCardProps) {
 
 const styles = StyleSheet.create({
   container: {
-    width: scale(110),
-    marginHorizontal: scale(4),
+    width: 110,
+    marginHorizontal: 4,
   },
   card: {
-    height: scale(110),
-    borderRadius: scale(14),
+    height: 110,
+    borderRadius: 14,
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: scale(2) },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
-    shadowRadius: scale(6),
+    shadowRadius: 6,
     elevation: 3,
   },
   topBar: {
-    height: scale(4),
+    height: 4,
     width: '100%',
   },
   cardContent: {
     flex: 1,
-    paddingHorizontal: scale(10),
-    paddingTop: scale(8),
-    paddingBottom: scale(8),
+    paddingHorizontal: 10,
+    paddingTop: 8,
+    paddingBottom: 8,
     justifyContent: 'space-between',
   },
   chipRow: {
     flexDirection: 'row',
   },
   categoryChip: {
-    paddingHorizontal: scale(6),
-    paddingVertical: scale(2),
-    borderRadius: scale(6),
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
     maxWidth: '100%',
   },
   categoryText: {
-    fontSize: scale(9),
+    fontSize: 9,
     fontWeight: '700',
     letterSpacing: 0.3,
     textTransform: 'uppercase',
   },
   titulo: {
-    fontSize: scale(12),
+    fontSize: 12,
     fontWeight: '700',
     color: '#1f2937',
-    lineHeight: scale(16),
-    marginTop: scale(4),
+    lineHeight: 16,
+    marginTop: 4,
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: scale(4),
+    marginTop: 4,
   },
   fecha: {
-    fontSize: scale(9),
+    fontSize: 9,
     color: '#9ca3af',
     flex: 1,
   },
   prioridadRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: scale(3),
+    gap: 3,
   },
   dot: {
-    width: scale(6),
-    height: scale(6),
-    borderRadius: scale(3),
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
   prioridadText: {
-    fontSize: scale(9),
+    fontSize: 9,
     fontWeight: '700',
   },
 });

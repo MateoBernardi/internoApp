@@ -3,7 +3,7 @@ import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
@@ -175,12 +175,6 @@ export function ActividadDetalle() {
         <ThemedText style={{ color: colors.secondaryText }}>
           Actividad no encontrada
         </ThemedText>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={{ marginTop: 16, padding: 12 }}
-        >
-          <ThemedText style={{ color: colors.lightTint }}>Volver</ThemedText>
-        </TouchableOpacity>
       </View>
     );
   }
@@ -201,9 +195,7 @@ export function ActividadDetalle() {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.iconButton}>
-          <Ionicons name="arrow-back" size={24} color={colors.icon} />
-        </TouchableOpacity>
+        <View style={styles.iconButton} />
         <ThemedText style={styles.headerTitle}>Detalle de Actividad</ThemedText>
         <View style={{ width: 40 }} />
       </View>

@@ -1,29 +1,47 @@
-import { Stack } from 'expo-router';
+import { Colors } from '@/constants/theme';
+import { Ionicons } from '@expo/vector-icons';
+import { Stack, useRouter } from 'expo-router';
+import { Pressable } from 'react-native';
 
 export default function ExtrasLayout() {
+  const router = useRouter();
+
   return (
     <Stack
       screenOptions={{
-        headerShown: false,
+        headerShown: true,
+        headerBackTitleVisible: false,
+        headerTitle: '',
+        headerShadowVisible: false,
+        headerLeftContainerStyle: {
+          paddingLeft: 0,
+          marginLeft: 0,
+        },
+        headerLeft: () => (
+          <Pressable onPress={() => router.back()} hitSlop={6}>
+            <Ionicons name="arrow-back" size={22} color={Colors.light.lightTint} />
+          </Pressable>
+        ),
       }}
     >
-      <Stack.Screen name="actividad-detalle" options={{ headerShown: false }} />
-      <Stack.Screen name="agenda-personal" options={{ headerShown: false }} />
-      <Stack.Screen name="cambiar-rol" options={{ headerShown: false }} />
-      <Stack.Screen name="crear-reporte" options={{ headerShown: false }} />
-      <Stack.Screen name="crear-solicitud" options={{ headerShown: false }} />
-      <Stack.Screen name="crear-solicitudes-licencias" options={{ headerShown: false }} />
-      <Stack.Screen name="detalle-empleados" options={{ headerShown: false }} />
-      <Stack.Screen name="editar-usuario" options={{ headerShown: false }} />
-      <Stack.Screen name="encuestas" options={{ headerShown: false }} />
-      <Stack.Screen name="mis-reportes" options={{ headerShown: false }} />
-      <Stack.Screen name="mis-solicitudes-licencias" options={{ headerShown: false }} />
-      <Stack.Screen name="reportes" options={{ headerShown: false }} />
-      <Stack.Screen name="reportes-encargado" options={{ headerShown: false }} />
-      <Stack.Screen name="responder-encuesta" options={{ headerShown: false }} />
-      <Stack.Screen name="solicitud" options={{ headerShown: false }} />
-      <Stack.Screen name="solicitud-licencia" options={{ headerShown: false }} />
-      <Stack.Screen name="solicitudes-licencias" options={{ headerShown: false }} />
+      <Stack.Screen name="actividad-detalle" />
+      <Stack.Screen name="agenda-personal" />
+      <Stack.Screen name="cambiar-rol" />
+      <Stack.Screen name="crear-reporte" />
+      <Stack.Screen name="crear-solicitud" />
+      <Stack.Screen name="crear-solicitudes-licencias" />
+      <Stack.Screen name="detalle-empleados" />
+      <Stack.Screen name="editar-usuario" />
+      <Stack.Screen name="encuestas" />
+      <Stack.Screen name="encuestas-pendientes" />
+      <Stack.Screen name="mis-reportes" />
+      <Stack.Screen name="mis-solicitudes-licencias" />
+      <Stack.Screen name="reportes" />
+      <Stack.Screen name="reportes-encargado" />
+      <Stack.Screen name="responder-encuesta" />
+      <Stack.Screen name="solicitud" />
+      <Stack.Screen name="solicitud-licencia" />
+      <Stack.Screen name="solicitudes-licencias" />
     </Stack>
   );
 }

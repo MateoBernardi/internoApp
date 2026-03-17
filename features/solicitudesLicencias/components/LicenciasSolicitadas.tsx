@@ -28,6 +28,7 @@ const estadoMapping: Record<string, string> = {
   'APROBADA': 'Aprobada',
   'RECHAZADA': 'Rechazada',
   'CANCELADA': 'Cancelada',
+  'EXPIRADA': 'Expirada',
 };
 
 const colors = Colors['light'];
@@ -232,6 +233,7 @@ function LicenciaSolicitadaItem({ solicitud, estadoUI, onPress }: LicenciaSolici
     if (estado.includes('Aprobada')) return colors.success;
     if (estado.includes('Rechazada')) return colors.error;
     if (estado.includes('Pendiente')) return colors.warning;
+    if (estado.includes('Expirada')) return '#757575';
     return colors.icon;
   };
 
@@ -269,7 +271,7 @@ const styles = StyleSheet.create({
     elevation: 5,
     shadowOpacity: 0.1,
     zIndex: 10,
-    marginTop: -5,
+    marginTop: 8,
   },
   suggestionItem: {
     flexDirection: 'row',

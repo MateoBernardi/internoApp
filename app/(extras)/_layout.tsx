@@ -10,15 +10,10 @@ export default function ExtrasLayout() {
     <Stack
       screenOptions={{
         headerShown: true,
-        headerBackTitleVisible: false,
         headerTitle: '',
         headerShadowVisible: false,
-        headerLeftContainerStyle: {
-          paddingLeft: 0,
-          marginLeft: 0,
-        },
         headerLeft: () => (
-          <Pressable onPress={() => router.back()} hitSlop={6}>
+          <Pressable onPress={() => router.back()} hitSlop={6} style={{ paddingLeft: 0, marginLeft: 0 }}>
             <Ionicons name="arrow-back" size={22} color={Colors.light.lightTint} />
           </Pressable>
         ),

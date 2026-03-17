@@ -125,6 +125,8 @@ function SolicitudRecibidaItem({ solicitud, estadoUI, onPress }: SolicitudRecibi
         return '#9C27B0';
       case 'Actividad creada':
         return '#00897B';
+      case 'Expirada':
+        return '#757575';
       default:
         return colors.icon;
     }

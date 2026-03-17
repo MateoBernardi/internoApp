@@ -1,25 +1,25 @@
 import { ThemedText } from '@/components/themed-text';
+import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
 import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { UserSummary } from '@/shared/users/User';
 import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
 import { Ionicons } from '@expo/vector-icons';
-import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    TextInput,
-    TouchableOpacity,
-    TouchableWithoutFeedback,
-    View,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  View,
 } from 'react-native';
 import { RoleUserSelectionModal } from '../components/RoleUserSelectionModal';
 import { UserSelector } from '../components/UserSelector';
@@ -27,13 +27,13 @@ import { ValidacionFechasModal } from '../components/ValidacionFechasModal';
 import { EstadoInvitacionDB, estadoInvitacionMapping, ModificarSolicitudFechasRequest, ReenviarSolicitudRequest } from '../models/Solicitud';
 import { useCrearActividad } from '../viewmodels/useActividades';
 import {
-    useAceptarModificaciones,
-    useActualizarEstadoInvitacion,
-    useInvitaciones,
-    useModificarSolicitudFechas,
-    useReenviarSolicitud,
-    useSolicitudBitacora,
-    useSolicitudesCreadas
+  useAceptarModificaciones,
+  useActualizarEstadoInvitacion,
+  useInvitaciones,
+  useModificarSolicitudFechas,
+  useReenviarSolicitud,
+  useSolicitudBitacora,
+  useSolicitudesCreadas
 } from '../viewmodels/useSolicitudes';
 import { useValidacionFechas } from '../viewmodels/useValidacionFechas';
 
@@ -491,6 +491,7 @@ export function Solicitud() {
   const fechaInicio = solicitud?.fecha_inicio ? new Date(solicitud.fecha_inicio) : new Date();
   const fechaFin = solicitud?.fecha_fin ? new Date(solicitud.fecha_fin) : new Date();
   const fechaInicioPasada = hasDates ? fechaInicio < new Date() : false;
+  const isExpiredState = solicitud?.estado === 'EXPIRED';
   
   if (!solicitud && !enviadas && !recibidas) {
        return (
@@ -581,6 +582,16 @@ export function Solicitud() {
                  <ThemedText style={styles.messageText}>{solicitud?.descripcion}</ThemedText>
              </View>
 
+            {isExpiredState && (
+              <View style={styles.expiredBanner}>
+                <Ionicons name="alert-circle-outline" size={20} color="#5F6368" style={{ marginRight: 8 }} />
+                <View style={{ flex: 1 }}>
+                  <ThemedText style={styles.expiredBannerTitle}>Solicitud expirada</ThemedText>
+                  <ThemedText style={styles.expiredBannerText}>No se pueden realizar acciones sobre esta solicitud.</ThemedText>
+                </View>
+              </View>
+            )}
+
             {/* Separador Bitácora */}
             <View style={styles.sectionHeader}>
                 <ThemedText style={styles.sectionTitle}>Actividad</ThemedText>
@@ -642,8 +653,15 @@ export function Solicitud() {
             </View>
           )}
 
+          {isExpiredState && (
+            <View style={[styles.fab, styles.expiredFabIndicator]}>
+              <Ionicons name="time-outline" size={20} color={colors.background} />
+              <ThemedText style={styles.expiredFabText}>Expirada</ThemedText>
+            </View>
+          )}
+
           {/* Secondary Actions (Revealed via Menu) */}
-          {menuOpen && !esActividadCreada && (
+          {menuOpen && !esActividadCreada && !isExpiredState && (
               <>
                 {/* Opciones para Recibidas */}
                 {type === 'recibida' && solicitud?.estado !== 'ACCEPTED' && solicitud?.estado !== 'REJECTED' && !fechaInicioPasada && (
@@ -674,21 +692,21 @@ export function Solicitud() {
           )}
 
           {/* Agregar a la agenda (REUNION: solo creador/enviada; MANDATO: invitado/recibida aceptada) */}
-          {puedeAgregarAAgenda && (
+          {!isExpiredState && puedeAgregarAAgenda && (
             <TouchableOpacity style={[styles.fab, { backgroundColor: colors.success, marginRight: 16 }]} onPress={handleAgregarAAgenda}>
               <Ionicons name="calendar-outline" size={24} color={colors.background} />
             </TouchableOpacity>
           )}
 
           {/* Main Action: Accept (Recibida or Enviada[MODIFIED]) - only if date not passed */}
-          {!esActividadCreada && !fechaInicioPasada && ((type === 'recibida' && solicitud?.estado !== 'ACCEPTED') || (type === 'enviada' && solicitud?.estado === 'MODIFIED')) && (
+          {!esActividadCreada && !isExpiredState && !fechaInicioPasada && ((type === 'recibida' && solicitud?.estado !== 'ACCEPTED') || (type === 'enviada' && solicitud?.estado === 'MODIFIED')) && (
                <TouchableOpacity style={[styles.fab, { backgroundColor: colors.success, marginRight: 16 }]} onPress={handleAceptarPress}>
                    <Ionicons name="checkmark" size={24} color={colors.background} />
                </TouchableOpacity>
           )}
 
           {/* Menu Button */}
-          {!esActividadCreada && (
+          {!esActividadCreada && !isExpiredState && (
             <TouchableOpacity style={[styles.fab, { backgroundColor: colors.icon }]} onPress={() => setMenuOpen(!menuOpen)}>
                  <Ionicons name={menuOpen ? "close" : "ellipsis-horizontal"} size={24} color={colors.background} />
             </TouchableOpacity>
@@ -1009,6 +1027,29 @@ const styles = StyleSheet.create({
       color: colors.text,
       lineHeight: 24,
   },
+  expiredBanner: {
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#B0B5BA',
+    backgroundColor: '#EEF0F2',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  expiredBannerTitle: {
+    color: '#4B4F54',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  expiredBannerText: {
+    color: '#5F6368',
+    fontSize: 13,
+    marginTop: 2,
+  },
   sectionHeader: {
       paddingHorizontal: 16,
       paddingVertical: 8,
@@ -1090,6 +1131,20 @@ const styles = StyleSheet.create({
       shadowOpacity: 0.25,
       shadowRadius: 4,
   },
+    expiredFabIndicator: {
+      width: 'auto',
+      paddingHorizontal: 14,
+      borderRadius: 24,
+      backgroundColor: '#757575',
+      flexDirection: 'row',
+      gap: 8,
+      marginRight: 16,
+    },
+    expiredFabText: {
+      color: colors.background,
+      fontSize: 13,
+      fontWeight: '600',
+    },
   modalOverlay: {
       flex: 1,
       backgroundColor: 'rgba(0,0,0,0.6)',

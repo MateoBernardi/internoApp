@@ -50,9 +50,10 @@ export default function TabLayout() {
   const hideAdmin = isEmployee;
   const hasSolicitudesTab = !hideExplore;
   const hasAdminTab = !hideAdmin;
+  const canSeeAdminReportesButton = !hasRole('contable');
   const canSeeActivityRequests = isEmployee || isEncargado;
   const canSeeLicenciasAdmin = hasAdminTab;
-  const canSeeReportesAdmin = hasAdminTab;
+  const canSeeReportesAdmin = hasAdminTab && canSeeAdminReportesButton;
   const canSeeLicenciasPersonal = !hasAdminTab;
   const canSeeReportesPersonal = !hasAdminTab;
   const userContextId = user?.user_context_id?.toString();
@@ -105,15 +106,16 @@ export default function TabLayout() {
 
   const hasAdminBadge =
     hasAdminTab &&
-    (hasSolicitudesLicenciasPendientesAdmin || hasReportesPendientesAdmin);
+    (hasSolicitudesLicenciasPendientesAdmin ||
+      (canSeeAdminReportesButton && hasReportesPendientesAdmin));
 
   const administrationMenuOptions: MenuOption[] = [
-    {
+    ...(canSeeAdminReportesButton ? [{
       id: 'reportes',
       label: 'Reportes',
       route: isEncargado ? '/(extras)/reportes-encargado' as Href : '/(extras)/reportes' as Href,
       hasBadge: hasReportesPendientesAdmin,
-    },
+    }] : []),
     {
       id: 'solicitudes-licencias',
       label: 'Solicitudes de Licencias',
@@ -133,6 +135,7 @@ export default function TabLayout() {
   ];
 
   const hideMisReportes = hasRole(['gerencia', 'personasRelaciones', 'consejo', 'contable']);
+  const hideMisLicencias = hasRole(['consejo', 'contable']);
 
   const personalMenuOptions: MenuOption[] = [
     {
@@ -140,12 +143,12 @@ export default function TabLayout() {
       label: 'Agenda Personal',
       route: '/(extras)/agenda-personal' as Href,
     },
-    {
+    ...(!hideMisLicencias ? [{
       id: 'mis-solicitudes',
       label: 'Mis Licencias',
       route: '/(extras)/mis-solicitudes-licencias' as Href,
       hasBadge: hasSolicitudesLicenciasPendientesPersonal,
-    },
+    }] : []),
     ...(!hideMisReportes ? [{
       id: 'mis-reportes',
       label: 'Mis Reportes',

@@ -25,6 +25,7 @@ export const CambiarContrasenaView: React.FC<CambiarContrasenaViewProps> = ({ on
   // Estados del flujo
   const [currentStep, setCurrentStep] = useState<Step>('email');
   const [email, setEmail] = useState('');
+  const [recoveryEmail, setRecoveryEmail] = useState('');
   const [token, setToken] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -75,13 +76,16 @@ export const CambiarContrasenaView: React.FC<CambiarContrasenaViewProps> = ({ on
   const handleGenerateToken = useCallback(async () => {
     if (!isEmailValid || isProcessingRef.current) return;
 
+    const normalizedEmail = email.trim();
+
     isProcessingRef.current = true;
     setLoading(true);
     setError('');
     Keyboard.dismiss();
 
     try {
-      await generatePasswordToken(email.trim());
+      await generatePasswordToken(normalizedEmail);
+      setRecoveryEmail(normalizedEmail);
       setCurrentStep('token');
     } catch (err: any) {
       setError(err.message || 'Intenta nuevamente');
@@ -95,13 +99,19 @@ export const CambiarContrasenaView: React.FC<CambiarContrasenaViewProps> = ({ on
   const handleValidateToken = useCallback(async () => {
     if (!isTokenValid || isProcessingRef.current) return;
 
+    const emailToValidate = recoveryEmail.trim();
+    if (!emailToValidate) {
+      setError('Primero debes solicitar el token con tu correo');
+      return;
+    }
+
     isProcessingRef.current = true;
     setLoading(true);
     setError('');
     Keyboard.dismiss();
 
     try {
-      const response = await validatePasswordToken(email.trim(), token.trim());
+      const response = await validatePasswordToken(emailToValidate, token.trim());
       if (response.success && response.accessToken) {
         setAccessToken(response.accessToken);
         setCurrentStep('password');
@@ -114,7 +124,7 @@ export const CambiarContrasenaView: React.FC<CambiarContrasenaViewProps> = ({ on
       setLoading(false);
       isProcessingRef.current = false;
     }
-  }, [email, token, isTokenValid]);
+  }, [recoveryEmail, token, isTokenValid]);
 
   // Paso 3: Cambiar contraseña
   const handleChangePassword = useCallback(async () => {
@@ -156,11 +166,13 @@ export const CambiarContrasenaView: React.FC<CambiarContrasenaViewProps> = ({ on
   const handleGoBack = useCallback(() => {
     if (currentStep === 'token') {
       setCurrentStep('email');
+      setRecoveryEmail('');
       setToken('');
       setError('');
     } else if (currentStep === 'password') {
       // El token ya fue consumido al validarse, hay que reiniciar todo el flujo
       setCurrentStep('email');
+      setRecoveryEmail('');
       setToken('');
       setNewPassword('');
       setConfirmPassword('');
@@ -254,6 +266,14 @@ export const CambiarContrasenaView: React.FC<CambiarContrasenaViewProps> = ({ on
             {errorContent}
             <View style={styles.buttonGroup}>
               <Pressable
+                style={[styles.buttonSecondary, styles.buttonFlex]}
+                onPress={handleGoBack}
+                disabled={loading}
+              >
+                <Feather name="arrow-left" size={18} color={colors.tint} style={{ marginRight: 8 }} />
+                <ThemedText style={styles.buttonTextSecondary}>Atrás</ThemedText>
+              </Pressable>
+              <Pressable
                 style={[styles.button, styles.buttonFlex, !isTokenValid && styles.buttonDisabled, loading && styles.buttonLoading]}
                 onPress={handleValidateToken}
                 disabled={!isTokenValid || loading}
@@ -266,14 +286,6 @@ export const CambiarContrasenaView: React.FC<CambiarContrasenaViewProps> = ({ on
                     <ThemedText style={styles.buttonText}>Validar</ThemedText>
                   </>
                 )}
-              </Pressable>
-              <Pressable
-                style={[styles.buttonSecondary, styles.buttonFlex]}
-                onPress={handleGoBack}
-                disabled={loading}
-              >
-                <Feather name="arrow-left" size={18} color={colors.tint} style={{ marginRight: 8 }} />
-                <ThemedText style={styles.buttonTextSecondary}>Atrás</ThemedText>
               </Pressable>
             </View>
           </ThemedView>
@@ -322,6 +334,14 @@ export const CambiarContrasenaView: React.FC<CambiarContrasenaViewProps> = ({ on
 
             <View style={styles.buttonGroup}>
               <Pressable
+                style={[styles.buttonSecondary, styles.buttonFlex]}
+                onPress={handleGoBack}
+                disabled={loading}
+              >
+                <Feather name="arrow-left" size={18} color={colors.tint} style={{ marginRight: 8 }} />
+                <ThemedText style={styles.buttonTextSecondary}>Atrás</ThemedText>
+              </Pressable>
+              <Pressable
                 style={[styles.button, styles.buttonFlex, !isPasswordValid && styles.buttonDisabled, loading && styles.buttonLoading]}
                 onPress={handleChangePassword}
                 disabled={!isPasswordValid || loading}
@@ -334,14 +354,6 @@ export const CambiarContrasenaView: React.FC<CambiarContrasenaViewProps> = ({ on
                     <ThemedText style={styles.buttonText}>Cambiar</ThemedText>
                   </>
                 )}
-              </Pressable>
-              <Pressable
-                style={[styles.buttonSecondary, styles.buttonFlex]}
-                onPress={handleGoBack}
-                disabled={loading}
-              >
-                <Feather name="arrow-left" size={18} color={colors.tint} style={{ marginRight: 8 }} />
-                <ThemedText style={styles.buttonTextSecondary}>Atrás</ThemedText>
               </Pressable>
             </View>
           </ThemedView>

@@ -20,6 +20,7 @@ const estadoMapping: Record<EstadoSolicitud, string> = {
   'RECHAZADA': 'Rechazada',
   'CANCELADA': 'Cancelada',
   'CONSUMIDA': 'Consumida',
+	'EXPIRADA': 'Expirada',
 };
 
 const getEstadoColor = (estado: string): string => {
@@ -28,6 +29,7 @@ const getEstadoColor = (estado: string): string => {
   if (estado.includes('Rechazada')) return '#F44336';
   if (estado.includes('Cancelada')) return '#9C27B0';
   if (estado.includes('Consumida')) return '#2196F3';
+	if (estado.includes('Expirada')) return '#757575';
   return '#757575';
 };
 

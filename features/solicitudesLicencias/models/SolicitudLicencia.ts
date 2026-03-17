@@ -6,7 +6,8 @@ export type EstadoSolicitud =
   | 'APROBADA'
   | 'RECHAZADA'
   | 'CANCELADA'
-  | 'CONSUMIDA';
+  | 'CONSUMIDA'
+  | 'EXPIRADA';
 
 // Tipo de Licencia (TipoLicenciaDTO según API)
 export interface TipoLicencia {

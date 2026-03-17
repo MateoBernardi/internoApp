@@ -215,7 +215,8 @@ export function UserSelector({
 const styles = StyleSheet.create({
   container: {
     width: '100%',
-    zIndex: 10, // Helps with dropdown visibility
+    position: 'relative',
+    overflow: 'visible',
   },
   topRow: {
     flexDirection: 'row',
@@ -287,15 +288,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 8,
     maxHeight: 250,
-    elevation: 4,
+    elevation: 8,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 4,
     width: '100%',
-    position: 'absolute', // Make it absolute so it floats over other content
-    top: 40, // Height of the input row roughly
-    zIndex: 999,
+    overflow: 'hidden',
   },
   resultsHeader: {
       flexDirection: 'row',

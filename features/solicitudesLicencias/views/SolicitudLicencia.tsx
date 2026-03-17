@@ -37,6 +37,7 @@ const estadoMapping: Record<EstadoSolicitud, string> = {
   'RECHAZADA': 'Rechazada',
   'CANCELADA': 'Cancelada',
   'CONSUMIDA': 'Consumida',
+  'EXPIRADA': 'Expirada',
 };
 
 const getEstadoColor = (estado: string): string => {
@@ -53,6 +54,8 @@ const getEstadoColor = (estado: string): string => {
       return '#9C27B0';
     case 'Consumida':
       return '#2196F3';
+    case 'Expirada':
+      return '#757575';
     default:
       return '#757575';
   }
@@ -275,9 +278,10 @@ export function SolicitudLicencia() {
   }
 
   const estadoUI = estadoMapping[solicitud.estado];
-  const canTakeAction = isFromReceivedView && !isCreator && solicitud.estado === 'PENDIENTE';
+  const isExpiredState = solicitud.estado === 'EXPIRADA';
+  const canTakeAction = isFromReceivedView && !isCreator && solicitud.estado === 'PENDIENTE' && !isExpiredState;
   const isExpired = solicitud.fecha_fin ? new Date(solicitud.fecha_fin) < new Date() : false;
-  const canCancel = isFromSentView && isCreator && solicitud.estado !== 'CANCELADA' && solicitud.estado !== 'CONSUMIDA' && solicitud.estado !== 'RECHAZADA' && !isExpired;
+  const canCancel = isFromSentView && isCreator && solicitud.estado !== 'CANCELADA' && solicitud.estado !== 'CONSUMIDA' && solicitud.estado !== 'RECHAZADA' && !isExpired && !isExpiredState;
   const canUploadDoc = isCreator && solicitud.estado === 'PENDIENTE_DOCUMENTACION';
 
   return (

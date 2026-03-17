@@ -26,6 +26,7 @@ const estadoMapping: Record<EstadoSolicitud, string> = {
   'RECHAZADA': 'Rechazada',
   'CANCELADA': 'Cancelada',
   'CONSUMIDA': 'Consumida',
+  'EXPIRADA': 'Expirada',
 };
 
 const colors = Colors['light'];
@@ -159,6 +160,8 @@ function MiSolicitudItem({ solicitud, estadoUI, onPress }: MiSolicitudItemProps)
         return '#9C27B0';
       case 'Consumida':
         return '#2196F3';
+      case 'Expirada':
+        return '#757575';
       default:
         return colors.icon;
     }

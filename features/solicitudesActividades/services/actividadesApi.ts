@@ -53,7 +53,7 @@ export async function cancelarActividad(accessToken: string, data: actividades.C
 }   
 
 export async function modificarActividadFechas(accessToken: string, data: actividades.ModificarActividadFechasRequest): Promise<actividades.ModificarActividadFechasResponse> {
-    const response = await apiRequest({ method: "PUT", endpoint: `/solicitudes-actividades/actividades/modificar-fechas`, token: accessToken, body: data });
+    const response = await apiRequest({ method: "PUT", endpoint: `/solicitudes-actividades/actividades/actualizar-horarios`, token: accessToken, body: data });
     if (!response.ok) {
         const errorMsg = await extractErrorText(response);
         console.error("Error en modificarActividadFechas:", response.status, errorMsg);

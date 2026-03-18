@@ -4,6 +4,7 @@ import { Colors } from '@/constants/theme';
 import { RoleUserSelectionModal } from '@/features/solicitudesActividades/components/RoleUserSelectionModal';
 import { UserSelector } from '@/features/solicitudesActividades/components/UserSelector';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
+import { showGlobalToast } from '@/shared/ui/toast';
 import { UserSummary } from '@/shared/users/User';
 import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,7 +23,9 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Archivo, UpdateArchivoPayload } from '../models/Archivo';
+import { formatPartialWarnings } from '../utils/partialWarnings';
 import { useUpdateArchivo } from '../viewmodels/useArchivos';
+import { PartialSaveBanner } from './PartialSaveBanner';
 
 const colors = Colors['light'];
 
@@ -49,8 +52,10 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
 
   const [usuariosCompartidos, setUsuariosCompartidos] = useState<UserSummary[]>([]);
   const [usuariosAsociados, setUsuariosAsociados] = useState<UserSummary[]>([]);
-  const [allowedRoles, setAllowedRoles] = useState<string[]>([]);
+  const [allowedRoles, setAllowedRoles] = useState<string[]>(archivo.allowed_roles || []);
   const [showRolesDropdown, setShowRolesDropdown] = useState(false);
+  const [partialWarning, setPartialWarning] = useState<string | null>(null);
+  const [didPartialSuccess, setDidPartialSuccess] = useState(false);
 
   const { hasRole } = useRoleCheck();
   const isSupervisor = hasRole(['gerencia', 'personasRelaciones', 'encargado']);
@@ -71,6 +76,36 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
       setActiveRole('');
     }
   }, [roleUsersData, activeRole, roleError]);
+
+  React.useEffect(() => {
+    if (!visible) return;
+
+    setNombre(archivo.nombre);
+    setDescripcion(archivo.titulo ?? '');
+    setAllowedRoles(archivo.allowed_roles || []);
+    setUsuariosCompartidos(
+      (archivo.usuarios_compartidos || []).map((id) => ({
+        user_context_id: id,
+        id_usuario: id,
+        username: `user_${id}`,
+        nombre: 'Usuario',
+        apellido: `#${id}`,
+        email: '',
+      }))
+    );
+    setUsuariosAsociados(
+      (archivo.usuarios_asociados || []).map((id) => ({
+        user_context_id: id,
+        id_usuario: id,
+        username: `user_${id}`,
+        nombre: 'Usuario',
+        apellido: `#${id}`,
+        email: '',
+      }))
+    );
+    setPartialWarning(null);
+    setDidPartialSuccess(false);
+  }, [visible, archivo]);
 
   const handleCloseRoleModal = () => {
     setShowRoleModal(false);
@@ -120,33 +155,72 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
   const resetForm = useCallback(() => {
     setNombre(archivo.nombre);
     setDescripcion(archivo.titulo ?? '');
-    setUsuariosCompartidos([]);
-    setUsuariosAsociados([]);
-    setAllowedRoles([]);
-  }, [archivo.nombre, archivo.titulo]);
+    setUsuariosCompartidos(
+      (archivo.usuarios_compartidos || []).map((id) => ({
+        user_context_id: id,
+        id_usuario: id,
+        username: `user_${id}`,
+        nombre: 'Usuario',
+        apellido: `#${id}`,
+        email: '',
+      }))
+    );
+    setUsuariosAsociados(
+      (archivo.usuarios_asociados || []).map((id) => ({
+        user_context_id: id,
+        id_usuario: id,
+        username: `user_${id}`,
+        nombre: 'Usuario',
+        apellido: `#${id}`,
+        email: '',
+      }))
+    );
+    setAllowedRoles(archivo.allowed_roles || []);
+    setPartialWarning(null);
+    setDidPartialSuccess(false);
+  }, [archivo]);
 
   const handleActualizarArchivo = useCallback(() => {
+    if (didPartialSuccess) {
+      onClose();
+      resetForm();
+      return;
+    }
+
     if (!isFormValid) {
       Alert.alert('Formulario incompleto', 'Por favor proporciona un título');
       return;
     }
+    const usuariosCompartidosIds = usuariosCompartidos.map((u) => u.user_context_id);
+    const usuariosAsociadosIds = usuariosAsociados.map((u) => u.user_context_id);
+
     const payload: UpdateArchivoPayload = {
       nombre: nombre.trim(),
       titulo: descripcion.trim() || undefined,
-      usuarios_compartidos: usuariosCompartidos.map((u) => u.user_context_id),
-      usuarios_asociados: isSupervisor ? usuariosAsociados.map((u) => u.user_context_id) : [],
-      allowed_roles: allowedRoles,
+      ...(usuariosCompartidosIds.length > 0 ? { usuarios_compartidos: usuariosCompartidosIds } : {}),
+      ...(isSupervisor && usuariosAsociadosIds.length > 0 ? { usuarios_asociados: usuariosAsociadosIds } : {}),
+      ...(allowedRoles.length > 0 ? { allowed_roles: allowedRoles } : {}),
     };
     updateArchivo(
       { id: archivo.id, data: payload },
       {
-        onSuccess: () => { Alert.alert('Éxito', 'Archivo actualizado correctamente'); onClose(); },
+        onSuccess: (result) => {
+          if (result.status === 'partial_success') {
+            setDidPartialSuccess(true);
+            setPartialWarning(formatPartialWarnings(result.warnings));
+            showGlobalToast('Guardado parcial');
+            return;
+          }
+
+          Alert.alert('Éxito', 'Archivo actualizado correctamente');
+          onClose();
+        },
         onError: (error: any) => {
           Alert.alert('Error', error instanceof Error ? error.message : 'Intenta nuevamente');
         },
       }
     );
-  }, [isFormValid, archivo.id, nombre, descripcion, usuariosCompartidos, usuariosAsociados, allowedRoles, isSupervisor, updateArchivo, onClose]);
+  }, [didPartialSuccess, isFormValid, archivo.id, nombre, descripcion, usuariosCompartidos, usuariosAsociados, allowedRoles, isSupervisor, updateArchivo, onClose, resetForm]);
 
   const handleCancel = useCallback(() => {
     const hasChanges =
@@ -195,6 +269,10 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
+            {partialWarning ? (
+              <PartialSaveBanner message={partialWarning} onClose={() => setPartialWarning(null)} />
+            ) : null}
+
             {/* Título */}
             <View style={styles.inputSection}>
               <ThemedText style={styles.label}>Título del archivo</ThemedText>
@@ -330,7 +408,9 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
             ) : (
               <>
                 <Ionicons name="checkmark" size={20} color={colors.componentBackground} />
-                <ThemedText style={styles.updateButtonText}>Actualizar Archivo</ThemedText>
+                <ThemedText style={styles.updateButtonText}>
+                  {didPartialSuccess ? 'Cerrar' : 'Actualizar Archivo'}
+                </ThemedText>
               </>
             )}
           </TouchableOpacity>

@@ -3,12 +3,12 @@ import { Colors } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import {
-    ActivityIndicator,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import type { RangoOcupado } from '../models/Solicitud';
 
@@ -34,6 +34,20 @@ export function ValidacionFechasModal({
     onCancel,
 }: ValidacionFechasModalProps) {
     const visible = state !== 'idle';
+    const rangosAgrupadosPorUsuario = React.useMemo(() => {
+        const grouped = new Map<string, RangoOcupado[]>();
+
+        (rangosOcupados ?? []).forEach((rango) => {
+            const current = grouped.get(rango.usuario) ?? [];
+            current.push(rango);
+            grouped.set(rango.usuario, current);
+        });
+
+        return Array.from(grouped.entries()).map(([usuario, rangos]) => ({
+            usuario,
+            rangos,
+        }));
+    }, [rangosOcupados]);
 
     return (
         <Modal visible={visible} transparent animationType="fade">
@@ -82,26 +96,36 @@ export function ValidacionFechasModal({
                                 ))}
 
                                 {/* Rangos ocupados detallados */}
-                                {rangosOcupados && rangosOcupados.length > 0 && (
+                                {rangosAgrupadosPorUsuario.length > 0 && (
                                     <View style={styles.rangosContainer}>
                                         <ThemedText style={styles.rangosTitle}>Detalle de solapamientos:</ThemedText>
-                                        {rangosOcupados.map((rango, idx) => {
-                                            const desde = new Date(rango.desde);
-                                            const hasta = new Date(rango.hasta);
+                                        {rangosAgrupadosPorUsuario.map(({ usuario, rangos }) => {
                                             return (
-                                                <View key={idx} style={styles.rangoItem}>
+                                                <View key={usuario} style={styles.rangoUsuarioGroup}>
                                                     <View style={styles.rangoHeader}>
                                                         <Ionicons name="person" size={14} color={colors.lightTint} />
-                                                        <ThemedText style={styles.rangoUsuario}>{rango.usuario}</ThemedText>
-                                                        <View style={[styles.rangoTipoBadge, { backgroundColor: rango.tipo === 'actividad' ? colors.lightTint + '20' : colors.warning + '20' }]}>
-                                                            <ThemedText style={[styles.rangoTipoText, { color: rango.tipo === 'actividad' ? colors.lightTint : colors.warning }]}>
-                                                                {rango.tipo}
-                                                            </ThemedText>
-                                                        </View>
+                                                        <ThemedText style={styles.rangoUsuario}>{usuario}</ThemedText>
                                                     </View>
-                                                    <ThemedText style={styles.rangoFechas}>
-                                                        {desde.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })} {desde.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })} → {hasta.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
-                                                    </ThemedText>
+
+                                                    {rangos.map((rango, idx) => {
+                                                        const desde = new Date(rango.desde);
+                                                        const hasta = new Date(rango.hasta);
+
+                                                        return (
+                                                            <View key={`${usuario}-${idx}`} style={styles.rangoItem}>
+                                                                <View style={styles.rangoItemHeader}>
+                                                                    <View style={[styles.rangoTipoBadge, { backgroundColor: rango.tipo === 'actividad' ? colors.lightTint + '20' : colors.warning + '20' }]}>
+                                                                        <ThemedText style={[styles.rangoTipoText, { color: rango.tipo === 'actividad' ? colors.lightTint : colors.warning }]}>
+                                                                            {rango.tipo}
+                                                                        </ThemedText>
+                                                                    </View>
+                                                                </View>
+                                                                <ThemedText style={styles.rangoFechas}>
+                                                                    {desde.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })} {desde.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })} → {hasta.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                                                                </ThemedText>
+                                                            </View>
+                                                        );
+                                                    })}
                                                 </View>
                                             );
                                         })}
@@ -255,11 +279,20 @@ const styles = StyleSheet.create({
         padding: 10,
         marginBottom: 6,
     },
+    rangoUsuarioGroup: {
+        marginBottom: 8,
+    },
     rangoHeader: {
         flexDirection: 'row',
         alignItems: 'center',
         marginBottom: 4,
         gap: 6,
+    },
+    rangoItemHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'flex-start',
+        marginBottom: 4,
     },
     rangoUsuario: {
         fontSize: 13,

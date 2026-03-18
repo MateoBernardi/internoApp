@@ -2,12 +2,14 @@ import { ThemedText } from '@/components/themed-text';
 import { CreateButton } from '@/components/ui/CreateButton';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { Colors } from '@/constants/theme';
+import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
-    StyleSheet,
-    TouchableOpacity,
-    View
+  Modal,
+  StyleSheet,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EstadoReporte, Reporte } from '../models/Reporte';
@@ -25,14 +27,17 @@ interface ReportesEmpleadoProps {
 	userId: string;
 	userNombre?: string;
 	userApellido?: string;
+	fabBehavior?: 'container' | 'viewport';
 }	
 
 const colors = Colors['light'];
 
-export function ReportesEmpleado({ userId, userNombre = '', userApellido = '' }: ReportesEmpleadoProps) {
+export function ReportesEmpleado({ userId, userNombre = '', userApellido = '', fabBehavior = 'container' }: ReportesEmpleadoProps) {
 	const router = useRouter();
 	const insets = useSafeAreaInsets();
+	const { hasRole } = useRoleCheck();
 	const { data: reportes, isLoading, error } = useReportes(userId);
+	const canCreateReporte = hasRole(['gerencia', 'personasRelaciones']);
 
 	const [modalVisible, setModalVisible] = useState(false);
 	const [selectedReporte, setSelectedReporte] = useState<Reporte | null>(null);
@@ -68,6 +73,38 @@ export function ReportesEmpleado({ userId, userNombre = '', userApellido = '' }:
 		/>
 	), []);
 
+	const renderCreateButton = useCallback(() => {
+		if (!canCreateReporte) return null;
+
+		if (fabBehavior === 'viewport') {
+			return (
+				<Modal
+					visible={!modalVisible}
+					transparent
+					animationType="none"
+					onRequestClose={() => {}}
+				>
+					<View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+						<View style={[styles.viewportFabContainer, { bottom: insets.bottom + 16, right: 36 }]}>
+							<CreateButton
+								onPress={handleCrearReporte}
+								accessibilityLabel="Crear nuevo reporte"
+							/>
+						</View>
+					</View>
+				</Modal>
+			);
+		}
+
+		return (
+			<CreateButton
+				onPress={handleCrearReporte}
+				style={{ ...styles.createButton, bottom: insets.bottom + 16, right: 36 }}
+				accessibilityLabel="Crear nuevo reporte"
+			/>
+		);
+	}, [canCreateReporte, fabBehavior, handleCrearReporte, insets.bottom, modalVisible]);
+
 	if (isLoading) {
 		return (
 			<ScreenSkeleton rows={4} showHeader={false} />
@@ -88,11 +125,7 @@ export function ReportesEmpleado({ userId, userNombre = '', userApellido = '' }:
 				<View style={styles.centerContainer}>
 					<ThemedText type="subtitle">No hay reportes para este usuario</ThemedText>
 				</View>
-				<CreateButton
-					onPress={handleCrearReporte}
-					style={{ ...styles.createButton, bottom: insets.bottom + 16, right: 36 }}
-					accessibilityLabel="Crear nuevo reporte"
-				/>
+				{renderCreateButton()}
 			</View>
 		);
 	}
@@ -119,11 +152,7 @@ export function ReportesEmpleado({ userId, userNombre = '', userApellido = '' }:
 					origen="empleado"
 				/>
 			)}
-			<CreateButton
-				onPress={handleCrearReporte}
-				style={{ ...styles.createButton, bottom: insets.bottom + 16, right: 36 }}
-				accessibilityLabel="Crear nuevo reporte"
-			/>
+			{renderCreateButton()}
 		</View>
 	);
 }
@@ -203,6 +232,11 @@ const styles = StyleSheet.create({
 	createButton: {
 		position: 'absolute',
 		right: 36,
+	},
+	viewportFabContainer: {
+		position: 'absolute',
+		zIndex: 1000,
+		elevation: 10,
 	},
 	itemContainer: {
 		paddingHorizontal: '4%',

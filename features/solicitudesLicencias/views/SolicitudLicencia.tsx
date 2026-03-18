@@ -2,6 +2,7 @@ import { ThemedText } from '@/components/themed-text';
 import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
+import { ArchivoUso } from '@/features/docs/models/Archivo';
 import { useArchivoUrl, useUploadArchivo } from '@/features/docs/viewmodels/useArchivos';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
@@ -238,7 +239,7 @@ export function SolicitudLicencia() {
             nombre: asset.name,
             tamaño: asset.size,
             tipo: asset.mimeType ?? 'application/octet-stream',
-            uso: 'LICENCIA',
+            uso: ArchivoUso.LICENCIA,
           },
         });
         adjuntarArchivoMutation(

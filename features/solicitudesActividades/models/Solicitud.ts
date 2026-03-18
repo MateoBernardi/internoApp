@@ -174,6 +174,7 @@ export interface ValidarFechasRequest {
   fecha_fin: string; // ISO 8601
   participantes: number[]; // IDs de usuario_entidad
   solicitudIdExcluir?: number; // Excluir esta solicitud de la validación (para modificaciones)
+  actividadIdExcluir?: number | null; // Excluir esta actividad de la validación (para modificaciones de actividades)
 }
 
 export interface RangoOcupado {

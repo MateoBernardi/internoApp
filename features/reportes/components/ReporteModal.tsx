@@ -82,18 +82,9 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 
 	// Renderiza controles según origen
 	const renderControles = () => {
-		// Si está en estado final y el usuario no es gerencia, mostrar mensaje de permisos
+		// Si está en estado final y el usuario no es gerencia, no mostrar controles
 		if (isReporteFinal && !isGerencia) {
-			return (
-				<View style={styles.accionesContainer}>
-					<ThemedText style={[styles.accionesTitle, { color: colors.error }]}>
-						Permisos insuficientes
-					</ThemedText>
-					<ThemedText style={{ color: colors.secondaryText, marginTop: 8 }}>
-						Solo usuarios con rol Gerencia pueden modificar reportes en estado {reporte.estado}.
-					</ThemedText>
-				</View>
-			);
+			return null;
 		}
 
 		if (origen === 'mis') {

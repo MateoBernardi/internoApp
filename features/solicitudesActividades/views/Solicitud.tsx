@@ -27,7 +27,6 @@ import { ValidacionFechasModal } from '../components/ValidacionFechasModal';
 import { EstadoInvitacionDB, estadoInvitacionMapping, ModificarSolicitudFechasRequest, ReenviarSolicitudRequest } from '../models/Solicitud';
 import { useCrearActividad } from '../viewmodels/useActividades';
 import {
-  useAceptarModificaciones,
   useActualizarEstadoInvitacion,
   useInvitaciones,
   useModificarSolicitudFechas,
@@ -49,7 +48,6 @@ export function Solicitud() {
 
   const { data: bitacora, isLoading: isLoadingBitacora } = useSolicitudBitacora(solicitudId);
   const { mutate: actualizarEstado, isPending: isUpdatingEstado } = useActualizarEstadoInvitacion();
-  const { mutate: aceptarModificaciones, isPending: isAcceptingMod } = useAceptarModificaciones();
   const { mutate: modificarSolicitud, isPending: isModifying } = useModificarSolicitudFechas();
   const { mutate: reenviarSolicitud, isPending: isSharing } = useReenviarSolicitud();
   const { mutate: crearActividad, isPending: isCreatingActividad } = useCrearActividad();
@@ -58,7 +56,7 @@ export function Solicitud() {
   const { data: enviadas } = useSolicitudesCreadas();
   const { data: recibidas } = useInvitaciones();
 
-  const isMutating = isUpdatingEstado || isAcceptingMod || isModifying || isSharing || isCreatingActividad;
+  const isMutating = isUpdatingEstado || isModifying || isSharing || isCreatingActividad;
 
   // Estados para modales
   const [showAcceptModal, setShowAcceptModal] = useState(false);
@@ -166,35 +164,12 @@ export function Solicitud() {
             });
         }
     } 
-    // Para enviadas: MODIFIED -> SEEN (simulado si el backend lo soporta, o simplemente lógica visual futura)
-    else if (type === 'enviada') {
-        if (solicitud.estado === 'MODIFIED') {
-            actualizarEstado({
-                solicitudId: solicitud.solicitud_id,
-                estado: 'SEEN' as EstadoInvitacionDB,
-            });
-        }
-    }
   }, [type, solicitud, actualizarEstado]);
 
   const handleAceptarPress = useCallback(() => {
     setShowAcceptModal(true);
   }, []);
   const confirmAceptar = useCallback(() => {
-      // Si es enviada y está en MODIFIED, usamos el endpoint de aceptar modificaciones
-      if (type === 'enviada' && solicitud?.estado === 'MODIFIED') {
-        aceptarModificaciones(solicitudId, {
-            onSuccess: () => {
-                setShowAcceptModal(false);
-                Alert.alert('Éxito', 'Modificaciones aceptadas');
-            },
-            onError: (error) => {
-                Alert.alert('Error', error instanceof Error ? error.message : 'Intenta nuevamente');
-            }
-        });
-        return;
-      }
-      
       // Lógica normal para recibidas
       actualizarEstado(
         {
@@ -212,7 +187,7 @@ export function Solicitud() {
           },
         }
       );
-  }, [solicitudId, actualizarEstado, aceptarModificaciones, type, solicitud]);
+  }, [solicitudId, actualizarEstado]);
 
   const handleRechazar = useCallback(() => {
     Alert.alert('Rechazar solicitud', '¿Deseas rechazar esta solicitud?', [
@@ -395,6 +370,7 @@ export function Solicitud() {
         fechaInicio: agendaFechaInicio.toISOString(),
         fechaFin: agendaFechaFin.toISOString(),
         participantes,
+        actividadIdExcluir: null,
       },
       () => ejecutarAgregarAAgenda()
     );
@@ -692,21 +668,21 @@ export function Solicitud() {
           )}
 
           {/* Agregar a la agenda (REUNION: solo creador/enviada; MANDATO: invitado/recibida aceptada) */}
-          {!isExpiredState && puedeAgregarAAgenda && (
+          {!isExpiredState && !fechaInicioPasada && puedeAgregarAAgenda && (
             <TouchableOpacity style={[styles.fab, { backgroundColor: colors.success, marginRight: 16 }]} onPress={handleAgregarAAgenda}>
               <Ionicons name="calendar-outline" size={24} color={colors.background} />
             </TouchableOpacity>
           )}
 
-          {/* Main Action: Accept (Recibida or Enviada[MODIFIED]) - only if date not passed */}
-          {!esActividadCreada && !isExpiredState && !fechaInicioPasada && ((type === 'recibida' && solicitud?.estado !== 'ACCEPTED') || (type === 'enviada' && solicitud?.estado === 'MODIFIED')) && (
+          {/* Main Action: Accept (Recibida) - only if date not passed */}
+          {!esActividadCreada && !isExpiredState && !fechaInicioPasada && type === 'recibida' && solicitud?.estado !== 'ACCEPTED' && solicitud?.estado !== 'REJECTED' && solicitud?.estado !== 'MODIFIED' && (
                <TouchableOpacity style={[styles.fab, { backgroundColor: colors.success, marginRight: 16 }]} onPress={handleAceptarPress}>
                    <Ionicons name="checkmark" size={24} color={colors.background} />
                </TouchableOpacity>
           )}
 
           {/* Menu Button */}
-          {!esActividadCreada && !isExpiredState && (
+          {!esActividadCreada && !isExpiredState && !fechaInicioPasada && solicitud?.estado !== 'ACCEPTED' && solicitud?.estado !== 'REJECTED' && (
             <TouchableOpacity style={[styles.fab, { backgroundColor: colors.icon }]} onPress={() => setMenuOpen(!menuOpen)}>
                  <Ionicons name={menuOpen ? "close" : "ellipsis-horizontal"} size={24} color={colors.background} />
             </TouchableOpacity>

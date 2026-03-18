@@ -16,6 +16,10 @@ export interface Archivo {
     nombreCreador: string;
     apellidoCreador: string;
     createdAt: Date;
+    id_carpeta?: number | null;
+    allowed_roles?: string[];
+    usuarios_compartidos?: number[];
+    usuarios_asociados?: number[];
 }
 
 export interface UpdateArchivoPayload {
@@ -40,6 +44,11 @@ export interface UploadArchivoPayload {
   // relaciones opcionales
   usuarios_asociados?: number[];
   usuarios_compartidos?: number[];
+  id_carpeta?: number | null;
+}
+
+export interface MoverArchivoPayload {
+  id_carpeta: number | null;
 }
 
 export interface PedirUrlCargaRequest {

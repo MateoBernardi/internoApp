@@ -1,3 +1,4 @@
+import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
 import { Colors } from '@/constants/theme';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
@@ -22,14 +23,11 @@ interface ResponderEncuestaProps {
 
 const colors = Colors['light'];
 
-export const ResponderEncuesta: React.FC<ResponderEncuestaProps> = ({
-  encuesta,
-  onCancelar,
-}) => {
+export const ResponderEncuesta: React.FC<ResponderEncuestaProps> = ({ encuesta, onCancelar }) => {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [respuestas, setRespuestas] = useState<Map<number, Respuesta>>(new Map());
-  const { mutate: enviarRespuestas, isPending } = useEnviarRespuestasEncuesta();
+  const { mutateAsync: enviarRespuestas, isPending } = useEnviarRespuestasEncuesta();
 
   const handleRatingChange = (preguntaId: number, valor: number) => {
     setRespuestas((prev) => {
@@ -82,35 +80,22 @@ export const ResponderEncuesta: React.FC<ResponderEncuestaProps> = ({
       if (pregunta.es_obligatoria && pregunta.id) {
         const respuesta = respuestas.get(pregunta.id);
         if (!respuesta) {
-          Alert.alert(
-            'Campo obligatorio',
-            `La pregunta "${pregunta.titulo}" es obligatoria`
-          );
+          Alert.alert('Campo obligatorio', `La pregunta "${pregunta.titulo}" es obligatoria`);
           return false;
         }
 
-        // Validar según el tipo de pregunta
         if (pregunta.tipo_pregunta === 'texto' && !respuesta.respuesta_texto?.trim()) {
-          Alert.alert(
-            'Campo obligatorio',
-            `Debes responder la pregunta "${pregunta.titulo}"`
-          );
+          Alert.alert('Campo obligatorio', `Debes responder la pregunta "${pregunta.titulo}"`);
           return false;
         }
 
         if (pregunta.tipo_pregunta === 'rating' && !respuesta.valor_rating) {
-          Alert.alert(
-            'Campo obligatorio',
-            `Debes calificar la pregunta "${pregunta.titulo}"`
-          );
+          Alert.alert('Campo obligatorio', `Debes calificar la pregunta "${pregunta.titulo}"`);
           return false;
         }
 
         if (pregunta.tipo_pregunta === 'multiple_choice' && !respuesta.opcion_id) {
-          Alert.alert(
-            'Campo obligatorio',
-            `Debes seleccionar una opción en "${pregunta.titulo}"`
-          );
+          Alert.alert('Campo obligatorio', `Debes seleccionar una opción en "${pregunta.titulo}"`);
           return false;
         }
       }
@@ -119,39 +104,27 @@ export const ResponderEncuesta: React.FC<ResponderEncuestaProps> = ({
     return true;
   };
 
-  const handleEnviar = () => {
+  const handleEnviar = async () => {
+    if (isPending) return;
     if (!validarRespuestas()) return;
 
-    const respuestasArray = Array.from(respuestas.values());
-
-    enviarRespuestas(
-      { respuestas: respuestasArray },
-      {
-        onSuccess: () => {
-          Alert.alert(
-            '¡Éxito!',
-            'Tu respuesta ha sido enviada correctamente',
-            [
-              { 
-                text: 'OK', 
-                onPress: () => {
-                  // Redirigir a la pantalla principal
-                  router.replace({ pathname: '/' });
-                }
-              }
-            ]
-          );
+    try {
+      const result = await enviarRespuestas({ respuestas: Array.from(respuestas.values()) });
+      Alert.alert('¡Éxito!', result?.message || 'Tu respuesta ha sido enviada correctamente', [
+        {
+          text: 'OK',
+          onPress: () => router.replace({ pathname: '/' }),
         },
-        onError: (error) => {
-          Alert.alert('Error', error instanceof Error ? error.message : 'Intenta nuevamente');
-          console.error(error);
-        },
-      }
-    );
+      ]);
+    } catch (error) {
+      Alert.alert('Error', error instanceof Error ? error.message : 'Intenta nuevamente');
+      console.error(error);
+    }
   };
 
   const renderPregunta = (pregunta: Pregunta) => {
     if (!pregunta.id) return null;
+    const preguntaId = pregunta.id;
 
     return (
       <View key={pregunta.id} style={styles.preguntaCard}>
@@ -162,12 +135,12 @@ export const ResponderEncuesta: React.FC<ResponderEncuestaProps> = ({
           </Text>
           <Text style={styles.tipoPregunta}>
             {pregunta.tipo_pregunta === 'rating'
-              ? '⭐ Calificación'
+              ? 'Calificacion'
               : pregunta.tipo_pregunta === 'texto'
-              ? '📝 Texto'
+              ? 'Texto'
               : pregunta.tipo_pregunta === 'multiple_choice'
-              ? '☑️ Opción múltiple'
-              : '✓/✗ Sí/No'}
+              ? 'Opcion multiple'
+              : 'Si/No'}
           </Text>
         </View>
 
@@ -178,16 +151,15 @@ export const ResponderEncuesta: React.FC<ResponderEncuestaProps> = ({
                 key={valor}
                 style={[
                   styles.ratingButton,
-                  respuestas.get(pregunta.id!)?.valor_rating === valor &&
-                    styles.ratingButtonSelected,
+                  respuestas.get(preguntaId)?.valor_rating === valor && styles.ratingButtonSelected,
                 ]}
-                onPress={() => handleRatingChange(pregunta.id!, valor)}
+                onPress={() => handleRatingChange(preguntaId, valor)}
+                disabled={isPending}
               >
                 <Text
                   style={[
                     styles.ratingText,
-                    respuestas.get(pregunta.id!)?.valor_rating === valor &&
-                      styles.ratingTextSelected,
+                    respuestas.get(preguntaId)?.valor_rating === valor && styles.ratingTextSelected,
                   ]}
                 >
                   {valor}
@@ -200,80 +172,75 @@ export const ResponderEncuesta: React.FC<ResponderEncuestaProps> = ({
         {pregunta.tipo_pregunta === 'texto' && (
           <TextInput
             style={styles.textInput}
-            placeholder="Escribe tu respuesta aquí..."
+            placeholder="Escribe tu respuesta aqui..."
             multiline
             numberOfLines={4}
-            value={respuestas.get(pregunta.id!)?.respuesta_texto || ''}
-            onChangeText={(texto) => handleTextoChange(pregunta.id!, texto)}
+            value={respuestas.get(preguntaId)?.respuesta_texto || ''}
+            onChangeText={(texto) => handleTextoChange(preguntaId, texto)}
+            editable={!isPending}
           />
         )}
 
-        {pregunta.tipo_pregunta === 'multiple_choice' &&
-          pregunta.opcionesCompletas && (
-            <View style={styles.opcionesContainer}>
-              {pregunta.opcionesCompletas.map((opcion) => (
-                <TouchableOpacity
-                  key={opcion.id}
+        {pregunta.tipo_pregunta === 'multiple_choice' && pregunta.opcionesCompletas && (
+          <View style={styles.opcionesContainer}>
+            {pregunta.opcionesCompletas.map((opcion) => (
+              <TouchableOpacity
+                key={opcion.id}
+                style={[
+                  styles.opcionButton,
+                  respuestas.get(preguntaId)?.opcion_id === opcion.id && styles.opcionButtonSelected,
+                ]}
+                onPress={() => handleMultipleChoiceChange(preguntaId, opcion.id)}
+                disabled={isPending}
+              >
+                <View
                   style={[
-                    styles.opcionButton,
-                    respuestas.get(pregunta.id!)?.opcion_id === opcion.id &&
-                      styles.opcionButtonSelected,
+                    styles.radioCircle,
+                    respuestas.get(preguntaId)?.opcion_id === opcion.id && styles.radioCircleSelected,
                   ]}
-                  onPress={() => handleMultipleChoiceChange(pregunta.id!, opcion.id)}
                 >
-                  <View
-                    style={[
-                      styles.radioCircle,
-                      respuestas.get(pregunta.id!)?.opcion_id === opcion.id &&
-                        styles.radioCircleSelected,
-                    ]}
-                  >
-                    {respuestas.get(pregunta.id!)?.opcion_id === opcion.id && (
-                      <View style={styles.radioInner} />
-                    )}
-                  </View>
-                  <Text style={styles.opcionText}>{opcion.texto_opcion}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
+                  {respuestas.get(preguntaId)?.opcion_id === opcion.id && <View style={styles.radioInner} />}
+                </View>
+                <Text style={styles.opcionText}>{opcion.texto_opcion}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
 
         {pregunta.tipo_pregunta === 'si_no' && (
           <View style={styles.siNoContainer}>
             <TouchableOpacity
               style={[
                 styles.siNoButton,
-                respuestas.get(pregunta.id!)?.respuesta_texto === 'Sí' &&
-                  styles.siNoButtonSelected,
+                respuestas.get(preguntaId)?.respuesta_texto === 'Si' && styles.siNoButtonSelected,
               ]}
-              onPress={() => handleSiNoChange(pregunta.id!, 'Sí')}
+              onPress={() => handleSiNoChange(preguntaId, 'Si')}
+              disabled={isPending}
             >
               <Text
                 style={[
                   styles.siNoText,
-                  respuestas.get(pregunta.id!)?.respuesta_texto === 'Sí' &&
-                    styles.siNoTextSelected,
+                  respuestas.get(preguntaId)?.respuesta_texto === 'Si' && styles.siNoTextSelected,
                 ]}
               >
-                ✓ Sí
+                Si
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[
                 styles.siNoButton,
-                respuestas.get(pregunta.id!)?.respuesta_texto === 'No' &&
-                  styles.siNoButtonSelected,
+                respuestas.get(preguntaId)?.respuesta_texto === 'No' && styles.siNoButtonSelected,
               ]}
-              onPress={() => handleSiNoChange(pregunta.id!, 'No')}
+              onPress={() => handleSiNoChange(preguntaId, 'No')}
+              disabled={isPending}
             >
               <Text
                 style={[
                   styles.siNoText,
-                  respuestas.get(pregunta.id!)?.respuesta_texto === 'No' &&
-                    styles.siNoTextSelected,
+                  respuestas.get(preguntaId)?.respuesta_texto === 'No' && styles.siNoTextSelected,
                 ]}
               >
-                ✗ No
+                No
               </Text>
             </TouchableOpacity>
           </View>
@@ -284,47 +251,41 @@ export const ResponderEncuesta: React.FC<ResponderEncuestaProps> = ({
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>{encuesta.titulo}</Text>
-        {encuesta.descripcion && (
-          <Text style={styles.headerDescripcion}>{encuesta.descripcion}</Text>
-        )}
-        {encuesta.es_anonima && (
-          <View style={styles.anonimaBadge}>
-            <Text style={styles.anonimaText}>🔒 Esta encuesta es anónima</Text>
-          </View>
-        )}
-      </View>
-
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
-        {encuesta.preguntas && encuesta.preguntas.length > 0 ? (
-          encuesta.preguntas.map((pregunta) => renderPregunta(pregunta))
-        ) : (
-          <Text style={styles.emptyText}>No hay preguntas en esta encuesta</Text>
-        )}
-      </ScrollView>
-
-      <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
-        <TouchableOpacity
-          style={styles.cancelarButton}
-          onPress={onCancelar}
-          disabled={isPending}
-        >
-          <Text style={styles.cancelarButtonText}>Cancelar</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.enviarButton, isPending && styles.enviarButtonDisabled]}
-          onPress={handleEnviar}
-          disabled={isPending}
-        >
-          {isPending ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text style={styles.enviarButtonText}>Enviar Respuestas</Text>
+      <View style={styles.contentWrapper} pointerEvents={isPending ? 'none' : 'auto'}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>{encuesta.titulo}</Text>
+          {encuesta.descripcion && <Text style={styles.headerDescripcion}>{encuesta.descripcion}</Text>}
+          {encuesta.es_anonima && (
+            <View style={styles.anonimaBadge}>
+              <Text style={styles.anonimaText}>Esta encuesta es anonima</Text>
+            </View>
           )}
-        </TouchableOpacity>
+        </View>
+
+        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
+          {encuesta.preguntas && encuesta.preguntas.length > 0 ? (
+            encuesta.preguntas.map((pregunta) => renderPregunta(pregunta))
+          ) : (
+            <Text style={styles.emptyText}>No hay preguntas en esta encuesta</Text>
+          )}
+        </ScrollView>
+
+        <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
+          <TouchableOpacity style={styles.cancelarButton} onPress={onCancelar} disabled={isPending}>
+            <Text style={styles.cancelarButtonText}>Cancelar</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.enviarButton, isPending && styles.enviarButtonDisabled]}
+            onPress={handleEnviar}
+            disabled={isPending}
+          >
+            {isPending ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.enviarButtonText}>Enviar Respuestas</Text>}
+          </TouchableOpacity>
+        </View>
       </View>
+
+      <OperacionPendienteModal visible={isPending} />
     </View>
   );
 };
@@ -333,6 +294,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.componentBackground,
+  },
+  contentWrapper: {
+    flex: 1,
   },
   header: {
     backgroundColor: colors.componentBackground,
@@ -418,7 +382,7 @@ const styles = StyleSheet.create({
     color: colors.secondaryText,
   },
   ratingTextSelected: {
-    color: colors.text,
+    color: colors.lightTint,
   },
   textInput: {
     borderWidth: 1,
@@ -426,9 +390,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 12,
     fontSize: 14,
+    color: colors.text,
     minHeight: 100,
     textAlignVertical: 'top',
-    color: colors.text,
   },
   opcionesContainer: {
     gap: 10,
@@ -451,9 +415,9 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 2,
     borderColor: colors.secondaryText,
-    marginRight: 10,
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 10,
   },
   radioCircleSelected: {
     borderColor: colors.lightTint,
@@ -475,9 +439,9 @@ const styles = StyleSheet.create({
   },
   siNoButton: {
     flex: 1,
-    padding: 15,
+    padding: 12,
     borderRadius: 8,
-    borderWidth: 2,
+    borderWidth: 1,
     borderColor: colors.background,
     alignItems: 'center',
   },
@@ -486,19 +450,26 @@ const styles = StyleSheet.create({
     backgroundColor: colors.componentBackground,
   },
   siNoText: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 14,
     color: colors.secondaryText,
+    fontWeight: '500',
   },
   siNoTextSelected: {
     color: colors.lightTint,
+    fontWeight: '600',
+  },
+  emptyText: {
+    textAlign: 'center',
+    fontSize: 16,
+    color: colors.secondaryText,
+    marginTop: 50,
   },
   footer: {
     flexDirection: 'row',
     padding: 15,
-    backgroundColor: colors.componentBackground,
     borderTopWidth: 1,
     borderTopColor: colors.background,
+    backgroundColor: colors.componentBackground,
     gap: 10,
   },
   cancelarButton: {
@@ -520,19 +491,16 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: colors.lightTint,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   enviarButtonDisabled: {
-    backgroundColor: colors.background,
+    opacity: 0.7,
   },
   enviarButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.background,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: colors.secondaryText,
-    textAlign: 'center',
-    marginTop: 50,
+    color: '#FFFFFF',
   },
 });
+
+export default ResponderEncuesta;

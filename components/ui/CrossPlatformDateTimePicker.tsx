@@ -123,7 +123,7 @@ export default function CrossPlatformDateTimePicker(props: CrossPlatformDateTime
     input.setAttribute('data-testid', testID || 'webDateTimePicker');
     input.style.position = 'fixed';
     input.style.opacity = '0.001';
-    input.style.pointerEvents = 'none';
+    input.style.pointerEvents = 'auto';
     input.style.width = '1px';
     input.style.height = '1px';
     input.style.zIndex = '2147483647';
@@ -162,14 +162,14 @@ export default function CrossPlatformDateTimePicker(props: CrossPlatformDateTime
       );
     };
 
-    const handleBlur = () => {
+    const handleCancel = () => {
       if (!changed) {
         emitDismissed();
       }
     };
 
     input.addEventListener('change', handleChange);
-    input.addEventListener('blur', handleBlur);
+    input.addEventListener('cancel', handleCancel as EventListener);
     document.body.appendChild(input);
 
     const openPicker = () => {
@@ -190,7 +190,7 @@ export default function CrossPlatformDateTimePicker(props: CrossPlatformDateTime
 
     return () => {
       input.removeEventListener('change', handleChange);
-      input.removeEventListener('blur', handleBlur);
+      input.removeEventListener('cancel', handleCancel as EventListener);
       if (input.parentElement) {
         input.parentElement.removeChild(input);
       }

@@ -9,6 +9,7 @@ interface ValidateParams {
     fechaFin: string;
     participantes: number[];
     solicitudIdExcluir?: number;
+    actividadIdExcluir?: number | null;
 }
 
 /**
@@ -73,7 +74,8 @@ export function useValidacionFechas() {
                 fecha_inicio: params.fechaInicio,
                 fecha_fin: params.fechaFin,
                 participantes: params.participantes,
-                ...(params.solicitudIdExcluir ? { solicitudIdExcluir: params.solicitudIdExcluir } : {}),
+                ...(params.solicitudIdExcluir !== undefined ? { solicitudIdExcluir: params.solicitudIdExcluir } : {}),
+                ...(params.actividadIdExcluir !== undefined ? { actividadIdExcluir: params.actividadIdExcluir } : {}),
             };
 
             const result = await solicitudesApi.validarFechas(accessToken, request);

@@ -1,4 +1,4 @@
-import { ParticipanteActividad } from '../models/Actividad';
+import { ParticipanteActividad } from './Actividad';
 
 /**
  * Tipo interno para actividades mapeadas para la UI de la agenda.

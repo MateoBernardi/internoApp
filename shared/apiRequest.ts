@@ -3,7 +3,7 @@ import Constants from "expo-constants";
 const API_BASE_URL = Constants.expoConfig?.extra?.API_BASE_URL;
 
 interface RequestOptions {
-    method: 'GET' | 'POST' | 'PUT' | 'DELETE';
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
     endpoint: string;
     token: string;
     body?: any;      // Opcional

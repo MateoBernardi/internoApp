@@ -3,6 +3,7 @@ import { Colors } from '@/constants/theme';
 import { RoleUserSelectionModal } from '@/features/solicitudesActividades/components/RoleUserSelectionModal';
 import { UserSelector } from '@/features/solicitudesActividades/components/UserSelector';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
+import { showGlobalToast } from '@/shared/ui/toast';
 import { UserSummary } from '@/shared/users/User';
 import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,7 +22,9 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MobileFile, UploadArchivoPayload } from '../models/Archivo';
+import { formatPartialWarnings } from '../utils/partialWarnings';
 import { useUploadArchivo } from '../viewmodels/useArchivos';
+import { PartialSaveBanner } from './PartialSaveBanner';
 
 const colors = Colors['light'];
 
@@ -29,9 +32,10 @@ interface CrearDocumentoProps {
   visible: boolean;
   onClose: () => void;
   initialFile?: MobileFile;
+  initialFolderId?: number | null;
 }
 
-export function CrearDocumento({ visible, onClose, initialFile }: CrearDocumentoProps) {
+export function CrearDocumento({ visible, onClose, initialFile, initialFolderId }: CrearDocumentoProps) {
   const insets = useSafeAreaInsets();
 
   const [titulo, setTitulo] = useState(initialFile?.name.split('.')[0] || '');
@@ -49,6 +53,8 @@ export function CrearDocumento({ visible, onClose, initialFile }: CrearDocumento
   const [usuariosAsociados, setUsuariosAsociados] = useState<UserSummary[]>([]);
   const [allowedRoles, setAllowedRoles] = useState<string[]>([]);
   const [selectorContext, setSelectorContext] = useState<'compartidos' | 'asociados'>('compartidos');
+  const [partialWarning, setPartialWarning] = useState<string | null>(null);
+  const [didPartialSuccess, setDidPartialSuccess] = useState(false);
 
   const { hasRole } = useRoleCheck();
   const isSupervisor = hasRole(['gerencia', 'personasRelaciones', 'encargado']);
@@ -189,9 +195,17 @@ export function CrearDocumento({ visible, onClose, initialFile }: CrearDocumento
     setUsuariosCompartidos([]);
     setUsuariosAsociados([]);
     setAllowedRoles([]);
+    setPartialWarning(null);
+    setDidPartialSuccess(false);
   }, []);
 
   const handleCrearDocumento = useCallback(() => {
+    if (didPartialSuccess) {
+      onClose();
+      resetForm();
+      return;
+    }
+
     if (!isFormValid || !initialFile) {
       Alert.alert('Formulario incompleto', 'Por favor proporciona un archivo y título');
       return;
@@ -202,6 +216,7 @@ export function CrearDocumento({ visible, onClose, initialFile }: CrearDocumento
       usuarios_compartidos: usuariosCompartidos.map((u) => u.user_context_id),
       usuarios_asociados: isSupervisor ? usuariosAsociados.map((u) => u.user_context_id) : undefined,
       allowed_roles: allowedRoles.length > 0 ? allowedRoles : undefined,
+      ...(initialFolderId !== undefined ? { id_carpeta: initialFolderId } : {}),
     };
     const mobileFile: MobileFile = {
       uri: initialFile.uri,
@@ -212,16 +227,48 @@ export function CrearDocumento({ visible, onClose, initialFile }: CrearDocumento
     uploadArchivo(
       { archivo: mobileFile, data: uploadPayload },
       {
-        onSuccess: () => { Alert.alert('Éxito', 'Archivo subido correctamente'); onClose(); resetForm(); },
+        onSuccess: (result) => {
+          if (result.status === 'partial_success') {
+            setDidPartialSuccess(true);
+            setPartialWarning(formatPartialWarnings(result.warnings));
+            showGlobalToast('Guardado parcial');
+            return;
+          }
+
+          Alert.alert('Éxito', 'Archivo subido correctamente');
+          onClose();
+          resetForm();
+        },
         onError: (error: any) => {
           Alert.alert('Error', error instanceof Error ? error.message : 'Intenta nuevamente');
         },
       }
     );
-  }, [isFormValid, initialFile, titulo, descripcion, usuariosCompartidos, usuariosAsociados, allowedRoles, isSupervisor, uploadArchivo, onClose, resetForm]);
+  }, [didPartialSuccess, isFormValid, initialFile, titulo, descripcion, usuariosCompartidos, usuariosAsociados, allowedRoles, isSupervisor, uploadArchivo, onClose, resetForm]);
 
   const handleCancel = useCallback(() => {
-    if (titulo.trim() || descripcion.trim() || usuariosCompartidos.length > 0) {
+    const hasUnsavedChanges = !!(
+      initialFile ||
+      titulo.trim() ||
+      descripcion.trim() ||
+      usuariosCompartidos.length > 0 ||
+      usuariosAsociados.length > 0 ||
+      allowedRoles.length > 0
+    );
+
+    if (hasUnsavedChanges) {
+      if (Platform.OS === 'web') {
+        const shouldDiscard = typeof globalThis.confirm === 'function'
+          ? globalThis.confirm('¿Deseas descartar los cambios?')
+          : true;
+
+        if (shouldDiscard) {
+          onClose();
+          resetForm();
+        }
+        return;
+      }
+
       Alert.alert('Descartar cambios', '¿Deseas descartar los cambios?', [
         { text: 'Cancelar', onPress: () => {} },
         { text: 'Descartar', onPress: () => { onClose(); resetForm(); } },
@@ -229,7 +276,7 @@ export function CrearDocumento({ visible, onClose, initialFile }: CrearDocumento
     } else {
       onClose();
     }
-  }, [titulo, descripcion, usuariosCompartidos, onClose, resetForm]);
+  }, [initialFile, titulo, descripcion, usuariosCompartidos, usuariosAsociados, allowedRoles, onClose, resetForm]);
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={handleCancel}>
@@ -265,6 +312,10 @@ export function CrearDocumento({ visible, onClose, initialFile }: CrearDocumento
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
+            {partialWarning ? (
+              <PartialSaveBanner message={partialWarning} onClose={() => setPartialWarning(null)} />
+            ) : null}
+
             {/* File Info */}
             {initialFile && (
               <View style={styles.fileInfoSection}>
@@ -371,7 +422,7 @@ export function CrearDocumento({ visible, onClose, initialFile }: CrearDocumento
             ) : (
               <>
                 <Ionicons name="cloud-upload" size={20} color={colors.componentBackground} />
-                <ThemedText style={styles.uploadButtonText}>Subir Archivo</ThemedText>
+                <ThemedText style={styles.uploadButtonText}>{didPartialSuccess ? 'Cerrar' : 'Subir Archivo'}</ThemedText>
               </>
             )}
           </TouchableOpacity>

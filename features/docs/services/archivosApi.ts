@@ -1,7 +1,63 @@
 import { apiRequest } from "@/shared/apiRequest";
+import type { ApiOperationResult, ApiOperationStatus, ApiWarningDetail } from '@/shared/types/apiStatus';
 import type { ArchivoDTO } from "../dto/ArchivoDTO";
 import { mapArchivoDTOToArchivo } from "../mappers/archivoMapper";
 import * as archivos from "../models/Archivo";
+import type { ResourcePermisos } from '../models/Permisos';
+
+type DocsApiError = Error & {
+    status: ApiOperationStatus;
+    statusCode: number;
+};
+
+const parseWarnings = (body: any): ApiWarningDetail[] => {
+    if (!body) return [];
+
+    if (Array.isArray(body.warnings)) {
+        return body.warnings;
+    }
+
+    if (body.warnings && typeof body.warnings === 'object') {
+        return [body.warnings];
+    }
+
+    if (body.invalid_roles || body.invalid_users || body.reason) {
+        return [
+            {
+                invalid_roles: body.invalid_roles,
+                invalid_users: body.invalid_users,
+                reason: body.reason,
+            },
+        ];
+    }
+
+    return [];
+};
+
+const parseBody = async (response: Response) => {
+    const raw = await response.text();
+    if (!raw) return null;
+
+    try {
+        return JSON.parse(raw);
+    } catch {
+        return { message: raw };
+    }
+};
+
+const buildApiError = (statusCode: number, fallbackMessage: string, body: any): DocsApiError => {
+    const message = body?.message || body?.error || fallbackMessage;
+    let status: ApiOperationStatus = 'error';
+
+    if (statusCode === 403) status = 'forbidden';
+    if (statusCode === 409) status = 'conflict';
+    if (statusCode === 400) status = 'validation_error';
+
+    const err = new Error(message) as DocsApiError;
+    err.status = status;
+    err.statusCode = statusCode;
+    return err;
+};
 
 const uriToBlob = async (uri: string) => {
   const response = await fetch(uri);
@@ -203,22 +259,21 @@ export async function confirmarUploadArchivo(accessToken: string, archivoData: a
     const response = await apiRequest({method: 'POST', endpoint: '/archivos/metadata', token: accessToken, body: archivoData});
 
     if (!response.ok) {
-        let errorDetails = '';
-        try {
-            const errorData = await response.json();
-            errorDetails = errorData.message || JSON.stringify(errorData);
-        } catch {
-            errorDetails = response.statusText || `Error ${response.status}`;
-        }
-        throw new Error(errorDetails);
+            const body = await parseBody(response);
+            throw buildApiError(response.status, response.statusText || `Error ${response.status}`, body);
     }
 
-    const data: ArchivoDTO = await response.json();
+    const body = await parseBody(response);
+    const data: ArchivoDTO = body?.archivo || body?.resource || body?.data || body;
     const archivoConfirmado = mapArchivoDTOToArchivo(data);
     return archivoConfirmado;
 }   
 
-export async function uploadArchivo(accessToken: string, archivo: archivos.MobileFile, archivoData: archivos.UploadArchivoPayload) : Promise<archivos.Archivo> {
+export async function uploadArchivo(
+    accessToken: string,
+    archivo: archivos.MobileFile,
+    archivoData: archivos.UploadArchivoPayload
+) : Promise<ApiOperationResult<archivos.Archivo>> {
     try {
         // Get proper MIME type from file name and provided type
         const contentType = getMimeType(archivo.name, archivo.type);
@@ -242,31 +297,57 @@ export async function uploadArchivo(accessToken: string, archivo: archivos.Mobil
             tamaño: archivo.size,
             tipo: contentType,
             ...(archivoData.uso ? { uso: archivoData.uso } : {}),
+            ...(archivoData.id_carpeta !== undefined ? { id_carpeta: archivoData.id_carpeta } : {}),
             allowed_roles: archivoData.allowed_roles || [],
             usuarios_asociados: archivoData.usuarios_asociados || [],
             usuarios_compartidos: archivoData.usuarios_compartidos || [],
         };
 
-        const archivoConfirmado = await confirmarUploadArchivo(accessToken, payloadConfirmacion);
+                const metadataResponse = await apiRequest({ method: 'POST', endpoint: '/archivos/metadata', token: accessToken, body: payloadConfirmacion });
 
-        return archivoConfirmado; 
+                if (!metadataResponse.ok) {
+                    const body = await parseBody(metadataResponse);
+                    throw buildApiError(metadataResponse.status, metadataResponse.statusText, body);
+                }
+
+                const body = await parseBody(metadataResponse);
+                const dto: ArchivoDTO = body?.archivo || body?.resource || body?.data || body;
+
+                return {
+                    status: metadataResponse.status === 207 ? 'partial_success' : 'success',
+                    statusCode: metadataResponse.status,
+                    data: mapArchivoDTOToArchivo(dto),
+                    message: body?.message,
+                    warnings: parseWarnings(body),
+                };
     } catch (error) {
         console.error('Error subiendo el archivo:', error);
         throw error;
     }
 }
 
-export async function updateArchivo(accessToken: string, idArchivo: number, archivoData: archivos.UpdateArchivoPayload) : Promise<archivos.Archivo> {
+export async function updateArchivo(
+    accessToken: string,
+    idArchivo: number,
+    archivoData: archivos.UpdateArchivoPayload
+) : Promise<ApiOperationResult<archivos.Archivo>> {
     const response = await apiRequest({method: 'PUT', endpoint: `/archivos/${idArchivo}`, token: accessToken, body: archivoData});
 
     if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.message || errData.error || response.statusText);
+                const errData = await parseBody(response);
+                throw buildApiError(response.status, response.statusText, errData);
     }
 
-    const data: ArchivoDTO = await response.json();
-    const archivoFormateado = mapArchivoDTOToArchivo(data);
-    return archivoFormateado;
+        const body = await parseBody(response);
+        const data: ArchivoDTO = body?.archivo || body?.resource || body?.data || body;
+        const archivoFormateado = mapArchivoDTOToArchivo(data);
+        return {
+            status: response.status === 207 ? 'partial_success' : 'success',
+            statusCode: response.status,
+            data: archivoFormateado,
+            message: body?.message,
+            warnings: parseWarnings(body),
+        };
 }
 
 export async function deleteArchivo(accessToken: string, idArchivo: number) : Promise<void> {
@@ -288,4 +369,51 @@ export async function getArchivoUrlFirmada(accessToken: string, idArchivo: numbe
 
     const data: { url: string } = await response.json();
     return data.url;
+}
+
+export async function moverArchivo(
+    accessToken: string,
+    idArchivo: number,
+    data: archivos.MoverArchivoPayload
+): Promise<ApiOperationResult<archivos.Archivo>> {
+    const response = await apiRequest({ method: 'PATCH', endpoint: `/archivos/${idArchivo}/mover`, token: accessToken, body: data });
+
+    if (!response.ok) {
+                const errData = await parseBody(response);
+        if (response.status === 403) {
+                        throw buildApiError(response.status, 'No tenes permisos para mover este archivo', errData);
+        }
+        if (response.status === 404) {
+                        throw buildApiError(response.status, 'Archivo o carpeta destino no encontrado', errData);
+                }
+                if (response.status === 400) {
+                        throw buildApiError(response.status, 'Revisa el destino seleccionado e intenta nuevamente', errData);
+        }
+                throw buildApiError(response.status, response.statusText, errData);
+    }
+
+        const body = await parseBody(response);
+        const moved: ArchivoDTO = body?.archivo || body?.resource || body?.data || body;
+        return {
+            status: response.status === 207 ? 'partial_success' : 'success',
+            statusCode: response.status,
+            data: mapArchivoDTOToArchivo(moved),
+            message: body?.message,
+            warnings: parseWarnings(body),
+    };
+}
+
+export async function getArchivoPermisos(accessToken: string, idArchivo: number): Promise<ResourcePermisos> {
+    const response = await apiRequest({ method: 'GET', endpoint: `/archivos/${idArchivo}/permisos`, token: accessToken });
+
+    if (!response.ok) {
+        const errData = await parseBody(response);
+        if (response.status === 403) {
+            throw buildApiError(response.status, 'Solo el creador puede ver los permisos completos', errData);
+        }
+        throw buildApiError(response.status, response.statusText, errData);
+    }
+
+    const body = await parseBody(response);
+    return body?.data || body;
 }

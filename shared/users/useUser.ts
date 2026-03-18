@@ -38,6 +38,7 @@ export function useSearchUsers(query: string) {
         select: (response: SearchResponse): UserSummary[] => {
             return response.data.map((user): UserSummary => ({
             user_context_id: user.user_context_id,
+            id_usuario: user.id_usuario,
             username: user.username,
             nombre: user.nombre,
             apellido: user.apellido,
@@ -66,6 +67,7 @@ export function useGetUserByRole(role: string) {
         select: (response: SearchResponse): UserSummary[] => {
             return response.data.map((user): UserSummary => ({
             user_context_id: user.user_context_id,
+            id_usuario: user.id_usuario,
             username: user.username,
             nombre: user.nombre,
             apellido: user.apellido,

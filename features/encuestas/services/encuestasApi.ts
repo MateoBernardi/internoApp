@@ -72,21 +72,44 @@ export async function createEncuestaCompleta(accessToken: string, encuestaData: 
     return data;
 }
 
-export async function enviarRespuestas(accessToken: string, data: {respuestas: Respuesta[]}): Promise<Respuesta[]> {
+export type EnviarRespuestasResult = {
+    message: string;
+    data: Respuesta[];
+};
+
+export async function enviarRespuestas(accessToken: string, data: {respuestas: Respuesta[]}): Promise<EnviarRespuestasResult> {
     const response = await apiRequest({ method: 'POST', endpoint: '/encuestas/respuestas', token: accessToken, body: data });
 
     if (!response.ok) {
         if(response.status === 409){   
             throw new Error('Ya has respondido a esta encuesta');
         }
-        const errorText = await response.text();
+        const rawBody = await response.text();
+        let errorMessage = rawBody || response.statusText;
+        try {
+            const parsed = JSON.parse(rawBody);
+            errorMessage = parsed?.message || parsed?.mensaje || parsed?.error || errorMessage;
+        } catch {
+            // Ignore parse failures and keep raw text fallback.
+        }
         console.error('Error sending respuestas de encuesta:', response.status, response.statusText);
-        console.error('Response body:', errorText);
-        throw new Error(`${errorText || response.statusText}`);
+        console.error('Response body:', rawBody);
+        throw new Error(`${errorMessage}`);
     }
 
-    const responseData: Respuesta[] = await response.json();
-    return responseData;
+    const responseBody = await response.json().catch(() => null);
+
+    if (Array.isArray(responseBody)) {
+        return {
+            message: 'Tu respuesta ha sido enviada correctamente',
+            data: responseBody as Respuesta[],
+        };
+    }
+
+    return {
+        message: responseBody?.message || responseBody?.mensaje || 'Tu respuesta ha sido enviada correctamente',
+        data: Array.isArray(responseBody?.data) ? responseBody.data : [],
+    };
 }
 
 export async function eliminarEncuesta(accessToken: string, encuestaId: number): Promise<void> {

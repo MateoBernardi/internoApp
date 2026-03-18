@@ -16,6 +16,10 @@ export function mapArchivoDTOToArchivo(dto: ArchivoDTO): Archivo {
     nombreCreador: dto.creador_nombre,
     apellidoCreador: dto.creador_apellido,
     createdAt: new Date(dto.created_at),
+    id_carpeta: dto.id_carpeta ?? null,
+    allowed_roles: dto.allowed_roles ?? [],
+    usuarios_compartidos: dto.usuarios_compartidos ?? [],
+    usuarios_asociados: dto.usuarios_asociados ?? [],
   };
 }
 

@@ -1,28 +1,28 @@
 import { ThemedText } from '@/components/themed-text';
+import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
 import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
-import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    TouchableOpacity,
-    TouchableWithoutFeedback,
-    View,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  View,
 } from 'react-native';
 import { ValidacionFechasModal } from '../components/ValidacionFechasModal';
 import {
-    useActividadesSemanales,
-    useCancelarActividad,
-    useModificarActividadFechas,
+  useActividadesSemanales,
+  useCancelarActividad,
+  useModificarActividadFechas,
 } from '../viewmodels/useActividades';
 import { useValidacionFechas } from '../viewmodels/useValidacionFechas';
 
@@ -107,6 +107,7 @@ export function ActividadDetalle() {
         fechaInicio: modStartDate.toISOString(),
         fechaFin: modEndDate.toISOString(),
         participantes: participantesIds,
+        actividadIdExcluir: actividad.id,
       },
       () => ejecutarModificar()
     );

@@ -6,7 +6,7 @@ import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
 import { useRouter } from 'expo-router';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -37,15 +37,27 @@ export function CrearSolicitud() {
   const [allDay, setAllDay] = useState(false);
   const [tipoActividad, setTipoActividad] = useState<'REUNION' | 'MANDATO'>('REUNION');
   const [includeDates, setIncludeDates] = useState(true); // MANDATO can skip dates
+  const ignoreDatePressUntilRef = useRef(0);
+
+  const blockDatePickerFromToggle = useCallback(() => {
+    // Evita que un toque residual del Switch abra el picker de fecha.
+    ignoreDatePressUntilRef.current = Date.now() + 300;
+  }, []);
+
+  const handleToggleAllDay = useCallback((value: boolean) => {
+    blockDatePickerFromToggle();
+    setAllDay(value);
+  }, [blockDatePickerFromToggle]);
 
   const handleToggleIncludeDates = useCallback((value: boolean) => {
+    blockDatePickerFromToggle();
     setIncludeDates(value);
     if (!value) {
       // Borrar las fechas de la memoria cuando el usuario desactiva las fechas
       setFechaInicio(new Date());
       setFechaFin(new Date(Date.now() + 3600000));
     }
-  }, []);
+  }, [blockDatePickerFromToggle]);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [datePickerMode, setDatePickerMode] = useState<'date' | 'time'>('date');
   const [activeDateType, setActiveDateType] = useState<'start' | 'end' | null>(null);
@@ -147,6 +159,9 @@ export function CrearSolicitud() {
   };
 
   const showDatepicker = (type: 'start' | 'end', mode: 'date' | 'time') => {
+    if (Date.now() < ignoreDatePressUntilRef.current) {
+      return;
+    }
     setActiveDateType(type);
     setDatePickerMode(mode);
     setShowDatePicker(true);
@@ -266,7 +281,7 @@ export function CrearSolicitud() {
                 <View style={{ flex: 1 }} />
                 <Switch 
                     value={allDay} 
-                    onValueChange={setAllDay} 
+                  onValueChange={handleToggleAllDay} 
                     trackColor={{ false: colors.secondaryText, true: colors.success }} 
                     thumbColor={colors.componentBackground} 
                 />

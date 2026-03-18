@@ -1,37 +1,37 @@
 import { ThemedText } from '@/components/themed-text';
+import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
 import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
-import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    TouchableWithoutFeedback,
-    View,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { Activity } from '../components/activityTypes';
 import { AgendaDiaria } from '../components/AgendaDiaria';
 import { AgendaSemanal } from '../components/AgendaSemanal';
 import { ValidacionFechasModal } from '../components/ValidacionFechasModal';
 import type { Actividad, Licencia } from '../models/Actividad';
+import type { Activity } from '../models/activityTypes';
 import {
-    useActividadesSemanales,
-    useCancelarActividad,
-    useCrearActividad,
+  useActividadesSemanales,
+  useCancelarActividad,
+  useCrearActividad,
 } from '../viewmodels/useActividades';
 import { useValidacionFechas } from '../viewmodels/useValidacionFechas';
 
@@ -155,7 +155,7 @@ const AgendaPersonal: React.FC = () => {
   }, [viewMode, allActivities, today]);
 
   const onDateChange = (event: any, selectedDate?: Date) => {
-    if (Platform.OS === 'android') {
+    if (Platform.OS !== 'ios') {
       setShowDatePicker(false);
     }
 
@@ -214,6 +214,12 @@ const AgendaPersonal: React.FC = () => {
     setShowDatePicker(true);
   };
 
+  const closeAddActivityModal = () => {
+    setShowDatePicker(false);
+    setActiveDateType(null);
+    setShowAddForm(false);
+  };
+
   const handleDeleteActivity = async (id: string) => {
     const activity = allActivities.find((a) => a.id === id);
     if (!activity) return;
@@ -264,7 +270,7 @@ const AgendaPersonal: React.FC = () => {
         title: '',
         description: '',
       });
-      setShowAddForm(false);
+      closeAddActivityModal();
       Alert.alert('Éxito', 'Actividad creada correctamente.');
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Intenta nuevamente');
@@ -295,6 +301,7 @@ const AgendaPersonal: React.FC = () => {
         fechaInicio,
         fechaFin,
         participantes,
+        actividadIdExcluir: null,
       },
       () => ejecutarCrearActividad(fechaInicio, fechaFin)
     );
@@ -418,18 +425,19 @@ const AgendaPersonal: React.FC = () => {
         visible={showAddForm}
         transparent
         animationType="fade"
-        onRequestClose={() => setShowAddForm(false)}
+        onRequestClose={closeAddActivityModal}
       >
         <View style={styles.modalOverlay}>
-          <TouchableWithoutFeedback onPress={() => setShowAddForm(false)}>
-            <View style={StyleSheet.absoluteFill} />
-          </TouchableWithoutFeedback>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 12 : 0}
+            style={styles.modalKavWrapper}
+          >
+            <TouchableWithoutFeedback onPress={closeAddActivityModal}>
+              <View style={StyleSheet.absoluteFill} />
+            </TouchableWithoutFeedback>
 
-          <View style={styles.modalContainer}>
-            <KeyboardAvoidingView
-              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-              style={{ width: '100%' }}
-            >
+            <View style={styles.modalContainer}>
               <ScrollView
                 contentContainerStyle={styles.modalScrollContent}
                 keyboardShouldPersistTaps="handled"
@@ -438,7 +446,7 @@ const AgendaPersonal: React.FC = () => {
                 <View style={styles.modalHeader}>
                   <Text style={styles.modalTitle}>Nueva Actividad</Text>
                   <TouchableOpacity
-                    onPress={() => setShowAddForm(false)}
+                    onPress={closeAddActivityModal}
                     style={styles.closeButton}
                   >
                     <Ionicons name="close" size={24} color={colors.secondaryText} />
@@ -489,6 +497,25 @@ const AgendaPersonal: React.FC = () => {
                   </TouchableOpacity>
                 </View>
 
+                {showDatePicker && Platform.OS === 'ios' && (
+                  <View style={styles.inlinePickerContainer}>
+                    <DateTimePicker
+                      testID="dateTimePicker"
+                      value={
+                        activeDateType === 'startDate'
+                          ? newActivity.startTime
+                          : activeDateType === 'startTime'
+                          ? newActivity.startTime
+                          : newActivity.endTime
+                      }
+                      mode={datePickerMode}
+                      is24Hour={true}
+                      display="spinner"
+                      onChange={onDateChange}
+                    />
+                  </View>
+                )}
+
                 {/* Título */}
                 <View style={styles.fieldContainer}>
                   <Text style={styles.fieldLabel}>Título</Text>
@@ -517,7 +544,7 @@ const AgendaPersonal: React.FC = () => {
 
                 {/* Botones */}
                 <View style={styles.buttonContainer}>
-                  <TouchableOpacity style={styles.cancelButton} onPress={() => setShowAddForm(false)}>
+                  <TouchableOpacity style={styles.cancelButton} onPress={closeAddActivityModal}>
                     <Text style={styles.cancelButtonText}>Cancelar</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -536,13 +563,13 @@ const AgendaPersonal: React.FC = () => {
                   </TouchableOpacity>
                 </View>
               </ScrollView>
-            </KeyboardAvoidingView>
-          </View>
+            </View>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
 
       {/* Date Picker */}
-      {showDatePicker && (
+      {showDatePicker && Platform.OS !== 'ios' && (
         <DateTimePicker
           testID="dateTimePicker"
           value={
@@ -554,7 +581,7 @@ const AgendaPersonal: React.FC = () => {
           }
           mode={datePickerMode}
           is24Hour={true}
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          display="default"
           onChange={onDateChange}
         />
       )}
@@ -699,6 +726,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  modalKavWrapper: {
+    flex: 1,
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   modalContainer: {
     backgroundColor: 'white',
     borderRadius: 16,
@@ -733,6 +766,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#e0e0e0',
     paddingBottom: 12,
+    marginBottom: 12,
+  },
+  inlinePickerContainer: {
     marginBottom: 12,
   },
   dateRow: {

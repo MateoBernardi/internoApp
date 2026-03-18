@@ -11,4 +11,8 @@ export interface ArchivoDTO {
   creador_apellido: string;
   created_at: Date;
   id_usuario_asociado?: number;
+  id_carpeta?: number | null;
+  allowed_roles?: string[];
+  usuarios_compartidos?: number[];
+  usuarios_asociados?: number[];
 }

@@ -1,10 +1,10 @@
 import { ThemedText } from '@/components/themed-text';
+import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
 import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
 import { Colors } from '@/constants/theme';
 import { UserSummary } from '@/shared/users/User';
 import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
 import { Ionicons } from '@expo/vector-icons';
-import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {

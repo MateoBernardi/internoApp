@@ -9,17 +9,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  View,
+    ActivityIndicator,
+    Alert,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    TextInput,
+    TouchableOpacity,
+    TouchableWithoutFeedback,
+    View,
 } from 'react-native';
 import { RoleUserSelectionModal } from '../components/RoleUserSelectionModal';
 import { UserSelector } from '../components/UserSelector';
@@ -27,12 +27,12 @@ import { ValidacionFechasModal } from '../components/ValidacionFechasModal';
 import { EstadoInvitacionDB, estadoInvitacionMapping, ModificarSolicitudFechasRequest, ReenviarSolicitudRequest } from '../models/Solicitud';
 import { useCrearActividad } from '../viewmodels/useActividades';
 import {
-  useActualizarEstadoInvitacion,
-  useInvitaciones,
-  useModificarSolicitudFechas,
-  useReenviarSolicitud,
-  useSolicitudBitacora,
-  useSolicitudesCreadas
+    useActualizarEstadoInvitacion,
+    useInvitaciones,
+    useModificarSolicitudFechas,
+    useReenviarSolicitud,
+    useSolicitudBitacora,
+    useSolicitudesCreadas
 } from '../viewmodels/useSolicitudes';
 import { useValidacionFechas } from '../viewmodels/useValidacionFechas';
 
@@ -723,7 +723,7 @@ export function Solicitud() {
                   <ThemedText style={styles.label}>Nueva Fecha Inicio</ThemedText>
                   <View style={styles.row}>
                       <TouchableOpacity onPress={() => showPicker('date', 'start')} style={styles.dateBtn}>
-                          <ThemedText>{modStartDate.toLocaleDateString()}</ThemedText>
+                          <ThemedText>{modStartDate.toLocaleDateString('es-AR')}</ThemedText>
                       </TouchableOpacity>
                       <TouchableOpacity onPress={() => showPicker('time', 'start')} style={styles.dateBtn}>
                            <ThemedText>{modStartDate.toLocaleTimeString()}</ThemedText>
@@ -733,7 +733,7 @@ export function Solicitud() {
                   <ThemedText style={styles.label}>Nueva Fecha Fin</ThemedText>
                   <View style={styles.row}>
                       <TouchableOpacity onPress={() => showPicker('date', 'end')} style={styles.dateBtn}>
-                          <ThemedText>{modEndDate.toLocaleDateString()}</ThemedText>
+                          <ThemedText>{modEndDate.toLocaleDateString('es-AR')}</ThemedText>
                       </TouchableOpacity>
                       <TouchableOpacity onPress={() => showPicker('time', 'end')} style={styles.dateBtn}>
                            <ThemedText>{modEndDate.toLocaleTimeString()}</ThemedText>

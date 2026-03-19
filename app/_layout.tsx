@@ -8,9 +8,9 @@ import { usePushCacheSync } from '@/features/realtime/usePushCacheSync';
 import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
-import { Redirect, Stack, useSegments } from 'expo-router';
+import { Redirect, Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
 import 'react-native-reanimated';
 
@@ -33,10 +33,42 @@ function isPushCacheSyncEnabled(): boolean {
 function RootNavigator() {
   const { isAuthenticated, isLoading, requiresAssociation, tokens, user } = useAuth();
   const segments = useSegments();
+  const router = useRouter();
   // Obtiene el push token y lo registra automáticamente cuando esté autenticado
   useRegisterDevice();
   const pushCacheSyncEnabled = isPushCacheSyncEnabled();
-  usePushCacheSync(pushCacheSyncEnabled && isAuthenticated && !requiresAssociation);
+  const handleNotificationOpen = useCallback((rawPayload: unknown) => {
+      const payload = (rawPayload ?? {}) as Record<string, unknown>;
+      const eventType = String(payload.event ?? payload.type ?? '').toLowerCase();
+      const solicitudId = Number(payload.solicitud_id ?? payload.solicitudId ?? payload.request_id ?? payload.requestId);
+      const actividadId = Number(payload.actividad_id ?? payload.actividadId);
+
+      if (eventType !== 'estado_actualizado' && eventType !== 'status_changed') {
+        return;
+      }
+
+      if (Number.isFinite(actividadId) && actividadId > 0) {
+        router.push({
+          pathname: '/(extras)/actividad-detalle' as any,
+          params: { actividadId: actividadId.toString() },
+        });
+        return;
+      }
+
+      if (Number.isFinite(solicitudId) && solicitudId > 0) {
+        const esCreador = Boolean(payload.es_creador ?? payload.is_creator ?? payload.creator);
+        router.push({
+          pathname: '/(extras)/solicitud' as any,
+          params: { id: solicitudId.toString(), type: esCreador ? 'enviada' : 'recibida' },
+        });
+      }
+    },
+    [router]
+  );
+
+  usePushCacheSync(pushCacheSyncEnabled && isAuthenticated && !requiresAssociation, {
+    onNotificationOpen: handleNotificationOpen,
+  });
 
   useEffect(() => {
     if (!isAuthenticated || requiresAssociation || !tokens?.accessToken) {

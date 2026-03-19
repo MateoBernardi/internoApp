@@ -7,22 +7,22 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  View,
+    ActivityIndicator,
+    Alert,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    TouchableOpacity,
+    TouchableWithoutFeedback,
+    View,
 } from 'react-native';
 import { ValidacionFechasModal } from '../components/ValidacionFechasModal';
 import {
-  useActividadesSemanales,
-  useCancelarActividad,
-  useModificarActividadFechas,
+    useActividadesSemanales,
+    useCancelarActividad,
+    useModificarActividadFechas,
 } from '../viewmodels/useActividades';
 import { useValidacionFechas } from '../viewmodels/useValidacionFechas';
 
@@ -389,7 +389,7 @@ export function ActividadDetalle() {
                       onPress={() => showPicker('date', 'start')}
                       style={styles.dateBtn}
                     >
-                      <ThemedText>{modStartDate.toLocaleDateString()}</ThemedText>
+                      <ThemedText>{modStartDate.toLocaleDateString('es-AR')}</ThemedText>
                     </TouchableOpacity>
                     <TouchableOpacity
                       onPress={() => showPicker('time', 'start')}
@@ -405,7 +405,7 @@ export function ActividadDetalle() {
                       onPress={() => showPicker('date', 'end')}
                       style={styles.dateBtn}
                     >
-                      <ThemedText>{modEndDate.toLocaleDateString()}</ThemedText>
+                      <ThemedText>{modEndDate.toLocaleDateString('es-AR')}</ThemedText>
                     </TouchableOpacity>
                     <TouchableOpacity
                       onPress={() => showPicker('time', 'end')}

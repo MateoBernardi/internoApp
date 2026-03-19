@@ -280,9 +280,24 @@ export function SolicitudLicencia() {
 
   const estadoUI = estadoMapping[solicitud.estado];
   const isExpiredState = solicitud.estado === 'EXPIRADA';
-  const canTakeAction = isFromReceivedView && !isCreator && solicitud.estado === 'PENDIENTE' && !isExpiredState;
+  const canTakeAction =
+    isFromReceivedView &&
+    !isCreator &&
+    ['PENDIENTE', 'PENDIENTE_APROBACION'].includes(solicitud.estado) &&
+    !isExpiredState;
   const isExpired = solicitud.fecha_fin ? new Date(solicitud.fecha_fin) < new Date() : false;
-  const canCancel = isFromSentView && isCreator && solicitud.estado !== 'CANCELADA' && solicitud.estado !== 'CONSUMIDA' && solicitud.estado !== 'RECHAZADA' && !isExpired && !isExpiredState;
+  const hasStarted = solicitud.fecha_inicio
+    ? new Date(`${solicitud.fecha_inicio}T00:00:00`).getTime() <= Date.now()
+    : false;
+  const canCancel =
+    isFromSentView &&
+    isCreator &&
+    solicitud.estado !== 'CANCELADA' &&
+    solicitud.estado !== 'CONSUMIDA' &&
+    solicitud.estado !== 'RECHAZADA' &&
+    !isExpired &&
+    !isExpiredState &&
+    !hasStarted;
   const canUploadDoc = isCreator && solicitud.estado === 'PENDIENTE_DOCUMENTACION';
 
   return (

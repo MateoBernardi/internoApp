@@ -10,8 +10,13 @@ interface ServiceWorkerPushMessage {
   payload?: unknown;
 }
 
-export function usePushCacheSync(enabled: boolean) {
+interface UsePushCacheSyncOptions {
+  onNotificationOpen?: (payload: unknown) => void;
+}
+
+export function usePushCacheSync(enabled: boolean, options?: UsePushCacheSyncOptions) {
   const queryClient = useQueryClient();
+  const onNotificationOpen = options?.onNotificationOpen;
 
   useEffect(() => {
     if (!enabled) return;
@@ -50,12 +55,14 @@ export function usePushCacheSync(enabled: boolean) {
     });
 
     const onResponse = Notifications.addNotificationResponseReceivedListener((response) => {
-      syncPushPayloadToCache(queryClient, response.notification.request.content.data, 'native');
+      const payload = response.notification.request.content.data;
+      syncPushPayloadToCache(queryClient, payload, 'native');
+      onNotificationOpen?.(payload);
     });
 
     return () => {
       onReceived.remove();
       onResponse.remove();
     };
-  }, [enabled, queryClient]);
+  }, [enabled, onNotificationOpen, queryClient]);
 }

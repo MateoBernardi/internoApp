@@ -125,6 +125,15 @@ function resolveDomains(payload: AnyRecord): Set<SyncDomain> {
     });
   });
 
+  const eventToken =
+    (typeof payload.event === 'string' && payload.event) ||
+    (typeof payload.type === 'string' && payload.type) ||
+    '';
+  const normalizedEvent = eventToken.toLowerCase();
+  if (normalizedEvent === 'status_changed' || normalizedEvent === 'estado_actualizado') {
+    domains.add('solicitudesActividades');
+  }
+
   const endpointFields = [payload.endpoint, payload.path, payload.url, payload.resource];
   endpointFields.forEach((field) => {
     if (typeof field !== 'string') return;

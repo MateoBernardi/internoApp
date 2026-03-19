@@ -23,7 +23,8 @@ export default function Root({ children }: PropsWithChildren) {
         {/*
           Content Security Policy
           - unsafe-inline en script-src/style-src: necesario por los bloques inline (SW registration + estilos)
-          - connect-src: API backend + Firebase Cloud Messaging endpoints
+          - connect-src: API backend + Firebase Cloud Messaging endpoints + blob: para fetch(blob:...)
+          - agregar dominios R2 si cambia la infraestructura de uploads firmados
           - worker-src blob: requerido por algunos bundlers para web workers
           - Actualizar la IP/dominio de connect-src si cambia API_BASE_URL
         */}
@@ -36,8 +37,10 @@ export default function Root({ children }: PropsWithChildren) {
             img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com;
             font-src 'self' https://fonts.gstatic.com;
             connect-src 'self'
+              blob:
               http://192.168.1.189:3000
               https://italoapp-backend-production.up.railway.app
+              https://*.r2.cloudflarestorage.com
               https://fcm.googleapis.com
               https://fcmregistrations.googleapis.com
               https://firebaseinstallations.googleapis.com

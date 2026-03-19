@@ -3,6 +3,7 @@ import { ThemedView } from '@/components/themed-view';
 import { CreateButton } from '@/components/ui/CreateButton';
 import { SearchBar } from '@/components/ui/SearchBar';
 import { Colors } from '@/constants/theme';
+import { confirmAction } from '@/shared/ui/confirmAction';
 import { showGlobalToast } from '@/shared/ui/toast';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
@@ -14,8 +15,9 @@ import { DocumentOptionAction, DocumentOptionsModal } from '../components/Docume
 import { EditCarpetaModal } from '../components/EditCarpetaModal';
 import { ResourcePermisosModal } from '../components/ResourcePermisosModal';
 import { Carpeta, UpdateCarpetaPayload } from '../models/Carpeta';
+import { RemovePermisosPayload } from '../models/Permisos';
 import { formatPartialWarnings } from '../utils/partialWarnings';
-import { useCarpetaPermisos, useCarpetas, useCreateCarpeta, useDeleteCarpeta, useSearchArchivos, useUpdateCarpeta } from '../viewmodels/useArchivos';
+import { normalizeRemovePermisosPayload, useCarpetaPermisos, useCarpetas, useCreateCarpeta, useDeleteCarpeta, useRemoveCarpetaPermisos, useSearchArchivos, useUpdateCarpeta } from '../viewmodels/useArchivos';
 import DocumentosEmpresa from './DocumentosEmpresa';
 import MisDocumentos from './MisDocumentos';
 
@@ -28,6 +30,7 @@ export default function Documentos() {
   const { data: carpetasData } = useCarpetas('list', true);
   const createCarpeta = useCreateCarpeta();
   const updateCarpeta = useUpdateCarpeta();
+  const removeCarpetaPermisos = useRemoveCarpetaPermisos();
   const deleteCarpeta = useDeleteCarpeta();
   const [tab, setTab] = useState<TabType>('empresa');
   const [modalVisible, setModalVisible] = useState(false);
@@ -43,7 +46,12 @@ export default function Documentos() {
   const [folderEditPartialWarning, setFolderEditPartialWarning] = useState<string | null>(null);
   const [folderDeleteConflictMessage, setFolderDeleteConflictMessage] = useState<string | null>(null);
   const [fabMenuVisible, setFabMenuVisible] = useState(false);
-  const { data: carpetaPermisosData, isLoading: isLoadingCarpetaPermisos, error: carpetaPermisosError } = useCarpetaPermisos(folderForPermisos?.id ?? undefined);
+  const {
+    data: carpetaPermisosData,
+    isLoading: isLoadingCarpetaPermisos,
+    error: carpetaPermisosError,
+    refetch: refetchCarpetaPermisos,
+  } = useCarpetaPermisos(folderForPermisos?.id ?? undefined);
 
   const folders = useMemo(
     () => (carpetasData?.items || []).filter((folder: Carpeta) => folder.id !== null && folder.type !== 'virtual'),
@@ -81,6 +89,21 @@ export default function Documentos() {
 
   const isSearchingWithResults = query.trim().length > 0 && (searchResults?.length || 0) > 0;
 
+  const folderUserIdByName = useMemo(() => {
+    const names = carpetaPermisosData?.allowed_users || [];
+    const ids = folderForPermisos?.usuarios_id || [];
+    const mapped: Record<string, number> = {};
+
+    names.forEach((name, index) => {
+      const id = ids[index];
+      if (Number.isInteger(id) && id > 0) {
+        mapped[name] = id;
+      }
+    });
+
+    return mapped;
+  }, [carpetaPermisosData?.allowed_users, folderForPermisos?.usuarios_id]);
+
   const handleCreateDocument = async () => {
     setFabMenuVisible(false);
     try {
@@ -114,42 +137,39 @@ export default function Documentos() {
     setFolderForOptions(folder);
   };
 
-  const handleDeleteFolder = (folder: Carpeta) => {
+  const handleDeleteFolder = async (folder: Carpeta) => {
     if (folder.id === null) return;
-    Alert.alert(
-      'Eliminar carpeta',
-      `Se eliminara ${folder.nombre} junto con subcarpetas y archivos asociados.`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: () => {
-            deleteCarpeta.mutate(folder.id as number, {
-              onSuccess: () => {
-                if (currentFolderId === folder.id) {
-                  setCurrentFolderId(folder.id_carpeta_padre ?? null);
-                }
-                Alert.alert('Carpeta eliminada', 'Se elimino la carpeta y su contenido asociado');
-              },
-              onError: (error: unknown) => {
-                const statusCode = (error as any)?.statusCode;
-                const message = error instanceof Error ? error.message : 'No se pudo eliminar la carpeta';
+    const confirmed = await confirmAction({
+      title: 'Eliminar carpeta',
+      message: `Se eliminara ${folder.nombre} junto con subcarpetas y archivos asociados.`,
+      confirmText: 'Eliminar',
+      cancelText: 'Cancelar',
+      destructive: true,
+    });
 
-                if (statusCode === 409) {
-                  setFolderDeleteConflictMessage(
-                    `${message}\n\nPrimero move el contenido de otro creador fuera de esta carpeta y luego intenta borrarla nuevamente.`
-                  );
-                  return;
-                }
+    if (!confirmed) return;
 
-                Alert.alert('Error', message);
-              },
-            });
-          },
-        },
-      ]
-    );
+    deleteCarpeta.mutate(folder.id as number, {
+      onSuccess: () => {
+        if (currentFolderId === folder.id) {
+          setCurrentFolderId(folder.id_carpeta_padre ?? null);
+        }
+        Alert.alert('Carpeta eliminada', 'Se elimino la carpeta y su contenido asociado');
+      },
+      onError: (error: unknown) => {
+        const statusCode = (error as any)?.statusCode;
+        const message = error instanceof Error ? error.message : 'No se pudo eliminar la carpeta';
+
+        if (statusCode === 409) {
+          setFolderDeleteConflictMessage(
+            `${message}\n\nPrimero move el contenido de otro creador fuera de esta carpeta y luego intenta borrarla nuevamente.`
+          );
+          return;
+        }
+
+        Alert.alert('Error', message);
+      },
+    });
   };
 
   const buildFolderOptions = (folder: Carpeta): DocumentOptionAction[] => [
@@ -161,7 +181,7 @@ export default function Documentos() {
     },
     {
       key: 'view-folder-permissions',
-      label: 'Ver permisos',
+      label: 'Administrar permisos',
       icon: 'shield-checkmark-outline',
       onPress: () => setFolderForPermisos(folder),
     },
@@ -222,6 +242,59 @@ export default function Documentos() {
         },
         onError: (error: unknown) => {
           const message = error instanceof Error ? error.message : 'No se pudo actualizar la carpeta';
+          Alert.alert('Error', message);
+        },
+      }
+    );
+  };
+
+  const handleRemoveFolderPermisos = (payload: RemovePermisosPayload) => {
+    if (!folderForPermisos?.id) return;
+
+    const normalizedPayload = normalizeRemovePermisosPayload(payload);
+    const selectedRolesCount = normalizedPayload.allowed_roles?.length || 0;
+    const selectedUsersCount = normalizedPayload.ids?.length || 0;
+
+    if (selectedRolesCount === 0 && selectedUsersCount === 0) {
+      Alert.alert('Sin cambios', 'Selecciona al menos un rol o un usuario para quitar permisos.');
+      return;
+    }
+
+    removeCarpetaPermisos.mutate(
+      { id: folderForPermisos.id, payload: normalizedPayload },
+      {
+        onSuccess: (result) => {
+          refetchCarpetaPermisos();
+
+          if (result.status === 'partial_success') {
+            showGlobalToast('Guardado parcial');
+            Alert.alert('Guardado parcial', formatPartialWarnings(result.warnings));
+            return;
+          }
+
+          showGlobalToast(`Permisos actualizados: ${selectedRolesCount} rol(es), ${selectedUsersCount} usuario(s) removidos`);
+          Alert.alert('Permisos actualizados', 'Los permisos se actualizaron correctamente.');
+        },
+        onError: (error: unknown) => {
+          const statusCode = (error as any)?.statusCode;
+          if (statusCode === 400) {
+            Alert.alert('Datos invalidos', 'Selecciona al menos un rol o un usuario para quitar permisos.');
+            return;
+          }
+          if (statusCode === 401) {
+            Alert.alert('Sesion expirada', 'Inicia sesion nuevamente para continuar.');
+            return;
+          }
+          if (statusCode === 403) {
+            Alert.alert('Sin permisos', 'No tienes permisos para administrar esta carpeta.');
+            return;
+          }
+          if (statusCode === 404) {
+            Alert.alert('No encontrado', 'La carpeta ya no existe o no esta disponible.');
+            return;
+          }
+
+          const message = error instanceof Error ? error.message : 'No se pudieron actualizar los permisos';
           Alert.alert('Error', message);
         },
       }
@@ -431,9 +504,12 @@ export default function Documentos() {
 
       <ResourcePermisosModal
         visible={!!folderForPermisos}
-        title="Permisos de carpeta"
+        title="Administrar permisos de carpeta"
         isLoading={isLoadingCarpetaPermisos}
+        isSubmitting={removeCarpetaPermisos.isPending}
         data={carpetaPermisosData}
+        availableUserIds={folderForPermisos?.usuarios_id || []}
+        userIdByName={folderUserIdByName}
         errorMessage={
           (carpetaPermisosError as any)?.statusCode === 403
             ? 'Solo el creador puede ver los permisos completos'
@@ -441,6 +517,7 @@ export default function Documentos() {
               ? carpetaPermisosError.message
               : undefined
         }
+        onSubmitRemove={handleRemoveFolderPermisos}
         onClose={() => setFolderForPermisos(null)}
       />
 

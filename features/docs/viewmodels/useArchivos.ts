@@ -2,7 +2,7 @@ import { useAuth } from '@/features/auth/context/AuthContext';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Archivo, MobileFile, UpdateArchivoPayload, UploadArchivoPayload } from '../models/Archivo';
 import { CarpetaView, CreateCarpetaPayload, UpdateCarpetaPayload } from '../models/Carpeta';
-import type { ResourcePermisos } from '../models/Permisos';
+import type { RemovePermisosPayload, ResourcePermisos } from '../models/Permisos';
 import * as archivosApi from '../services/archivosApi';
 import * as carpetasApi from '../services/carpetasApi';
 
@@ -283,6 +283,54 @@ export function useArchivoPermisos(id?: number) {
             return archivosApi.getArchivoPermisos(token, id);
         },
         enabled: !!id && !!tokens?.accessToken,
+    });
+}
+
+export function normalizeRemovePermisosPayload(payload: RemovePermisosPayload): RemovePermisosPayload {
+    const normalizedRoles = Array.from(
+        new Set((payload.allowed_roles || []).map((role) => role.trim()).filter((role) => role.length > 0))
+    );
+    const normalizedIds = Array.from(new Set((payload.ids || []).filter((id) => Number.isInteger(id) && id > 0)));
+
+    return {
+        ...(normalizedRoles.length > 0 ? { allowed_roles: normalizedRoles } : {}),
+        ...(normalizedIds.length > 0 ? { ids: normalizedIds } : {}),
+    };
+}
+
+export function useRemoveArchivoPermisos() {
+    const { tokens } = useAuth();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async ({ id, payload }: { id: number; payload: RemovePermisosPayload }) => {
+            const token = tokens?.accessToken;
+            if (!token) throw new Error('No authentification token found');
+            const normalizedPayload = normalizeRemovePermisosPayload(payload);
+            return archivosApi.removeArchivoPermisos(token, id, normalizedPayload);
+        },
+        onSuccess: (_, variables) => {
+            queryClient.invalidateQueries({ queryKey: ARCHIVOS_KEYS.archivoPermisos(variables.id) });
+            queryClient.invalidateQueries({ queryKey: ARCHIVOS_KEYS.all });
+        },
+    });
+}
+
+export function useRemoveCarpetaPermisos() {
+    const { tokens } = useAuth();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async ({ id, payload }: { id: number; payload: RemovePermisosPayload }) => {
+            const token = tokens?.accessToken;
+            if (!token) throw new Error('No authentification token found');
+            const normalizedPayload = normalizeRemovePermisosPayload(payload);
+            return carpetasApi.removeCarpetaPermisos(token, id, normalizedPayload);
+        },
+        onSuccess: (_, variables) => {
+            queryClient.invalidateQueries({ queryKey: ARCHIVOS_KEYS.carpetaPermisos(variables.id) });
+            queryClient.invalidateQueries({ queryKey: ARCHIVOS_KEYS.all });
+        },
     });
 }
  

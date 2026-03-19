@@ -7,7 +7,7 @@ import {
     ListarCarpetasResponse,
     UpdateCarpetaPayload,
 } from '../models/Carpeta';
-import type { ResourcePermisos } from '../models/Permisos';
+import type { RemovePermisosPayload, ResourcePermisos } from '../models/Permisos';
 
 export type DocsApiError = Error & {
   status: ApiOperationStatus;
@@ -25,11 +25,12 @@ const parseWarnings = (body: any): ApiWarningDetail[] => {
     return [body.warnings];
   }
 
-  if (body.invalid_roles || body.invalid_users || body.reason) {
+  if (body.invalid_roles || body.invalid_users || body.invalid_user_ids || body.reason) {
     return [
       {
         invalid_roles: body.invalid_roles,
         invalid_users: body.invalid_users,
+        invalid_user_ids: body.invalid_user_ids,
         reason: body.reason,
       },
     ];
@@ -179,4 +180,41 @@ export async function getCarpetaPermisos(accessToken: string, id: number): Promi
 
   const data = await parseBody(response);
   return data?.data || data;
+}
+
+export async function removeCarpetaPermisos(
+  accessToken: string,
+  id: number,
+  payload: RemovePermisosPayload
+): Promise<ApiOperationResult<ResourcePermisos>> {
+  const response = await apiRequest({ method: 'PATCH', endpoint: `/carpetas/${id}/permisos`, token: accessToken, body: payload });
+
+  if (!response.ok) {
+    const body = await parseBody(response);
+
+    if (response.status === 401) {
+      throw buildApiError(response.status, 'Tu sesion expiro. Inicia sesion nuevamente', body);
+    }
+    if (response.status === 403) {
+      throw buildApiError(response.status, 'No tenes permisos para administrar esta carpeta', body);
+    }
+    if (response.status === 404) {
+      throw buildApiError(response.status, 'Carpeta no encontrada', body);
+    }
+    if (response.status === 400) {
+      throw buildApiError(response.status, 'Selecciona al menos un rol o un usuario para quitar permisos', body);
+    }
+
+    throw buildApiError(response.status, response.statusText, body);
+  }
+
+  const body = await parseBody(response);
+  const data: ResourcePermisos = body?.data || body;
+  return {
+    status: response.status === 207 ? 'partial_success' : 'success',
+    statusCode: response.status,
+    data,
+    message: body?.message,
+    warnings: parseWarnings(body),
+  };
 }

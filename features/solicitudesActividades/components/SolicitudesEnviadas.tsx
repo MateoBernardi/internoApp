@@ -197,7 +197,7 @@ function SolicitudEnviadaItem({ solicitud, onPress }: SolicitudEnviadaItemProps)
         </View>
 
         <ThemedText style={[styles.dateText, { color: colors.secondaryText }]}>
-          {solicitud.fecha_inicio ? new Date(solicitud.fecha_inicio).toLocaleDateString() : 'Sin fecha'}
+          {solicitud.fecha_inicio ? new Date(solicitud.fecha_inicio).toLocaleDateString('es-AR') : 'Sin fecha'}
         </ThemedText>
       </View>
     </TouchableOpacity>

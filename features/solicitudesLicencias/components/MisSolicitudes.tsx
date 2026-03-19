@@ -167,8 +167,8 @@ function MiSolicitudItem({ solicitud, estadoUI, onPress }: MiSolicitudItemProps)
     }
   };
 
-  const fechaInicioStr = solicitud.fecha_inicio ? new Date(solicitud.fecha_inicio).toLocaleDateString() : null;
-  const fechaFinStr = solicitud.fecha_fin ? new Date(solicitud.fecha_fin).toLocaleDateString() : null;
+  const fechaInicioStr = solicitud.fecha_inicio ? new Date(solicitud.fecha_inicio).toLocaleDateString('es-AR') : null;
+  const fechaFinStr = solicitud.fecha_fin ? new Date(solicitud.fecha_fin).toLocaleDateString('es-AR') : null;
 
   return (
     <TouchableOpacity
@@ -195,7 +195,7 @@ function MiSolicitudItem({ solicitud, estadoUI, onPress }: MiSolicitudItemProps)
         {/* Footer: Fecha creación + Badge de Estado */}
         <View style={styles.footerContainer}>
           <ThemedText style={[styles.dateText, { color: colors.icon }]}>
-            Creada: {new Date(solicitud.created_at).toLocaleDateString()}
+            Creada: {new Date(solicitud.created_at).toLocaleDateString('es-AR')}
           </ThemedText>
           
           <View

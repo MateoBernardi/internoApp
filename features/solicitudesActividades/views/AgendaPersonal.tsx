@@ -4,23 +4,24 @@ import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
+import { confirmAction } from '@/shared/ui/confirmAction';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  View,
+    ActivityIndicator,
+    Alert,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    TouchableWithoutFeedback,
+    View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AgendaDiaria } from '../components/AgendaDiaria';
@@ -29,9 +30,9 @@ import { ValidacionFechasModal } from '../components/ValidacionFechasModal';
 import type { Actividad, Licencia } from '../models/Actividad';
 import type { Activity } from '../models/activityTypes';
 import {
-  useActividadesSemanales,
-  useCancelarActividad,
-  useCrearActividad,
+    useActividadesSemanales,
+    useCancelarActividad,
+    useCrearActividad,
 } from '../viewmodels/useActividades';
 import { useValidacionFechas } from '../viewmodels/useValidacionFechas';
 
@@ -111,27 +112,41 @@ const AgendaPersonal: React.FC = () => {
   };
 
   const mapLicencias = (licencias: Licencia[]): Activity[] => {
-    return (licencias || []).map((lic) => {
+    const expanded: Activity[] = [];
+
+    (licencias || []).forEach((lic) => {
       const timeMatch = lic.fecha_inicio.match(/[T ](\d{2}:\d{2})/);
       const time = timeMatch ? timeMatch[1] : '00:00';
 
-      const dateMatch = lic.fecha_inicio.match(/(\d{4}-\d{2}-\d{2})/);
-      const date = dateMatch ? dateMatch[1] : lic.fecha_inicio.split(/[T ]/)[0];
+      const start = new Date(lic.fecha_inicio);
+      const end = new Date(lic.fecha_fin);
+      const cursor = new Date(start);
+      cursor.setHours(0, 0, 0, 0);
 
-      return {
-        id: `licencia-${lic.id}`,
-        time,
-        title: lic.tipo_licencia_nombre || 'Licencia',
-        description: lic.tipo_licencia_nombre || '',
-        completed: false,
-        date,
-        tipo: 'licencia',
-        tipo_licencia_id: lic.tipo_licencia_id,
-        tipo_licencia_nombre: lic.tipo_licencia_nombre,
-        usuario_id: lic.usuario_id,
-        fecha_fin: lic.fecha_fin,
-      };
+      const endDay = new Date(end);
+      endDay.setHours(0, 0, 0, 0);
+
+      while (cursor.getTime() <= endDay.getTime()) {
+        const date = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}-${String(cursor.getDate()).padStart(2, '0')}`;
+        expanded.push({
+          id: `licencia-${lic.id}-${date}`,
+          time,
+          title: lic.tipo_licencia_nombre || 'Licencia',
+          description: lic.tipo_licencia_nombre || '',
+          completed: false,
+          date,
+          tipo: 'licencia',
+          tipo_licencia_id: lic.tipo_licencia_id,
+          tipo_licencia_nombre: lic.tipo_licencia_nombre,
+          usuario_id: lic.usuario_id,
+          fecha_fin: lic.fecha_fin,
+        });
+
+        cursor.setDate(cursor.getDate() + 1);
+      }
     });
+
+    return expanded;
   };
 
   // Combinar todas las actividades
@@ -222,28 +237,25 @@ const AgendaPersonal: React.FC = () => {
 
   const handleDeleteActivity = async (id: string) => {
     const activity = allActivities.find((a) => a.id === id);
-    if (!activity) return;
+    if (!activity || activity.tipo === 'licencia') return;
 
-    Alert.alert(
-      '¿Estás seguro?',
-      `¿Deseas cancelar "${activity.title}"?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const actividadId = Number(activity.id.replace('licencia-', ''));
-              await cancelarActividadMutation.mutateAsync({ actividadId });
-              Alert.alert('Éxito', 'Actividad cancelada correctamente.');
-            } catch (error: any) {
-              Alert.alert('Error', error.message || 'Intenta nuevamente');
-            }
-          },
-        },
-      ]
-    );
+    const confirmed = await confirmAction({
+      title: '¿Estás seguro?',
+      message: `¿Deseas cancelar "${activity.title}"?`,
+      confirmText: 'Eliminar',
+      cancelText: 'Cancelar',
+      destructive: true,
+    });
+
+    if (!confirmed) return;
+
+    try {
+      const actividadId = Number(activity.id);
+      await cancelarActividadMutation.mutateAsync({ actividadId, actividad_id: actividadId });
+      Alert.alert('Éxito', 'Actividad cancelada correctamente.');
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Intenta nuevamente');
+    }
   };
 
   const handlePressActivity = useCallback((activity: Activity) => {

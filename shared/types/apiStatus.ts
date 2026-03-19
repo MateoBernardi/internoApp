@@ -9,6 +9,7 @@ export type ApiOperationStatus =
 export type ApiWarningDetail = {
   invalid_roles?: string[];
   invalid_users?: string[];
+  invalid_user_ids?: number[];
   reason?: string;
 };
 

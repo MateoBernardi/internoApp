@@ -69,6 +69,7 @@ export interface CrearActividadResponse {
 
 export interface CancelarActividadRequest {
   actividadId: number;
+  actividad_id?: number;
   motivo?: string;
 }
 

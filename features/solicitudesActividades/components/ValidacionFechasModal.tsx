@@ -3,12 +3,12 @@ import { Colors } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import {
-  ActivityIndicator,
-  Modal,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Modal,
+    ScrollView,
+    StyleSheet,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import type { RangoOcupado } from '../models/Solicitud';
 
@@ -84,7 +84,7 @@ export function ValidacionFechasModal({
                             </View>
 
                             <ThemedText style={styles.warningSubtitle}>
-                                Los siguientes usuarios tienen actividades en ese rango horario:
+                                Se detectaron cruces de agenda (actividades y/o licencias aprobadas) en ese rango:
                             </ThemedText>
 
                             <ScrollView style={styles.avisosContainer} showsVerticalScrollIndicator={false}>
@@ -114,9 +114,9 @@ export function ValidacionFechasModal({
                                                         return (
                                                             <View key={`${usuario}-${idx}`} style={styles.rangoItem}>
                                                                 <View style={styles.rangoItemHeader}>
-                                                                    <View style={[styles.rangoTipoBadge, { backgroundColor: rango.tipo === 'actividad' ? colors.lightTint + '20' : colors.warning + '20' }]}>
-                                                                        <ThemedText style={[styles.rangoTipoText, { color: rango.tipo === 'actividad' ? colors.lightTint : colors.warning }]}>
-                                                                            {rango.tipo}
+                                                                    <View style={[styles.rangoTipoBadge, { backgroundColor: rango.tipo === 'actividad' ? colors.lightTint + '20' : colors.warning + '20' }]}> 
+                                                                        <ThemedText style={[styles.rangoTipoText, { color: rango.tipo === 'actividad' ? colors.lightTint : colors.warning }]}> 
+                                                                            {rango.tipo === 'licencia' ? 'Licencia aprobada' : 'Actividad'}
                                                                         </ThemedText>
                                                                     </View>
                                                                 </View>

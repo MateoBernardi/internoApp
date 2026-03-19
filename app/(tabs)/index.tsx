@@ -1,9 +1,15 @@
 import { ThemedView } from '@/components/themed-view';
+import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { EncuestasPendientes } from '@/features/encuestas/components/EncuestasPendientes';
+import { useGetEncuestas } from '@/features/encuestas/viewmodels/useEncuestas';
 import { KanbanBoard } from '@/features/kanban/views/KanbanBoard';
 import TablonNovedades from '@/features/novedades/views/TablonNovedades';
+import {
+    useInvitaciones,
+    useSolicitudesCreadas,
+} from '@/features/solicitudesActividades/viewmodels/useSolicitudes';
 import SolicitudesView from '@/features/solicitudesActividades/views/Solicitudes';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { useQueryClient } from '@tanstack/react-query';
@@ -18,6 +24,15 @@ export default function HomeScreen() {
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const canSeeSolicitudes = isEmployeeOrEncargado();
+
+  const { isLoading: isLoadingEncuestas } = useGetEncuestas();
+  const { isLoading: isLoadingInvitaciones } = useInvitaciones(canSeeSolicitudes);
+  const { isLoading: isLoadingEnviadas } = useSolicitudesCreadas(canSeeSolicitudes);
+
+  const showHomeSkeleton =
+    canSeeSolicitudes &&
+    (isLoadingEncuestas || isLoadingInvitaciones || isLoadingEnviadas);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -28,6 +43,10 @@ export default function HomeScreen() {
 
   return (
     <ThemedView style={styles.container} lightColor={colors.componentBackground}>
+      {showHomeSkeleton ? (
+        <ScreenSkeleton rows={6} />
+      ) : (
+        <>
       {/* Sección superior: novedades y encuestas */}
       <View style={styles.topSection}>
         <TablonNovedades refreshTrigger={refreshTrigger} />
@@ -36,12 +55,14 @@ export default function HomeScreen() {
 
       {/* Sección principal: solicitudes o kanban (fuera del ScrollView para que el FAB flote) */}
       <View style={styles.mainSection}>
-        {isEmployeeOrEncargado() ? (
+        {canSeeSolicitudes ? (
           <SolicitudesView onRefresh={handleRefresh} refreshing={refreshing} />
         ) : (
           <KanbanBoard />
         )}
       </View>
+        </>
+      )}
     </ThemedView>
   );
 }

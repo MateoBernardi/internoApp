@@ -3,7 +3,7 @@ import type { ApiOperationResult, ApiOperationStatus, ApiWarningDetail } from '@
 import type { ArchivoDTO } from "../dto/ArchivoDTO";
 import { mapArchivoDTOToArchivo } from "../mappers/archivoMapper";
 import * as archivos from "../models/Archivo";
-import type { ResourcePermisos } from '../models/Permisos';
+import type { RemovePermisosPayload, ResourcePermisos } from '../models/Permisos';
 
 type DocsApiError = Error & {
     status: ApiOperationStatus;
@@ -21,11 +21,12 @@ const parseWarnings = (body: any): ApiWarningDetail[] => {
         return [body.warnings];
     }
 
-    if (body.invalid_roles || body.invalid_users || body.reason) {
+    if (body.invalid_roles || body.invalid_users || body.invalid_user_ids || body.reason) {
         return [
             {
                 invalid_roles: body.invalid_roles,
                 invalid_users: body.invalid_users,
+                invalid_user_ids: body.invalid_user_ids,
                 reason: body.reason,
             },
         ];
@@ -60,9 +61,31 @@ const buildApiError = (statusCode: number, fallbackMessage: string, body: any): 
 };
 
 const uriToBlob = async (uri: string) => {
-  const response = await fetch(uri);
-  const blob = await response.blob();
-  return blob;
+    try {
+        const response = await fetch(uri);
+
+        if (!response.ok) {
+            throw new Error(`No se pudo leer el archivo seleccionado (HTTP ${response.status})`);
+        }
+
+        const blob = await response.blob();
+        if (blob.size === 0) {
+            throw new Error('El archivo seleccionado esta vacio o ya no esta disponible');
+        }
+
+        return blob;
+    } catch (error) {
+        const isBlobUri = uri.startsWith('blob:');
+        const details = error instanceof Error ? error.message : String(error);
+
+        if (isBlobUri) {
+            throw new Error(
+                `No se pudo leer el archivo en web. Revisa la CSP (connect-src blob:) o vuelve a seleccionar el archivo. Detalle: ${details}`
+            );
+        }
+
+        throw error;
+    }
 };
 
 // Helper to get MIME type from file extension
@@ -250,8 +273,27 @@ export async function uploadArchivoR2(uploadUrl: string, fileUri: string, mimeTy
         }
         
     } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        if (fileUri.startsWith('blob:')) {
+            console.error('Error durante upload a R2 (web/blob):', error);
+
+            const isWeb = typeof window !== 'undefined';
+            const isR2Upload = uploadUrl.includes('.r2.cloudflarestorage.com');
+            const isNetworkLike = /Failed to fetch|NetworkError|Load failed/i.test(errorMessage);
+
+            if (isWeb && isR2Upload && isNetworkLike) {
+                throw new Error(
+                    'Fallo la subida del archivo en web por CORS/preflight contra R2. Revisa la CORS policy del bucket (AllowedOrigins, AllowedMethods, AllowedHeaders y ExposeHeaders).'
+                );
+            }
+
+            throw new Error(
+                `Fallo la subida del archivo en web. Verifica CSP/connect-src para blob: y dominio de R2. Detalle: ${errorMessage}`
+            );
+        }
+
         console.error('Error durante upload a R2:', error);
-        throw error;
+        throw error instanceof Error ? error : new Error(errorMessage);
     }
 }
 
@@ -376,7 +418,7 @@ export async function moverArchivo(
     idArchivo: number,
     data: archivos.MoverArchivoPayload
 ): Promise<ApiOperationResult<archivos.Archivo>> {
-    const response = await apiRequest({ method: 'PATCH', endpoint: `/archivos/${idArchivo}/mover`, token: accessToken, body: data });
+    const response = await apiRequest({ method: 'POST', endpoint: `/archivos/${idArchivo}/mover`, token: accessToken, body: data });
 
     if (!response.ok) {
                 const errData = await parseBody(response);
@@ -416,4 +458,39 @@ export async function getArchivoPermisos(accessToken: string, idArchivo: number)
 
     const body = await parseBody(response);
     return body?.data || body;
+}
+
+export async function removeArchivoPermisos(
+    accessToken: string,
+    idArchivo: number,
+    payload: RemovePermisosPayload
+): Promise<ApiOperationResult<ResourcePermisos>> {
+    const response = await apiRequest({ method: 'PATCH', endpoint: `/archivos/${idArchivo}/permisos`, token: accessToken, body: payload });
+
+    if (!response.ok) {
+        const errData = await parseBody(response);
+        if (response.status === 401) {
+            throw buildApiError(response.status, 'Tu sesion expiro. Inicia sesion nuevamente', errData);
+        }
+        if (response.status === 403) {
+            throw buildApiError(response.status, 'No tenes permisos para administrar este archivo', errData);
+        }
+        if (response.status === 404) {
+            throw buildApiError(response.status, 'Archivo no encontrado', errData);
+        }
+        if (response.status === 400) {
+            throw buildApiError(response.status, 'Selecciona al menos un rol o un usuario para quitar permisos', errData);
+        }
+        throw buildApiError(response.status, response.statusText, errData);
+    }
+
+    const body = await parseBody(response);
+    const data: ResourcePermisos = body?.data || body;
+    return {
+        status: response.status === 207 ? 'partial_success' : 'success',
+        statusCode: response.status,
+        data,
+        message: body?.message,
+        warnings: parseWarnings(body),
+    };
 }

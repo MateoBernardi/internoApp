@@ -2,8 +2,8 @@ import { useAuth } from '@/features/auth/context/AuthContext';
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
-import { useEffect, useRef, useState } from 'react';
-import { Platform } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert, Platform } from 'react-native';
 import { registerDeviceSafely } from '../services/devicesApi';
 import { getWebPushToken, onForegroundMessage } from '../services/webPush';
 
@@ -17,6 +17,16 @@ export function useRegisterDevice() {
   const [expoPushToken, setExpoPushToken] = useState<string | null>(null);
   const [isLoadingToken, setIsLoadingToken] = useState(true);
   const lastRegistrationFingerprintRef = useRef<string | null>(null);
+  const invalidTokenRegistryRef = useRef<Set<string>>(new Set());
+
+  const refreshWebPushToken = useCallback(async () => {
+    const token = await getWebPushToken();
+    if (token) {
+      invalidTokenRegistryRef.current.delete(token);
+      setExpoPushToken((current) => (current === token ? current : token));
+    }
+    return token;
+  }, []);
 
   // Configurar los canales de notificación para Android
   useEffect(() => {
@@ -52,9 +62,9 @@ export function useRegisterDevice() {
 
     const setupWebPush = async () => {
       try {
-        const token = await getWebPushToken();
+        const token = await refreshWebPushToken();
         if (isMounted && token) {
-          setExpoPushToken(token);
+          setExpoPushToken((current) => (current === token ? current : token));
         }
       } catch (error) {
         console.error('[WebPush] Error:', error);
@@ -63,9 +73,30 @@ export function useRegisterDevice() {
       }
     };
 
+    const handleVisibilityRefresh = () => {
+      if (document.visibilityState === 'visible') {
+        refreshWebPushToken().catch((error) => {
+          console.error('[WebPush] Error refreshing token on visibility change:', error);
+        });
+      }
+    };
+
+    const handleWindowFocusRefresh = () => {
+      refreshWebPushToken().catch((error) => {
+        console.error('[WebPush] Error refreshing token on focus:', error);
+      });
+    };
+
     setupWebPush();
-    return () => { isMounted = false; };
-  }, []);
+    document.addEventListener('visibilitychange', handleVisibilityRefresh);
+    window.addEventListener('focus', handleWindowFocusRefresh);
+
+    return () => {
+      isMounted = false;
+      document.removeEventListener('visibilitychange', handleVisibilityRefresh);
+      window.removeEventListener('focus', handleWindowFocusRefresh);
+    };
+  }, [refreshWebPushToken]);
 
   // Web push: escuchar mensajes en foreground
   useEffect(() => {
@@ -159,14 +190,31 @@ export function useRegisterDevice() {
 
     setupPushNotifications();
 
+    let tokenSubscription: { remove?: () => void } | null = null;
+    const addPushTokenListener = (Notifications as any).addPushTokenListener;
+    if (typeof addPushTokenListener === 'function') {
+      tokenSubscription = addPushTokenListener((event: { data?: string }) => {
+        const nextToken = event?.data;
+        if (typeof nextToken === 'string' && nextToken.trim().length > 0) {
+          invalidTokenRegistryRef.current.delete(nextToken);
+          setExpoPushToken((current) => (current === nextToken ? current : nextToken));
+        }
+      });
+    }
+
     return () => {
       isMounted = false;
+      tokenSubscription?.remove?.();
     };
   }, []);
 
   // Registrar el dispositivo cuando esté autenticado y tengamos el token
   useEffect(() => {
     if (expoPushToken && tokens?.accessToken && isAuthenticated) {
+      if (invalidTokenRegistryRef.current.has(expoPushToken)) {
+        return;
+      }
+
       const deviceName = Platform.OS === 'web'
         ? `Web ${navigator.userAgent.includes('Safari') ? 'Safari' : 'Browser'}`
         : Device.modelName || Device.osName || 'Unknown Device';
@@ -179,13 +227,25 @@ export function useRegisterDevice() {
       }
 
       lastRegistrationFingerprintRef.current = registrationFingerprint;
-      registerDeviceSafely(tokens.accessToken, expoPushToken, platform, deviceName, 3).then((ok) => {
-        if (!ok) {
+      registerDeviceSafely(tokens.accessToken, expoPushToken, platform, deviceName, 3).then(async (result) => {
+        if (!result.ok) {
           lastRegistrationFingerprintRef.current = null;
+
+          if (result.invalidToken) {
+            invalidTokenRegistryRef.current.add(expoPushToken);
+            Alert.alert(
+              'Notificaciones',
+              result.message || 'No pudimos registrar este dispositivo para notificaciones. Vamos a solicitar un token nuevo.'
+            );
+
+            if (platform === 'web') {
+              await refreshWebPushToken();
+            }
+          }
         }
       });
     }
-  }, [expoPushToken, tokens?.accessToken, isAuthenticated]);
+  }, [expoPushToken, tokens?.accessToken, isAuthenticated, refreshWebPushToken]);
 
   return {
     expoPushToken,

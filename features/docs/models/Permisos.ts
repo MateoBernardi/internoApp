@@ -4,4 +4,10 @@ export type ResourcePermisos = {
   owner_id: number;
   allowed_roles: string[];
   allowed_users: string[];
+  user_context_ids?: number[];
+};
+
+export type RemovePermisosPayload = {
+  allowed_roles?: string[];
+  ids?: number[];
 };

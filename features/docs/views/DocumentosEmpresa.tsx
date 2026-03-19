@@ -4,11 +4,12 @@ import { ThemedView } from '@/components/themed-view';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
+import { confirmAction } from '@/shared/ui/confirmAction';
 import { showGlobalToast } from '@/shared/ui/toast';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Linking from 'expo-linking';
 import * as Sharing from 'expo-sharing';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 import { DocumentoItem } from '../components/DocumentoItem';
 import { DocumentOptionAction, DocumentOptionsModal } from '../components/DocumentOptionsModal';
@@ -16,8 +17,9 @@ import { EditArchivoModal } from '../components/EditArchivoModal';
 import { FolderPickerModal } from '../components/FolderPickerModal';
 import { ResourcePermisosModal } from '../components/ResourcePermisosModal';
 import { Archivo } from '../models/Archivo';
+import { RemovePermisosPayload } from '../models/Permisos';
 import { formatPartialWarnings } from '../utils/partialWarnings';
-import { useArchivoPermisos, useArchivos, useCarpetas, useDeleteArchivo, useGetArchivoUrlFirmada, useMoverArchivo, useSearchArchivos } from '../viewmodels/useArchivos';
+import { normalizeRemovePermisosPayload, useArchivoPermisos, useArchivos, useCarpetas, useDeleteArchivo, useGetArchivoUrlFirmada, useMoverArchivo, useRemoveArchivoPermisos, useSearchArchivos } from '../viewmodels/useArchivos';
 
 const colors = Colors['light'];
 
@@ -31,12 +33,18 @@ export default function DocumentosEmpresa({ query = '', selectedFolderId }: { qu
   const [fileForPermisos, setFileForPermisos] = useState<Archivo | null>(null);
   const deleteMutation = useDeleteArchivo();
   const moverArchivoMutation = useMoverArchivo();
+  const removeArchivoPermisos = useRemoveArchivoPermisos();
   const [isDownloading, setIsDownloading] = useState(false);
   const { getArchivoUrlFirmada } = useGetArchivoUrlFirmada();
 
   const { data: allFiles, isLoading: loadingAll, isPending: pendingAll, error: errorAll, refetch: refetchAll } = useArchivos();
   const { data: searchResults, isLoading: loadingSearch, isPending: pendingSearch } = useSearchArchivos(query);
-  const { data: permisosArchivoData, isLoading: isLoadingPermisosArchivo, error: permisosArchivoError } = useArchivoPermisos(fileForPermisos?.id);
+  const {
+    data: permisosArchivoData,
+    isLoading: isLoadingPermisosArchivo,
+    error: permisosArchivoError,
+    refetch: refetchPermisosArchivo,
+  } = useArchivoPermisos(fileForPermisos?.id);
 
   const isSearching = query.trim().length > 0;
   const isSearchingWithResults = isSearching && (searchResults?.length || 0) > 0;
@@ -45,6 +53,28 @@ export default function DocumentosEmpresa({ query = '', selectedFolderId }: { qu
     ? displayData
     : (displayData || []).filter((file) => (file.id_carpeta ?? null) === selectedFolderId);
   const isLoadingAny = isSearchingWithResults ? loadingSearch || pendingSearch : loadingAll || pendingAll;
+
+  const orderedFileUserIds = useMemo(() => {
+    if (!fileForPermisos) return [];
+    return [
+      ...(fileForPermisos.usuarios_compartidos || []),
+      ...(fileForPermisos.usuarios_asociados || []),
+    ].filter((id) => Number.isInteger(id) && id > 0);
+  }, [fileForPermisos]);
+
+  const fileUserIdByName = useMemo(() => {
+    const names = permisosArchivoData?.allowed_users || [];
+    const mapped: Record<string, number> = {};
+
+    names.forEach((name, index) => {
+      const id = orderedFileUserIds[index];
+      if (Number.isInteger(id) && id > 0) {
+        mapped[name] = id;
+      }
+    });
+
+    return mapped;
+  }, [orderedFileUserIds, permisosArchivoData?.allowed_users]);
 
   useEffect(() => {
     if (!fileToOpen) return;
@@ -132,7 +162,7 @@ export default function DocumentosEmpresa({ query = '', selectedFolderId }: { qu
 
     options.push({
       key: 'view-permissions',
-      label: 'Ver permisos',
+      label: 'Administrar permisos',
       icon: 'shield-checkmark-outline',
       onPress: () => setFileForPermisos(file),
     });
@@ -140,19 +170,17 @@ export default function DocumentosEmpresa({ query = '', selectedFolderId }: { qu
     return options;
   };
 
-  const confirmDelete = (file: Archivo) => {
-      Alert.alert(
-          "Eliminar Archivo",
-          `¿Estás seguro de eliminar ${file.nombre}?`,
-          [
-              { text: "Cancelar", style: "cancel" },
-              { 
-                  text: "Eliminar", 
-                  style: "destructive",
-                  onPress: () => deleteMutation.mutate(file.id)
-               }
-          ]
-      );
+    const confirmDelete = async (file: Archivo) => {
+      const confirmed = await confirmAction({
+      title: 'Eliminar Archivo',
+      message: `¿Estás seguro de eliminar ${file.nombre}?`,
+      confirmText: 'Eliminar',
+      cancelText: 'Cancelar',
+      destructive: true,
+      });
+
+      if (!confirmed) return;
+      deleteMutation.mutate(file.id);
   };
 
   const renderItem = ({ item }: { item: Archivo }) => (
@@ -167,6 +195,59 @@ export default function DocumentosEmpresa({ query = '', selectedFolderId }: { qu
   const renderSeparator = () => (
     <View style={[styles.separator, { backgroundColor: colors.secondaryText }]} />
   );
+
+  const handleRemoveFilePermisos = (payload: RemovePermisosPayload) => {
+    if (!fileForPermisos?.id) return;
+
+    const normalizedPayload = normalizeRemovePermisosPayload(payload);
+    const selectedRolesCount = normalizedPayload.allowed_roles?.length || 0;
+    const selectedUsersCount = normalizedPayload.ids?.length || 0;
+
+    if (selectedRolesCount === 0 && selectedUsersCount === 0) {
+      Alert.alert('Sin cambios', 'Selecciona al menos un rol o un usuario para quitar permisos.');
+      return;
+    }
+
+    removeArchivoPermisos.mutate(
+      { id: fileForPermisos.id, payload: normalizedPayload },
+      {
+        onSuccess: (result) => {
+          refetchPermisosArchivo();
+
+          if (result.status === 'partial_success') {
+            showGlobalToast('Guardado parcial');
+            Alert.alert('Guardado parcial', formatPartialWarnings(result.warnings));
+            return;
+          }
+
+          showGlobalToast(`Permisos actualizados: ${selectedRolesCount} rol(es), ${selectedUsersCount} usuario(s) removidos`);
+          Alert.alert('Permisos actualizados', 'Los permisos se actualizaron correctamente.');
+        },
+        onError: (error: unknown) => {
+          const statusCode = (error as any)?.statusCode;
+          if (statusCode === 400) {
+            Alert.alert('Datos invalidos', 'Selecciona al menos un rol o un usuario para quitar permisos.');
+            return;
+          }
+          if (statusCode === 401) {
+            Alert.alert('Sesion expirada', 'Inicia sesion nuevamente para continuar.');
+            return;
+          }
+          if (statusCode === 403) {
+            Alert.alert('Sin permisos', 'No tienes permisos para administrar este archivo.');
+            return;
+          }
+          if (statusCode === 404) {
+            Alert.alert('No encontrado', 'El archivo ya no existe o no esta disponible.');
+            return;
+          }
+
+          const message = error instanceof Error ? error.message : 'No se pudieron actualizar los permisos';
+          Alert.alert('Error', message);
+        },
+      }
+    );
+  };
 
   return (
     <ThemedView style={styles.container}>
@@ -240,9 +321,12 @@ export default function DocumentosEmpresa({ query = '', selectedFolderId }: { qu
 
       <ResourcePermisosModal
         visible={!!fileForPermisos}
-        title="Permisos del archivo"
+        title="Administrar permisos del archivo"
         isLoading={isLoadingPermisosArchivo}
+        isSubmitting={removeArchivoPermisos.isPending}
         data={permisosArchivoData}
+        availableUserIds={orderedFileUserIds}
+        userIdByName={fileUserIdByName}
         errorMessage={
           (permisosArchivoError as any)?.statusCode === 403
             ? 'Solo el creador puede ver los permisos completos'
@@ -250,6 +334,7 @@ export default function DocumentosEmpresa({ query = '', selectedFolderId }: { qu
               ? permisosArchivoError.message
               : undefined
         }
+        onSubmitRemove={handleRemoveFilePermisos}
         onClose={() => setFileForPermisos(null)}
       />
     </ThemedView>

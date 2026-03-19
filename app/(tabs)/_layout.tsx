@@ -4,12 +4,12 @@ import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { useReportes } from '@/features/reportes/viewmodels/useReportes';
 import {
-  useInvitaciones,
-  useSolicitudesCreadas,
+    useInvitaciones,
+    useSolicitudesCreadas,
 } from '@/features/solicitudesActividades/viewmodels/useSolicitudes';
 import {
-  useGetSolicitudesLicencias,
-  useGetSolicitudesUsuario,
+    useGetSolicitudesLicencias,
+    useGetSolicitudesUsuario,
 } from '@/features/solicitudesLicencias/viewmodels/useSolicitudes';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { Href, Redirect, Tabs, useRouter } from 'expo-router';
@@ -95,7 +95,7 @@ export default function TabLayout() {
   );
 
   const hasSolicitudesLicenciasPendientesPersonal = solicitudesLicenciasPersonal.some((item) =>
-    ['PENDIENTE', 'PENDIENTE_DOCUMENTACION', 'PENDIENTE_APROBACION'].includes(item.estado)
+    ['PENDIENTE_DOCUMENTACION'].includes(item.estado)
   );
 
   const hasReportesPendientesAdmin = reportesAdmin.some((item) => item.estado === 'PENDIENTE');

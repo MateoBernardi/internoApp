@@ -1,6 +1,7 @@
 import { ThemedText } from '@/components/themed-text';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { Colors } from '@/constants/theme';
+import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { useRouter } from 'expo-router';
 import React, { useCallback } from 'react';
 import {
@@ -35,6 +36,8 @@ const colors = Colors['light'];
 export function MisSolicitudes() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { hasRole } = useRoleCheck();
+  const isConsejo = hasRole('consejo');
 
   // 1. Obtención de datos
   const { data: solicitudes, isLoading, error, refetch, isRefetching } = useGetSolicitudesUsuario();
@@ -128,11 +131,13 @@ export function MisSolicitudes() {
       )}
 
       {/* Botón flotante de creación */}
-      <CreateButton 
-        onPress={handleCreateNew} 
-        style={{ ...styles.fab, bottom: insets.bottom + 16, right: 36 }}
-        accessibilityLabel="Crear solicitud de licencia"
-      />
+      {!isConsejo && (
+        <CreateButton 
+          onPress={handleCreateNew} 
+          style={{ ...styles.fab, bottom: insets.bottom + 16, right: 36 }}
+          accessibilityLabel="Crear solicitud de licencia"
+        />
+      )}
     </View>
   );
 }

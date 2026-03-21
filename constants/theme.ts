@@ -74,7 +74,45 @@ export const Fonts = Platform.select({
 
 export const Layout = {
   web: {
+    mobileMaxWidth: 640,
+    desktopMinWidth: 1024,
+    desktopMaxWidth: 1120,
+    desktopXlMinWidth: 1440,
+    desktopXlMaxWidth: 1440,
     containerMaxWidth: 640,
     desktopHorizontalGutter: 24,
+    desktopHorizontalGutterWide: 32,
+    desktopHorizontalGutterXl: 40,
   },
 };
+
+export const Breakpoints = {
+  mobile: 0,
+  tablet: 640,
+  desktop: 1024,
+  desktopXl: 1440,
+} as const;
+
+export function getWebLayoutMetrics(viewportWidth: number) {
+  if (viewportWidth >= Layout.web.desktopXlMinWidth) {
+    return {
+      variant: 'desktop-xl' as const,
+      maxWidth: Layout.web.desktopXlMaxWidth,
+      horizontalGutter: Layout.web.desktopHorizontalGutterXl,
+    };
+  }
+
+  if (viewportWidth >= Layout.web.desktopMinWidth) {
+    return {
+      variant: 'desktop' as const,
+      maxWidth: Layout.web.desktopMaxWidth,
+      horizontalGutter: Layout.web.desktopHorizontalGutterWide,
+    };
+  }
+
+  return {
+    variant: 'mobile' as const,
+    maxWidth: Layout.web.mobileMaxWidth,
+    horizontalGutter: Layout.web.desktopHorizontalGutter,
+  };
+}

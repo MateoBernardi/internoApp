@@ -2,8 +2,9 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { CreateButton } from '@/components/ui/CreateButton';
 import { Colors } from '@/constants/theme';
+import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     StyleSheet,
     TouchableOpacity,
@@ -25,8 +26,16 @@ interface SolicitudesViewProps {
 export default function SolicitudesView({ onRefresh, refreshing }: SolicitudesViewProps = {}) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { hasRole } = useRoleCheck();
+  const isConsejo = hasRole('consejo');
 
   const [activeTab, setActiveTab] = useState<TabType>('recibidas');
+
+  useEffect(() => {
+    if (isConsejo && activeTab === 'enviadas') {
+      setActiveTab('recibidas');
+    }
+  }, [isConsejo, activeTab]);
 
   const handleCreatePress = () => {
     router.push('/(extras)/crear-solicitud');
@@ -60,40 +69,42 @@ export default function SolicitudesView({ onRefresh, refreshing }: SolicitudesVi
                 Recibidas
               </ThemedText>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.tab,
-                activeTab === 'enviadas' && styles.tabActive,
-              ]}
-              onPress={() => setActiveTab('enviadas')}
-            >
-              <ThemedText
+            {!isConsejo && (
+              <TouchableOpacity
                 style={[
-                  styles.tabText,
-                  activeTab === 'enviadas' && {
-                    color: colors.tint,
-                    fontWeight: 'bold',
-                  },
+                  styles.tab,
+                  activeTab === 'enviadas' && styles.tabActive,
                 ]}
+                onPress={() => setActiveTab('enviadas')}
               >
-                Enviadas
-              </ThemedText>
-            </TouchableOpacity>
+                <ThemedText
+                  style={[
+                    styles.tabText,
+                    activeTab === 'enviadas' && {
+                      color: colors.tint,
+                      fontWeight: 'bold',
+                    },
+                  ]}
+                >
+                  Enviadas
+                </ThemedText>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </View>
 
       {/* Contenido */}
       <View style={styles.content}>
-        {activeTab === 'recibidas' ? (
-          <SolicitudesRecibidas onRefresh={onRefresh} refreshing={refreshing} />
-        ) : (
+        {activeTab === 'enviadas' && !isConsejo ? (
           <SolicitudesEnviadas onRefresh={onRefresh} refreshing={refreshing} />
+        ) : (
+          <SolicitudesRecibidas onRefresh={onRefresh} refreshing={refreshing} />
         )}
       </View>
 
       {/* Botón flotante */}
-      {
+      {!isConsejo &&
         <View style={[styles.floatingButtonContainer, { bottom: insets.bottom + 8, right: 36 }]}>
           <CreateButton
             onPress={handleCreatePress}

@@ -3,13 +3,14 @@ import { Colors } from '@/constants/theme';
 import SolicitudesView from '@/features/solicitudesActividades/views/Solicitudes';
 import { useQueryClient } from '@tanstack/react-query';
 import React, { useCallback, useState } from 'react';
-import { StyleSheet } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 
 const colors = Colors['light'];
 
 export default function TabTwoScreen() {
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
+  const containerPaddingTop = Platform.OS === 'web' ? 0 : '10%';
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -18,7 +19,7 @@ export default function TabTwoScreen() {
   }, [queryClient]);
 
   return (
-      <ThemedView style={styles.container}>
+      <ThemedView style={[styles.container, { paddingTop: containerPaddingTop }]}>
         <SolicitudesView onRefresh={handleRefresh} refreshing={refreshing} />
       </ThemedView>
     );

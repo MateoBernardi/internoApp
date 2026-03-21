@@ -7,9 +7,11 @@ import {
     ActivityIndicator,
     Modal,
     Platform,
+    ScrollView,
     StyleSheet, TextInput, TouchableOpacity,
     TouchableWithoutFeedback,
     UIManager,
+    useWindowDimensions,
     View,
 } from 'react-native';
 
@@ -28,6 +30,7 @@ interface UserSelectorProps {
   onRemoveRole?: (roleValue: string) => void;
   isLoadingUsers?: boolean;
   isLoadingRoles?: boolean;
+  showSelectedChips?: boolean;
   onSearch: (query: string) => void;
   onSelectRole: (role: string) => void;
 }
@@ -44,9 +47,11 @@ export function UserSelector({
   onRemoveRole,
   isLoadingUsers = false,
   isLoadingRoles = false,
+  showSelectedChips = true,
   onSearch,
   onSelectRole
 }: UserSelectorProps) {
+  const { width } = useWindowDimensions();
   const [searchQuery, setSearchQuery] = useState('');
   
   // States for Modals/Popups
@@ -81,6 +86,10 @@ export function UserSelector({
       setIsRolesVisible(false);
   };
 
+  const rolesModalWidth = Platform.OS === 'web'
+    ? Math.min(560, Math.max(320, width - 48))
+    : Math.min(width - 32, 420);
+
   return (
     <View style={styles.container}>
       {/* Input Row */}
@@ -88,7 +97,7 @@ export function UserSelector({
         <View style={styles.inputWrapper}>
              <TextInput
                 style={[styles.input, { color: colors.text }]}
-                placeholder="Para"
+               placeholder="Buscar usuario..."
                 placeholderTextColor= {colors.secondaryText}
                 value={searchQuery}
                 onChangeText={handleSearch}
@@ -118,23 +127,25 @@ export function UserSelector({
           <TouchableWithoutFeedback onPress={() => setIsRolesVisible(false)}>
               <View style={styles.modalOverlay}>
                   <TouchableWithoutFeedback>
-                    <View style={styles.modalContent}>
+                    <View style={[styles.modalContent, { width: rolesModalWidth }]}>
                         <ThemedText type="defaultSemiBold" style={{ marginBottom: 10, textAlign: 'center' }}>Seleccionar Rol</ThemedText>
-                        {roles && roles.length > 0 ? (
-                                roles.map(role => (
-                                    <TouchableOpacity 
-                                        key={role.value} 
-                                        style={styles.modalItem} 
-                                        onPress={() => handleSelectRole(role.value)}
-                                    >
-                                        <ThemedText style={styles.roleText}>{role.label}</ThemedText>
-                                        <Ionicons name="people-outline" size={20} color={colors.tint} />
-                                    </TouchableOpacity>
-                                ))
+                        {isLoadingRoles ? (
+                          <ActivityIndicator color={colors.tint} />
+                        ) : roles && roles.length > 0 ? (
+                          <ScrollView style={styles.rolesScroll} contentContainerStyle={styles.rolesScrollContent}>
+                            {roles.map(role => (
+                              <TouchableOpacity
+                                key={role.value}
+                                style={styles.modalItem}
+                                onPress={() => handleSelectRole(role.value)}
+                              >
+                                <ThemedText style={styles.roleText}>{role.label}</ThemedText>
+                                <Ionicons name="people-outline" size={20} color={colors.tint} />
+                              </TouchableOpacity>
+                            ))}
+                          </ScrollView>
                         ) : (
-                             isLoadingRoles ? 
-                             <ActivityIndicator color={colors.tint} /> :
-                            <ThemedText style={{ color: colors.secondaryText, padding: 10 }}>No se encontraron roles</ThemedText>
+                          <ThemedText style={{ color: colors.secondaryText, padding: 10 }}>No se encontraron roles</ThemedText>
                         )}
                     </View>
                   </TouchableWithoutFeedback>
@@ -181,32 +192,33 @@ export function UserSelector({
           </View>
       )}
 
-      {/* Selected Chips */}
-      <View style={styles.selectedChipsContainer}>
-          {selectedRoles.map((role) => (
-            <TouchableOpacity
-              key={`role-${role.value}`}
-              onPress={() => onRemoveRole?.(role.value)}
-              style={[styles.userChip, styles.roleChip]}>
-              <Ionicons name="people" size={14} color={colors.tint} style={{ marginRight: 4 }} />
-              <ThemedText style={[styles.userChipText, { color: colors.tint }]}>
-                {role.label}
-              </ThemedText>
-              <Ionicons name="close" size={16} color={colors.tint} style={{ marginLeft: 6 }} />
-            </TouchableOpacity>
-          ))}
-          {selectedUsers.map((user) => (
-            <TouchableOpacity
-              key={user.user_context_id}
-              onPress={() => toggleUserSelection(user)}
-              style={[styles.userChip, { borderColor: colors.lightTint, backgroundColor: colors.componentBackground }]}>
-              <ThemedText style={[styles.userChipText, { color: colors.text }]}>
-                {user.nombre} {user.apellido}
-              </ThemedText>
-              <Ionicons name="close" size={16} color={colors.secondaryText} style={{ marginLeft: 6 }} />
-            </TouchableOpacity>
-          ))}
-      </View>
+      {showSelectedChips ? (
+        <View style={styles.selectedChipsContainer}>
+            {selectedRoles.map((role) => (
+              <TouchableOpacity
+                key={`role-${role.value}`}
+                onPress={() => onRemoveRole?.(role.value)}
+                style={[styles.userChip, styles.roleChip]}>
+                <Ionicons name="people" size={14} color={colors.tint} style={{ marginRight: 4 }} />
+                <ThemedText style={[styles.userChipText, { color: colors.tint }]}>
+                  {role.label}
+                </ThemedText>
+                <Ionicons name="close" size={16} color={colors.tint} style={{ marginLeft: 6 }} />
+              </TouchableOpacity>
+            ))}
+            {selectedUsers.map((user) => (
+              <TouchableOpacity
+                key={user.user_context_id}
+                onPress={() => toggleUserSelection(user)}
+                style={[styles.userChip, { borderColor: colors.lightTint, backgroundColor: colors.componentBackground }]}>
+                <ThemedText style={[styles.userChipText, { color: colors.text }]}> 
+                  {user.nombre} {user.apellido}
+                </ThemedText>
+                <Ionicons name="close" size={16} color={colors.secondaryText} style={{ marginLeft: 6 }} />
+              </TouchableOpacity>
+            ))}
+        </View>
+      ) : null}
       
     </View>
   );
@@ -263,13 +275,18 @@ const styles = StyleSheet.create({
       alignItems: 'center',
   },
   modalContent: {
-      width: '80%',
       backgroundColor: colors.componentBackground,
       borderRadius: 12,
       padding: 16,
-      maxHeight: '60%',
+      maxHeight: '70%',
       elevation: 5,
   },
+    rolesScroll: {
+      maxHeight: 360,
+    },
+    rolesScrollContent: {
+      paddingBottom: 6,
+    },
   modalItem: {
       flexDirection: 'row',
       justifyContent: 'space-between',

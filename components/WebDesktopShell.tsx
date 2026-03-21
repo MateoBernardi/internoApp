@@ -2,13 +2,21 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { Colors, Layout } from '@/constants/theme';
+import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 
 const colors = Colors.light;
 
 export function WebDesktopShell({ children }: { children: React.ReactNode }) {
+  const responsiveLayout = useResponsiveLayout();
+
   return (
-    <View style={styles.pageBackground}>
-      <View style={styles.appColumn}>{children}</View>
+    <View
+      style={[
+        styles.pageBackground,
+        { paddingHorizontal: responsiveLayout.horizontalGutter },
+      ]}
+    >
+      <View style={[styles.appColumn, { maxWidth: responsiveLayout.maxWidth }]}>{children}</View>
     </View>
   );
 }

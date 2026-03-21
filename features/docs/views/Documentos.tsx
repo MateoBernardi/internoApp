@@ -3,21 +3,21 @@ import { ThemedView } from '@/components/themed-view';
 import { CreateButton } from '@/components/ui/CreateButton';
 import { SearchBar } from '@/components/ui/SearchBar';
 import { Colors } from '@/constants/theme';
+import { useAuth } from '@/features/auth/context/AuthContext';
+import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { confirmAction } from '@/shared/ui/confirmAction';
 import { showGlobalToast } from '@/shared/ui/toast';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, Modal, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CrearDocumento } from '../components/CrearDocumento';
 import { DocumentOptionAction, DocumentOptionsModal } from '../components/DocumentOptionsModal';
 import { EditCarpetaModal } from '../components/EditCarpetaModal';
-import { ResourcePermisosModal } from '../components/ResourcePermisosModal';
 import { Carpeta, UpdateCarpetaPayload } from '../models/Carpeta';
-import { RemovePermisosPayload } from '../models/Permisos';
 import { formatPartialWarnings } from '../utils/partialWarnings';
-import { normalizeRemovePermisosPayload, useCarpetaPermisos, useCarpetas, useCreateCarpeta, useDeleteCarpeta, useRemoveCarpetaPermisos, useSearchArchivos, useUpdateCarpeta } from '../viewmodels/useArchivos';
+import { useCarpetas, useCreateCarpeta, useDeleteCarpeta, useSearchArchivos, useUpdateCarpeta } from '../viewmodels/useArchivos';
 import DocumentosEmpresa from './DocumentosEmpresa';
 import MisDocumentos from './MisDocumentos';
 
@@ -27,10 +27,14 @@ type TabType = 'empresa' | 'mios';
 
 export default function Documentos() {
   const insets = useSafeAreaInsets();
+  const { user } = useAuth();
+  const { hasRole } = useRoleCheck();
+  const isConsejo = hasRole('consejo');
+  const canCreate = !isConsejo;
+  const canSeeMisDocumentos = !isConsejo;
   const { data: carpetasData } = useCarpetas('list', true);
   const createCarpeta = useCreateCarpeta();
   const updateCarpeta = useUpdateCarpeta();
-  const removeCarpetaPermisos = useRemoveCarpetaPermisos();
   const deleteCarpeta = useDeleteCarpeta();
   const [tab, setTab] = useState<TabType>('empresa');
   const [modalVisible, setModalVisible] = useState(false);
@@ -41,17 +45,16 @@ export default function Documentos() {
   const [folderModalVisible, setFolderModalVisible] = useState(false);
   const [folderName, setFolderName] = useState('');
   const [folderForOptions, setFolderForOptions] = useState<Carpeta | null>(null);
-  const [folderForPermisos, setFolderForPermisos] = useState<Carpeta | null>(null);
   const [folderToEdit, setFolderToEdit] = useState<Carpeta | null>(null);
   const [folderEditPartialWarning, setFolderEditPartialWarning] = useState<string | null>(null);
   const [folderDeleteConflictMessage, setFolderDeleteConflictMessage] = useState<string | null>(null);
   const [fabMenuVisible, setFabMenuVisible] = useState(false);
-  const {
-    data: carpetaPermisosData,
-    isLoading: isLoadingCarpetaPermisos,
-    error: carpetaPermisosError,
-    refetch: refetchCarpetaPermisos,
-  } = useCarpetaPermisos(folderForPermisos?.id ?? undefined);
+
+  useEffect(() => {
+    if (!canSeeMisDocumentos && tab === 'mios') {
+      setTab('empresa');
+    }
+  }, [canSeeMisDocumentos, tab]);
 
   const folders = useMemo(
     () => (carpetasData?.items || []).filter((folder: Carpeta) => folder.id !== null && folder.type !== 'virtual'),
@@ -88,21 +91,6 @@ export default function Documentos() {
   }, [currentFolderId, foldersById]);
 
   const isSearchingWithResults = query.trim().length > 0 && (searchResults?.length || 0) > 0;
-
-  const folderUserIdByName = useMemo(() => {
-    const names = carpetaPermisosData?.allowed_users || [];
-    const ids = folderForPermisos?.usuarios_id || [];
-    const mapped: Record<string, number> = {};
-
-    names.forEach((name, index) => {
-      const id = ids[index];
-      if (Number.isInteger(id) && id > 0) {
-        mapped[name] = id;
-      }
-    });
-
-    return mapped;
-  }, [carpetaPermisosData?.allowed_users, folderForPermisos?.usuarios_id]);
 
   const handleCreateDocument = async () => {
     setFabMenuVisible(false);
@@ -172,27 +160,32 @@ export default function Documentos() {
     });
   };
 
-  const buildFolderOptions = (folder: Carpeta): DocumentOptionAction[] => [
-    {
-      key: 'edit-folder',
-      label: 'Editar',
-      icon: 'create-outline',
-      onPress: () => openEditFolderModal(folder),
-    },
-    {
-      key: 'view-folder-permissions',
-      label: 'Administrar permisos',
-      icon: 'shield-checkmark-outline',
-      onPress: () => setFolderForPermisos(folder),
-    },
-    {
-      key: 'delete-folder',
-      label: 'Eliminar',
-      icon: 'trash-outline',
-      destructive: true,
-      onPress: () => handleDeleteFolder(folder),
-    },
-  ];
+  const buildFolderOptions = (folder: Carpeta): DocumentOptionAction[] => {
+    const ownerId =
+      (folder.owner_id ?? folder.created_by ?? folder.creador_id ?? folder.id_usuario_creador) ?? null;
+    const isOwner = Number.isInteger(ownerId) && user?.user_context_id === ownerId;
+
+    const options: DocumentOptionAction[] = [
+      {
+        key: 'delete-folder',
+        label: 'Eliminar',
+        icon: 'trash-outline',
+        destructive: true,
+        onPress: () => handleDeleteFolder(folder),
+      },
+    ];
+
+    if (isOwner) {
+      options.unshift({
+        key: 'edit-folder-and-permissions',
+        label: 'Editar y Administrar permisos',
+        icon: 'create-outline',
+        onPress: () => openEditFolderModal(folder),
+      });
+    }
+
+    return options;
+  };
 
   const submitFolderModal = () => {
     const trimmed = folderName.trim();
@@ -248,59 +241,6 @@ export default function Documentos() {
     );
   };
 
-  const handleRemoveFolderPermisos = (payload: RemovePermisosPayload) => {
-    if (!folderForPermisos?.id) return;
-
-    const normalizedPayload = normalizeRemovePermisosPayload(payload);
-    const selectedRolesCount = normalizedPayload.allowed_roles?.length || 0;
-    const selectedUsersCount = normalizedPayload.ids?.length || 0;
-
-    if (selectedRolesCount === 0 && selectedUsersCount === 0) {
-      Alert.alert('Sin cambios', 'Selecciona al menos un rol o un usuario para quitar permisos.');
-      return;
-    }
-
-    removeCarpetaPermisos.mutate(
-      { id: folderForPermisos.id, payload: normalizedPayload },
-      {
-        onSuccess: (result) => {
-          refetchCarpetaPermisos();
-
-          if (result.status === 'partial_success') {
-            showGlobalToast('Guardado parcial');
-            Alert.alert('Guardado parcial', formatPartialWarnings(result.warnings));
-            return;
-          }
-
-          showGlobalToast(`Permisos actualizados: ${selectedRolesCount} rol(es), ${selectedUsersCount} usuario(s) removidos`);
-          Alert.alert('Permisos actualizados', 'Los permisos se actualizaron correctamente.');
-        },
-        onError: (error: unknown) => {
-          const statusCode = (error as any)?.statusCode;
-          if (statusCode === 400) {
-            Alert.alert('Datos invalidos', 'Selecciona al menos un rol o un usuario para quitar permisos.');
-            return;
-          }
-          if (statusCode === 401) {
-            Alert.alert('Sesion expirada', 'Inicia sesion nuevamente para continuar.');
-            return;
-          }
-          if (statusCode === 403) {
-            Alert.alert('Sin permisos', 'No tienes permisos para administrar esta carpeta.');
-            return;
-          }
-          if (statusCode === 404) {
-            Alert.alert('No encontrado', 'La carpeta ya no existe o no esta disponible.');
-            return;
-          }
-
-          const message = error instanceof Error ? error.message : 'No se pudieron actualizar los permisos';
-          Alert.alert('Error', message);
-        },
-      }
-    );
-  };
-
   return (
     <ThemedView style={styles.container}>
       {/* Header con tabs */}
@@ -329,28 +269,30 @@ export default function Documentos() {
                 Empresa
               </ThemedText>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.tab,
-                tab === 'mios' && [
-                  styles.tabActive,
-                  { borderBottomColor: colors.tint },
-                ],
-              ]}
-              onPress={() => setTab('mios')}
-            >
-              <ThemedText
+            {canSeeMisDocumentos && (
+              <TouchableOpacity
                 style={[
-                  styles.tabText,
-                  tab === 'mios' && {
-                    color: colors.tint,
-                    fontWeight: 'bold',
-                  },
+                  styles.tab,
+                  tab === 'mios' && [
+                    styles.tabActive,
+                    { borderBottomColor: colors.tint },
+                  ],
                 ]}
+                onPress={() => setTab('mios')}
               >
-                Mis Documentos
-              </ThemedText>
-            </TouchableOpacity>
+                <ThemedText
+                  style={[
+                    styles.tabText,
+                    tab === 'mios' && {
+                      color: colors.tint,
+                      fontWeight: 'bold',
+                    },
+                  ]}
+                >
+                  Mis Documentos
+                </ThemedText>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </View>
@@ -410,15 +352,17 @@ export default function Documentos() {
 
       {/* Content - Direct render without extra wrapper */}
       <View style={styles.contentContainer}>
-        {tab === 'empresa'
-          ? <DocumentosEmpresa query={query} selectedFolderId={currentFolderId} />
-          : <MisDocumentos query={query} selectedFolderId={currentFolderId} />}
+        {tab === 'mios' && canSeeMisDocumentos
+          ? <MisDocumentos query={query} selectedFolderId={currentFolderId} />
+          : <DocumentosEmpresa query={query} selectedFolderId={currentFolderId} />}
       </View>
 
-      <CreateButton
-        onPress={() => setFabMenuVisible(true)}
-        style={{ ...styles.fab, bottom: insets.bottom + 8, right: 36 }}
-      />
+      {canCreate && (
+        <CreateButton
+          onPress={() => setFabMenuVisible(true)}
+          style={{ ...styles.fab, bottom: insets.bottom + 8, right: 36 }}
+        />
+      )}
 
       {modalVisible && (
         <CrearDocumento
@@ -432,7 +376,7 @@ export default function Documentos() {
         />
       )}
 
-      {fabMenuVisible && (
+      {canCreate && fabMenuVisible && (
         <View style={styles.fabMenuLayer} pointerEvents="box-none">
           <TouchableOpacity style={styles.fabOverlay} activeOpacity={1} onPress={() => setFabMenuVisible(false)} />
           <View style={[styles.fabMenu, { bottom: insets.bottom + 76 }]}> 
@@ -501,25 +445,6 @@ export default function Documentos() {
           onSubmit={handleSubmitEditFolder}
         />
       )}
-
-      <ResourcePermisosModal
-        visible={!!folderForPermisos}
-        title="Administrar permisos de carpeta"
-        isLoading={isLoadingCarpetaPermisos}
-        isSubmitting={removeCarpetaPermisos.isPending}
-        data={carpetaPermisosData}
-        availableUserIds={folderForPermisos?.usuarios_id || []}
-        userIdByName={folderUserIdByName}
-        errorMessage={
-          (carpetaPermisosError as any)?.statusCode === 403
-            ? 'Solo el creador puede ver los permisos completos'
-            : carpetaPermisosError instanceof Error
-              ? carpetaPermisosError.message
-              : undefined
-        }
-        onSubmitRemove={handleRemoveFolderPermisos}
-        onClose={() => setFolderForPermisos(null)}
-      />
 
       <Modal
         visible={!!folderDeleteConflictMessage}

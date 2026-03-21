@@ -1,7 +1,9 @@
 import type { Novedad } from '@/features/novedades/models/Novedades';
+import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import React from 'react';
 import {
     Modal,
+    Platform,
     ScrollView,
     StyleSheet,
     Text,
@@ -54,9 +56,15 @@ export function NovedadModal({
   onDelete,
   canEdit = false,
 }: NovedadModalProps) {
+  const responsiveLayout = useResponsiveLayout();
   
   // Si no hay novedad, no renderizamos nada para evitar errores de undefined
   if (!novedad) return null;
+
+  const modalMaxWidth =
+    Platform.OS === 'web'
+      ? (responsiveLayout.isDesktopXl ? 760 : responsiveLayout.isDesktop ? 620 : 450)
+      : 450;
 
   return (
     <Modal
@@ -71,7 +79,7 @@ export function NovedadModal({
           <View style={StyleSheet.absoluteFill} />
         </TouchableWithoutFeedback>
 
-        <View style={styles.modalContainer}>
+        <View style={[styles.modalContainer, { maxWidth: modalMaxWidth }]}> 
           <ScrollView 
             showsVerticalScrollIndicator={false}
             // flexGrow asegura que el contenido empuje el modal y sea visible

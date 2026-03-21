@@ -41,6 +41,27 @@ async function getMessaging() {
  */
 export async function getWebPushToken(): Promise<string | null> {
   try {
+    if (typeof window === 'undefined') {
+      return null;
+    }
+
+    if (!('serviceWorker' in navigator)) {
+      console.warn('[WebPush] Service Worker API no disponible en este navegador');
+      return null;
+    }
+
+    if (!('Notification' in window)) {
+      console.warn('[WebPush] Notifications API no disponible en este navegador');
+      return null;
+    }
+
+    if (!window.isSecureContext) {
+      console.warn('[WebPush] Se requiere contexto seguro (HTTPS o localhost) para Web Push', {
+        origin: window.location.origin,
+      });
+      return null;
+    }
+
     const vapidKey = Constants.expoConfig?.extra?.VAPID_PUBLIC_KEY;
     if (!vapidKey || vapidKey === 'TU_VAPID_PUBLIC_KEY') {
       console.warn('[WebPush] VAPID key not set — update app.config.ts extra.VAPID_PUBLIC_KEY');
@@ -66,6 +87,7 @@ export async function getWebPushToken(): Promise<string | null> {
         : await Notification.requestPermission();
 
     if (permission !== 'granted') {
+      console.warn('[WebPush] Permiso de notificaciones no concedido', { permission });
       return null;
     }
 
@@ -75,6 +97,11 @@ export async function getWebPushToken(): Promise<string | null> {
       vapidKey,
       serviceWorkerRegistration: registration,
     });
+
+    if (!token) {
+      console.warn('[WebPush] Firebase no devolvio token FCM');
+      return null;
+    }
 
     console.log('[WebPush] FCM token obtained');
     return token;

@@ -14,7 +14,7 @@ import SolicitudesView from '@/features/solicitudesActividades/views/Solicitudes
 import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { useQueryClient } from '@tanstack/react-query';
 import React, { useCallback, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 
 const colors = Colors['light'];
 
@@ -25,6 +25,7 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const canSeeSolicitudes = isEmployeeOrEncargado();
+  const containerPaddingTop = Platform.OS === 'web' ? 0 : '10%';
 
   const { isLoading: isLoadingEncuestas } = useGetEncuestas();
   const { isLoading: isLoadingInvitaciones } = useInvitaciones(canSeeSolicitudes);
@@ -42,7 +43,10 @@ export default function HomeScreen() {
   }, [queryClient]);
 
   return (
-    <ThemedView style={styles.container} lightColor={colors.componentBackground}>
+    <ThemedView
+      style={[styles.container, { paddingTop: containerPaddingTop }]}
+      lightColor={colors.componentBackground}
+    >
       {showHomeSkeleton ? (
         <ScreenSkeleton rows={6} />
       ) : (

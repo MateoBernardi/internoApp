@@ -298,24 +298,6 @@ export function normalizeRemovePermisosPayload(payload: RemovePermisosPayload): 
     };
 }
 
-export function useRemoveArchivoPermisos() {
-    const { tokens } = useAuth();
-    const queryClient = useQueryClient();
-
-    return useMutation({
-        mutationFn: async ({ id, payload }: { id: number; payload: RemovePermisosPayload }) => {
-            const token = tokens?.accessToken;
-            if (!token) throw new Error('No authentification token found');
-            const normalizedPayload = normalizeRemovePermisosPayload(payload);
-            return archivosApi.removeArchivoPermisos(token, id, normalizedPayload);
-        },
-        onSuccess: (_, variables) => {
-            queryClient.invalidateQueries({ queryKey: ARCHIVOS_KEYS.archivoPermisos(variables.id) });
-            queryClient.invalidateQueries({ queryKey: ARCHIVOS_KEYS.all });
-        },
-    });
-}
-
 export function useRemoveCarpetaPermisos() {
     const { tokens } = useAuth();
     const queryClient = useQueryClient();

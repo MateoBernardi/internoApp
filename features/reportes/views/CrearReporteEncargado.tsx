@@ -4,8 +4,8 @@ import { Colors } from '@/constants/theme';
 import type { UserSummary } from '@/shared/users/User';
 import { useSearchUsers } from '@/shared/users/useUser';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import React, { useCallback, useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
     ActivityIndicator,
     FlatList,
@@ -13,26 +13,61 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import { ReportesEmpleado } from '../components/ReportesEmpleado';
 
 const colors = Colors['light'];
 
 export default function CrearReporteEncargado() {
 	const router = useRouter();
+	const params = useLocalSearchParams<{ comparingWith?: string }>();
 	const [searchQuery, setSearchQuery] = useState('');
-	const [selectedUser, setSelectedUser] = useState<UserSummary | null>(null);
 
 	const { data: usuarios, isLoading: isSearching } = useSearchUsers(searchQuery);
+	const isComparingMode = typeof params.comparingWith === 'string' && params.comparingWith.length > 0;
+
+	const comparingUsers = useMemo(() => {
+		if (!isComparingMode || typeof params.comparingWith !== 'string') {
+			return [] as Array<{ id: number; nombre: string; apellido: string }>;
+		}
+
+		try {
+			const parsed = JSON.parse(params.comparingWith) as Array<{ id: number; nombre: string; apellido: string }>;
+			return Array.isArray(parsed) ? parsed : [];
+		} catch {
+			return [];
+		}
+	}, [isComparingMode, params.comparingWith]);
 
 	const handleSelectUser = useCallback((user: UserSummary) => {
-		setSelectedUser(user);
-		setSearchQuery('');
-	}, []);
+		const newUser = { id: user.user_context_id, nombre: user.nombre, apellido: user.apellido };
 
-	const handleClearSelection = useCallback(() => {
-		setSelectedUser(null);
+		if (isComparingMode) {
+			const alreadyExists = comparingUsers.some((existingUser) => existingUser.id === newUser.id);
+			if (alreadyExists) {
+				setSearchQuery('');
+				return;
+			}
+
+			const allUsers = [...comparingUsers, newUser].slice(0, 3);
+			router.replace({
+				pathname: '/(extras)/detalle-empleados',
+				params: {
+					selectedUsers: JSON.stringify(allUsers),
+					source: 'reportes-encargado',
+				},
+			});
+			setSearchQuery('');
+			return;
+		}
+
+		router.push({
+			pathname: '/(extras)/detalle-empleados',
+			params: {
+				selectedUsers: JSON.stringify([newUser]),
+				source: 'reportes-encargado',
+			},
+		});
 		setSearchQuery('');
-	}, []);
+	}, [comparingUsers, isComparingMode, router]);
 
 	const renderUserItem = useCallback(({ item }: { item: UserSummary }) => (
 		<TouchableOpacity
@@ -58,80 +93,70 @@ export default function CrearReporteEncargado() {
 		<View style={styles.container}>
 			{/* Header */}
 			<View style={styles.header}>
-				{selectedUser ? (
-					<TouchableOpacity onPress={handleClearSelection} style={styles.clearButton}>
-						<ThemedText style={styles.clearButtonText}>Cambiar</ThemedText>
-					</TouchableOpacity>
-				) : (
-					<View style={styles.iconButton} />
-				)}
+				<View style={styles.iconButton} />
 				<ThemedText style={styles.headerTitle}>
-					{selectedUser
-						? `${selectedUser.nombre} ${selectedUser.apellido}`
-						: 'Reportes de Empleados'}
+					Reportes de Empleados
 				</ThemedText>
 				<View style={{ width: 40 }} />
 			</View>
 
-			{/* Vista sin usuario seleccionado: buscador + resultados */}
-			{!selectedUser && (
-				<View style={styles.searchSection}>
-					<SearchBar
-						placeholder="Buscar empleado por nombre..."
-						value={searchQuery}
-						onChangeText={setSearchQuery}
-						onClear={() => setSearchQuery('')}
-					/>
-
-					{isSearching && searchQuery.length > 1 && (
-						<View style={styles.loadingContainer}>
-							<ActivityIndicator size="small" color={colors.tint} />
-							<ThemedText style={styles.loadingText}>Buscando...</ThemedText>
-						</View>
-					)}
-
-					{!isSearching && usuarios && usuarios.length > 0 && (
-						<FlatList
-							data={usuarios}
-							renderItem={renderUserItem}
-							keyExtractor={(item) => item.user_context_id.toString()}
-							style={styles.userList}
-							ItemSeparatorComponent={() => <View style={styles.separator} />}
-							contentContainerStyle={styles.listContent}
-						/>
-					)}
-
-					{!isSearching && searchQuery.length > 1 && usuarios && usuarios.length === 0 && (
-						<View style={styles.emptyContainer}>
-							<Ionicons name="search-outline" size={48} color={colors.secondaryText} />
-							<ThemedText style={styles.emptyText}>
-								No se encontraron empleados
-							</ThemedText>
-						</View>
-					)}
-
-					{searchQuery.length <= 1 && !isSearching && (
-						<View style={styles.emptyContainer}>
-							<Ionicons name="people-outline" size={48} color={colors.secondaryText} />
-							<ThemedText style={styles.emptyText}>
-								Busca un empleado para ver sus reportes
-							</ThemedText>
-							<ThemedText style={styles.hintText}>
-								Escribe al menos 2 caracteres para buscar
-							</ThemedText>
-						</View>
-					)}
+			{isComparingMode && (
+				<View style={styles.compareBanner}>
+					<ThemedText style={styles.compareBannerText}>
+						Selecciona un empleado para comparar
+					</ThemedText>
 				</View>
 			)}
 
-			{/* Vista con usuario seleccionado: reportes del empleado */}
-			{selectedUser && (
-				<ReportesEmpleado
-					userId={selectedUser.user_context_id.toString()}
-					userNombre={selectedUser.nombre}
-					userApellido={selectedUser.apellido}
+			<View style={styles.searchSection}>
+				<SearchBar
+					placeholder="Buscar empleado por nombre..."
+					value={searchQuery}
+					onChangeText={setSearchQuery}
+					onClear={() => setSearchQuery('')}
 				/>
-			)}
+
+				{isSearching && searchQuery.length > 1 && (
+					<View style={styles.loadingContainer}>
+						<ActivityIndicator size="small" color={colors.tint} />
+						<ThemedText style={styles.loadingText}>Buscando...</ThemedText>
+					</View>
+				)}
+
+				{!isSearching && usuarios && usuarios.length > 0 && (
+					<FlatList
+						data={usuarios}
+						renderItem={renderUserItem}
+						keyExtractor={(item) => item.user_context_id.toString()}
+						style={styles.userList}
+						ItemSeparatorComponent={() => <View style={styles.separator} />}
+						contentContainerStyle={styles.listContent}
+					/>
+				)}
+
+				{!isSearching && searchQuery.length > 1 && usuarios && usuarios.length === 0 && (
+					<View style={styles.emptyContainer}>
+						<Ionicons name="search-outline" size={48} color={colors.secondaryText} />
+						<ThemedText style={styles.emptyText}>
+							No se encontraron empleados
+						</ThemedText>
+					</View>
+				)}
+
+				{searchQuery.length <= 1 && !isSearching && (
+					<View style={styles.emptyContainer}>
+						<Ionicons name="people-outline" size={48} color={colors.secondaryText} />
+						<ThemedText style={styles.emptyText}>
+							{isComparingMode
+								? `Seleccionados para comparar: ${comparingUsers.length}`
+								: 'Busca un empleado para ver sus reportes'}
+						</ThemedText>
+						<ThemedText style={styles.hintText}>
+							Escribe al menos 2 caracteres para buscar
+						</ThemedText>
+					</View>
+				)}
+			</View>
 		</View>
 	);
 }
@@ -158,14 +183,16 @@ const styles = StyleSheet.create({
 	iconButton: {
 		padding: 8,
 	},
-	clearButton: {
-		paddingHorizontal: 8,
-		paddingVertical: 6,
+	compareBanner: {
+		backgroundColor: colors.lightTint + '15',
+		paddingVertical: '2.5%',
+		paddingHorizontal: '4%',
 	},
-	clearButtonText: {
-		fontSize: 14,
-		fontWeight: '600',
+	compareBannerText: {
 		color: colors.lightTint,
+		fontWeight: '600',
+		textAlign: 'center',
+		fontSize: 14,
 	},
 	searchSection: {
 		flex: 1,

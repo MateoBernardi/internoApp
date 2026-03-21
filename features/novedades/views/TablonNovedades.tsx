@@ -10,7 +10,7 @@ import type { Novedad } from '../models/Novedades';
 import { useNovedad } from '../viewmodels/useNovedad';
 
 // Roles que tienen permiso para crear, editar y eliminar novedades
-const supervisorRoles = ['gerencia', 'personasRelaciones', 'encargado', 'consejo'];
+const supervisorRoles = ['gerencia', 'personasRelaciones', 'encargado', 'presidencia'];
 
 interface NovedadView extends Novedad {
   categoria: string;

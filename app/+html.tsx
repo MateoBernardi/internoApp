@@ -1,6 +1,8 @@
 import { ScrollViewStyleReset } from 'expo-router/html';
 import type { PropsWithChildren } from 'react';
 
+const apiBaseUrl = process.env.API_BASE_URL ?? 'http://192.168.1.6:3000';
+
 /**
  * This file is web-only and used to configure the root HTML for every web page
  * during static rendering. The contents of this function only run in Node.js
@@ -38,7 +40,7 @@ export default function Root({ children }: PropsWithChildren) {
             font-src 'self' https://fonts.gstatic.com;
             connect-src 'self'
               blob:
-              http://192.168.1.189:3000
+              ${apiBaseUrl}
               https://italoapp-backend-production.up.railway.app
               https://*.r2.cloudflarestorage.com
               https://fcm.googleapis.com
@@ -100,6 +102,12 @@ body {
   display: flex;
   flex: 1;
   min-height: 100vh;
+}
+
+@media (min-width: 1024px) {
+  body {
+    overflow-y: auto;
+  }
 }
 `;
 

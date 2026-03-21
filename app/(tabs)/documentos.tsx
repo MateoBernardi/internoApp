@@ -1,10 +1,12 @@
 import { ThemedView } from '@/components/themed-view';
 import Documentos from '@/features/docs/views/Documentos';
-import { StyleSheet } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 
 export default function DocumentosScreen() {
+  const containerPaddingTop = Platform.OS === 'web' ? 0 : '10%';
+
   return (
-        <ThemedView style={styles.container}>
+        <ThemedView style={[styles.container, { paddingTop: containerPaddingTop }]}> 
           <Documentos />
         </ThemedView>
     );

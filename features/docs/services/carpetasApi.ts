@@ -95,6 +95,32 @@ const normalizeCarpeta = (item: Carpeta): Carpeta => ({
   children: item.children?.map(normalizeCarpeta) ?? [],
 });
 
+const normalizeResourcePermisos = (raw: any): ResourcePermisos => {
+  const resolved = raw?.data || raw || {};
+
+  const roleList = Array.isArray(resolved.allowed_roles)
+    ? resolved.allowed_roles.filter((role: unknown): role is string => typeof role === 'string' && role.trim().length > 0)
+    : [];
+
+  const userNameList = Array.isArray(resolved.allowed_users)
+    ? resolved.allowed_users.filter((name: unknown): name is string => typeof name === 'string' && name.trim().length > 0)
+    : [];
+
+  const rawUserIds = resolved.user_context_ids || resolved.ids || resolved.usuarios_id || resolved.user_ids || [];
+  const userIds = Array.isArray(rawUserIds)
+    ? rawUserIds.filter((id: unknown): id is number => Number.isInteger(id) && (id as number) > 0)
+    : [];
+
+  return {
+    resource_type: resolved.resource_type === 'archivo' ? 'archivo' : 'carpeta',
+    resource_id: Number.isInteger(resolved.resource_id) ? resolved.resource_id : 0,
+    owner_id: Number.isInteger(resolved.owner_id) ? resolved.owner_id : 0,
+    allowed_roles: roleList,
+    allowed_users: userNameList,
+    ...(userIds.length > 0 ? { user_context_ids: userIds } : {}),
+  };
+};
+
 export async function fetchCarpetas(
   accessToken: string,
   view: CarpetaView = 'tree',
@@ -179,7 +205,7 @@ export async function getCarpetaPermisos(accessToken: string, id: number): Promi
   }
 
   const data = await parseBody(response);
-  return data?.data || data;
+  return normalizeResourcePermisos(data);
 }
 
 export async function removeCarpetaPermisos(

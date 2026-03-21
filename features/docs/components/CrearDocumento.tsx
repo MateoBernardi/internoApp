@@ -165,11 +165,17 @@ export function CrearDocumento({ visible, onClose, initialFile, initialFolderId 
   const allRoles = [
     { label: 'Todos', value: '*' },
     { label: 'Contable', value: 'contable' },
+    { label: 'Sistemas', value: 'sistemas' },
+    { label: 'Personal Admin', value: 'empleado-admin' },
+    { label: 'Personal Insumos', value: 'empleado-insumos' },
+    { label: 'Personal Mayorista', value: 'empleado-mayorista' },
+    { label: 'Personal Super', value: 'empleado-super' },
     { label: 'Consejo', value: 'consejo' },
     { label: 'Encargado', value: 'encargado' },
     { label: 'Gerencia', value: 'gerencia' },
     { label: 'Personal', value: 'empleado' },
     { label: 'Personas y Relaciones', value: 'personasRelaciones' },
+    { label: 'Presidencia', value: 'presidencia' },
   ];
 
   const selectedRolesForDisplay = useMemo(() => {

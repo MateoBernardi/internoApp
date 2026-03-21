@@ -1,10 +1,12 @@
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
+import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import {
     ActivityIndicator,
     Modal,
+    Platform,
     ScrollView,
     StyleSheet,
     TouchableOpacity,
@@ -33,7 +35,13 @@ export function ValidacionFechasModal({
     onConfirm,
     onCancel,
 }: ValidacionFechasModalProps) {
+    const responsiveLayout = useResponsiveLayout();
     const visible = state !== 'idle';
+    const modalMaxWidth =
+        Platform.OS === 'web'
+            ? (responsiveLayout.isDesktopXl ? 760 : responsiveLayout.isDesktop ? 600 : 400)
+            : 400;
+
     const rangosAgrupadosPorUsuario = React.useMemo(() => {
         const grouped = new Map<string, RangoOcupado[]>();
 
@@ -52,7 +60,7 @@ export function ValidacionFechasModal({
     return (
         <Modal visible={visible} transparent animationType="fade">
             <View style={styles.overlay}>
-                <View style={styles.content}>
+                <View style={[styles.content, { maxWidth: modalMaxWidth }]}>
                     {/* Estado: Validando */}
                     {state === 'validating' && (
                         <View style={styles.centerContent}>

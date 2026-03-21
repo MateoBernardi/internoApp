@@ -1,8 +1,47 @@
 import { useAuth } from '@/features/auth/context/AuthContext';
 
-type UserRole = 'admin' | 'contable' | 'gerencia' | 'personasRelaciones' | 'consejo' | 'encargado' | 'empleado' | 'readonly';
+type UserRole =
+  | 'admin'
+  | 'contable'
+  | 'sistemas'
+  | 'empleado'
+  | 'empleado-admin'
+  | 'empleado-insumos'
+  | 'empleado-mayorista'
+  | 'empleado-super'
+  | 'gerencia'
+  | 'personasRelaciones'
+  | 'consejo'
+  | 'encargado'
+  | 'readonly'
+  | 'presidencia';
 
-export const ALL_ROLES: UserRole[] = ['admin', 'contable', 'gerencia', 'personasRelaciones', 'consejo', 'encargado', 'empleado', 'readonly'];
+const PERSONAL_ROLES: UserRole[] = [
+  'empleado',
+  'empleado-admin',
+  'empleado-insumos',
+  'empleado-mayorista',
+  'empleado-super',
+];
+
+const CONTABLE_ROLES: UserRole[] = ['contable', 'sistemas'];
+
+export const ALL_ROLES: UserRole[] = [
+  'admin',
+  'contable',
+  'sistemas',
+  'empleado-admin',
+  'empleado-insumos',
+  'empleado-mayorista',
+  'empleado-super',
+  'empleado',
+  'gerencia',
+  'personasRelaciones',
+  'consejo',
+  'encargado',
+  'readonly',
+  'presidencia',
+];
 
 export function useRoleCheck() {
   const { user } = useAuth();
@@ -12,14 +51,26 @@ export function useRoleCheck() {
     return user.rol_nombre as UserRole;
   };
 
+  const matchesRole = (userRole: UserRole, expectedRole: UserRole): boolean => {
+    if (expectedRole === 'empleado') {
+      return PERSONAL_ROLES.includes(userRole);
+    }
+
+    if (expectedRole === 'contable') {
+      return CONTABLE_ROLES.includes(userRole);
+    }
+
+    return userRole === expectedRole;
+  };
+
   const hasRole = (role: UserRole | UserRole[]): boolean => {
     const userRole = getUserRole();
     if (!userRole) return false;
     
     if (Array.isArray(role)) {
-      return role.includes(userRole);
+      return role.some((expectedRole) => matchesRole(userRole, expectedRole));
     }
-    return userRole === role;
+    return matchesRole(userRole, role);
   };
 
   const isKnownRole = (): boolean => {

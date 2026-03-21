@@ -12,6 +12,7 @@ import {
     TouchableOpacity,
     TouchableWithoutFeedback,
     UIManager,
+    useWindowDimensions,
     View
 } from 'react-native';
 
@@ -48,6 +49,14 @@ export function RoleUserSelectionModal({
   onDeselectAll
 }: RoleUserSelectionModalProps) {
   const [searchQuery, setSearchQuery] = React.useState('');
+  const { width } = useWindowDimensions();
+
+  const modalWidth = useMemo(() => {
+    if (Platform.OS === 'web') {
+      return Math.min(760, Math.max(360, width - 56));
+    }
+    return width - 40;
+  }, [width]);
 
   const displayedUsers = React.useMemo(() => {
     if (!searchQuery) return roleUsers;
@@ -104,7 +113,7 @@ export function RoleUserSelectionModal({
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={styles.modalOverlay}>
             <TouchableWithoutFeedback>
-                <View style={[styles.modalContent, { backgroundColor: colors.componentBackground }]}>
+                <View style={[styles.modalContent, { backgroundColor: colors.componentBackground, width: modalWidth }]}> 
                     
                     {/* Header */}
                     <View style={styles.header}>
@@ -166,11 +175,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20
+    padding: 16
   },
   modalContent: {
     width: '100%',
-    maxHeight: '85%',
+    maxHeight: '90%',
     borderRadius: 16,
     padding: 16,
     elevation: 8,
@@ -206,7 +215,8 @@ const styles = StyleSheet.create({
       alignItems: 'center',
   },
   list: {
-      flexGrow: 0, 
+      flex: 1,
+      minHeight: 120,
       marginBottom: 16
   },
   userRow: {

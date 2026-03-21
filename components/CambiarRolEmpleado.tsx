@@ -6,22 +6,28 @@ import { useBajaUsuario, useSearchUsers, useUpdateUserRole } from '@/shared/user
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    FlatList,
+    ScrollView,
+    StyleSheet,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
 const allRoles = [
-  { id: 1, label: 'Consejo', value: 'consejo' },
+  { id: 1, label: 'Presidencia', value: 'presidencia' },
   { id: 2, label: 'Gerencia', value: 'gerencia' },
   { id: 3, label: 'Personas y Relaciones', value: 'personasRelaciones' },
   { id: 4, label: 'Encargado', value: 'encargado' },
   { id: 5, label: 'Contable', value: 'contable' },
+  { id: 8, label: 'Sistemas', value: 'sistemas' },
+  { id: 9, label: 'Personal Admin', value: 'empleado-admin' },
+  { id: 10, label: 'Personal Insumos', value: 'empleado-insumos' },
+  { id: 11, label: 'Personal Mayorista', value: 'empleado-mayorista' },
+  { id: 12, label: 'Personal Super', value: 'empleado-super' },
   { id: 6, label: 'Personal', value: 'empleado' },
+  { id: 7, label: 'Consejo', value: 'consejo' },
 ];
 
 const colors = Colors['light'];

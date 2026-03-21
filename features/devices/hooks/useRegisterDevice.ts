@@ -3,7 +3,7 @@ import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Platform } from 'react-native';
+import { Platform } from 'react-native';
 import { registerDeviceSafely } from '../services/devicesApi';
 import { getWebPushToken, onForegroundMessage } from '../services/webPush';
 
@@ -18,6 +18,8 @@ export function useRegisterDevice() {
   const [isLoadingToken, setIsLoadingToken] = useState(true);
   const lastRegistrationFingerprintRef = useRef<string | null>(null);
   const invalidTokenRegistryRef = useRef<Set<string>>(new Set());
+  const hasLoggedDeniedPermissionRef = useRef(false);
+  const lastPrereqLogKeyRef = useRef<string | null>(null);
 
   const refreshWebPushToken = useCallback(async () => {
     const token = await getWebPushToken();
@@ -119,6 +121,64 @@ export function useRegisterDevice() {
     return () => { unsubscribe?.(); };
   }, []);
 
+  // Reintentar obtencion de token web al autenticarse y al recuperar conectividad.
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !isAuthenticated) return;
+
+    refreshWebPushToken().catch((error) => {
+      console.error('[WebPush] Error refreshing token after auth:', error);
+    });
+
+    const handleOnline = () => {
+      refreshWebPushToken().catch((error) => {
+        console.error('[WebPush] Error refreshing token after reconnect:', error);
+      });
+    };
+
+    window.addEventListener('online', handleOnline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+    };
+  }, [isAuthenticated, refreshWebPushToken]);
+
+  // Mientras haya sesion web activa y no haya token, reintentar de forma controlada.
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !isAuthenticated || !tokens?.accessToken || expoPushToken) {
+      return;
+    }
+
+    if (typeof window === 'undefined' || !window.isSecureContext) {
+      console.warn('[Devices] No se puede obtener token web en contexto no seguro', {
+        origin: typeof window !== 'undefined' ? window.location.origin : 'unknown',
+      });
+      return;
+    }
+
+    if (Notification.permission === 'denied') {
+      if (!hasLoggedDeniedPermissionRef.current) {
+        console.warn('[Devices] Permiso de notificaciones denegado; no se puede registrar dispositivo web');
+        hasLoggedDeniedPermissionRef.current = true;
+      }
+      return;
+    }
+
+    hasLoggedDeniedPermissionRef.current = false;
+
+    const retryOnce = () => {
+      refreshWebPushToken().catch((error) => {
+        console.error('[WebPush] Retry token refresh failed:', error);
+      });
+    };
+
+    retryOnce();
+    const retryId = window.setInterval(retryOnce, 15000);
+
+    return () => {
+      window.clearInterval(retryId);
+    };
+  }, [expoPushToken, isAuthenticated, refreshWebPushToken, tokens?.accessToken]);
+
   // Request de permisos de notificaciones y obtener el push token (nativo)
   useEffect(() => {
     if (Platform.OS === 'web') return; // Web se maneja arriba con FCM
@@ -212,6 +272,9 @@ export function useRegisterDevice() {
   useEffect(() => {
     if (expoPushToken && tokens?.accessToken && isAuthenticated) {
       if (invalidTokenRegistryRef.current.has(expoPushToken)) {
+        console.warn('[Devices] Token marcado como invalido; se omite registro', {
+          tokenPreview: expoPushToken.slice(0, 24),
+        });
         return;
       }
 
@@ -233,9 +296,9 @@ export function useRegisterDevice() {
 
           if (result.invalidToken) {
             invalidTokenRegistryRef.current.add(expoPushToken);
-            Alert.alert(
-              'Notificaciones',
-              result.message || 'No pudimos registrar este dispositivo para notificaciones. Vamos a solicitar un token nuevo.'
+            console.warn(
+              '[Devices] Invalid push token while registering device:',
+              result.message || 'Unable to register this device for notifications. Requesting a new token.'
             );
 
             if (platform === 'web') {
@@ -244,6 +307,20 @@ export function useRegisterDevice() {
           }
         }
       });
+    } else if (Platform.OS === 'web') {
+      const prereqState = {
+        hasPushToken: !!expoPushToken,
+        hasAccessToken: !!tokens?.accessToken,
+        isAuthenticated,
+        notificationPermission: typeof Notification !== 'undefined' ? Notification.permission : 'unsupported',
+        isSecureContext: typeof window !== 'undefined' ? window.isSecureContext : false,
+      };
+      const nextLogKey = JSON.stringify(prereqState);
+
+      if (lastPrereqLogKeyRef.current !== nextLogKey) {
+        lastPrereqLogKeyRef.current = nextLogKey;
+        console.log('[Devices] Registro web omitido por prerequisitos faltantes', prereqState);
+      }
     }
   }, [expoPushToken, tokens?.accessToken, isAuthenticated, refreshWebPushToken]);
 

@@ -3,6 +3,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
+import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
@@ -12,6 +13,7 @@ const colors = Colors['light'];
 
 export const LoginForm: React.FC = () => {
   const { signIn } = useAuth();
+  const responsiveLayout = useResponsiveLayout();
   const [user, setUser] = useState("");
   const [pass, setPass] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -84,10 +86,24 @@ export const LoginForm: React.FC = () => {
     );
   }, [error]);
 
+  const webFormMaxWidth = useMemo(() => {
+    if (Platform.OS !== 'web') return 380;
+    if (responsiveLayout.isDesktopXl) return 640;
+    if (responsiveLayout.isDesktop) return 520;
+    return 380;
+  }, [responsiveLayout.isDesktop, responsiveLayout.isDesktopXl]);
+
+  const formTopPadding = useMemo(() => {
+    if (Platform.OS !== 'web') return 60;
+    if (responsiveLayout.isDesktopXl) return 20;
+    if (responsiveLayout.isDesktop) return 28;
+    return 60;
+  }, [responsiveLayout.isDesktop, responsiveLayout.isDesktopXl]);
+
   return (
-    <ThemedView style={styles.formSection}>
+    <ThemedView style={[styles.formSection, { paddingTop: formTopPadding }]}>
       <ThemedText style={styles.formSubtitle}>Accede a tu cuenta</ThemedText>
-      <ThemedView style={styles.loginForm}>
+      <ThemedView style={[styles.loginForm, { maxWidth: webFormMaxWidth }]}> 
         <InputWithIcon
           icon="👤"
           placeholder="Usuario"

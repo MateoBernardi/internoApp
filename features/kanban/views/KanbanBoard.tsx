@@ -7,6 +7,7 @@ import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
+import { useRoleCheck } from '@/hooks/useRoleCheck';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     ActivityIndicator,
@@ -197,9 +198,10 @@ interface DetailModalProps {
     onMove?: (objetivo: Objetivo) => void;
     onDelete?: (id: number) => void;
     currentUserId?: number;
+    canManage?: boolean;
 }
 
-function DetailModal({ visible, objetivo, onClose, onEdit, onMove, onDelete, currentUserId }: DetailModalProps) {
+function DetailModal({ visible, objetivo, onClose, onEdit, onMove, onDelete, currentUserId, canManage = true }: DetailModalProps) {
     if (!objetivo) return null;
 
     return (
@@ -284,57 +286,68 @@ function DetailModal({ visible, objetivo, onClose, onEdit, onMove, onDelete, cur
                 </ScrollView>
 
                 {/* Botones de acción */}
-                <View style={styles.modalFooter}>
-                    <TouchableOpacity
-                        style={[
-                            styles.button,
-                            styles.buttonDanger,
-                            currentUserId !== objetivo.created_by && styles.buttonDisabled,
-                        ]}
-                        onPress={() => {
-                            Alert.alert(
-                                'Eliminar',
-                                '¿Estás seguro de que deseas eliminar este objetivo?',
-                                [
-                                    { text: 'Cancelar', style: 'cancel' },
-                                    {
-                                        text: 'Eliminar',
-                                        style: 'destructive',
-                                        onPress: () => {
-                                            onDelete?.(objetivo.id);
-                                            onClose();
+                {canManage ? (
+                    <View style={styles.modalFooter}>
+                        <TouchableOpacity
+                            style={[
+                                styles.button,
+                                styles.buttonDanger,
+                                currentUserId !== objetivo.created_by && styles.buttonDisabled,
+                            ]}
+                            onPress={() => {
+                                Alert.alert(
+                                    'Eliminar',
+                                    '¿Estás seguro de que deseas eliminar este objetivo?',
+                                    [
+                                        { text: 'Cancelar', style: 'cancel' },
+                                        {
+                                            text: 'Eliminar',
+                                            style: 'destructive',
+                                            onPress: () => {
+                                                onDelete?.(objetivo.id);
+                                                onClose();
+                                            },
                                         },
-                                    },
-                                ]
-                            );
-                        }}
-                        disabled={currentUserId !== objetivo.created_by}
-                    >
-                        <Text style={[styles.buttonDangerText, currentUserId !== objetivo.created_by && styles.buttonDisabledText]}>
-                            Eliminar
-                        </Text>
-                    </TouchableOpacity>
+                                    ]
+                                );
+                            }}
+                            disabled={currentUserId !== objetivo.created_by}
+                        >
+                            <Text style={[styles.buttonDangerText, currentUserId !== objetivo.created_by && styles.buttonDisabledText]}>
+                                Eliminar
+                            </Text>
+                        </TouchableOpacity>
 
-                    <TouchableOpacity
-                        style={[styles.button, styles.buttonSecondary]}
-                        onPress={() => {
-                            onEdit?.(objetivo);
-                            onClose();
-                        }}
-                    >
-                        <Text style={styles.buttonSecondaryText}>Editar</Text>
-                    </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[styles.button, styles.buttonSecondary]}
+                            onPress={() => {
+                                onEdit?.(objetivo);
+                                onClose();
+                            }}
+                        >
+                            <Text style={styles.buttonSecondaryText}>Editar</Text>
+                        </TouchableOpacity>
 
-                    <TouchableOpacity
-                        style={[styles.button, styles.buttonPrimary]}
-                        onPress={() => {
-                            onMove?.(objetivo);
-                            onClose();
-                        }}
-                    >
-                        <Text style={styles.buttonPrimaryText}>➜ Mover</Text>
-                    </TouchableOpacity>
-                </View>
+                        <TouchableOpacity
+                            style={[styles.button, styles.buttonPrimary]}
+                            onPress={() => {
+                                onMove?.(objetivo);
+                                onClose();
+                            }}
+                        >
+                            <Text style={styles.buttonPrimaryText}>➜ Mover</Text>
+                        </TouchableOpacity>
+                    </View>
+                ) : (
+                    <View style={styles.modalFooter}>
+                        <TouchableOpacity
+                            style={[styles.button, styles.buttonSecondary]}
+                            onPress={onClose}
+                        >
+                            <Text style={styles.buttonSecondaryText}>Cerrar</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
             </View>
         </Modal>
     );
@@ -469,9 +482,10 @@ interface ObjetivoItemProps {
     onPress: (objetivo: Objetivo) => void;
     onMove: (objetivo: Objetivo) => void;
     isOptimisticLoading?: boolean;
+    canManage?: boolean;
 }
 
-function ObjetivoItem({ objetivo, onPress, onMove, isOptimisticLoading }: ObjetivoItemProps) {
+function ObjetivoItem({ objetivo, onPress, onMove, isOptimisticLoading, canManage = true }: ObjetivoItemProps) {
     return (
         <View style={[styles.card, isOptimisticLoading && styles.cardOptimistic]}>
             {isOptimisticLoading && (
@@ -497,13 +511,15 @@ function ObjetivoItem({ objetivo, onPress, onMove, isOptimisticLoading }: Objeti
             </TouchableOpacity>
 
             <View style={styles.cardActions}>
-                <TouchableOpacity
-                    style={styles.cardActionButton}
-                    onPress={() => onMove(objetivo)}
-                    disabled={isOptimisticLoading}
-                >
-                    <Text style={styles.cardActionButtonText}>➜ Mover</Text>
-                </TouchableOpacity>
+                {canManage && (
+                    <TouchableOpacity
+                        style={styles.cardActionButton}
+                        onPress={() => onMove(objetivo)}
+                        disabled={isOptimisticLoading}
+                    >
+                        <Text style={styles.cardActionButtonText}>➜ Mover</Text>
+                    </TouchableOpacity>
+                )}
                 <TouchableOpacity
                     style={[styles.cardActionButton, styles.cardActionInfo]}
                     onPress={() => onPress(objetivo)}
@@ -526,9 +542,10 @@ interface ColumnProps {
     onObjetivoPress: (objetivo: Objetivo) => void;
     onMovePress: (objetivo: Objetivo) => void;
     optimisticObjetivoId?: number | null;
+    canManage?: boolean;
 }
 
-function KanbanColumn({ estado, objetivos, onObjetivoPress, onMovePress, optimisticObjetivoId }: ColumnProps) {
+function KanbanColumn({ estado, objetivos, onObjetivoPress, onMovePress, optimisticObjetivoId, canManage = true }: ColumnProps) {
     return (
         <View style={[styles.column, { backgroundColor: getColumnColor(estado) }]}>
             <View style={styles.columnHeader}>
@@ -556,6 +573,7 @@ function KanbanColumn({ estado, objetivos, onObjetivoPress, onMovePress, optimis
                                 onPress={onObjetivoPress}
                                 onMove={onMovePress}
                                 isOptimisticLoading={optimisticObjetivoId === objetivo.id}
+                                canManage={canManage}
                             />
                         ))}
                     </View>
@@ -571,6 +589,9 @@ function KanbanColumn({ estado, objetivos, onObjetivoPress, onMovePress, optimis
 
 export function KanbanBoard() {
     const { user } = useAuth();
+    const { hasRole } = useRoleCheck();
+    const isConsejo = hasRole('consejo');
+    const canManage = !isConsejo;
     const { data: objetivos = [], isLoading, error } = useObjetivos();
     const updateMutation = useUpdateObjetivo();
     const deleteMutation = useDeleteObjetivo();
@@ -603,24 +624,32 @@ export function KanbanBoard() {
     }, []);
 
     const handleOpenCreate = useCallback(() => {
+        if (!canManage) return;
         setEditingObjetivo(undefined);
         setFormModalVisible(true);
-    }, []);
+    }, [canManage]);
 
     const handleOpenEdit = useCallback((objetivo: Objetivo) => {
+        if (!canManage) return;
         setEditingObjetivo(objetivo);
         setFormModalVisible(true);
         setDetailModalVisible(false);
-    }, []);
+    }, [canManage]);
 
     const handleOpenMove = useCallback((objetivo: Objetivo) => {
+        if (!canManage) return;
         setSelectedObjetivo(objetivo);
         setMoveModalVisible(true);
         setDetailModalVisible(false);
-    }, []);
+    }, [canManage]);
 
     const handleMoveObjetivo = useCallback(
         async (objetivoId: number, nuevoEstado: string, observacion: string) => {
+            if (!canManage) {
+                setMoveModalVisible(false);
+                return;
+            }
+
             try {
                 // Mostrar estado optimista visual
                 setOptimisticObjetivoId(objetivoId);
@@ -647,11 +676,13 @@ export function KanbanBoard() {
                 setMoveModalVisible(false);
             }
         },
-        [updateMutation]
+        [canManage, updateMutation]
     );
 
     const handleDeleteObjetivo = useCallback(
         async (objetivoId: number) => {
+            if (!canManage) return;
+
             try {
                 await deleteMutation.mutateAsync(objetivoId);
                 Alert.alert('Éxito', 'Objetivo eliminado correctamente');
@@ -660,7 +691,7 @@ export function KanbanBoard() {
                 Alert.alert('Error', err instanceof Error ? err.message : 'Intenta nuevamente');
             }
         },
-        [deleteMutation]
+        [canManage, deleteMutation]
     );
 
     if (isLoading) {
@@ -688,13 +719,15 @@ export function KanbanBoard() {
                         Total: {objetivos.length} objetivo{objetivos.length !== 1 ? 's' : ''}
                     </Text>
                 </View>
-                <TouchableOpacity
-                    style={styles.createButton}
-                    onPress={handleOpenCreate}
-                    disabled={formModalVisible}
-                >
-                    <Text style={styles.createButtonText}>+ Crear</Text>
-                </TouchableOpacity>
+                {canManage && (
+                    <TouchableOpacity
+                        style={styles.createButton}
+                        onPress={handleOpenCreate}
+                        disabled={formModalVisible}
+                    >
+                        <Text style={styles.createButtonText}>+ Crear</Text>
+                    </TouchableOpacity>
+                )}
             </View>
 
             <ScrollView
@@ -712,6 +745,7 @@ export function KanbanBoard() {
                             onObjetivoPress={handleShowDetail}
                             onMovePress={handleOpenMove}
                             optimisticObjetivoId={optimisticObjetivoId}
+                            canManage={canManage}
                         />
                     ))}
                 </View>
@@ -736,6 +770,7 @@ export function KanbanBoard() {
                 onMove={handleOpenMove}
                 onDelete={handleDeleteObjetivo}
                 currentUserId={user?.user_context_id}
+                canManage={canManage}
             />
 
             <MoveModal

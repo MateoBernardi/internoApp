@@ -1,6 +1,6 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
-import { Colors } from '@/constants/theme';
+import { Colors, Layout } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { useReportes } from '@/features/reportes/viewmodels/useReportes';
 import {
@@ -12,12 +12,13 @@ import {
     useGetSolicitudesUsuario,
 } from '@/features/solicitudesLicencias/viewmodels/useSolicitudes';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
-import { Href, Redirect, Tabs, useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { LayoutChangeEvent, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Href, Redirect, Tabs, useRouter, useSegments } from 'expo-router';
+import React, { useEffect, useMemo, useState } from 'react';
+import { LayoutChangeEvent, Platform, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const TAB_BAR_BASE_HEIGHT = 56;
+const DESKTOP_NAV_HEIGHT = 54;
 const MENU_MAX_WIDTH = 280;
 const MENU_SIDE_PADDING = 8;
 
@@ -35,14 +36,16 @@ export default function TabLayout() {
   const { user, signOut, isLoggingOut } = useAuth();
   const { hasRole, isKnownRole } = useRoleCheck();
   const router = useRouter();
+  const segments = useSegments();
   const insets = useSafeAreaInsets();
   const tabBarHeight = TAB_BAR_BASE_HEIGHT + insets.bottom;
+  const shouldRedirectUnknownRole = Boolean(user?.rol_nombre) && !isKnownRole();
 
-  // Redirect unknown roles to login
-  if (user?.rol_nombre && !isKnownRole()) {
-    signOut();
-    return <Redirect href="/login" />;
-  }
+  useEffect(() => {
+    if (shouldRedirectUnknownRole) {
+      signOut();
+    }
+  }, [shouldRedirectUnknownRole, signOut]);
 
   const isEmployee = hasRole('empleado');
   const isEncargado = hasRole('encargado');
@@ -50,7 +53,7 @@ export default function TabLayout() {
   const hideAdmin = isEmployee;
   const hasSolicitudesTab = !hideExplore;
   const hasAdminTab = !hideAdmin;
-  const canSeeAdminReportesButton = !hasRole('contable');
+  const canSeeAdminReportesButton = !hasRole(['contable', 'sistemas']);
   const canSeeActivityRequests = isEmployee || isEncargado;
   const canSeeLicenciasAdmin = hasAdminTab;
   const canSeeReportesAdmin = hasAdminTab && canSeeAdminReportesButton;
@@ -60,6 +63,8 @@ export default function TabLayout() {
   const colors = Colors['light'];
   const [activeMenu, setActiveMenu] = useState<'personal' | 'admin' | null>(null);
   const [containerWidth, setContainerWidth] = useState(0);
+  const isDesktopWeb = Platform.OS === 'web' && containerWidth >= Layout.web.desktopMinWidth;
+  const currentTab = useMemo(() => (segments[1] as string) || 'index', [segments]);
 
   const { data: invitaciones = [] } = useInvitaciones(canSeeActivityRequests);
   const { data: solicitudesEnviadas = [] } = useSolicitudesCreadas(canSeeActivityRequests);
@@ -134,8 +139,8 @@ export default function TabLayout() {
     }] : []),
   ];
 
-  const hideMisReportes = hasRole(['gerencia', 'personasRelaciones', 'consejo', 'contable']);
-  const hideMisLicencias = hasRole(['consejo', 'contable']);
+  const hideMisReportes = hasRole(['gerencia', 'personasRelaciones', 'consejo', 'contable', 'sistemas', 'presidencia']);
+  const hideMisLicencias = hasRole(['consejo', 'contable', 'sistemas']);
 
   const personalMenuOptions: MenuOption[] = [
     {
@@ -188,11 +193,106 @@ export default function TabLayout() {
     }
   };
 
+  const navigateToTab = (href: Href) => {
+    setActiveMenu(null);
+    router.replace(href);
+  };
+
+  const renderDesktopNavigation = () => {
+    if (!isDesktopWeb) return null;
+
+    return (
+      <View style={[styles.desktopTopBar, { height: DESKTOP_NAV_HEIGHT }]}> 
+        <View style={styles.desktopTopBarLeft}>
+          <TouchableOpacity
+            style={[styles.desktopTopButton, currentTab === 'index' && styles.desktopTopButtonActive]}
+            onPress={() => navigateToTab('/(tabs)' as Href)}
+          >
+            <Text style={[styles.desktopTopButtonText, currentTab === 'index' && styles.desktopTopButtonTextActive]}>Inicio</Text>
+            {hasSolicitudesBadgeInHome && <View style={styles.desktopNavPendingDot} />}
+          </TouchableOpacity>
+
+          {!hideExplore && (
+            <TouchableOpacity
+              style={[styles.desktopTopButton, currentTab === 'explore' && styles.desktopTopButtonActive]}
+              onPress={() => navigateToTab('/(tabs)/explore' as Href)}
+            >
+              <Text style={[styles.desktopTopButtonText, currentTab === 'explore' && styles.desktopTopButtonTextActive]}>Solicitudes</Text>
+              {hasSolicitudesBadgeInTab && <View style={styles.desktopNavPendingDot} />}
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity
+            style={[styles.desktopTopButton, currentTab === 'documentos' && styles.desktopTopButtonActive]}
+            onPress={() => navigateToTab('/(tabs)/documentos' as Href)}
+          >
+            <Text style={[styles.desktopTopButtonText, currentTab === 'documentos' && styles.desktopTopButtonTextActive]}>Documentos</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.desktopTopBarRight}>
+          {!hideAdmin && (
+            <TouchableOpacity
+              style={[styles.desktopTopButton, activeMenu === 'admin' && styles.desktopTopButtonActive]}
+              onPress={() => handlePress('admin')}
+            >
+              <Text style={[styles.desktopTopButtonText, activeMenu === 'admin' && styles.desktopTopButtonTextActive]}>Administración</Text>
+              {hasAdminBadge && <View style={styles.desktopNavPendingDot} />}
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity
+            style={[styles.desktopTopButton, activeMenu === 'personal' && styles.desktopTopButtonActive]}
+            onPress={() => handlePress('personal')}
+          >
+            <Text style={[styles.desktopTopButtonText, activeMenu === 'personal' && styles.desktopTopButtonTextActive]}>
+              {user?.nombre || 'Mi cuenta'}
+            </Text>
+            {hasPersonalBadge && <View style={styles.desktopNavPendingDot} />}
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
+
   const renderMenu = () => {
     if (!activeMenu) return null;
 
     const options = activeMenu === 'personal' ? personalMenuOptions : administrationMenuOptions;
     const title = activeMenu === 'personal' ? 'Mi Área Personal' : 'Administración';
+
+    if (isDesktopWeb) {
+      const currentWidth = Math.max(containerWidth, 720);
+      const menuWidth = Math.min(340, currentWidth - MENU_SIDE_PADDING * 2);
+
+      return (
+        <View style={styles.menuLayer} pointerEvents="box-none">
+          <Pressable style={styles.dismissArea} onPress={() => setActiveMenu(null)} />
+          <View style={[styles.menuContainer, styles.desktopMenuContainer, { top: DESKTOP_NAV_HEIGHT + 12, width: menuWidth }]}> 
+            <View style={styles.menuHeader}>
+              <Text style={styles.menuTitle}>{title}</Text>
+            </View>
+            {options.map((opt) => (
+              <TouchableOpacity
+                key={opt.id}
+                style={styles.menuItem}
+                onPress={() => handleMenuOptionPress(opt)}
+              >
+                <View style={styles.menuItemLabelRow}>
+                  <Text style={[styles.menuItemText, opt.textColor && { color: opt.textColor }]}> 
+                    {opt.label}
+                  </Text>
+                  {opt.hasBadge && <View style={styles.menuPendingDot} />}
+                </View>
+                {opt.showChevron !== false && (
+                  <IconSymbol name="chevron.right" size={16} color={colors.tint} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      );
+    }
 
     const visibleTabs = [
       'index',
@@ -247,11 +347,17 @@ export default function TabLayout() {
     );
   };
 
+  if (shouldRedirectUnknownRole) {
+    return <Redirect href="/login" />;
+  }
+
   return (
     <View
       style={{ flex: 1 }}
       onLayout={(event: LayoutChangeEvent) => setContainerWidth(event.nativeEvent.layout.width)}
     >
+      {renderDesktopNavigation()}
+
       {/* Modal de espera para cierre de sesión */}
       <OperacionPendienteModal visible={isLoggingOut} message="Cerrando sesión..." />
 
@@ -263,11 +369,14 @@ export default function TabLayout() {
         screenOptions={{
           tabBarActiveTintColor: colors.tint,
           headerShown: false,
-          tabBarStyle: {
-            position: 'relative',
-            height: tabBarHeight,
-            paddingBottom: insets.bottom,
-          }, // Asegura que los tabs estén al frente
+          sceneStyle: isDesktopWeb ? styles.desktopScene : undefined,
+          tabBarStyle: isDesktopWeb
+            ? { display: 'none' }
+            : {
+                position: 'relative',
+                height: tabBarHeight,
+                paddingBottom: insets.bottom,
+              },
         }}>
         
         <Tabs.Screen 
@@ -426,5 +535,62 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     backgroundColor: '#FF3B30',
+  },
+  desktopTopBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: Colors.light.background,
+    backgroundColor: Colors.light.componentBackground,
+    zIndex: 9,
+  },
+  desktopTopBarLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  desktopTopBarRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  desktopTopButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: 'transparent',
+  },
+  desktopTopButtonActive: {
+    backgroundColor: Colors.light.background,
+  },
+  desktopTopButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.light.secondaryText,
+  },
+  desktopTopButtonTextActive: {
+    color: Colors.light.tint,
+  },
+  desktopNavPendingDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#FF3B30',
+    marginLeft: 6,
+  },
+  desktopMenuContainer: {
+    left: 'auto',
+    right: 8,
+    bottom: 'auto',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Colors.light.background,
+  },
+  desktopScene: {
+    paddingTop: 0,
+    marginTop: 0,
   },
 });

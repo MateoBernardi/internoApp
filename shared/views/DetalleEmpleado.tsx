@@ -23,7 +23,7 @@ const colors = Colors['light'];
 
 export function DetalleEmpleado() {
 	const router = useRouter();
-	const params = useLocalSearchParams();
+	const params = useLocalSearchParams<{ selectedUsers?: string; source?: string }>();
 	const queryClient = useQueryClient();
 	const [isRefreshing, setIsRefreshing] = useState(false);
 	
@@ -49,9 +49,13 @@ export function DetalleEmpleado() {
 	}, [params.selectedUsers]);
 
 	const handleComparar = () => {
+		const destination = params.source === 'reportes-encargado' ? '/(extras)/reportes-encargado' : '/(extras)/reportes';
 		router.push({
-			pathname: '/(extras)/reportes',
-			params: { comparingWith: JSON.stringify(usuarios) },
+			pathname: destination,
+			params: {
+				comparingWith: JSON.stringify(usuarios),
+				source: params.source,
+			},
 		});
 	};
 

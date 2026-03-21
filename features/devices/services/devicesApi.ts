@@ -18,7 +18,9 @@ function isLikelyExpoToken(token: string): boolean {
 
 function isLikelyFcmToken(token: string): boolean {
   const normalized = token.trim();
-  return normalized.length >= 120 && /:/.test(normalized) && /^[A-Za-z0-9_:\-\.]+$/.test(normalized);
+  // El backend valida formato FCM y exige largo maximo 1000.
+  // Aqui evitamos bloquear tokens web validos por regex demasiado estricta.
+  return normalized.length > 0 && normalized.length <= 1000;
 }
 
 function isValidPushTokenForPlatform(token: string, platform: RegisterDeviceData['platform']): boolean {
@@ -85,6 +87,7 @@ export async function registerDeviceSafely(
     if (!isValidPushTokenForPlatform(pushToken, platform)) {
       console.warn('[Devices] Push token inválido para la plataforma', {
         platform,
+        tokenLength: pushToken.trim().length,
         tokenPreview: pushToken.slice(0, 24),
       });
       return {
@@ -94,6 +97,14 @@ export async function registerDeviceSafely(
           platform === 'web'
             ? 'Token FCM inválido para web. Vuelve a autorizar notificaciones.'
             : 'Token Expo inválido para dispositivo nativo. Vuelve a autorizar notificaciones.',
+      };
+    }
+
+    if (pushToken.trim().length > 1000) {
+      return {
+        ok: false,
+        invalidToken: true,
+        message: 'El push token supera el maximo permitido por backend (1000 caracteres).',
       };
     }
 

@@ -4,6 +4,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useRegisterUser } from '@/features/auth/hooks/useAuthActions';
 import { CreateUserData } from '@/features/auth/types';
+import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
@@ -27,6 +28,7 @@ type ValidationErrors = {
 
 export default function CrearUsuario() {
   const router = useRouter();
+  const responsiveLayout = useResponsiveLayout();
   const registerMutation = useRegisterUser();
 
   // Form state
@@ -178,6 +180,12 @@ export default function CrearUsuario() {
   // Dynamic button styles
   const buttonBg = loading ? colors.lightTint : isFormComplete ? colors.lightTint : colors.background;
   const buttonColor = loading || isFormComplete ? colors.componentBackground : colors.secondaryText;
+  const webFormMaxWidth = useMemo(() => {
+    if (Platform.OS !== 'web') return 380;
+    if (responsiveLayout.isDesktopXl) return 680;
+    if (responsiveLayout.isDesktop) return 560;
+    return 380;
+  }, [responsiveLayout.isDesktop, responsiveLayout.isDesktopXl]);
 
   return (
     <KeyboardAvoidingView
@@ -196,12 +204,12 @@ export default function CrearUsuario() {
           <ThemedText style={styles.subtitle}>Completá tus datos para registrarte</ThemedText>
 
           {successMessage ? (
-            <View style={styles.successContainer}>
+            <View style={[styles.successContainer, { maxWidth: webFormMaxWidth }]}>
               <ThemedText style={styles.successText}>{successMessage}</ThemedText>
             </View>
           ) : null}
 
-          <ThemedView style={styles.formContainer}>
+          <ThemedView style={[styles.formContainer, { maxWidth: webFormMaxWidth }]}> 
             <InputWithIcon
               icon="📝"
               placeholder="Nombre"

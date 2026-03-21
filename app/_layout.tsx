@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from '@/features/auth/context/AuthContext';
 import { useRegisterDevice } from '@/features/devices/hooks/useRegisterDevice';
 import { prefetchCoreRealtimeData } from '@/features/realtime/prefetchOrchestrator';
 import { usePushCacheSync } from '@/features/realtime/usePushCacheSync';
+import { installWebAlertPolyfill } from '@/shared/ui/webAlertPolyfill';
 import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
@@ -13,6 +14,8 @@ import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect } from 'react';
 import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
 import 'react-native-reanimated';
+
+installWebAlertPolyfill();
 
 export const unstable_settings = {
   anchor: '(tabs)',

@@ -1,7 +1,7 @@
 import { ScrollViewStyleReset } from 'expo-router/html';
 import type { PropsWithChildren } from 'react';
 
-const apiBaseUrl = process.env.API_BASE_URL ?? 'http://192.168.1.6:3000';
+const apiBaseUrl = process.env.API_BASE_URL ?? 'http://192.168.0.103:3000';
 
 /**
  * This file is web-only and used to configure the root HTML for every web page

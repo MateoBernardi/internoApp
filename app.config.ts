@@ -76,7 +76,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     reactCompiler: true,
   },
   extra: {
-    API_BASE_URL: process.env.API_BASE_URL ?? "http://192.168.1.6:3000",
+    API_BASE_URL: process.env.API_BASE_URL ?? "http://192.168.0.103:3000",
     ENABLE_PUSH_CACHE_SYNC: process.env.EXPO_PUBLIC_ENABLE_PUSH_CACHE_SYNC ?? "true",
     VITE_FEATURE_FOLDERS: process.env.VITE_FEATURE_FOLDERS ?? "false",
     FIREBASE_WEB: {

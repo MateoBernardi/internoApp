@@ -2,10 +2,43 @@ import { focusManager, onlineManager, QueryClient, QueryClientProvider } from '@
 import React, { useEffect } from 'react';
 import { AppState, Platform } from 'react-native';
 
+function isAuthError(error: unknown): boolean {
+    if (!error || typeof error !== 'object') {
+        return false;
+    }
+
+    const typedError = error as {
+        message?: string;
+        status?: number;
+        response?: { status?: number };
+    };
+
+    const status = typedError.status ?? typedError.response?.status;
+    if (status === 401 || status === 403) {
+        return true;
+    }
+
+    const message = typeof typedError.message === 'string' ? typedError.message.toLowerCase() : '';
+    return (
+        message.includes('401') ||
+        message.includes('403') ||
+        message.includes('unauthorized') ||
+        message.includes('forbidden') ||
+        message.includes('sesion comprometida') ||
+        message.includes('sesión comprometida')
+    );
+}
+
 const queryClient = new QueryClient({
     defaultOptions: {
         queries: {
-            retry: 2,
+            retry: (failureCount, error) => {
+                if (isAuthError(error)) {
+                    return false;
+                }
+
+                return failureCount < 2;
+            },
             retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
             refetchOnReconnect: true,
             refetchOnMount: true,

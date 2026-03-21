@@ -1,28 +1,6 @@
-import { getQueryClient } from '@/context/QueryProvider';
-import * as SecureStore from 'expo-secure-store';
-import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { Platform } from 'react-native';
-import { useGetUserContext, useLogin, useLogout, useRefresh } from '../hooks/useAuthActions';
+import { authSessionService, AuthSessionSnapshot, AuthTokens } from '@/features/auth/services/AuthSessionService';
+import React, { createContext, useContext, useEffect, useMemo, useSyncExternalStore } from 'react';
 import { ExtendedUserContext } from '../models/User';
-
-/**
- * Web-safe storage wrapper.
- * Uses expo-secure-store on native (encrypted), localStorage on web (PWA fallback).
- */
-const storage = {
-  getItem: (key: string) =>
-    Platform.OS === 'web'
-      ? Promise.resolve(localStorage.getItem(key))
-      : SecureStore.getItemAsync(key),
-  setItem: (key: string, value: string) =>
-    Platform.OS === 'web'
-      ? Promise.resolve(localStorage.setItem(key, value))
-      : SecureStore.setItemAsync(key, value),
-  deleteItem: (key: string) =>
-    Platform.OS === 'web'
-      ? Promise.resolve(localStorage.removeItem(key))
-      : SecureStore.deleteItemAsync(key),
-};
 
 /**
  * Decodifica un JWT y devuelve el payload
@@ -61,11 +39,6 @@ function getTokenExpirationTime(token: string | null): number | null {
   return Math.max(secondsLeft * 1000, 0);
 }
 
-interface AuthTokens {
-  accessToken: string;
-  refreshToken?: string; // Opcional si requiresAssociation es true
-}
-
 interface AuthContextType {
   user: ExtendedUserContext | null;
   tokens: AuthTokens | null;
@@ -84,347 +57,38 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<ExtendedUserContext | null>(null);
-  const [tokens, setTokens] = useState<AuthTokens | null>(null);
-  const [requiresAssociation, setRequiresAssociation] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const refreshPromiseRef = useRef<Promise<void> | null>(null);
-  const tokensRef = useRef<AuthTokens | null>(null);
+  const snapshot = useSyncExternalStore(
+    authSessionService.subscribe,
+    authSessionService.getSnapshot,
+    authSessionService.getSnapshot
+  ) as AuthSessionSnapshot;
 
-  // Hooks de TanStack Query
-  const loginMutation = useLogin();
-  const logoutMutation = useLogout();
-  const refreshMutation = useRefresh();
-  const userContextQuery = useGetUserContext(tokens?.accessToken ?? null, !!tokens?.accessToken);
-
-  /**
-   * Cargar tokens almacenados en SecureStore
-   */
-  const loadStoredTokens = useCallback(async (): Promise<{ tokens: AuthTokens; requiresAssociation: boolean } | null> => {
-    try {
-      const accessToken = await storage.getItem('accessToken');
-      const refreshToken = await storage.getItem('refreshToken');
-      const requiresAssociationStr = await storage.getItem('requiresAssociation');
-      const requiresAssociation = requiresAssociationStr === 'true';
-
-      if (accessToken && (refreshToken || requiresAssociation)) {
-        return { 
-          tokens: { accessToken, refreshToken: refreshToken ?? undefined },
-          requiresAssociation 
-        };
-      }
-      return null;
-    } catch (error) {
-      console.error('Error loading stored tokens:', error);
-      return null;
-    }
+  useEffect(() => {
+    authSessionService.initialize().catch((error) => {
+      console.error('Error initializing auth:', error);
+    });
   }, []);
 
-  /**
-   * Guardar tokens en SecureStore
-   */
-  const saveTokens = useCallback(async (newTokens: AuthTokens) => {
-    try {
-      // Validate and ensure tokens are strings
-      const accessToken = String(newTokens.accessToken);
-      const refreshToken = newTokens.refreshToken ? String(newTokens.refreshToken) : null;
-
-      if (!accessToken || accessToken === 'null' || accessToken === 'undefined') {
-        throw new Error('Invalid accessToken: must be a non-empty string');
-      }
-
-      await storage.setItem('accessToken', accessToken);
-      if (refreshToken && refreshToken !== 'null' && refreshToken !== 'undefined') {
-        await storage.setItem('refreshToken', refreshToken);
-      } else {
-        await storage.deleteItem('refreshToken');
-      }
-      const saved = {
-        accessToken,
-        refreshToken: refreshToken || undefined,
-      };
-      tokensRef.current = saved;
-      setTokens(saved);
-    } catch (error) {
-      console.error('Error saving tokens:', error);
-      throw error;
-    }
-  }, []);
-
-  /**
-   * Limpiar tokens almacenados
-   */
-  const clearStoredTokens = useCallback(async () => {
-    try {
-      await storage.deleteItem('accessToken');
-      await storage.deleteItem('refreshToken');
-      await storage.deleteItem('requiresAssociation');
-      tokensRef.current = null;
-      setTokens(null);
-      setUser(null);
-      setRequiresAssociation(false);
-    } catch (error) {
-      console.error('Error clearing tokens:', error);
-    }
-  }, []);
-
-  /**
-   * Refrescar tokens usando el refreshToken.
-   * Usa un mutex (refreshPromiseRef) para evitar llamadas concurrentes
-   * que revoquen el RT en el backend y causen errores en cascada.
-   */
-  const refreshTokens = useCallback(async () => {
-    // Si ya hay un refresh en curso, reutilizar esa promesa
-    if (refreshPromiseRef.current) {
-      return refreshPromiseRef.current;
-    }
-
-    const currentRT = tokensRef.current?.refreshToken;
-
-    if (!currentRT) {
-      // Si no hay refreshToken, limpiar tokens (usuario en estado requiresAssociation)
-      await clearStoredTokens();
-      return;
-    }
-
-    const doRefresh = async () => {
-      try {
-        const response = await refreshMutation.mutateAsync(currentRT);
-        
-        // Validate response has required fields
-        if (!response?.accessToken || typeof response.accessToken !== 'string') {
-          throw new Error(`Invalid accessToken in refresh response: ${typeof response?.accessToken}`);
-        }
-        
-        const newTokens: AuthTokens = {
-          accessToken: response.accessToken,
-          refreshToken: response.refreshToken || undefined,
-        };
-        await saveTokens(newTokens);
-        
-        // Invalidar y refetch del user context
-        const queryClient = getQueryClient();
-        queryClient.invalidateQueries({ queryKey: ['userContext'] });
-      } catch (error) {
-        console.error('Error refreshing tokens:', error);
-        await clearStoredTokens();
-        throw error;
-      } finally {
-        refreshPromiseRef.current = null;
-      }
-    };
-
-    refreshPromiseRef.current = doRefresh();
-    return refreshPromiseRef.current;
-  }, [refreshMutation, saveTokens, clearStoredTokens]);
-
-  /**
-   * Recargar el contexto del usuario
-   */
-  const reloadUserContext = useCallback(async () => {
-    if (!tokens?.accessToken) return;
-
-    try {
-      const queryClient = getQueryClient();
-      await queryClient.invalidateQueries({ queryKey: ['userContext', tokens.accessToken] });
-      await queryClient.refetchQueries({ queryKey: ['userContext', tokens.accessToken] });
-    } catch (error) {
-      console.error('Error reloading user context:', error);
-    }
-  }, [tokens?.accessToken]);
-
-  /**
-   * Sign In con username y password
-   */
-  const signIn = useCallback(
-    async (username: string, password: string) => {
-      try {
-        const response = await loginMutation.mutateAsync({ username, password });
-
-        if (response.accessToken && typeof response.accessToken === 'string') {
-          // Si requiresAssociation es true, el servidor envía solo accessToken
-          const newTokens: AuthTokens = {
-            accessToken: response.accessToken,
-            refreshToken: response.refreshToken, // Será undefined si requiresAssociation es true
-          };
-          await saveTokens(newTokens);
-          
-          const reqAssoc = response.requiresAssociation || false;
-          setRequiresAssociation(reqAssoc);
-          
-          if (reqAssoc) {
-            await storage.setItem('requiresAssociation', 'true');
-          } else {
-            await storage.deleteItem('requiresAssociation');
-          }
-
-          // Solo cargar contexto del usuario si NO requiere asociación
-          if (!response.requiresAssociation) {
-            const queryClient = getQueryClient();
-            queryClient.invalidateQueries({ queryKey: ['userContext'] });
-          }
-        } else {
-          throw new Error(response.message || 'Credenciales inválidas');
-        }
-      } catch (error) {
-        throw error;
-      }
-    },
-    [loginMutation, saveTokens]
+  const value = useMemo<AuthContextType>(
+    () => ({
+      user: snapshot.user,
+      tokens: snapshot.tokens,
+      isLoading: snapshot.isLoading,
+      isAuthenticated:
+        !!snapshot.tokens?.accessToken && !isTokenExpired(snapshot.tokens.accessToken),
+      requiresAssociation: snapshot.requiresAssociation,
+      signIn: authSessionService.signIn,
+      signOut: authSessionService.signOut,
+      isLoggingOut: snapshot.isLoggingOut,
+      refreshTokens: authSessionService.refreshTokens,
+      reloadUserContext: authSessionService.reloadUserContext,
+      setAuthTokens: authSessionService.setAuthTokens,
+    }),
+    [snapshot]
   );
 
-  /**
-   * Setear tokens directamente (ej: después de asociar cuenta).
-   * Guarda en SecureStore, actualiza estado, limpia requiresAssociation
-   * y dispara la carga del user context.
-   */
-  const setAuthTokens = useCallback(async (accessToken: string, refreshToken?: string) => {
-    const newTokens: AuthTokens = {
-      accessToken,
-      refreshToken: refreshToken || undefined,
-    };
-    await saveTokens(newTokens);
-    setRequiresAssociation(false);
-    await storage.deleteItem('requiresAssociation');
-
-    // Disparar carga del user context
-    const queryClient = getQueryClient();
-    queryClient.invalidateQueries({ queryKey: ['userContext'] });
-  }, [saveTokens]);
-
-  /**
-   * Sign Out
-   */
-  const signOut = useCallback(async () => {
-    setIsLoggingOut(true);
-    try {
-      const currentRT = tokensRef.current?.refreshToken;
-      if (currentRT) {
-        // Notificar al servidor
-        await logoutMutation.mutateAsync(currentRT);
-      }
-    } catch (error) {
-      console.error('Error notifying logout to server:', error);
-    } finally {
-      // Siempre limpiar tokens locales
-      await clearStoredTokens();
-      const queryClient = getQueryClient();
-      queryClient.clear();
-      setIsLoggingOut(false);
-    }
-  }, [logoutMutation, clearStoredTokens]);
-
-  /**
-   * Configurar timer para refrescar token automáticamente
-   */
-  const setupTokenRefreshTimer = useCallback(() => {
-    // Limpiar timer anterior
-    if (refreshTimerRef.current) {
-      clearTimeout(refreshTimerRef.current);
-    }
-
-    if (!tokens?.accessToken) return;
-
-    const expirationTime = getTokenExpirationTime(tokens.accessToken);
-    if (!expirationTime) return;
-
-    // Refrescar 5 minutos antes de que expire
-    const refreshIn = Math.max(expirationTime - 5 * 60 * 1000, 0);
-
-    refreshTimerRef.current = setTimeout(() => {
-      refreshTokens().catch((error) => {
-        console.error('Auto-refresh failed:', error);
-      });
-    }, refreshIn);
-  }, [tokens?.accessToken, refreshTokens]);
-
-  /**
-   * Efecto: cargar tokens al inicializar
-   */
-  useEffect(() => {
-    const initializeAuth = async () => {
-      try {
-        const storedData = await loadStoredTokens();
-        
-        if (storedData) {
-          const { tokens: storedTokens, requiresAssociation: storedReqAssoc } = storedData;
-
-          // Si el token está expirado, intentar refrescar si tenemos refreshToken
-          if (isTokenExpired(storedTokens.accessToken)) {
-            try {
-              if (storedTokens.refreshToken) {
-                // Setear tokensRef antes de llamar a refreshTokens para que use el RT correcto
-                tokensRef.current = storedTokens;
-                await refreshTokens();
-              } else {
-                // No hay refreshToken (usuario en requiresAssociation), limpiar
-                await clearStoredTokens();
-              }
-            } catch (error) {
-              console.error('Error refreshing expired token on init:', error);
-              await clearStoredTokens();
-            }
-          } else {
-            tokensRef.current = storedTokens;
-            setTokens(storedTokens);
-            setRequiresAssociation(storedReqAssoc);
-          }
-        }
-      } catch (error) {
-        console.error('Error initializing auth:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    initializeAuth();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  /**
-   * Efecto: actualizar user cuando userContextQuery cambia
-   */
-  useEffect(() => {
-    if (userContextQuery.data) {
-      setUser(userContextQuery.data);
-      setRequiresAssociation(false);
-    } else if (userContextQuery.isError) {
-      setUser(null);
-      // No limpiar tokens, solo el contexto de usuario
-    }
-  }, [userContextQuery.data, userContextQuery.isError]);
-
-  /**
-   * Efecto: configurar timer de auto-refresh cuando tokens cambian
-   */
-  useEffect(() => {
-    setupTokenRefreshTimer();
-
-    return () => {
-      if (refreshTimerRef.current) {
-        clearTimeout(refreshTimerRef.current);
-      }
-    };
-  }, [setupTokenRefreshTimer]);
-
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        tokens,
-        isLoading,
-        isAuthenticated: !!tokens?.accessToken && !isTokenExpired(tokens?.accessToken),
-        requiresAssociation,
-        signIn,
-        signOut,
-        isLoggingOut,
-        refreshTokens,
-        reloadUserContext,
-        setAuthTokens,
-      }}
-    >
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

@@ -167,22 +167,24 @@ export function UserSelector({
                    <ActivityIndicator size="small" color={colors.tint} style={{ padding: 20 }} />
                ) : (
                    users && users.length > 0 ? (
-                        users.map((item) => {
-                            const isSelected = selectedUsers.some((u) => u.user_context_id === item.user_context_id);
-                            return (
-                                <TouchableOpacity
-                                    key={item.user_context_id}
-                                    style={styles.resultItem}
-                                    onPress={() => toggleUserSelection(item)}
-                                >
-                                    <View style={styles.resultInfo}>
-                                        <ThemedText style={styles.resultName}>{item.nombre} {item.apellido}</ThemedText>
-                                        <ThemedText style={styles.resultEmail}>{item.email}</ThemedText>
-                                    </View>
-                                    {isSelected && <Ionicons name="checkmark" size={16} color={colors.tint} />}
-                                </TouchableOpacity>
-                            );
-                        })
+                    <ScrollView style={styles.resultsScroll} keyboardShouldPersistTaps="handled">
+                      {users.map((item) => {
+                        const isSelected = selectedUsers.some((u) => u.user_context_id === item.user_context_id);
+                        return (
+                          <TouchableOpacity
+                            key={item.user_context_id}
+                            style={styles.resultItem}
+                            onPress={() => toggleUserSelection(item)}
+                          >
+                            <View style={styles.resultInfo}>
+                              <ThemedText style={styles.resultName}>{item.nombre} {item.apellido}</ThemedText>
+                              <ThemedText style={styles.resultEmail}>{item.email}</ThemedText>
+                            </View>
+                            {isSelected && <Ionicons name="checkmark" size={16} color={colors.tint} />}
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
                    ) : (
                         <View style={{ padding: 16, alignItems: 'center' }}>
                             <ThemedText style={{ color: colors.secondaryText }}>No se encontraron usuarios</ThemedText>
@@ -304,7 +306,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.componentBackground,
     borderWidth: 1,
     borderRadius: 8,
-    maxHeight: 250,
+    maxHeight: 320,
     elevation: 8,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
@@ -312,6 +314,9 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     width: '100%',
     overflow: 'hidden',
+  },
+  resultsScroll: {
+    maxHeight: 270,
   },
   resultsHeader: {
       flexDirection: 'row',

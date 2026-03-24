@@ -6,10 +6,9 @@ import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
-  Modal,
-  StyleSheet,
-  TouchableOpacity,
-  View
+    StyleSheet,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EstadoReporte, Reporte } from '../models/Reporte';
@@ -78,21 +77,14 @@ export function ReportesEmpleado({ userId, userNombre = '', userApellido = '', f
 
 		if (fabBehavior === 'viewport') {
 			return (
-				<Modal
-					visible={!modalVisible}
-					transparent
-					animationType="none"
-					onRequestClose={() => {}}
-				>
-					<View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-						<View style={[styles.viewportFabContainer, { bottom: insets.bottom + 16, right: 36 }]}>
-							<CreateButton
-								onPress={handleCrearReporte}
-								accessibilityLabel="Crear nuevo reporte"
-							/>
-						</View>
+				<View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+					<View style={[styles.viewportFabContainer, { bottom: insets.bottom + 16, right: 36 }]}>
+						<CreateButton
+							onPress={handleCrearReporte}
+							accessibilityLabel="Crear nuevo reporte"
+						/>
 					</View>
-				</Modal>
+				</View>
 			);
 		}
 
@@ -103,7 +95,7 @@ export function ReportesEmpleado({ userId, userNombre = '', userApellido = '', f
 				accessibilityLabel="Crear nuevo reporte"
 			/>
 		);
-	}, [canCreateReporte, fabBehavior, handleCrearReporte, insets.bottom, modalVisible]);
+	}, [canCreateReporte, fabBehavior, handleCrearReporte, insets.bottom]);
 
 	if (isLoading) {
 		return (

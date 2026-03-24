@@ -6,13 +6,13 @@ import { useBajaUsuario, useSearchUsers, useUpdateUserRole } from '@/shared/user
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    FlatList,
-    ScrollView,
-    StyleSheet,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 const allRoles = [
@@ -26,7 +26,7 @@ const allRoles = [
   { id: 10, label: 'Personal Insumos', value: 'empleado-insumos' },
   { id: 11, label: 'Personal Mayorista', value: 'empleado-mayorista' },
   { id: 12, label: 'Personal Super', value: 'empleado-super' },
-  { id: 6, label: 'Personal', value: 'empleado' },
+  { id: 6, label: 'Personal Limpieza', value: 'empleado-limpieza' },
   { id: 7, label: 'Consejo', value: 'consejo' },
 ];
 
@@ -362,6 +362,28 @@ export function CambiarRolEmpleado() {
 
             {/* Botones de acción */}
             <View style={styles.actionsContainer}>
+              {/* Botón de dar de baja */}
+              <TouchableOpacity
+                style={[
+                  styles.changeButton,
+                  styles.bajaButton,
+                  {
+                    opacity: bajaMutation.isPending || !!selectedRoleId ? 0.5 : 1,
+                  },
+                ]}
+                onPress={handleBajaUsuario}
+                disabled={bajaMutation.isPending || !!selectedRoleId}
+              >
+                {bajaMutation.isPending ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <>
+                    <Ionicons name="person-remove" size={18} color={colors.componentBackground} />
+                    <ThemedText style={styles.changeButtonText}>Dar de baja</ThemedText>
+                  </>
+                )}
+              </TouchableOpacity>
+
               {/* Botón de cambiar rol */}
               <TouchableOpacity
                 style={[
@@ -381,28 +403,6 @@ export function CambiarRolEmpleado() {
                   <>
                     <Ionicons name="swap-horizontal" size={18} color={colors.componentBackground} />
                     <ThemedText style={styles.changeButtonText}>Cambiar Rol</ThemedText>
-                  </>
-                )}
-              </TouchableOpacity>
-
-              {/* Botón de dar de baja */}
-              <TouchableOpacity
-                style={[
-                  styles.changeButton,
-                  styles.bajaButton,
-                  {
-                    opacity: bajaMutation.isPending ? 0.5 : 1,
-                  },
-                ]}
-                onPress={handleBajaUsuario}
-                disabled={bajaMutation.isPending}
-              >
-                {bajaMutation.isPending ? (
-                  <ActivityIndicator color="#fff" size="small" />
-                ) : (
-                  <>
-                    <Ionicons name="person-remove" size={18} color={colors.componentBackground} />
-                    <ThemedText style={styles.changeButtonText}>Dar de baja</ThemedText>
                   </>
                 )}
               </TouchableOpacity>

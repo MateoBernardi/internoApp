@@ -1,140 +1,128 @@
-/**
- * Firebase Web Push utilities.
- * Only imported on web platform — uses dynamic imports to avoid
- * bundling Firebase JS SDK on native builds.
- */
-
 import Constants from 'expo-constants';
 
-let firebaseApp: any = null;
 let messagingInstance: any = null;
 
+export type WebPushPermissionStatus = NotificationPermission | 'unsupported' | 'error';
+
+export interface WebPushPermissionResult {
+  permission: WebPushPermissionStatus;
+  token: string | null;
+}
+
 /**
- * Lazily initialize the Firebase web app and messaging instance.
+ * 1. Inicializa Firebase y Messaging de forma segura
  */
-async function getMessaging() {
+async function getFirebaseMessaging() {
   if (messagingInstance) return messagingInstance;
 
-  const { initializeApp } = await import('firebase/app');
+  const { getApp, getApps, initializeApp } = await import('firebase/app');
   const { getMessaging, isSupported } = await import('firebase/messaging');
 
+  // Verifica soporte del navegador
   const supported = await isSupported();
   if (!supported) {
-    console.warn('[WebPush] Firebase Messaging is not supported in this browser');
+    console.warn('[WebPush] Este navegador no soporta notificaciones push.');
     return null;
   }
 
   const config = Constants.expoConfig?.extra?.FIREBASE_WEB;
-  if (!config || config.apiKey === 'TU_API_KEY_WEB') {
-    console.warn('[WebPush] Firebase web config not set — update app.config.ts extra.FIREBASE_WEB');
-    return null;
-  }
+  if (!config) return null;
 
-  firebaseApp = initializeApp(config);
-  messagingInstance = getMessaging(firebaseApp);
+  // Evita inicializar la app dos veces
+  const app = getApps().length > 0 ? getApp() : initializeApp(config);
+  messagingInstance = getMessaging(app);
+  
   return messagingInstance;
 }
 
 /**
- * Register the Firebase Messaging service worker and get an FCM token.
- * Returns the FCM token string, or null if not supported / permission denied.
+ * 2. Obtiene el FCM Token (requiere permiso previamente concedido)
  */
 export async function getWebPushToken(): Promise<string | null> {
+  if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !('Notification' in window)) {
+    return null;
+  }
+
   try {
-    if (typeof window === 'undefined') {
-      return null;
-    }
+    const messaging = await getFirebaseMessaging();
+    if (!messaging) return null;
 
-    if (!('serviceWorker' in navigator)) {
-      console.warn('[WebPush] Service Worker API no disponible en este navegador');
-      return null;
-    }
-
-    if (!('Notification' in window)) {
-      console.warn('[WebPush] Notifications API no disponible en este navegador');
-      return null;
-    }
-
-    if (!window.isSecureContext) {
-      console.warn('[WebPush] Se requiere contexto seguro (HTTPS o localhost) para Web Push', {
-        origin: window.location.origin,
+    if (Notification.permission !== 'granted') {
+      console.warn('[WebPush] Permiso no concedido; se omite obtencion de token.', {
+        permission: Notification.permission,
       });
       return null;
     }
 
-    const vapidKey = Constants.expoConfig?.extra?.VAPID_PUBLIC_KEY;
-    if (!vapidKey || vapidKey === 'TU_VAPID_PUBLIC_KEY') {
-      console.warn('[WebPush] VAPID key not set — update app.config.ts extra.VAPID_PUBLIC_KEY');
-      return null;
-    }
-
-    // Register service worker
+    // Registrar el Service Worker
     const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
     await navigator.serviceWorker.ready;
 
-    const messaging = await getMessaging();
-    if (!messaging) return null;
+    const vapidKey = Constants.expoConfig?.extra?.VAPID_PUBLIC_KEY?.trim(); // El .trim() evita espacios fantasma
 
-    // Check current permission status before requesting to avoid spam when already denied
-    if (Notification.permission === 'denied') {
-      return null;
-    }
-
-    // Only request if not yet decided
-    const permission =
-      Notification.permission === 'granted'
-        ? 'granted'
-        : await Notification.requestPermission();
-
-    if (permission !== 'granted') {
-      console.warn('[WebPush] Permiso de notificaciones no concedido', { permission });
-      return null;
-    }
-
-    // Get FCM token
+    // Pedir el token a Firebase
     const { getToken } = await import('firebase/messaging');
     const token = await getToken(messaging, {
       vapidKey,
       serviceWorkerRegistration: registration,
     });
 
-    if (!token) {
-      console.warn('[WebPush] Firebase no devolvio token FCM');
-      return null;
-    }
+    console.log('[WebPush] ¡Token obtenido exitosamente!', token);
+    return token || null;
 
-    console.log('[WebPush] FCM token obtained');
-    return token;
   } catch (error) {
-    console.error('[WebPush] Error getting web push token:', error);
+    console.error('[WebPush] Error obteniendo el token:', error);
     return null;
   }
 }
 
 /**
- * Listen for foreground messages (when the PWA is open and focused).
- * Returns an unsubscribe function, or null if messaging is not available.
+ * 2.b Solicita permiso en contexto de user gesture y, si se concede, obtiene token.
+ */
+export async function requestWebPushTokenFromUserGesture(): Promise<WebPushPermissionResult> {
+  if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !('Notification' in window)) {
+    return { permission: 'unsupported', token: null };
+  }
+
+  if (!window.isSecureContext) {
+    return { permission: 'unsupported', token: null };
+  }
+
+  try {
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') {
+      return { permission, token: null };
+    }
+
+    const token = await getWebPushToken();
+    return { permission, token };
+  } catch (error) {
+    console.error('[WebPush] Error solicitando permiso por gesto de usuario:', error);
+    return { permission: 'error', token: null };
+  }
+}
+
+/**
+ * 3. Escucha mensajes mientras la app está abierta
  */
 export async function onForegroundMessage(
   callback: (payload: { title?: string; body?: string; data?: any }) => void
 ): Promise<(() => void) | null> {
   try {
-    const messaging = await getMessaging();
+    const messaging = await getFirebaseMessaging();
     if (!messaging) return null;
 
     const { onMessage } = await import('firebase/messaging');
 
-    const unsubscribe = onMessage(messaging, (payload) => {
+    return onMessage(messaging, (payload) => {
       callback({
         title: payload.notification?.title,
         body: payload.notification?.body,
         data: payload.data,
       });
     });
-
-    return unsubscribe;
   } catch (error) {
-    console.error('[WebPush] Error setting up foreground listener:', error);
+    console.error('[WebPush] Error en el listener:', error);
     return null;
   }
 }

@@ -4,7 +4,7 @@ type UserRole =
   | 'admin'
   | 'contable'
   | 'sistemas'
-  | 'empleado'
+  | 'empleado-limpieza'
   | 'empleado-admin'
   | 'empleado-insumos'
   | 'empleado-mayorista'
@@ -17,7 +17,7 @@ type UserRole =
   | 'presidencia';
 
 const PERSONAL_ROLES: UserRole[] = [
-  'empleado',
+  'empleado-limpieza',
   'empleado-admin',
   'empleado-insumos',
   'empleado-mayorista',
@@ -25,6 +25,9 @@ const PERSONAL_ROLES: UserRole[] = [
 ];
 
 const CONTABLE_ROLES: UserRole[] = ['contable', 'sistemas'];
+
+const isEmployeeRole = (role: UserRole): boolean => PERSONAL_ROLES.includes(role);
+const isContableRole = (role: UserRole): boolean => CONTABLE_ROLES.includes(role);
 
 export const ALL_ROLES: UserRole[] = [
   'admin',
@@ -34,7 +37,7 @@ export const ALL_ROLES: UserRole[] = [
   'empleado-insumos',
   'empleado-mayorista',
   'empleado-super',
-  'empleado',
+  'empleado-limpieza',
   'gerencia',
   'personasRelaciones',
   'consejo',
@@ -52,11 +55,11 @@ export function useRoleCheck() {
   };
 
   const matchesRole = (userRole: UserRole, expectedRole: UserRole): boolean => {
-    if (expectedRole === 'empleado') {
+    if (isEmployeeRole(expectedRole)) {
       return PERSONAL_ROLES.includes(userRole);
     }
 
-    if (expectedRole === 'contable') {
+    if (isContableRole(expectedRole)) {
       return CONTABLE_ROLES.includes(userRole);
     }
 
@@ -79,8 +82,20 @@ export function useRoleCheck() {
     return ALL_ROLES.includes(rolNombre as UserRole);
   };
 
+  const isEmployee = (): boolean => {
+    const userRole = getUserRole();
+    if (!userRole) return false;
+    return isEmployeeRole(userRole);
+  };
+
+  const isContableOrSistemas = (): boolean => {
+    const userRole = getUserRole();
+    if (!userRole) return false;
+    return isContableRole(userRole);
+  };
+
   const isEmployeeOrEncargado = (): boolean => {
-    return hasRole(['empleado', 'encargado']);
+    return isEmployee() || hasRole('encargado');
   };
 
   const isAdmin = (): boolean => {
@@ -91,6 +106,8 @@ export function useRoleCheck() {
     userRole: getUserRole(),
     hasRole,
     isKnownRole,
+    isEmployee,
+    isContableOrSistemas,
     isEmployeeOrEncargado,
     isAdmin,
   };

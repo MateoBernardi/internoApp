@@ -8,16 +8,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Switch,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { RoleUserSelectionModal } from '../components/RoleUserSelectionModal';
 import { UserSelector } from '../components/UserSelector';
@@ -141,7 +141,7 @@ export function CrearSolicitud() {
   { label: 'Consejo', value: 'consejo' },
   { label: 'Encargado', value: 'encargado' },
   { label: 'Gerencia', value: 'gerencia' },
-  { label: 'Personal', value: 'empleado' },
+  { label: 'Personal Limpieza', value: 'empleado-limpieza' },
   { label: 'Personas y Relaciones', value: 'personasRelaciones' },
   { label: 'Presidencia', value: 'presidencia' },
   ];

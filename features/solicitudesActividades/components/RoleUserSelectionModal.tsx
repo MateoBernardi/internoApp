@@ -147,19 +147,33 @@ export function RoleUserSelectionModal({
                          </TouchableOpacity>
                     </View>
 
-                    {/* List */}
-                    <FlatList
-                        data={displayedUsers}
-                        keyExtractor={(item) => item.user_context_id.toString()}
-                        renderItem={renderItem}
-                        style={styles.list}
-                        contentContainerStyle={{ paddingBottom: 20 }}
-                        keyboardShouldPersistTaps="handled" 
-                    />
-                    
-                     <TouchableOpacity style={[styles.confirmButton, { backgroundColor: colors.componentBackground, borderColor: colors.lightTint, borderWidth: 1 }]} onPress={onClose}>
-                        <ThemedText style={{ color: colors.lightTint, fontWeight: 'bold' }}>OK</ThemedText>
-                     </TouchableOpacity>
+                    <View style={styles.contentArea}>
+                      {/* List */}
+                      <FlatList
+                          data={displayedUsers}
+                          keyExtractor={(item) => item.user_context_id.toString()}
+                          renderItem={renderItem}
+                          style={styles.list}
+                          contentContainerStyle={styles.listContent}
+                          keyboardShouldPersistTaps="handled" 
+                      />
+
+                      <View style={styles.bottomActions}>
+                        <TouchableOpacity
+                          style={[
+                            styles.confirmButton,
+                            {
+                              backgroundColor: colors.componentBackground,
+                              borderColor: colors.lightTint,
+                              borderWidth: 1,
+                            },
+                          ]}
+                          onPress={onClose}
+                        >
+                          <ThemedText style={{ color: colors.lightTint, fontWeight: 'bold' }}>OK</ThemedText>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
 
                 </View>
             </TouchableWithoutFeedback>
@@ -179,9 +193,11 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: '100%',
-    maxHeight: '90%',
+    minHeight: 420,
+    maxHeight: '92%',
     borderRadius: 16,
     padding: 16,
+    overflow: 'hidden',
     elevation: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -214,10 +230,22 @@ const styles = StyleSheet.create({
       flexDirection: 'row',
       alignItems: 'center',
   },
+    contentArea: {
+      flex: 1,
+      minHeight: 0,
+    },
   list: {
       flex: 1,
-      minHeight: 120,
-      marginBottom: 16
+      minHeight: 180,
+      marginBottom: 0,
+    },
+    listContent: {
+      paddingBottom: 8,
+  },
+  bottomActions: {
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.componentBackground,
+      paddingTop: 12,
   },
   userRow: {
       flexDirection: 'row',
@@ -243,6 +271,6 @@ const styles = StyleSheet.create({
       paddingVertical: 12,
       borderRadius: 8,
       alignItems: 'center',
-      marginTop: 8,
+      marginTop: 0,
   }
 });

@@ -3,6 +3,7 @@ import { Colors } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Modal, Pressable, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const colors = Colors.light;
 
@@ -25,45 +26,50 @@ interface DocumentOptionsModalProps {
 export function DocumentOptionsModal({ visible, fileName, title = 'Opciones de archivo', actions, onClose }: DocumentOptionsModalProps) {
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.overlay} onPress={onClose}>
-        <Pressable style={styles.sheet}>
-          <View style={styles.header}>
-            <ThemedText style={styles.title}>{title}</ThemedText>
-            <ThemedText style={styles.subtitle} numberOfLines={1}>{fileName}</ThemedText>
-          </View>
+      <SafeAreaView style={styles.safeArea} edges={['bottom']}>
+        <Pressable style={styles.overlay} onPress={onClose}>
+          <Pressable style={styles.sheet}>
+            <View style={styles.header}>
+              <ThemedText style={styles.title}>{title}</ThemedText>
+              <ThemedText style={styles.subtitle} numberOfLines={1}>{fileName}</ThemedText>
+            </View>
 
-          <View style={styles.actionsContainer}>
-            {actions.map((action) => (
-              <TouchableOpacity
-                key={action.key}
-                style={styles.actionButton}
-                onPress={() => {
-                  onClose();
-                  action.onPress();
-                }}
-              >
-                <Ionicons
-                  name={action.icon}
-                  size={18}
-                  color={action.destructive ? colors.error : colors.icon}
-                />
-                <ThemedText style={[styles.actionText, action.destructive && styles.actionTextDestructive]}>
-                  {action.label}
-                </ThemedText>
-              </TouchableOpacity>
-            ))}
-          </View>
+            <View style={styles.actionsContainer}>
+              {actions.map((action) => (
+                <TouchableOpacity
+                  key={action.key}
+                  style={styles.actionButton}
+                  onPress={() => {
+                    onClose();
+                    action.onPress();
+                  }}
+                >
+                  <Ionicons
+                    name={action.icon}
+                    size={18}
+                    color={action.destructive ? colors.error : colors.icon}
+                  />
+                  <ThemedText style={[styles.actionText, action.destructive && styles.actionTextDestructive]}>
+                    {action.label}
+                  </ThemedText>
+                </TouchableOpacity>
+              ))}
+            </View>
 
-          <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
-            <ThemedText style={styles.cancelText}>Cancelar</ThemedText>
-          </TouchableOpacity>
+            <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
+              <ThemedText style={styles.cancelText}>Cancelar</ThemedText>
+            </TouchableOpacity>
+          </Pressable>
         </Pressable>
-      </Pressable>
+      </SafeAreaView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+  },
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.42)',

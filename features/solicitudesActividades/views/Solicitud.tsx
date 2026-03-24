@@ -9,17 +9,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    TextInput,
-    TouchableOpacity,
-    TouchableWithoutFeedback,
-    View,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  View,
 } from 'react-native';
 import { RoleUserSelectionModal } from '../components/RoleUserSelectionModal';
 import { UserSelector } from '../components/UserSelector';
@@ -27,12 +27,12 @@ import { ValidacionFechasModal } from '../components/ValidacionFechasModal';
 import { EstadoInvitacionDB, estadoInvitacionMapping, ModificarSolicitudFechasRequest, ReenviarSolicitudRequest } from '../models/Solicitud';
 import { useCrearActividad } from '../viewmodels/useActividades';
 import {
-    useActualizarEstadoInvitacion,
-    useInvitaciones,
-    useModificarSolicitudFechas,
-    useReenviarSolicitud,
-    useSolicitudBitacora,
-    useSolicitudesCreadas
+  useActualizarEstadoInvitacion,
+  useInvitaciones,
+  useModificarSolicitudFechas,
+  useReenviarSolicitud,
+  useSolicitudBitacora,
+  useSolicitudesCreadas
 } from '../viewmodels/useSolicitudes';
 import { useValidacionFechas } from '../viewmodels/useValidacionFechas';
 
@@ -464,7 +464,7 @@ export function Solicitud() {
     { label: 'Consejo', value: 'consejo' },
     { label: 'Encargado', value: 'encargado' },
     { label: 'Gerencia', value: 'gerencia' },
-    { label: 'Personal', value: 'empleado' },
+    { label: 'Personal Limpieza', value: 'empleado-limpieza' },
     { label: 'Personas y Relaciones', value: 'personasRelaciones' },
     { label: 'Presidencia', value: 'presidencia' },
   ];

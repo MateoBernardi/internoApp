@@ -1,7 +1,7 @@
 import { ScrollViewStyleReset } from 'expo-router/html';
 import type { PropsWithChildren } from 'react';
 
-const apiBaseUrl = process.env.API_BASE_URL ?? 'http://192.168.0.103:3000';
+const apiBaseUrl = process.env.API_BASE_URL;
 
 /**
  * This file is web-only and used to configure the root HTML for every web page
@@ -25,6 +25,7 @@ export default function Root({ children }: PropsWithChildren) {
         {/*
           Content Security Policy
           - unsafe-inline en script-src/style-src: necesario por los bloques inline (SW registration + estilos)
+          - static.cloudflareinsights.com: script inyectado por Cloudflare Browser Insights (si esta habilitado)
           - connect-src: API backend + Firebase Cloud Messaging endpoints + blob: para fetch(blob:...)
           - agregar dominios R2 si cambia la infraestructura de uploads firmados
           - worker-src blob: requerido por algunos bundlers para web workers
@@ -34,7 +35,7 @@ export default function Root({ children }: PropsWithChildren) {
           httpEquiv="Content-Security-Policy"
           content={`
             default-src 'self';
-            script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com;
+            script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com https://static.cloudflareinsights.com;
             style-src 'self' 'unsafe-inline';
             img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com;
             font-src 'self' https://fonts.gstatic.com;
@@ -46,7 +47,8 @@ export default function Root({ children }: PropsWithChildren) {
               https://fcm.googleapis.com
               https://fcmregistrations.googleapis.com
               https://firebaseinstallations.googleapis.com
-              https://firebaselogging-pa.googleapis.com;
+              https://firebaselogging-pa.googleapis.com
+              https://cloudflareinsights.com;
             worker-src 'self' blob:;
             manifest-src 'self';
             object-src 'none';
@@ -114,9 +116,24 @@ body {
 const swRegistration = `
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function() {
-    navigator.serviceWorker.register('/firebase-messaging-sw.js')
-      .then(function(reg) { console.log('[SW] Registered:', reg.scope); })
-      .catch(function(err) { console.warn('[SW] Registration failed:', err); });
+    navigator.serviceWorker.getRegistrations()
+      .then(function(registrations) {
+        var hasMessagingSw = registrations.some(function(registration) {
+          var activeUrl = registration.active && registration.active.scriptURL;
+          var installingUrl = registration.installing && registration.installing.scriptURL;
+          var waitingUrl = registration.waiting && registration.waiting.scriptURL;
+          return [activeUrl, installingUrl, waitingUrl].some(function(url) {
+            return typeof url === 'string' && url.indexOf('firebase-messaging-sw.js') !== -1;
+          });
+        });
+
+        if (hasMessagingSw) {
+          return null;
+        }
+
+        return navigator.serviceWorker.register('/firebase-messaging-sw.js');
+      })
+      .catch(function() {});
   });
 }
 `;

@@ -181,18 +181,27 @@ function SemaforoItem({ item, comparingWith }: { item: ReporteStats; comparingWi
 				const allUsers = [...existingUsers, newUser];
 				router.replace({
 					pathname: '/(extras)/detalle-empleados',
-					params: { selectedUsers: JSON.stringify(allUsers) },
+					params: {
+						selectedUsers: JSON.stringify(allUsers),
+						source: 'semaforo',
+					},
 				});
 			} catch {
 				router.push({
 					pathname: '/(extras)/detalle-empleados',
-					params: { selectedUsers: JSON.stringify([newUser]) },
+					params: {
+						selectedUsers: JSON.stringify([newUser]),
+						source: 'semaforo',
+					},
 				});
 			}
 		} else {
 			router.push({
 				pathname: '/(extras)/detalle-empleados',
-				params: { selectedUsers: JSON.stringify([newUser]) },
+				params: {
+					selectedUsers: JSON.stringify([newUser]),
+					source: 'semaforo',
+				},
 			});
 		}
 	};

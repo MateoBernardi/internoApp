@@ -9,7 +9,7 @@ const path = require('path');
 
 // Load .env manually (no dotenv dependency needed)
 const envPath = path.resolve(__dirname, '..', '.env');
-const env = {};
+const envFileValues = {};
 if (fs.existsSync(envPath)) {
   fs.readFileSync(envPath, 'utf-8')
     .split('\n')
@@ -17,9 +17,16 @@ if (fs.existsSync(envPath)) {
       const trimmed = line.trim();
       if (!trimmed || trimmed.startsWith('#')) return;
       const [key, ...rest] = trimmed.split('=');
-      env[key.trim()] = rest.join('=').trim();
+      envFileValues[key.trim()] = rest.join('=').trim();
     });
 }
+
+// Keep consistency with app.config.ts by preferring process.env values,
+// and falling back to .env file values when not present in the shell.
+const env = {
+  ...envFileValues,
+  ...process.env,
+};
 
 const required = [
   'FIREBASE_API_KEY',
@@ -81,15 +88,38 @@ messaging.onBackgroundMessage(function(payload) {
 self.addEventListener('notificationclick', function(event) {
   event.notification.close();
 
+  var data = (event.notification && event.notification.data) || {};
+  var rawUrl =
+    (typeof data.url === 'string' && data.url) ||
+    (typeof data.link === 'string' && data.link) ||
+    '/';
+
+  var targetUrl = '/';
+  try {
+    var parsedUrl = new URL(rawUrl, self.location.origin);
+    if (parsedUrl.origin === self.location.origin) {
+      targetUrl = parsedUrl.pathname + parsedUrl.search + parsedUrl.hash;
+    }
+  } catch (_error) {
+    targetUrl = '/';
+  }
+
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
       for (var i = 0; i < clientList.length; i++) {
         var client = clientList[i];
         if (client.url.indexOf(self.location.origin) !== -1 && 'focus' in client) {
+          if ('navigate' in client) {
+            return client.navigate(targetUrl).then(function() {
+              return client.focus();
+            }).catch(function() {
+              return client.focus();
+            });
+          }
           return client.focus();
         }
       }
-      return clients.openWindow('/');
+      return clients.openWindow(targetUrl);
     })
   );
 });
@@ -98,4 +128,3 @@ self.addEventListener('notificationclick', function(event) {
 const outPath = path.resolve(__dirname, '..', 'public', 'firebase-messaging-sw.js');
 fs.mkdirSync(path.dirname(outPath), { recursive: true });
 fs.writeFileSync(outPath, sw, 'utf-8');
-console.log('✓ Generated public/firebase-messaging-sw.js');

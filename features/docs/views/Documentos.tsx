@@ -161,10 +161,6 @@ export default function Documentos() {
   };
 
   const buildFolderOptions = (folder: Carpeta): DocumentOptionAction[] => {
-    const ownerId =
-      (folder.owner_id ?? folder.created_by ?? folder.creador_id ?? folder.id_usuario_creador) ?? null;
-    const isOwner = Number.isInteger(ownerId) && user?.user_context_id === ownerId;
-
     const options: DocumentOptionAction[] = [
       {
         key: 'delete-folder',
@@ -175,14 +171,12 @@ export default function Documentos() {
       },
     ];
 
-    if (isOwner) {
-      options.unshift({
-        key: 'edit-folder-and-permissions',
-        label: 'Editar y Administrar permisos',
-        icon: 'create-outline',
-        onPress: () => openEditFolderModal(folder),
-      });
-    }
+    options.unshift({
+      key: 'edit-folder-and-permissions',
+      label: 'Editar y Administrar permisos',
+      icon: 'create-outline',
+      onPress: () => openEditFolderModal(folder),
+    });
 
     return options;
   };

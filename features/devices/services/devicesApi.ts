@@ -110,18 +110,10 @@ export async function registerDeviceSafely(
 
     for (let attempt = 1; attempt <= maxRetries + 1; attempt += 1) {
       try {
-        const response = await registerDevice(accessToken, {
+        await registerDevice(accessToken, {
           token: pushToken,
           platform,
           device_name: deviceName,
-        });
-
-        console.log('[Devices] Device registered', {
-          platform,
-          deviceName,
-          success: response.success,
-          deviceId: response.device_id,
-          attempt,
         });
         return { ok: true };
       } catch (error) {

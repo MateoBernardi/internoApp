@@ -9,16 +9,16 @@ import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MobileFile, UploadArchivoPayload } from '../models/Archivo';
@@ -61,6 +61,27 @@ export function CrearDocumento({ visible, onClose, initialFile, initialFolderId 
 
   const isLoadingUsers = isSearchingUsers || isLoadingRole;
   const { mutate: uploadArchivo, isPending: isUploading } = useUploadArchivo();
+
+  const allRoles = [
+    { label: 'Todos', value: '*' },
+    { label: 'Contable', value: 'contable' },
+    { label: 'Sistemas', value: 'sistemas' },
+    { label: 'Personal Admin', value: 'empleado-admin' },
+    { label: 'Personal Insumos', value: 'empleado-insumos' },
+    { label: 'Personal Mayorista', value: 'empleado-mayorista' },
+    { label: 'Personal Super', value: 'empleado-super' },
+    { label: 'Consejo', value: 'consejo' },
+    { label: 'Encargado', value: 'encargado' },
+    { label: 'Gerencia', value: 'gerencia' },
+    { label: 'Personal Limpieza', value: 'empleado-limpieza' },
+    { label: 'Personas y Relaciones', value: 'personasRelaciones' },
+    { label: 'Presidencia', value: 'presidencia' },
+  ];
+
+  const availableRoleValues = useMemo(
+    () => allRoles.filter((role) => role.value !== '*').map((role) => role.value),
+    [allRoles]
+  );
 
   React.useEffect(() => {
     if (activeRole && roleUsersData) {
@@ -146,10 +167,21 @@ export function CrearDocumento({ visible, onClose, initialFile, initialFolderId 
 
   const handleRoleSelectCompartidos = useCallback((role: string) => {
     setSelectorContext('compartidos');
+
+    if (role === '*') {
+      setAllowedRoles(availableRoleValues);
+      setActiveRole('');
+      return;
+    }
+
     setActiveRole(role);
-  }, []);
+  }, [availableRoleValues]);
 
   const handleRoleSelectAsociados = useCallback((role: string) => {
+    if (role === '*') {
+      return;
+    }
+
     setSelectorContext('asociados');
     setActiveRole(role);
   }, []);
@@ -161,22 +193,6 @@ export function CrearDocumento({ visible, onClose, initialFile, initialFolderId 
   const isRoleSelected = useMemo(() => {
     return selectorContext === 'compartidos' && allowedRoles.includes(activeRole);
   }, [selectorContext, allowedRoles, activeRole]);
-
-  const allRoles = [
-    { label: 'Todos', value: '*' },
-    { label: 'Contable', value: 'contable' },
-    { label: 'Sistemas', value: 'sistemas' },
-    { label: 'Personal Admin', value: 'empleado-admin' },
-    { label: 'Personal Insumos', value: 'empleado-insumos' },
-    { label: 'Personal Mayorista', value: 'empleado-mayorista' },
-    { label: 'Personal Super', value: 'empleado-super' },
-    { label: 'Consejo', value: 'consejo' },
-    { label: 'Encargado', value: 'encargado' },
-    { label: 'Gerencia', value: 'gerencia' },
-    { label: 'Personal', value: 'empleado' },
-    { label: 'Personas y Relaciones', value: 'personasRelaciones' },
-    { label: 'Presidencia', value: 'presidencia' },
-  ];
 
   const selectedRolesForDisplay = useMemo(() => {
     return allRoles.filter((r) => allowedRoles.includes(r.value));

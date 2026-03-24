@@ -31,9 +31,6 @@ async function ensureReactiveRefreshSingleFlight(): Promise<boolean> {
     })().finally(() => {
       reactiveRefreshPromise = null;
     });
-    console.info('[AuthReactive] Started shared refresh for 401/403 response');
-  } else {
-    console.info('[AuthReactive] Waiting for in-flight refresh before retrying request');
   }
 
   try {
@@ -142,11 +139,6 @@ export async function apiRequest({
     const retryResponse = await executeFetch(latestAccessToken);
     if (isAuthStatus(retryResponse.status)) {
       console.warn('[AuthReactive] Retry after reactive refresh still returned auth status.', {
-        endpoint,
-        status: retryResponse.status,
-      });
-    } else {
-      console.info('[AuthReactive] Retry after reactive refresh succeeded.', {
         endpoint,
         status: retryResponse.status,
       });

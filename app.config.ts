@@ -3,7 +3,7 @@ import { ConfigContext, ExpoConfig } from "expo/config";
 export default ({ config }: ConfigContext): ExpoConfig => ({
   name: "Italo Argentina",
   slug: "internoApp",
-  version: "1.0.0",
+  version: "1.0.2",
   orientation: "portrait",
   icon: "./assets/images/icon-1024.png",
   scheme: "internoapp",
@@ -76,9 +76,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     reactCompiler: true,
   },
   extra: {
-    API_BASE_URL: process.env.API_BASE_URL ?? "http://192.168.0.103:3000",
-    ENABLE_PUSH_CACHE_SYNC: process.env.EXPO_PUBLIC_ENABLE_PUSH_CACHE_SYNC ?? "true",
-    VITE_FEATURE_FOLDERS: process.env.VITE_FEATURE_FOLDERS ?? "false",
+    API_BASE_URL: process.env.API_BASE_URL,
     FIREBASE_WEB: {
       apiKey: process.env.FIREBASE_API_KEY ?? "",
       authDomain: process.env.FIREBASE_AUTH_DOMAIN ?? "",

@@ -49,12 +49,19 @@ export function DetalleEmpleado() {
 	}, [params.selectedUsers]);
 
 	const handleComparar = () => {
-		const destination = params.source === 'reportes-encargado' ? '/(extras)/reportes-encargado' : '/(extras)/reportes';
+		const source =
+			params.source === 'reportes-encargado'
+				? 'reportes-encargado'
+				: params.source === 'semaforo'
+					? 'semaforo'
+					: undefined;
+
+		const destination = source === 'reportes-encargado' ? '/(extras)/reportes-encargado' : '/(extras)/reportes';
 		router.push({
 			pathname: destination,
 			params: {
 				comparingWith: JSON.stringify(usuarios),
-				source: params.source,
+				source: source ?? 'semaforo',
 			},
 		});
 	};

@@ -2,18 +2,20 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
 import { Colors, Layout } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
+import { triggerWebPushPermissionPrompt } from '@/features/devices/hooks/useRegisterDevice';
 import { useReportes } from '@/features/reportes/viewmodels/useReportes';
 import {
-    useInvitaciones,
-    useSolicitudesCreadas,
+  useInvitaciones,
+  useSolicitudesCreadas,
 } from '@/features/solicitudesActividades/viewmodels/useSolicitudes';
 import {
-    useGetSolicitudesLicencias,
-    useGetSolicitudesUsuario,
+  useGetSolicitudesLicencias,
+  useGetSolicitudesUsuario,
 } from '@/features/solicitudesLicencias/viewmodels/useSolicitudes';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
+import Constants from 'expo-constants';
 import { Href, Redirect, Tabs, useRouter, useSegments } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { LayoutChangeEvent, Platform, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -33,8 +35,8 @@ interface MenuOption {
 }
 
 export default function TabLayout() {
-  const { user, signOut, isLoggingOut } = useAuth();
-  const { hasRole, isKnownRole } = useRoleCheck();
+  const { user, signOut, isLoggingOut, isAuthenticated, requiresAssociation } = useAuth();
+  const { hasRole, isKnownRole, isEmployee, isContableOrSistemas } = useRoleCheck();
   const router = useRouter();
   const segments = useSegments();
   const insets = useSafeAreaInsets();
@@ -47,14 +49,14 @@ export default function TabLayout() {
     }
   }, [shouldRedirectUnknownRole, signOut]);
 
-  const isEmployee = hasRole('empleado');
+  const isEmployeeUser = isEmployee();
   const isEncargado = hasRole('encargado');
-  const hideExplore = isEmployee || isEncargado;
-  const hideAdmin = isEmployee;
+  const hideExplore = isEmployeeUser || isEncargado;
+  const hideAdmin = isEmployeeUser;
   const hasSolicitudesTab = !hideExplore;
   const hasAdminTab = !hideAdmin;
-  const canSeeAdminReportesButton = !hasRole(['contable', 'sistemas']);
-  const canSeeActivityRequests = isEmployee || isEncargado;
+  const canSeeAdminReportesButton = !isContableOrSistemas();
+  const canSeeActivityRequests = isEmployeeUser || isEncargado;
   const canSeeLicenciasAdmin = hasAdminTab;
   const canSeeReportesAdmin = hasAdminTab && canSeeAdminReportesButton;
   const canSeeLicenciasPersonal = !hasAdminTab;
@@ -63,8 +65,24 @@ export default function TabLayout() {
   const colors = Colors['light'];
   const [activeMenu, setActiveMenu] = useState<'personal' | 'admin' | null>(null);
   const [containerWidth, setContainerWidth] = useState(0);
+  const [isRequestingWebPush, setIsRequestingWebPush] = useState(false);
+  const hasShownWebPushDialogRef = useRef(false);
   const isDesktopWeb = Platform.OS === 'web' && containerWidth >= Layout.web.desktopMinWidth;
   const currentTab = useMemo(() => (segments[1] as string) || 'index', [segments]);
+  const firebaseConfig = Constants.expoConfig?.extra?.FIREBASE_WEB;
+  const hasFirebaseConfig =
+    !!firebaseConfig &&
+    typeof firebaseConfig.apiKey === 'string' &&
+    firebaseConfig.apiKey.length > 0 &&
+    firebaseConfig.apiKey !== 'TU_API_KEY_WEB' &&
+    typeof firebaseConfig.projectId === 'string' &&
+    firebaseConfig.projectId.length > 0 &&
+    typeof firebaseConfig.messagingSenderId === 'string' &&
+    firebaseConfig.messagingSenderId.length > 0 &&
+    typeof firebaseConfig.appId === 'string' &&
+    firebaseConfig.appId.length > 0;
+  const vapidKey = Constants.expoConfig?.extra?.VAPID_PUBLIC_KEY;
+  const hasVapid = !!vapidKey && vapidKey !== 'TU_VAPID_PUBLIC_KEY';
 
   const { data: invitaciones = [] } = useInvitaciones(canSeeActivityRequests);
   const { data: solicitudesEnviadas = [] } = useSolicitudesCreadas(canSeeActivityRequests);
@@ -121,12 +139,12 @@ export default function TabLayout() {
       route: isEncargado ? '/(extras)/reportes-encargado' as Href : '/(extras)/reportes' as Href,
       hasBadge: hasReportesPendientesAdmin,
     }] : []),
-    {
+    ...(!hasRole(['consejo', 'presidencia']) ? [{
       id: 'solicitudes-licencias',
       label: 'Solicitudes de Licencias',
       route: '/(extras)/solicitudes-licencias' as Href,
       hasBadge: hasSolicitudesLicenciasPendientesAdmin,
-    },
+    }] : []),
     ...(!isEncargado ? [{
       id: 'encuestas',
       label: 'Encuestas',
@@ -140,7 +158,7 @@ export default function TabLayout() {
   ];
 
   const hideMisReportes = hasRole(['gerencia', 'personasRelaciones', 'consejo', 'contable', 'sistemas', 'presidencia']);
-  const hideMisLicencias = hasRole(['consejo', 'contable', 'sistemas']);
+  const hideMisLicencias = hasRole(['consejo', 'presidencia', 'contable', 'sistemas']);
 
   const personalMenuOptions: MenuOption[] = [
     {
@@ -175,6 +193,79 @@ export default function TabLayout() {
   ];
 
   const hasPersonalBadge = personalMenuOptions.some((option) => !!option.hasBadge);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !isAuthenticated || requiresAssociation || isRequestingWebPush) {
+      return;
+    }
+
+    if (!hasFirebaseConfig || !hasVapid) {
+      return;
+    }
+
+    if (typeof window === 'undefined' || !window.isSecureContext || typeof Notification === 'undefined') {
+      return;
+    }
+
+    if (Notification.permission !== 'default') {
+      return;
+    }
+
+    if (hasShownWebPushDialogRef.current) {
+      return;
+    }
+
+    hasShownWebPushDialogRef.current = true;
+
+    const wantsNotifications = window.confirm(
+      'Quieres recibir notificaciones de tus mensajes?'
+    );
+
+    if (!wantsNotifications) {
+      return;
+    }
+
+    const requestWebPushFromDialog = async () => {
+      setIsRequestingWebPush(true);
+
+      try {
+        const result = await triggerWebPushPermissionPrompt();
+
+        if (result.permission === 'granted') {
+          return;
+        }
+
+        if (result.permission === 'denied') {
+          window.alert('No podremos enviarte notificaciones porque el permiso fue denegado.');
+          return;
+        }
+
+        if (result.permission === 'default') {
+          window.alert('No se pudo completar la accion. Si quieres, vuelve a intentar desde el proximo inicio de sesion.');
+          return;
+        }
+
+        if (result.permission === 'unsupported') {
+          window.alert('Este navegador o contexto no soporta notificaciones push.');
+          return;
+        }
+
+        window.alert('No pudimos activar notificaciones en este momento.');
+      } catch {
+        window.alert('No pudimos activar notificaciones en este momento.');
+      } finally {
+        setIsRequestingWebPush(false);
+      }
+    };
+
+    void requestWebPushFromDialog();
+  }, [hasFirebaseConfig, hasVapid, isAuthenticated, isRequestingWebPush, requiresAssociation]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      hasShownWebPushDialogRef.current = false;
+    }
+  }, [isAuthenticated]);
 
   const handlePress = (menuType: 'personal' | 'admin') => {
     if (activeMenu === menuType) {

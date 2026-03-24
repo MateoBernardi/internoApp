@@ -233,12 +233,6 @@ export function syncPushPayloadToCache(
       });
     });
 
-    console.log('[PushCacheSync] push_fallback_used', {
-      source,
-      domains: fallbackDomains,
-      reason: 'unresolved_domain',
-    });
-
     return fallbackDomains;
   }
 
@@ -249,7 +243,6 @@ export function syncPushPayloadToCache(
   });
 
   const matched = Array.from(domains);
-  console.log('[PushCacheSync] Cache invalidated', { source, domains: matched, payload });
   return matched;
 }
 

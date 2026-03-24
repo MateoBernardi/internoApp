@@ -25,6 +25,13 @@ export function usePushCacheSync(enabled: boolean, options?: UsePushCacheSyncOpt
       let unsubscribeForeground: (() => void) | null = null;
 
       onForegroundMessage((payload) => {
+        if (typeof Notification !== 'undefined' && Notification.permission === 'granted' && payload.title) {
+          new Notification(payload.title, {
+            body: payload.body,
+            icon: '/assets/images/icon-1024.png',
+          });
+        }
+
         syncPushPayloadToCache(queryClient, payload, 'web-foreground');
       }).then((unsubscribe) => {
         unsubscribeForeground = unsubscribe;
@@ -59,6 +66,23 @@ export function usePushCacheSync(enabled: boolean, options?: UsePushCacheSyncOpt
       syncPushPayloadToCache(queryClient, payload, 'native');
       onNotificationOpen?.(payload);
     });
+
+    Notifications.getLastNotificationResponseAsync()
+      .then((response) => {
+        if (!response) {
+          return;
+        }
+
+        const payload = response.notification.request.content.data;
+        syncPushPayloadToCache(queryClient, payload, 'native-initial');
+        onNotificationOpen?.(payload);
+
+        const notificationsModule = Notifications as typeof Notifications & {
+          clearLastNotificationResponseAsync?: () => Promise<void>;
+        };
+        notificationsModule.clearLastNotificationResponseAsync?.().catch(() => null);
+      })
+      .catch(() => null);
 
     return () => {
       onReceived.remove();

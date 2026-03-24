@@ -333,12 +333,6 @@ class AuthSessionService {
 
     this.refreshPromiseRef = (async () => {
       try {
-        console.log('[AuthRefresh] Attempt started', {
-          attemptId,
-          trigger,
-          refreshTokenFingerprint: currentRefreshFingerprint,
-        });
-
         const response = (await refresh(currentRT)) as RefreshResponse;
 
         if (!response?.accessToken || typeof response.accessToken !== 'string') {
@@ -364,13 +358,6 @@ class AuthSessionService {
           },
           false
         );
-
-        console.log('[AuthRefresh] Attempt succeeded', {
-          attemptId,
-          trigger,
-          usedRefreshTokenFingerprint: currentRefreshFingerprint,
-          nextRefreshTokenFingerprint: fingerprintToken(nextRefreshToken),
-        });
 
         if (!this.snapshot.requiresAssociation) {
           await this.loadUserContext();
@@ -402,7 +389,6 @@ class AuthSessionService {
       const storedData = await this.loadStoredTokens();
 
       if (!storedData) {
-        this.setState({ isLoading: false });
         return;
       }
 
@@ -410,12 +396,9 @@ class AuthSessionService {
       this.tokensRef = tokens;
       this.setState({ tokens, requiresAssociation });
 
-      // No bloquear la UI en bootstrap por llamadas de red de contexto/refresh.
-      this.setState({ isLoading: false });
-
       if (isTokenExpired(tokens.accessToken)) {
         if (tokens.refreshToken) {
-          void this.refreshTokens('init:expired-token').catch((error) => {
+          await this.refreshTokens('init:expired-token').catch((error) => {
             console.error('Error refreshing expired token on init:', error);
           });
         } else {
@@ -554,12 +537,10 @@ class AuthSessionService {
 
     this.refreshTimerRef = setTimeout(() => {
       if (Platform.OS === 'web' && typeof document !== 'undefined' && document.visibilityState !== 'visible') {
-        console.info('[AuthRefresh] Timer skipped while web tab is hidden. Refresh will run on focus/visibility.');
         return;
       }
 
       if (Platform.OS !== 'web' && AppState.currentState !== 'active') {
-        console.info('[AuthRefresh] Timer skipped while app is not active. Refresh will run on app resume.');
         return;
       }
 
@@ -638,12 +619,6 @@ class AuthSessionService {
       typeof state.lockExpiresAt === 'number' &&
       state.lockExpiresAt > now
     ) {
-      console.info('[AuthRefresh] Skipped refresh due to active web lock', {
-        trigger,
-        refreshTokenFingerprint,
-        lockOwnerId: state.lockOwnerId,
-        lockExpiresAt: state.lockExpiresAt,
-      });
       return false;
     }
 
@@ -660,11 +635,6 @@ class AuthSessionService {
       confirmedState?.lockOwnerId === this.instanceId && confirmedState?.lockNonce === lockNonce;
 
     if (!lockAcquired) {
-      console.info('[AuthRefresh] Lost lock race after write-verify. Skipping attempt.', {
-        trigger,
-        refreshTokenFingerprint,
-        confirmedLockOwnerId: confirmedState?.lockOwnerId,
-      });
       return false;
     }
 

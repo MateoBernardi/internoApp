@@ -7,16 +7,16 @@ import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Carpeta, UpdateCarpetaPayload } from '../models/Carpeta';
@@ -46,10 +46,12 @@ const allRoles = [
   { label: 'Consejo', value: 'consejo' },
   { label: 'Encargado', value: 'encargado' },
   { label: 'Gerencia', value: 'gerencia' },
-  { label: 'Personal', value: 'empleado' },
+  { label: 'Personal Limpieza', value: 'empleado-limpieza' },
   { label: 'Personas y Relaciones', value: 'personasRelaciones' },
   { label: 'Presidencia', value: 'presidencia' },
 ];
+
+const availableRoleValues = allRoles.filter((role) => role.value !== '*').map((role) => role.value);
 
 export function EditCarpetaModal({
   visible,
@@ -411,7 +413,15 @@ export function EditCarpetaModal({
                           isLoadingRoles={false}
                           showSelectedChips={false}
                           onSearch={setSearchQuery}
-                          onSelectRole={setActiveRole}
+                          onSelectRole={(role) => {
+                            if (role === '*') {
+                              setAllowedRoles(availableRoleValues);
+                              setActiveRole('');
+                              return;
+                            }
+
+                            setActiveRole(role);
+                          }}
                         />
                       </View>
 

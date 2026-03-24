@@ -10,16 +10,16 @@ import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Archivo, UpdateArchivoPayload } from '../models/Archivo';
@@ -69,6 +69,27 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
 
   const isLoadingUsers = isSearchingUsers || isLoadingRole;
   const { mutate: updateArchivo, isPending: isUpdating } = useUpdateArchivo();
+
+  const allRoles = [
+    { label: 'Todos', value: '*' },
+    { label: 'Contable', value: 'contable' },
+    { label: 'Sistemas', value: 'sistemas' },
+    { label: 'Personal Admin', value: 'empleado-admin' },
+    { label: 'Personal Insumos', value: 'empleado-insumos' },
+    { label: 'Personal Mayorista', value: 'empleado-mayorista' },
+    { label: 'Personal Super', value: 'empleado-super' },
+    { label: 'Consejo', value: 'consejo' },
+    { label: 'Encargado', value: 'encargado' },
+    { label: 'Gerencia', value: 'gerencia' },
+    { label: 'Personal Limpieza', value: 'empleado-limpieza' },
+    { label: 'Personas y Relaciones', value: 'personasRelaciones' },
+    { label: 'Presidencia', value: 'presidencia' },
+  ];
+
+  const availableRoleValues = useMemo(
+    () => allRoles.filter((role) => role.value !== '*').map((role) => role.value),
+    [allRoles]
+  );
 
   const BUTTON_HEIGHT = 48;
   const BUTTON_MARGIN = 16;
@@ -194,23 +215,15 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
   }, [activeRole, allowedRoles]);
 
   const handleSearchUsers = useCallback((query: string) => setSearchQuery(query), []);
-  const handleRoleSelect = useCallback((role: string) => setActiveRole(role), []);
+  const handleRoleSelect = useCallback((role: string) => {
+    if (role === '*') {
+      setAllowedRoles(availableRoleValues);
+      setActiveRole('');
+      return;
+    }
 
-  const allRoles = [
-    { label: 'Todos', value: '*' },
-    { label: 'Contable', value: 'contable' },
-    { label: 'Sistemas', value: 'sistemas' },
-    { label: 'Personal Admin', value: 'empleado-admin' },
-    { label: 'Personal Insumos', value: 'empleado-insumos' },
-    { label: 'Personal Mayorista', value: 'empleado-mayorista' },
-    { label: 'Personal Super', value: 'empleado-super' },
-    { label: 'Consejo', value: 'consejo' },
-    { label: 'Encargado', value: 'encargado' },
-    { label: 'Gerencia', value: 'gerencia' },
-    { label: 'Personal', value: 'empleado' },
-    { label: 'Personas y Relaciones', value: 'personasRelaciones' },
-    { label: 'Presidencia', value: 'presidencia' },
-  ];
+    setActiveRole(role);
+  }, [availableRoleValues]);
 
   const roleLabelMap = useMemo(() => {
     const map: Record<string, string> = {};

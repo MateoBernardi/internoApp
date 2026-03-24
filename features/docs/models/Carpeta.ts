@@ -4,6 +4,7 @@ export interface Carpeta {
   id: number | null;
   nombre: string;
   id_carpeta_padre?: number | null;
+  id_usuario?: number;
   owner_id?: number;
   created_by?: number;
   creador_id?: number;

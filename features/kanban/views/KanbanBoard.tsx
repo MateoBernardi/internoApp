@@ -13,6 +13,7 @@ import {
     ActivityIndicator,
     Alert,
     Modal,
+    Platform,
     ScrollView,
     StyleSheet,
     Text,
@@ -714,7 +715,7 @@ export function KanbanBoard() {
         <View style={styles.container}>
             <View style={styles.header}>
                 <View>
-                    <Text style={styles.headerTitle}>Tablero Kanban</Text>
+                    <Text style={styles.headerTitle}>Tablero de Actividades</Text>
                     <Text style={styles.headerSubtitle}>
                         Total: {objetivos.length} objetivo{objetivos.length !== 1 ? 's' : ''}
                     </Text>
@@ -733,7 +734,7 @@ export function KanbanBoard() {
             <ScrollView
                 style={styles.boardScroll}
                 horizontal
-                showsHorizontalScrollIndicator={false}
+                showsHorizontalScrollIndicator={Platform.OS === 'web'}
                 scrollEventThrottle={16}
             >
                 <View style={styles.board}>

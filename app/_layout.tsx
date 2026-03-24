@@ -40,8 +40,48 @@ function RootNavigator() {
   // Obtiene el push token y lo registra automáticamente cuando esté autenticado
   useRegisterDevice();
   const pushCacheSyncEnabled = isPushCacheSyncEnabled();
+  const navigateFromNotificationUrl = useCallback(
+    (rawUrl: unknown): boolean => {
+      if (typeof rawUrl !== 'string') {
+        return false;
+      }
+
+      const trimmed = rawUrl.trim();
+      if (!trimmed) {
+        return false;
+      }
+
+      try {
+        const parsed = new URL(trimmed, 'https://internal-app.local');
+        if (parsed.origin !== 'https://internal-app.local') {
+          return false;
+        }
+
+        const targetPath = `${parsed.pathname}${parsed.search}${parsed.hash}`;
+        if (!targetPath.startsWith('/')) {
+          return false;
+        }
+
+        router.push(targetPath as any);
+        return true;
+      } catch {
+        if (trimmed.startsWith('/')) {
+          router.push(trimmed as any);
+          return true;
+        }
+        return false;
+      }
+    },
+    [router]
+  );
   const handleNotificationOpen = useCallback((rawPayload: unknown) => {
       const payload = (rawPayload ?? {}) as Record<string, unknown>;
+      const dynamicUrl = payload.url ?? payload.link ?? payload.path ?? payload.deepLink;
+
+      if (navigateFromNotificationUrl(dynamicUrl)) {
+        return;
+      }
+
       const eventType = String(payload.event ?? payload.type ?? '').toLowerCase();
       const solicitudId = Number(payload.solicitud_id ?? payload.solicitudId ?? payload.request_id ?? payload.requestId);
       const actividadId = Number(payload.actividad_id ?? payload.actividadId);
@@ -66,7 +106,7 @@ function RootNavigator() {
         });
       }
     },
-    [router]
+    [navigateFromNotificationUrl, router]
   );
 
   usePushCacheSync(pushCacheSyncEnabled && isAuthenticated && !requiresAssociation, {

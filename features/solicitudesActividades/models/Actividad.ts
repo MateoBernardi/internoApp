@@ -69,7 +69,6 @@ export interface CrearActividadResponse {
 
 export interface CancelarActividadRequest {
   actividadId: number;
-  actividad_id?: number;
   motivo?: string;
 }
 
@@ -80,8 +79,8 @@ export interface CancelarActividadResponse {
 
 export interface ModificarActividadFechasRequest {
   actividadId: number;
-  nuevaFechaInicio: string; // ISO 8601 UTC
-  nuevaFechaFin: string; // ISO 8601 UTC
+  fecha_inicio: string; // ISO 8601 UTC
+  fecha_fin: string; // ISO 8601 UTC
 }
 
 export interface ModificarActividadFechasResponse {

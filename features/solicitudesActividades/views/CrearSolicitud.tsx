@@ -27,17 +27,55 @@ import { useValidacionFechas } from '../viewmodels/useValidacionFechas';
 
 const colors = Colors['light'];
 
+function normalizeToMinute(date: Date): Date {
+  const normalized = new Date(date);
+  normalized.setSeconds(0, 0);
+  return normalized;
+}
+
+function ceilToNextMinute(date: Date): Date {
+  const normalized = new Date(date);
+  if (normalized.getSeconds() > 0 || normalized.getMilliseconds() > 0) {
+    normalized.setMinutes(normalized.getMinutes() + 1);
+  }
+  normalized.setSeconds(0, 0);
+  return normalized;
+}
+
+function toStartOfDay(date: Date): Date {
+  const normalized = new Date(date);
+  normalized.setHours(0, 0, 0, 0);
+  return normalized;
+}
+
+function toEndOfDay(date: Date): Date {
+  const normalized = new Date(date);
+  normalized.setHours(23, 59, 0, 0);
+  return normalized;
+}
+
+function isSameLocalDay(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
 export function CrearSolicitud() {
   const router = useRouter();
   
   const [titulo, setTitulo] = useState('');
   const [descripcion, setDescripcion] = useState('');
-  const [fechaInicio, setFechaInicio] = useState<Date>(new Date());
-  const [fechaFin, setFechaFin] = useState<Date>(new Date(Date.now() + 3600000)); // +1 hora
+  const [fechaInicio, setFechaInicio] = useState<Date | null>(null);
+  const [fechaFin, setFechaFin] = useState<Date | null>(null);
   const [allDay, setAllDay] = useState(false);
   const [tipoActividad, setTipoActividad] = useState<'REUNION' | 'MANDATO'>('REUNION');
   const [includeDates, setIncludeDates] = useState(true); // MANDATO can skip dates
   const ignoreDatePressUntilRef = useRef(0);
+  const { mutate: crearSolicitud, isPending } = useCrearSolicitud();
+  const validacion = useValidacionFechas();
+  const isValidationInProgress = validacion.state === 'validating' || validacion.state === 'warnings';
 
   const blockDatePickerFromToggle = useCallback(() => {
     // Evita que un toque residual del Switch abra el picker de fecha.
@@ -45,19 +83,21 @@ export function CrearSolicitud() {
   }, []);
 
   const handleToggleAllDay = useCallback((value: boolean) => {
+    if (isValidationInProgress) return;
     blockDatePickerFromToggle();
     setAllDay(value);
-  }, [blockDatePickerFromToggle]);
+  }, [blockDatePickerFromToggle, isValidationInProgress]);
 
   const handleToggleIncludeDates = useCallback((value: boolean) => {
+    if (isValidationInProgress) return;
     blockDatePickerFromToggle();
     setIncludeDates(value);
     if (!value) {
       // Borrar las fechas de la memoria cuando el usuario desactiva las fechas
-      setFechaInicio(new Date());
-      setFechaFin(new Date(Date.now() + 3600000));
+      setFechaInicio(null);
+      setFechaFin(null);
     }
-  }, [blockDatePickerFromToggle]);
+  }, [blockDatePickerFromToggle, isValidationInProgress]);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [datePickerMode, setDatePickerMode] = useState<'date' | 'time'>('date');
   const [activeDateType, setActiveDateType] = useState<'start' | 'end' | null>(null);
@@ -120,9 +160,6 @@ export function CrearSolicitud() {
       });
   }, []);
 
-  const { mutate: crearSolicitud, isPending } = useCrearSolicitud();
-  const validacion = useValidacionFechas();
-
   const handleSearchUsers = useCallback((query: string) => {
       setSearchQuery(query);
   }, []);
@@ -147,7 +184,6 @@ export function CrearSolicitud() {
   ];
 
   const onDateChange = (event: any, selectedDate?: Date) => {
-      const currentDate = selectedDate || (activeDateType === 'start' ? fechaInicio : fechaFin);
       if (Platform.OS === 'android') {
           setShowDatePicker(false);
       }
@@ -157,14 +193,46 @@ export function CrearSolicitud() {
         return;
       }
 
+      if (!selectedDate) {
+        setActiveDateType(null);
+        return;
+      }
+
+      const currentDate = normalizeToMinute(selectedDate);
+
       if (activeDateType === 'start') {
           setFechaInicio(currentDate);
       } else {
           setFechaFin(currentDate);
       }
+
+      setActiveDateType(null);
   };
 
+  const getPickerValue = useCallback((): Date => {
+    if (activeDateType === 'start') {
+      return normalizeToMinute(fechaInicio ?? new Date());
+    }
+
+    if (activeDateType === 'end') {
+      if (fechaFin) {
+        return normalizeToMinute(fechaFin);
+      }
+
+      if (fechaInicio) {
+        return normalizeToMinute(fechaInicio);
+      }
+
+      return normalizeToMinute(new Date(Date.now() + 3600000));
+    }
+
+    return normalizeToMinute(new Date());
+  }, [activeDateType, fechaInicio, fechaFin]);
+
   const showDatepicker = (type: 'start' | 'end', mode: 'date' | 'time') => {
+    if (isValidationInProgress) {
+      return;
+    }
     if (Date.now() < ignoreDatePressUntilRef.current) {
       return;
     }
@@ -187,30 +255,48 @@ export function CrearSolicitud() {
       showDatepicker('end', 'time');
   };
 
+  const hasDates = tipoActividad === 'REUNION' || includeDates;
+  const now = ceilToNextMinute(new Date());
+  const areDatesMissing = hasDates && (!fechaInicio || !fechaFin);
+  const isAllDayCurrentDay = hasDates && allDay && !!fechaInicio && isSameLocalDay(fechaInicio, now);
+  const effectiveStartDate = hasDates && fechaInicio
+    ? (allDay ? toStartOfDay(fechaInicio) : normalizeToMinute(fechaInicio))
+    : null;
+  const effectiveEndDate = hasDates && fechaFin
+    ? (allDay ? toEndOfDay(fechaFin) : normalizeToMinute(fechaFin))
+    : null;
+  const isStartDatePast = !!effectiveStartDate && effectiveStartDate < now;
+  const isDateRangeInvalid = !!effectiveStartDate && !!effectiveEndDate && effectiveEndDate <= effectiveStartDate;
+
+  const dateErrorMessage = useMemo(() => {
+    if (!hasDates) return null;
+    if (areDatesMissing) return 'Completá la fecha de inicio y finalización.';
+    if (isAllDayCurrentDay) return 'El día ya comenzó, elegí un día a partir de mañana.';
+    if (isStartDatePast) return 'La fecha de inicio es menor a la actual.';
+    if (isDateRangeInvalid) return 'La fecha de fin debe ser mayor a la de inicio.';
+    return null;
+  }, [hasDates, areDatesMissing, isAllDayCurrentDay, isStartDatePast, isDateRangeInvalid]);
+
   const isFormValid = useMemo(() => {
-    const dateValid = tipoActividad === 'MANDATO' && !includeDates
-      ? true
-      : fechaInicio < fechaFin;
+    const dateValid = !dateErrorMessage;
     return (
       titulo.trim().length > 0 &&
       descripcion.trim().length > 0 &&
       selectedUsers.length > 0 &&
       dateValid
     );
-  }, [titulo, descripcion, selectedUsers, fechaInicio, fechaFin, tipoActividad, includeDates]);
+  }, [titulo, descripcion, selectedUsers, dateErrorMessage]);
 
-  const ejecutarCreacion = useCallback((start: Date, end: Date) => {
-    const hasDates = tipoActividad === 'REUNION' || includeDates;
+  const ejecutarCreacion = useCallback((payload: {
+    titulo: string;
+    descripcion: string;
+    tipo_actividad: 'REUNION' | 'MANDATO';
+    invitados: number[];
+    fecha_inicio?: string;
+    fecha_fin?: string;
+  }) => {
     crearSolicitud(
-      {
-        titulo: titulo.trim(),
-        descripcion: descripcion.trim(),
-        ...(hasDates
-          ? { fecha_inicio: start.toISOString(), fecha_fin: end.toISOString() }
-          : {}),
-        tipo_actividad: tipoActividad,
-        invitados: selectedUsers.map((u: UserSummary) => u.user_context_id),
-      },
+      payload,
       {
         onSuccess: () => {
           Alert.alert('Éxito', 'Solicitud creada correctamente');
@@ -224,25 +310,40 @@ export function CrearSolicitud() {
         },
       }
     );
-  }, [crearSolicitud, titulo, descripcion, selectedUsers, router, tipoActividad, includeDates]);
+  }, [crearSolicitud, router]);
 
   const handleCrearSolicitud = useCallback(() => {
+    if (isValidationInProgress) {
+      return;
+    }
+
     if (!isFormValid) {
       Alert.alert('Formulario incompleto', 'Por favor completa todos los campos');
       return;
     }
 
-    let start = new Date(fechaInicio);
-    let end = new Date(fechaFin);
-
-    if (allDay) {
-        // Usar hora actual + 5 minutos como inicio para evitar errores con fechas pasadas
-        const now = new Date();
-        start.setHours(now.getHours(), now.getMinutes() + 5, 0, 0);
-        end.setHours(23, 59, 59, 999);
+    if (hasDates && (!fechaInicio || !fechaFin)) {
+      return;
     }
 
-    const hasDates = tipoActividad === 'REUNION' || includeDates;
+    let start = normalizeToMinute(new Date(fechaInicio ?? new Date()));
+    let end = normalizeToMinute(new Date(fechaFin ?? new Date()));
+
+    if (allDay) {
+      start = toStartOfDay(start);
+      end = toEndOfDay(end);
+    }
+
+    const invitados = selectedUsers.map((u: UserSummary) => u.user_context_id);
+    const payload = {
+      titulo: titulo.trim(),
+      descripcion: descripcion.trim(),
+      tipo_actividad: tipoActividad,
+      invitados,
+      ...(hasDates
+        ? { fecha_inicio: start.toISOString(), fecha_fin: end.toISOString() }
+        : {}),
+    };
 
     if (hasDates) {
       // Validar fechas antes de crear
@@ -250,15 +351,16 @@ export function CrearSolicitud() {
         {
           fechaInicio: start.toISOString(),
           fechaFin: end.toISOString(),
-          participantes: selectedUsers.map((u: UserSummary) => u.user_context_id),
+          participantes: invitados,
+          tipo_actividad: tipoActividad,
         },
-        () => ejecutarCreacion(start, end)
+        () => ejecutarCreacion(payload)
       );
     } else {
       // Sin fechas, crear directamente
-      ejecutarCreacion(start, end);
+      ejecutarCreacion(payload);
     }
-  }, [isFormValid, fechaInicio, fechaFin, selectedUsers, allDay, tipoActividad, includeDates, validacion, ejecutarCreacion]);
+  }, [isValidationInProgress, isFormValid, hasDates, fechaInicio, fechaFin, selectedUsers, allDay, tipoActividad, includeDates, titulo, descripcion, validacion, ejecutarCreacion]);
 
   return (
     <View style={styles.container}>
@@ -287,7 +389,8 @@ export function CrearSolicitud() {
                 <View style={{ flex: 1 }} />
                 <Switch 
                     value={allDay} 
-                  onValueChange={handleToggleAllDay} 
+                    onValueChange={handleToggleAllDay}
+                    disabled={isValidationInProgress}
                     trackColor={{ false: colors.secondaryText, true: colors.success }} 
                     thumbColor={colors.componentBackground} 
                 />
@@ -302,6 +405,7 @@ export function CrearSolicitud() {
                  <Switch
                    value={includeDates}
                    onValueChange={handleToggleIncludeDates}
+                   disabled={isValidationInProgress}
                    trackColor={{ false: colors.secondaryText, true: colors.success }}
                    thumbColor={colors.componentBackground}
                  />
@@ -318,7 +422,9 @@ export function CrearSolicitud() {
                          >
                             <ThemedText style={styles.dateLabel}>Fecha de inicio</ThemedText>
                             <ThemedText style={styles.dateValue}>
-                                {fechaInicio.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short' })}
+                                {fechaInicio
+                                  ? fechaInicio.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short' })
+                                  : 'Seleccionar fecha'}
                             </ThemedText>
                          </TouchableOpacity>
                      </View>
@@ -330,7 +436,9 @@ export function CrearSolicitud() {
                              >
                                 <ThemedText style={styles.dateLabel}>Hora</ThemedText>
                                 <ThemedText style={styles.timeValue}>
-                                    {fechaInicio.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                                    {fechaInicio
+                                      ? fechaInicio.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
+                                      : 'Seleccionar hora'}
                                 </ThemedText>
                              </TouchableOpacity>
                          </View>
@@ -345,7 +453,9 @@ export function CrearSolicitud() {
                          >
                             <ThemedText style={styles.dateLabel}>Fecha de finalización</ThemedText>
                             <ThemedText style={styles.dateValue}>
-                                {fechaFin.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short' })}
+                                {fechaFin
+                                  ? fechaFin.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short' })
+                                  : 'Seleccionar fecha'}
                             </ThemedText>
                          </TouchableOpacity>
                      </View>
@@ -357,16 +467,18 @@ export function CrearSolicitud() {
                              >
                                 <ThemedText style={styles.dateLabel}>Hora</ThemedText>
                                 <ThemedText style={styles.timeValue}>
-                                    {fechaFin.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                                    {fechaFin
+                                      ? fechaFin.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
+                                      : 'Seleccionar hora'}
                                 </ThemedText>
                              </TouchableOpacity>
                          </View>
                      )}
                  </View>
 
-                 {fechaInicio >= fechaFin && (
+                 {dateErrorMessage && (
                    <ThemedText style={{ color: colors.error, fontSize: 12, marginTop: 8 }}>
-                     La fecha de fin debe ser posterior a la de inicio
+                     {dateErrorMessage}
                    </ThemedText>
                  )}
                </>
@@ -408,7 +520,11 @@ export function CrearSolicitud() {
                         styles.chip,
                         tipoActividad === 'REUNION' && { borderColor: colors.lightTint, backgroundColor: 'transparent', borderWidth: 1 }
                     ]}
-                    onPress={() => { setTipoActividad('REUNION'); setIncludeDates(true); }}
+                    onPress={() => {
+                      if (isValidationInProgress) return;
+                      setTipoActividad('REUNION');
+                      setIncludeDates(true);
+                    }}
                 >
                     <ThemedText style={[
                         styles.chipText,
@@ -420,7 +536,10 @@ export function CrearSolicitud() {
                         styles.chip,
                         tipoActividad === 'MANDATO' && { borderColor: colors.lightTint, backgroundColor: 'transparent', borderWidth: 1 }
                     ]}
-                    onPress={() => setTipoActividad('MANDATO')}
+                    onPress={() => {
+                      if (isValidationInProgress) return;
+                      setTipoActividad('MANDATO');
+                    }}
                 >
                     <ThemedText style={[
                          styles.chipText,
@@ -461,10 +580,10 @@ export function CrearSolicitud() {
         <TouchableOpacity 
             style={[
                 styles.fab, 
-                { backgroundColor: !isFormValid || isPending ? colors.icon : colors.lightTint }
+            { backgroundColor: !isFormValid || isPending || isValidationInProgress ? colors.icon : colors.lightTint }
             ]}
             onPress={handleCrearSolicitud}
-            disabled={!isFormValid || isPending}
+          disabled={!isFormValid || isPending || isValidationInProgress}
         >
             {isPending ? (
                 <ActivityIndicator size="small" color={colors.componentBackground} />
@@ -477,7 +596,7 @@ export function CrearSolicitud() {
       {(showDatePicker) && (
         <DateTimePicker
           testID="dateTimePicker"
-          value={activeDateType === 'start' ? fechaInicio : fechaFin}
+          value={getPickerValue()}
           mode={datePickerMode}
           is24Hour={true}
           display={Platform.OS === 'ios' ? 'spinner' : 'default'}

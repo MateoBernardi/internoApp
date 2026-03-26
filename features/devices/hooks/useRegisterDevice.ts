@@ -6,8 +6,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import { registerDeviceSafely } from '../services/devicesApi';
 import {
-  requestWebPushTokenFromUserGesture,
-  WebPushPermissionResult,
+    requestWebPushTokenFromUserGesture,
+    WebPushPermissionResult,
 } from '../services/webPush';
 
 const isDevBuild = typeof __DEV__ !== 'undefined' ? __DEV__ : process.env.NODE_ENV !== 'production';
@@ -21,12 +21,17 @@ export async function triggerWebPushPermissionPrompt(): Promise<WebPushPermissio
   return webPushGestureRequester();
 }
 
+interface UseRegisterDeviceOptions {
+  enabled?: boolean;
+}
+
 /**
  * Hook para gestionar el registro del dispositivo
  * Obtiene el push token, configura las notificaciones y registra el dispositivo
  * cuando el usuario esté autenticado
  */
-export function useRegisterDevice() {
+export function useRegisterDevice(options: UseRegisterDeviceOptions = {}) {
+  const { enabled = true } = options;
   const { tokens, isAuthenticated } = useAuth();
   const [expoPushToken, setExpoPushToken] = useState<string | null>(null);
   const [isLoadingToken, setIsLoadingToken] = useState(true);
@@ -50,7 +55,7 @@ export function useRegisterDevice() {
   const hasVapid = !!vapidKey && vapidKey !== 'TU_VAPID_PUBLIC_KEY';
 
   const requestWebPushPermissionWithGesture = useCallback(async (): Promise<WebPushPermissionResult> => {
-    if (Platform.OS !== 'web' || !hasFirebaseConfig || !hasVapid) {
+    if (!enabled || Platform.OS !== 'web' || !hasFirebaseConfig || !hasVapid) {
       return { permission: 'unsupported', token: null };
     }
 
@@ -61,7 +66,7 @@ export function useRegisterDevice() {
     }
 
     return result;
-  }, [hasFirebaseConfig, hasVapid]);
+  }, [enabled, hasFirebaseConfig, hasVapid]);
 
   useEffect(() => {
     webPushGestureRequester = requestWebPushPermissionWithGesture;
@@ -74,6 +79,10 @@ export function useRegisterDevice() {
 
   // Configurar los canales de notificación para Android
   useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+
     if (Platform.OS === 'android') {
       Notifications.setNotificationChannelAsync('default', {
         name: 'default',
@@ -82,18 +91,27 @@ export function useRegisterDevice() {
         lightColor: '#FF231F7C',
       }).catch((error) => console.error('Error setting notification channel:', error));
     }
-  }, []);
+  }, [enabled]);
 
   // Web push en web no hace solicitudes automaticas de token.
   // El token solo se obtiene desde requestWebPushPermissionWithGesture (clic explicito del usuario).
   useEffect(() => {
+    if (!enabled) {
+      setIsLoadingToken(false);
+      return;
+    }
+
     if (Platform.OS !== 'web') return;
 
     setIsLoadingToken(false);
-  }, []);
+  }, [enabled]);
 
   // Request de permisos de notificaciones y obtener el push token (nativo)
   useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+
     if (Platform.OS === 'web') return; // Web se maneja arriba con FCM
 
     let isMounted = true;
@@ -179,10 +197,14 @@ export function useRegisterDevice() {
       isMounted = false;
       tokenSubscription?.remove?.();
     };
-  }, []);
+  }, [enabled]);
 
   // Registrar el dispositivo cuando esté autenticado y tengamos el token
   useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+
     if (expoPushToken && tokens?.accessToken && isAuthenticated) {
       if (invalidTokenRegistryRef.current.has(expoPushToken)) {
         console.warn('[Devices] Token marcado como invalido; se omite registro', {
@@ -216,7 +238,7 @@ export function useRegisterDevice() {
           }
         }
       });
-    } else if (Platform.OS === 'web') {
+    } else if (Platform.OS === 'web' && isAuthenticated) {
       const prereqState = {
         hasPushToken: !!expoPushToken,
         hasAccessToken: !!tokens?.accessToken,
@@ -233,7 +255,7 @@ export function useRegisterDevice() {
         console.log('[Devices] Registro web omitido por prerequisitos faltantes', prereqState);
       }
     }
-  }, [expoPushToken, hasFirebaseConfig, hasVapid, tokens?.accessToken, isAuthenticated]);
+  }, [enabled, expoPushToken, hasFirebaseConfig, hasVapid, tokens?.accessToken, isAuthenticated]);
 
   return {
     expoPushToken,

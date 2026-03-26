@@ -4,6 +4,7 @@ import { ThemedView } from "@/components/themed-view";
 import { ScreenSkeleton } from "@/components/ui/ScreenSkeleton";
 import { Colors } from "@/constants/theme";
 import { useAuth } from "@/features/auth/context/AuthContext";
+import { authSessionService } from "@/features/auth/services/AuthSessionService";
 import {
   useObtenerCuentasDisponibles,
   useRequestVerificationToken,
@@ -41,7 +42,7 @@ const formatCUIT = (value: string): string => {
 
 export default function AsociarCuenta() {
   const router = useRouter();
-  const { setAuthTokens, signOut } = useAuth();
+  const { setAuthTokens, reloadUserContext, signOut } = useAuth();
 
   // Estado del flujo
   const [step, setStep] = useState<Step>("cuit");
@@ -171,13 +172,38 @@ export default function AsociarCuenta() {
         entorno,
       });
 
-      await setAuthTokens(response.accessToken, response.refreshToken);
-      setStep("success");
+      if (!response?.success || response.requiresAssociation || !response.accessToken) {
+        Alert.alert("Inicia sesion nuevamente");
+        router.replace("/login");
+        return;
+      }
 
-      setTimeout(() => {
-        router.replace("/(tabs)");
-      }, 2000);
+      await setAuthTokens(response.accessToken, response.refreshToken);
+      await reloadUserContext();
+
+      // Revalidar estado de sesión y contexto recién hidratado para evitar quedar colgado.
+      let snapshot = authSessionService.getSnapshot();
+      const hasContext = Boolean(snapshot.user?.user_context_id);
+
+      if (!hasContext || snapshot.requiresAssociation) {
+        await reloadUserContext();
+        snapshot = authSessionService.getSnapshot();
+      }
+
+      if (!snapshot.tokens?.accessToken || !snapshot.user?.user_context_id || snapshot.requiresAssociation) {
+        Alert.alert("Inicia sesion nuevamente");
+        router.replace("/login");
+        return;
+      }
+
+      router.replace("/(tabs)");
     } catch (error: any) {
+      if (error?.message === "Inicia sesion nuevamente") {
+        Alert.alert("Inicia sesion nuevamente");
+        router.replace("/login");
+        return;
+      }
+
       Alert.alert("Error", error.message || "Intenta nuevamente");
     }
   };
@@ -646,7 +672,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   timerText: {
-    fontSize: 48,
+    fontSize: 16,
     fontWeight: "bold",
     marginBottom: 8,
   },

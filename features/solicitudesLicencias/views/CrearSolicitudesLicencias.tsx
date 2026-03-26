@@ -1,10 +1,10 @@
 import { ThemedText } from '@/components/themed-text';
+import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
 import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
 import { Colors } from '@/constants/theme';
 import { ArchivoUso } from '@/features/docs/models/Archivo';
 import { useUploadArchivo } from '@/features/docs/viewmodels/useArchivos';
 import { Ionicons } from '@expo/vector-icons';
-import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
 import * as DocumentPicker from 'expo-document-picker';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
@@ -30,6 +30,12 @@ import {
 } from '../viewmodels/useSolicitudes';
 
 const colors = Colors['light'];
+
+function normalizeToMinute(date: Date): Date {
+    const normalized = new Date(date);
+    normalized.setSeconds(0, 0);
+    return normalized;
+}
 
 /** Modo de cantidad: días u horas */
 type CantidadMode = 'dias' | 'horas';
@@ -59,7 +65,7 @@ export function CrearSolicitudesLicencias() {
     // --- Estado del formulario ---
     const [tipoLicenciaId, setTipoLicenciaId] = useState<number | null>(null);
     const [showTipoLicenciaModal, setShowTipoLicenciaModal] = useState(false);
-    const [fechaInicio, setFechaInicio] = useState<Date>(new Date());
+    const [fechaInicio, setFechaInicio] = useState<Date | null>(null);
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [showTimePicker, setShowTimePicker] = useState(false);
 
@@ -120,29 +126,41 @@ export function CrearSolicitudesLicencias() {
         return saldoCorrespondiente.dias_otorgados - saldoCorrespondiente.dias_consumidos;
     }, [saldoCorrespondiente]);
 
+    const now = normalizeToMinute(new Date());
+    const isFechaInicioMissing = !fechaInicio;
+    const isFechaInicioPast = !!fechaInicio && normalizeToMinute(fechaInicio) < now;
+    const dateErrorMessage = useMemo(() => {
+        if (isFechaInicioMissing) return 'Seleccioná fecha y hora de inicio.';
+        if (isFechaInicioPast) return 'La fecha seleccionada es menor a la actual.';
+        return null;
+    }, [isFechaInicioMissing, isFechaInicioPast]);
+
     const isFormValid = useMemo(() => {
         if (!tipoLicenciaId) return false;
+        if (dateErrorMessage) return false;
         if (effectiveMode === 'dias' && cantidadDias <= 0) return false;
         if (effectiveMode === 'horas' && horas <= 0) return false;
         if (selectedTipo?.requiere_saldo && saldoDisponible < cantidadDias) return false;
         if (isPending || isAdjuntando) return false;
         return true;
-    }, [tipoLicenciaId, effectiveMode, cantidadDias, horas, selectedTipo, saldoDisponible, isPending, isAdjuntando]);
+    }, [tipoLicenciaId, dateErrorMessage, effectiveMode, cantidadDias, horas, selectedTipo, saldoDisponible, isPending, isAdjuntando]);
 
     // --- Handlers Fecha ---
     const onDateChange = useCallback((event: any, selectedDate?: Date) => {
         if (Platform.OS === 'android') setShowDatePicker(false);
         if (event.type === 'dismissed') return;
-        if (selectedDate) setFechaInicio(selectedDate);
+        if (selectedDate) {
+            setFechaInicio(normalizeToMinute(selectedDate));
+        }
     }, []);
 
     const onTimeChange = useCallback((event: any, selectedTime?: Date) => {
         if (Platform.OS === 'android') setShowTimePicker(false);
         if (event.type === 'dismissed') return;
         if (selectedTime) {
-            const updated = new Date(fechaInicio);
+            const updated = new Date(fechaInicio ?? new Date());
             updated.setHours(selectedTime.getHours(), selectedTime.getMinutes(), 0, 0);
-            setFechaInicio(updated);
+            setFechaInicio(normalizeToMinute(updated));
         }
     }, [fechaInicio]);
 
@@ -191,7 +209,7 @@ export function CrearSolicitudesLicencias() {
 
         const payload: CreateSolicitudDTO = {
             tipo_licencia_id: tipoLicenciaId!,
-            fecha_inicio: formatDateYMD(fechaInicio),
+            fecha_inicio: formatDateYMD(fechaInicio ?? new Date()),
             observacion: observacion.trim() || undefined,
         };
 
@@ -333,16 +351,24 @@ export function CrearSolicitudesLicencias() {
                         <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.datePickerRow}>
                             <ThemedText style={styles.dateLabel}>Día</ThemedText>
                             <ThemedText style={styles.dateValue}>
-                                {fechaInicio.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}
+                                {fechaInicio
+                                    ? fechaInicio.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })
+                                    : 'Seleccionar fecha'}
                             </ThemedText>
                         </TouchableOpacity>
 
                         <TouchableOpacity onPress={() => setShowTimePicker(true)} style={styles.datePickerRow}>
                             <ThemedText style={styles.dateLabel}>Hora</ThemedText>
                             <ThemedText style={styles.dateValue}>
-                                {fechaInicio.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                                {fechaInicio
+                                    ? fechaInicio.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
+                                    : 'Seleccionar hora'}
                             </ThemedText>
                         </TouchableOpacity>
+
+                        {dateErrorMessage && (
+                            <ThemedText style={styles.errorTextInline}>{dateErrorMessage}</ThemedText>
+                        )}
                     </View>
 
                     {/* ── Cantidad ── */}
@@ -555,7 +581,7 @@ export function CrearSolicitudesLicencias() {
 
                 {showDatePicker && (
                     <DateTimePicker
-                        value={fechaInicio}
+                        value={fechaInicio ?? normalizeToMinute(new Date())}
                         mode="date"
                         display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                         onChange={onDateChange}
@@ -564,7 +590,7 @@ export function CrearSolicitudesLicencias() {
 
                 {showTimePicker && (
                     <DateTimePicker
-                        value={fechaInicio}
+                        value={fechaInicio ?? normalizeToMinute(new Date())}
                         mode="time"
                         is24Hour={true}
                         display={Platform.OS === 'ios' ? 'spinner' : 'default'}
@@ -615,6 +641,7 @@ const styles = StyleSheet.create({
     },
     dateLabel: { fontSize: 15, color: colors.lightTint },
     dateValue: { fontSize: 15, color: colors.text, fontWeight: '500' },
+    errorTextInline: { color: colors.error, fontSize: 12, marginTop: 8 },
     summaryContainer: { marginTop: 12, alignItems: 'flex-end' },
     summaryText: { fontSize: 14, color: colors.secondaryText },
     // Toggle Días / Horas

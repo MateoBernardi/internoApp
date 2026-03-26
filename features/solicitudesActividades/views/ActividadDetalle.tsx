@@ -72,11 +72,16 @@ export function ActividadDetalle() {
 
   const ejecutarModificar = useCallback(() => {
     if (!actividad) return;
+    const actividadId = Number(actividad.id);
+    if (!Number.isFinite(actividadId)) {
+      Alert.alert('Error', 'No se pudo identificar la actividad a modificar');
+      return;
+    }
     modificarFechas(
       {
-        actividadId: actividad.id,
-        nuevaFechaInicio: modStartDate.toISOString(),
-        nuevaFechaFin: modEndDate.toISOString(),
+        actividadId,
+        fecha_inicio: modStartDate.toISOString(),
+        fecha_fin: modEndDate.toISOString(),
       },
       {
         onSuccess: () => {
@@ -145,8 +150,13 @@ export function ActividadDetalle() {
           text: 'Eliminar',
           style: 'destructive',
           onPress: () => {
+            const actividadId = Number(actividad.id);
+            if (!Number.isFinite(actividadId)) {
+              Alert.alert('Error', 'No se pudo identificar la actividad a eliminar');
+              return;
+            }
             cancelarActividad(
-              { actividadId: actividad.id },
+              { actividadId },
               {
                 onSuccess: () => {
                   Alert.alert('Éxito', 'Actividad eliminada de tu agenda');
@@ -395,7 +405,7 @@ export function ActividadDetalle() {
                       onPress={() => showPicker('time', 'start')}
                       style={styles.dateBtn}
                     >
-                      <ThemedText>{modStartDate.toLocaleTimeString()}</ThemedText>
+                      <ThemedText>{modStartDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</ThemedText>
                     </TouchableOpacity>
                   </View>
 
@@ -411,7 +421,7 @@ export function ActividadDetalle() {
                       onPress={() => showPicker('time', 'end')}
                       style={styles.dateBtn}
                     >
-                      <ThemedText>{modEndDate.toLocaleTimeString()}</ThemedText>
+                      <ThemedText>{modEndDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</ThemedText>
                     </TouchableOpacity>
                   </View>
 

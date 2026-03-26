@@ -49,6 +49,6 @@ export interface VerifyAndAssociateResponse {
     message: string;
     accessToken: string;
     refreshToken?: string;
-    csrfToken: string;
+    csrfToken?: string;
     asociacion?: any;
 }

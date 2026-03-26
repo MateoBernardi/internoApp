@@ -32,9 +32,10 @@ const TIPOS_NOVEDAD = [
 
 interface TablonNovedadesProps {
   refreshTrigger?: number;
+  enabled?: boolean;
 }
 
-export default function TablonNovedades({ refreshTrigger }: TablonNovedadesProps) {
+export default function TablonNovedades({ refreshTrigger, enabled = true }: TablonNovedadesProps) {
   const { user } = useAuth();
   const { obtenerNovedades, crearNovedad, actualizarNovedad, eliminarNovedad, isLoading, error } =
     useNovedad();
@@ -48,15 +49,24 @@ export default function TablonNovedades({ refreshTrigger }: TablonNovedadesProps
 
   // Cargar novedades al montar el componente
   useEffect(() => {
+    if (!enabled) {
+      setLocalLoading(false);
+      return;
+    }
+
     loadNovedades();
-  }, []);
+  }, [enabled]);
 
   // Recargar cuando se dispara refresh desde el padre
   useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+
     if (refreshTrigger && refreshTrigger > 0) {
       loadNovedades();
     }
-  }, [refreshTrigger]);
+  }, [enabled, refreshTrigger]);
 
   const loadNovedades = async () => {
     setLocalLoading(true);

@@ -116,7 +116,6 @@ export interface ReenviarSolicitudResponse {
 
 export interface CancelarActividadRequest {
   actividadId: number;
-  actividad_id?: number;
   motivo?: string;
 }
 
@@ -174,6 +173,8 @@ export interface ValidarFechasRequest {
   fecha_inicio: string; // ISO 8601
   fecha_fin: string; // ISO 8601
   participantes: number[]; // IDs de usuario_entidad
+  tipo_actividad?: 'REUNION' | 'MANDATO'; // Permite al backend ajustar inclusión del creador en validación
+  tipoActividad?: 'REUNION' | 'MANDATO'; // Compatibilidad opcional si backend acepta camelCase
   solicitudIdExcluir?: number; // Excluir esta solicitud de la validación (para modificaciones)
   actividadIdExcluir?: number | null; // Excluir esta actividad de la validación (para modificaciones de actividades)
 }

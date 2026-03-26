@@ -37,8 +37,12 @@ function RootNavigator() {
   const { isAuthenticated, isLoading, requiresAssociation, tokens, user } = useAuth();
   const segments = useSegments();
   const router = useRouter();
+  const hasUserContext = !!user?.user_context_id;
+  const authReadyAndEligible =
+    !isLoading && isAuthenticated && !requiresAssociation && !!tokens?.accessToken;
+  const authReadyWithUserContext = authReadyAndEligible && hasUserContext;
   // Obtiene el push token y lo registra automáticamente cuando esté autenticado
-  useRegisterDevice();
+  useRegisterDevice({ enabled: authReadyAndEligible });
   const pushCacheSyncEnabled = isPushCacheSyncEnabled();
   const navigateFromNotificationUrl = useCallback(
     (rawUrl: unknown): boolean => {
@@ -109,12 +113,12 @@ function RootNavigator() {
     [navigateFromNotificationUrl, router]
   );
 
-  usePushCacheSync(pushCacheSyncEnabled && isAuthenticated && !requiresAssociation, {
+  usePushCacheSync(pushCacheSyncEnabled && authReadyWithUserContext, {
     onNotificationOpen: handleNotificationOpen,
   });
 
   useEffect(() => {
-    if (!isAuthenticated || requiresAssociation || !tokens?.accessToken) {
+    if (!authReadyWithUserContext || !tokens?.accessToken || !user?.rol_nombre || !user?.user_context_id) {
       return;
     }
 
@@ -124,15 +128,15 @@ function RootNavigator() {
       userContextId: user?.user_context_id,
       reason: 'post-auth',
     });
-  }, [isAuthenticated, requiresAssociation, tokens?.accessToken, user?.rol_nombre, user?.user_context_id]);
+  }, [authReadyWithUserContext, tokens?.accessToken, user?.rol_nombre, user?.user_context_id]);
 
   // Limpiar notificaciones y badge al entrar a la app autenticado (solo native)
   useEffect(() => {
-    if (isAuthenticated && !requiresAssociation && Platform.OS !== 'web') {
+    if (authReadyAndEligible && Platform.OS !== 'web') {
       Notifications.dismissAllNotificationsAsync();
       Notifications.setBadgeCountAsync(0);
     }
-  }, [isAuthenticated, requiresAssociation]);
+  }, [authReadyAndEligible]);
 
   // Mostrar loading mientras se verifica la sesión
   if (isLoading) {
@@ -154,6 +158,11 @@ function RootNavigator() {
   // Si NO está autenticado y NO está en el grupo (auth), redirigir a login
   if (!isAuthenticated && !inAuthGroup) {
     return <Redirect href="/login" />;
+  }
+
+  // Si ESTA autenticado, no requiere asociación y sigue en association, redirigir a tabs
+  if (isAuthenticated && !requiresAssociation && inAssociationGroup) {
+    return <Redirect href="/(tabs)" />;
   }
 
   // Si ESTÁ autenticado, no requiere asociación, y está intentando acceder a (auth), redirigir a tabs

@@ -55,6 +55,7 @@ export default function TabLayout() {
   const hideAdmin = isEmployeeUser;
   const hasSolicitudesTab = !hideExplore;
   const hasAdminTab = !hideAdmin;
+  const hasSessionContext = isAuthenticated && !requiresAssociation && !!user?.user_context_id;
   const canSeeAdminReportesButton = !isContableOrSistemas();
   const canSeeActivityRequests = isEmployeeUser || isEncargado;
   const canSeeLicenciasAdmin = hasAdminTab;
@@ -84,21 +85,21 @@ export default function TabLayout() {
   const vapidKey = Constants.expoConfig?.extra?.VAPID_PUBLIC_KEY;
   const hasVapid = !!vapidKey && vapidKey !== 'TU_VAPID_PUBLIC_KEY';
 
-  const { data: invitaciones = [] } = useInvitaciones(canSeeActivityRequests);
-  const { data: solicitudesEnviadas = [] } = useSolicitudesCreadas(canSeeActivityRequests);
+  const { data: invitaciones = [] } = useInvitaciones(canSeeActivityRequests && hasSessionContext);
+  const { data: solicitudesEnviadas = [] } = useSolicitudesCreadas(canSeeActivityRequests && hasSessionContext);
   const { data: solicitudesLicenciasAdmin = [] } = useGetSolicitudesLicencias(
-    canSeeLicenciasAdmin ? {} : undefined
+    canSeeLicenciasAdmin && hasSessionContext ? {} : undefined
   );
   const { data: solicitudesLicenciasPersonal = [] } = useGetSolicitudesUsuario(
-    canSeeLicenciasPersonal
+    canSeeLicenciasPersonal && hasSessionContext
   );
   const { data: reportesAdmin = [] } = useReportes(
     userContextId,
-    canSeeReportesAdmin && !!user?.user_context_id
+    canSeeReportesAdmin && hasSessionContext
   );
   const { data: reportesPersonal = [] } = useReportes(
     userContextId,
-    canSeeReportesPersonal && !!user?.user_context_id
+    canSeeReportesPersonal && hasSessionContext
   );
 
   const hasSolicitudesActividadesPendientesRecibidas = invitaciones.some((item) =>
@@ -195,7 +196,7 @@ export default function TabLayout() {
   const hasPersonalBadge = personalMenuOptions.some((option) => !!option.hasBadge);
 
   useEffect(() => {
-    if (Platform.OS !== 'web' || !isAuthenticated || requiresAssociation || isRequestingWebPush) {
+    if (Platform.OS !== 'web' || !hasSessionContext || isRequestingWebPush) {
       return;
     }
 
@@ -259,7 +260,7 @@ export default function TabLayout() {
     };
 
     void requestWebPushFromDialog();
-  }, [hasFirebaseConfig, hasVapid, isAuthenticated, isRequestingWebPush, requiresAssociation]);
+  }, [hasFirebaseConfig, hasSessionContext, hasVapid, isRequestingWebPush]);
 
   useEffect(() => {
     if (!isAuthenticated) {

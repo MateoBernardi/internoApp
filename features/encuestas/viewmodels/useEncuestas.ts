@@ -8,11 +8,12 @@ import {
     getRespuestasEncuesta
 } from '../services/encuestasApi';
 
-export function useGetEncuestas() {
+export function useGetEncuestas(enabled: boolean = true) {
     const { tokens } = useAuth();
 
     return useQuery({
         queryKey: ['encuestas'],
+        enabled: enabled && !!tokens?.accessToken,
         queryFn: async () => {
             const token = tokens?.accessToken;
             if (!token) {

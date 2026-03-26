@@ -9,17 +9,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  View,
+    ActivityIndicator,
+    Alert,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    TextInput,
+    TouchableOpacity,
+    TouchableWithoutFeedback,
+    View,
 } from 'react-native';
 import { RoleUserSelectionModal } from '../components/RoleUserSelectionModal';
 import { UserSelector } from '../components/UserSelector';
@@ -27,16 +27,31 @@ import { ValidacionFechasModal } from '../components/ValidacionFechasModal';
 import { EstadoInvitacionDB, estadoInvitacionMapping, ModificarSolicitudFechasRequest, ReenviarSolicitudRequest } from '../models/Solicitud';
 import { useCrearActividad } from '../viewmodels/useActividades';
 import {
-  useActualizarEstadoInvitacion,
-  useInvitaciones,
-  useModificarSolicitudFechas,
-  useReenviarSolicitud,
-  useSolicitudBitacora,
-  useSolicitudesCreadas
+    useActualizarEstadoInvitacion,
+    useInvitaciones,
+    useModificarSolicitudFechas,
+    useReenviarSolicitud,
+    useSolicitudBitacora,
+    useSolicitudesCreadas
 } from '../viewmodels/useSolicitudes';
 import { useValidacionFechas } from '../viewmodels/useValidacionFechas';
 
 const colors = Colors['light'];
+
+function normalizeToMinute(date: Date): Date {
+  const normalized = new Date(date);
+  normalized.setSeconds(0, 0);
+  return normalized;
+}
+
+function ceilToNextMinute(date: Date): Date {
+  const normalized = new Date(date);
+  if (normalized.getSeconds() > 0 || normalized.getMilliseconds() > 0) {
+    normalized.setMinutes(normalized.getMinutes() + 1);
+  }
+  normalized.setSeconds(0, 0);
+  return normalized;
+}
 
 // Para este ejemplo, asumimos que obtenemos la solicitud del caché o desde un parámetro
 export function Solicitud() {
@@ -223,10 +238,12 @@ export function Solicitud() {
   }, [solicitud]);
 
   const ejecutarModificar = useCallback(() => {
+      const normalizedStart = normalizeToMinute(modStartDate);
+      const normalizedEnd = normalizeToMinute(modEndDate);
       const payload: ModificarSolicitudFechasRequest = {
           solicitudId,
-          nuevaFechaInicio: modStartDate.toISOString(),
-          nuevaFechaFin: modEndDate.toISOString(),
+        nuevaFechaInicio: normalizedStart.toISOString(),
+        nuevaFechaFin: normalizedEnd.toISOString(),
           observacion: modObservation
       };
 
@@ -241,7 +258,23 @@ export function Solicitud() {
       });
   }, [solicitudId, modStartDate, modEndDate, modObservation, modificarSolicitud]);
 
+  const modStartDateNormalized = useMemo(() => normalizeToMinute(modStartDate), [modStartDate]);
+  const modEndDateNormalized = useMemo(() => normalizeToMinute(modEndDate), [modEndDate]);
+  const modNowThreshold = useMemo(
+    () => ceilToNextMinute(new Date()),
+    [modStartDate, modEndDate, showModifyModal]
+  );
+  const modDateErrorMessage = useMemo(() => {
+    if (modStartDateNormalized < modNowThreshold) return 'La fecha de inicio es menor a la actual.';
+    if (modEndDateNormalized <= modStartDateNormalized) return 'La fecha de fin debe ser mayor a la de inicio.';
+    return null;
+  }, [modStartDateNormalized, modEndDateNormalized, modNowThreshold]);
+
   const confirmModificar = useCallback(() => {
+      if (modDateErrorMessage) {
+        return;
+      }
+
       // Obtener participantes disponibles
       const participantes: number[] = [solicitud?.created_by ?? 0].filter(id => id > 0);
       if (user?.user_context_id) {
@@ -252,28 +285,29 @@ export function Solicitud() {
 
       validacion.validate(
         {
-          fechaInicio: modStartDate.toISOString(),
-          fechaFin: modEndDate.toISOString(),
+          fechaInicio: modStartDateNormalized.toISOString(),
+          fechaFin: modEndDateNormalized.toISOString(),
           participantes: uniqueParticipantes,
           solicitudIdExcluir: solicitudId,
         },
         () => ejecutarModificar()
       );
-  }, [solicitudId, modStartDate, modEndDate, solicitud, user, validacion, ejecutarModificar]);
+  }, [modDateErrorMessage, solicitudId, solicitud, user, validacion, ejecutarModificar, modStartDateNormalized, modEndDateNormalized]);
 
   const onDateChange = (event: any, selectedDate?: Date) => {
       const currentTarget = showDatePicker.target;
       setShowDatePicker(prev => ({ ...prev, show: Platform.OS === 'ios' })); // En Android se cierra
       
       if (selectedDate && event.type !== 'dismissed') {
+          const normalizedSelectedDate = normalizeToMinute(selectedDate);
           if (currentTarget === 'start') {
-              setModStartDate(selectedDate);
+            setModStartDate(normalizedSelectedDate);
               // Validar fin
-              if (selectedDate > modEndDate) {
-                  setModEndDate(new Date(selectedDate.getTime() + 3600000));
+            if (normalizedSelectedDate > modEndDate) {
+              setModEndDate(normalizeToMinute(new Date(normalizedSelectedDate.getTime() + 3600000)));
               }
           } else {
-              setModEndDate(selectedDate);
+            setModEndDate(normalizedSelectedDate);
           }
       }
       
@@ -296,11 +330,11 @@ export function Solicitud() {
   const handleAgregarAAgenda = useCallback(() => {
     // Prellena fechas desde la solicitud si existen
     if (solicitud?.fecha_inicio && solicitud?.fecha_fin) {
-      setAgendaFechaInicio(new Date(solicitud.fecha_inicio));
-      setAgendaFechaFin(new Date(solicitud.fecha_fin));
+      setAgendaFechaInicio(normalizeToMinute(new Date(solicitud.fecha_inicio)));
+      setAgendaFechaFin(normalizeToMinute(new Date(solicitud.fecha_fin)));
     } else {
-      setAgendaFechaInicio(new Date());
-      setAgendaFechaFin(new Date(Date.now() + 3600000));
+      setAgendaFechaInicio(normalizeToMinute(new Date()));
+      setAgendaFechaFin(normalizeToMinute(new Date(Date.now() + 3600000)));
     }
     setShowAddToAgendaModal(true);
   }, [solicitud]);
@@ -311,27 +345,39 @@ export function Solicitud() {
       setShowAgendaDatePicker(prev => ({ ...prev, show: false }));
     }
     if (selectedDate && event.type !== 'dismissed') {
+      const normalizedSelectedDate = normalizeToMinute(selectedDate);
       if (currentTarget === 'start') {
-        setAgendaFechaInicio(selectedDate);
-        if (selectedDate >= agendaFechaFin) {
-          setAgendaFechaFin(new Date(selectedDate.getTime() + 3600000));
+        setAgendaFechaInicio(normalizedSelectedDate);
+        if (normalizedSelectedDate >= agendaFechaFin) {
+          setAgendaFechaFin(normalizeToMinute(new Date(normalizedSelectedDate.getTime() + 3600000)));
         }
       } else {
-        setAgendaFechaFin(selectedDate);
+        setAgendaFechaFin(normalizedSelectedDate);
       }
     }
   };
 
+  const agendaStartDate = useMemo(() => normalizeToMinute(agendaFechaInicio), [agendaFechaInicio]);
+  const agendaEndDate = useMemo(() => normalizeToMinute(agendaFechaFin), [agendaFechaFin]);
+  const agendaNow = useMemo(() => ceilToNextMinute(new Date()), [agendaFechaInicio, agendaFechaFin, showAddToAgendaModal]);
+  const agendaDateErrorMessage = useMemo(() => {
+    if (agendaStartDate < agendaNow) return 'La fecha de inicio es menor a la actual.';
+    if (agendaEndDate <= agendaStartDate) return 'La fecha de fin debe ser mayor a la de inicio.';
+    return null;
+  }, [agendaStartDate, agendaEndDate, agendaNow]);
+
   const ejecutarAgregarAAgenda = useCallback(() => {
     if (!solicitud) return;
     const esReunion = solicitud.tipo_actividad === 'REUNION';
+    const start = normalizeToMinute(agendaFechaInicio);
+    const end = normalizeToMinute(agendaFechaFin);
 
     crearActividad(
       {
         titulo: solicitud.titulo,
         descripcion: solicitud.descripcion,
-        fecha_inicio: agendaFechaInicio.toISOString(),
-        fecha_fin: agendaFechaFin.toISOString(),
+        fecha_inicio: start.toISOString(),
+        fecha_fin: end.toISOString(),
         solicitud_id: solicitud.solicitud_id,
         // Para REUNION: enviar todos los participantes aceptados
         ...(esReunion ? { participantes: participantesAceptados } : {}),
@@ -352,8 +398,7 @@ export function Solicitud() {
   }, [agendaFechaInicio, agendaFechaFin, solicitud, crearActividad, participantesAceptados]);
 
   const confirmAgregarAAgenda = useCallback(() => {
-    if (agendaFechaInicio >= agendaFechaFin) {
-      Alert.alert('Error', 'La fecha de fin debe ser posterior a la de inicio');
+    if (agendaDateErrorMessage) {
       return;
     }
     if (!solicitud) return;
@@ -367,14 +412,15 @@ export function Solicitud() {
 
     validacion.validate(
       {
-        fechaInicio: agendaFechaInicio.toISOString(),
-        fechaFin: agendaFechaFin.toISOString(),
+        fechaInicio: agendaStartDate.toISOString(),
+        fechaFin: agendaEndDate.toISOString(),
         participantes,
+        tipo_actividad: solicitud.tipo_actividad,
         actividadIdExcluir: null,
       },
       () => ejecutarAgregarAAgenda()
     );
-  }, [agendaFechaInicio, agendaFechaFin, solicitud, user, validacion, ejecutarAgregarAAgenda, participantesAceptados]);
+  }, [agendaDateErrorMessage, solicitud, user, validacion, ejecutarAgregarAAgenda, participantesAceptados, agendaStartDate, agendaEndDate]);
 
   const ejecutarCompartir = useCallback(() => {
     const payload: ReenviarSolicitudRequest = {
@@ -408,6 +454,7 @@ export function Solicitud() {
           fechaInicio: solicitud!.fecha_inicio!,
           fechaFin: solicitud!.fecha_fin!,
           participantes: selectedUsersToShare.map(u => u.user_context_id),
+          tipo_actividad: solicitud!.tipo_actividad,
           solicitudIdExcluir: solicitudId,
         },
         () => ejecutarCompartir()
@@ -732,7 +779,7 @@ export function Solicitud() {
                           <ThemedText>{modStartDate.toLocaleDateString('es-AR')}</ThemedText>
                       </TouchableOpacity>
                       <TouchableOpacity onPress={() => showPicker('time', 'start')} style={styles.dateBtn}>
-                           <ThemedText>{modStartDate.toLocaleTimeString()}</ThemedText>
+                          <ThemedText>{modStartDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</ThemedText>
                       </TouchableOpacity>
                   </View>
 
@@ -742,7 +789,7 @@ export function Solicitud() {
                           <ThemedText>{modEndDate.toLocaleDateString('es-AR')}</ThemedText>
                       </TouchableOpacity>
                       <TouchableOpacity onPress={() => showPicker('time', 'end')} style={styles.dateBtn}>
-                           <ThemedText>{modEndDate.toLocaleTimeString()}</ThemedText>
+                          <ThemedText>{modEndDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</ThemedText>
                       </TouchableOpacity>
                   </View>
 
@@ -754,11 +801,17 @@ export function Solicitud() {
                       onChangeText={setModObservation}
                   />
 
+                    {modDateErrorMessage && (
+                      <ThemedText style={{ color: colors.error, fontSize: 12, marginBottom: 8 }}>
+                      {modDateErrorMessage}
+                      </ThemedText>
+                    )}
+
                   <View style={styles.modalActions}>
                       <TouchableOpacity onPress={() => setShowModifyModal(false)} style={styles.modalBtnCancel}>
                           <ThemedText style={{color: colors.error}}>Cancelar</ThemedText>
                       </TouchableOpacity>
-                      <TouchableOpacity onPress={confirmModificar} style={styles.modalBtnConfirm}>
+                      <TouchableOpacity onPress={confirmModificar} style={[styles.modalBtnConfirm, { opacity: modDateErrorMessage ? 0.5 : 1 }]} disabled={isModifying || !!modDateErrorMessage}>
                           {isModifying ? <ActivityIndicator color={colors.background}/> : <ThemedText style={{color: colors.background}}>Guardar</ThemedText>}
                       </TouchableOpacity>
                   </View>
@@ -857,9 +910,9 @@ export function Solicitud() {
                 </TouchableOpacity>
               </View>
 
-              {agendaFechaInicio >= agendaFechaFin && (
+              {agendaDateErrorMessage && (
                 <ThemedText style={{color: colors.error, fontSize: 12, marginBottom: 8}}>
-                  La fecha de fin debe ser posterior a la de inicio
+                  {agendaDateErrorMessage}
                 </ThemedText>
               )}
 
@@ -869,8 +922,8 @@ export function Solicitud() {
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={confirmAgregarAAgenda}
-                  style={[styles.modalBtnConfirm, { opacity: agendaFechaInicio >= agendaFechaFin ? 0.5 : 1 }]}
-                  disabled={isCreatingActividad || agendaFechaInicio >= agendaFechaFin}
+                  style={[styles.modalBtnConfirm, { opacity: agendaDateErrorMessage ? 0.5 : 1 }]}
+                  disabled={isCreatingActividad || !!agendaDateErrorMessage}
                 >
                   {isCreatingActividad
                     ? <ActivityIndicator color={colors.background}/>

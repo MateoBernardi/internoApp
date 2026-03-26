@@ -82,7 +82,6 @@ export interface ValidarVerificacionResponse {
   message: string;
   accessToken?: string;
   refreshToken?: string;
-  csrfToken?: string;
   asociacion?: {
     id: number;
     id_usuario: number;

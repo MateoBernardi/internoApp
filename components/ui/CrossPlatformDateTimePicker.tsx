@@ -96,6 +96,7 @@ function applyDateToBase(base: Date, value: string): Date | null {
 
   const next = new Date(base);
   next.setFullYear(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  next.setSeconds(0, 0);
   return next;
 }
 
@@ -106,6 +107,12 @@ function applyTimeToBase(base: Date, value: string): Date | null {
   const next = new Date(base);
   next.setHours(Number(match[1]), Number(match[2]), 0, 0);
   return next;
+}
+
+function normalizeToMinute(date: Date): Date {
+  const normalized = new Date(date);
+  normalized.setSeconds(0, 0);
+  return normalized;
 }
 
 export default function CrossPlatformDateTimePicker(props: CrossPlatformDateTimePickerProps) {
@@ -153,12 +160,13 @@ export default function CrossPlatformDateTimePicker(props: CrossPlatformDateTime
       }
 
       changed = true;
+      const normalizedDate = normalizeToMinute(nextDate);
       onChange?.(
         {
           type: 'set',
-          nativeEvent: { timestamp: nextDate.getTime() },
+          nativeEvent: { timestamp: normalizedDate.getTime() },
         },
-        nextDate
+        normalizedDate
       );
     };
 
@@ -202,7 +210,14 @@ export default function CrossPlatformDateTimePicker(props: CrossPlatformDateTime
       <NativeDateTimePicker
         value={value}
         mode={mode}
-        onChange={onChange as any}
+        onChange={(event: any, selectedDate?: Date) => {
+          if (!selectedDate) {
+            onChange?.(event, selectedDate);
+            return;
+          }
+
+          onChange?.(event, normalizeToMinute(selectedDate));
+        }}
         testID={testID}
         {...(nativeProps as any)}
       />

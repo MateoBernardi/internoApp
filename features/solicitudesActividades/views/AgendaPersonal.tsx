@@ -38,6 +38,27 @@ import { useValidacionFechas } from '../viewmodels/useValidacionFechas';
 
 const colors = Colors['light'];
 
+function normalizeToMinute(date: Date): Date {
+  const normalized = new Date(date);
+  normalized.setSeconds(0, 0);
+  return normalized;
+}
+
+function ceilToNextMinute(date: Date): Date {
+  const normalized = new Date(date);
+  if (normalized.getSeconds() > 0 || normalized.getMilliseconds() > 0) {
+    normalized.setMinutes(normalized.getMinutes() + 1);
+  }
+  normalized.setSeconds(0, 0);
+  return normalized;
+}
+
+function buildDateTimeFromDateAndTime(date: string, time: Date): Date {
+  const [year, month, day] = date.split('-').map(Number);
+  const merged = new Date(year, (month ?? 1) - 1, day ?? 1, time.getHours(), time.getMinutes(), 0, 0);
+  return normalizeToMinute(merged);
+}
+
 const AgendaPersonal: React.FC = () => {
   // Queries
   const actividadesSemanalesQuery = useActividadesSemanales();
@@ -84,6 +105,7 @@ const AgendaPersonal: React.FC = () => {
   const isMutating =
     crearActividadMutation.isPending ||
     cancelarActividadMutation.isPending;
+  const isValidationInProgress = validacion.state === 'validating' || validacion.state === 'warnings';
 
   // Mapear actividades desde la API
   const mapActivities = (apiActivities: Actividad[]): Activity[] => {
@@ -181,49 +203,72 @@ const AgendaPersonal: React.FC = () => {
 
     if (!selectedDate) return;
 
+    const normalizedSelectedDate = normalizeToMinute(selectedDate);
+
     if (activeDateType === 'startDate') {
       setNewActivity((prev) => ({
         ...prev,
-        date: selectedDate.toISOString().split('T')[0],
-        startTime: selectedDate,
+        date: normalizedSelectedDate.toISOString().split('T')[0],
+        startTime: normalizedSelectedDate,
       }));
       setActiveDateType(null);
     } else if (activeDateType === 'startTime') {
       const [date] = newActivity.date.split('T');
-      const hours = String(selectedDate.getHours()).padStart(2, '0');
-      const minutes = String(selectedDate.getMinutes()).padStart(2, '0');
+      const hours = String(normalizedSelectedDate.getHours()).padStart(2, '0');
+      const minutes = String(normalizedSelectedDate.getMinutes()).padStart(2, '0');
       const updated = new Date(`${date}T${hours}:${minutes}`);
       setNewActivity((prev) => ({
         ...prev,
-        startTime: updated,
+        startTime: normalizeToMinute(updated),
       }));
       setActiveDateType(null);
     } else if (activeDateType === 'endTime') {
       const [date] = newActivity.date.split('T');
-      const hours = String(selectedDate.getHours()).padStart(2, '0');
-      const minutes = String(selectedDate.getMinutes()).padStart(2, '0');
+      const hours = String(normalizedSelectedDate.getHours()).padStart(2, '0');
+      const minutes = String(normalizedSelectedDate.getMinutes()).padStart(2, '0');
       const updated = new Date(`${date}T${hours}:${minutes}`);
       setNewActivity((prev) => ({
         ...prev,
-        endTime: updated,
+        endTime: normalizeToMinute(updated),
       }));
       setActiveDateType(null);
     }
   };
 
+  const startDateTime = useMemo(
+    () => buildDateTimeFromDateAndTime(newActivity.date, newActivity.startTime),
+    [newActivity.date, newActivity.startTime]
+  );
+  const endDateTime = useMemo(
+    () => buildDateTimeFromDateAndTime(newActivity.date, newActivity.endTime),
+    [newActivity.date, newActivity.endTime]
+  );
+  const now = useMemo(
+    () => ceilToNextMinute(new Date()),
+    [newActivity.date, newActivity.startTime, newActivity.endTime, showAddForm]
+  );
+  const activityDateErrorMessage = useMemo(() => {
+    if (startDateTime < now) return 'La fecha de inicio es menor a la actual.';
+    if (endDateTime <= startDateTime) return 'La fecha de fin debe ser mayor a la de inicio.';
+    return null;
+  }, [startDateTime, endDateTime, now]);
+
   const handleStartDate = () => {
+    if (isValidationInProgress) return;
     setActiveDateType('startDate');
     setDatePickerMode('date');
     setShowDatePicker(true);
   };
 
   const handleStartTime = () => {
+    if (isValidationInProgress) return;
     setActiveDateType('startTime');
     setDatePickerMode('time');
     setShowDatePicker(true);
   };
 
   const handleEndTime = () => {
+    if (isValidationInProgress) return;
     setActiveDateType('endTime');
     setDatePickerMode('time');
     setShowDatePicker(true);
@@ -251,7 +296,11 @@ const AgendaPersonal: React.FC = () => {
 
     try {
       const actividadId = Number(activity.id);
-      await cancelarActividadMutation.mutateAsync({ actividadId, actividad_id: actividadId });
+      if (!Number.isFinite(actividadId)) {
+        Alert.alert('Error', 'No se pudo identificar la actividad a eliminar.');
+        return;
+      }
+      await cancelarActividadMutation.mutateAsync({ actividadId });
       Alert.alert('Éxito', 'Actividad cancelada correctamente.');
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Intenta nuevamente');
@@ -266,14 +315,14 @@ const AgendaPersonal: React.FC = () => {
     });
   }, [router]);
 
-  const ejecutarCrearActividad = useCallback(async (fechaInicio: string, fechaFin: string) => {
+  const ejecutarCrearActividad = useCallback(async (payload: {
+    titulo: string;
+    descripcion: string;
+    fecha_inicio: string;
+    fecha_fin: string;
+  }) => {
     try {
-      await crearActividadMutation.mutateAsync({
-        titulo: newActivity.title,
-        descripcion: newActivity.description,
-        fecha_inicio: fechaInicio,
-        fecha_fin: fechaFin,
-      });
+      await crearActividadMutation.mutateAsync(payload);
 
       setNewActivity({
         date: today.toISOString().split('T')[0],
@@ -287,21 +336,33 @@ const AgendaPersonal: React.FC = () => {
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Intenta nuevamente');
     }
-  }, [crearActividadMutation, newActivity.title, newActivity.description, today]);
+  }, [crearActividadMutation, today]);
 
   const handleAddActivity = async () => {
+    if (isValidationInProgress) return;
+
     if (!newActivity.title.trim()) {
       Alert.alert('Error', 'El título es requerido');
       return;
     }
 
-    const startHours = String(newActivity.startTime.getHours()).padStart(2, '0');
-    const startMinutes = String(newActivity.startTime.getMinutes()).padStart(2, '0');
-    const endHours = String(newActivity.endTime.getHours()).padStart(2, '0');
-    const endMinutes = String(newActivity.endTime.getMinutes()).padStart(2, '0');
+    if (activityDateErrorMessage) {
+      return;
+    }
+
+    const startHours = String(startDateTime.getHours()).padStart(2, '0');
+    const startMinutes = String(startDateTime.getMinutes()).padStart(2, '0');
+    const endHours = String(endDateTime.getHours()).padStart(2, '0');
+    const endMinutes = String(endDateTime.getMinutes()).padStart(2, '0');
 
     const fechaInicio = `${newActivity.date}T${startHours}:${startMinutes}:00`;
     const fechaFin = `${newActivity.date}T${endHours}:${endMinutes}:00`;
+    const payload = {
+      titulo: newActivity.title.trim(),
+      descripcion: newActivity.description,
+      fecha_inicio: fechaInicio,
+      fecha_fin: fechaFin,
+    };
 
     const participantes: number[] = [];
     if (user?.user_context_id) {
@@ -315,7 +376,7 @@ const AgendaPersonal: React.FC = () => {
         participantes,
         actividadIdExcluir: null,
       },
-      () => ejecutarCrearActividad(fechaInicio, fechaFin)
+      () => ejecutarCrearActividad(payload)
     );
   };
 
@@ -465,6 +526,10 @@ const AgendaPersonal: React.FC = () => {
                   </TouchableOpacity>
                 </View>
 
+                {activityDateErrorMessage && (
+                  <Text style={styles.errorTextInline}>{activityDateErrorMessage}</Text>
+                )}
+
                 {/* Fecha */}
                 <View style={styles.dateSection}>
                   <TouchableOpacity onPress={handleStartDate} style={styles.dateRow}>
@@ -562,10 +627,10 @@ const AgendaPersonal: React.FC = () => {
                   <TouchableOpacity
                     style={[
                       styles.submitButton,
-                      !newActivity.title.trim() && styles.submitButtonDisabled,
+                      (!newActivity.title.trim() || !!activityDateErrorMessage) && styles.submitButtonDisabled,
                     ]}
                     onPress={handleAddActivity}
-                    disabled={!newActivity.title.trim() || isMutating}
+                    disabled={!newActivity.title.trim() || !!activityDateErrorMessage || isMutating || isValidationInProgress}
                   >
                     {isMutating ? (
                       <ActivityIndicator color="#FFFFFF" size="small" />
@@ -695,6 +760,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#5f6368',
     marginTop: 12,
+  },
+  errorTextInline: {
+    color: colors.error,
+    fontSize: 12,
+    marginTop: 8,
   },
 
   // Floating Action Button

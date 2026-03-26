@@ -55,7 +55,9 @@ function shouldUseReactiveRetry(endpoint: string, token: string): boolean {
 }
 
 function isAuthStatus(status: number): boolean {
-  return status === 401 || status === 403;
+  // 403 usually means forbidden by role/permissions, not an expired token.
+  // Retrying refresh on 403 causes noisy request storms.
+  return status === 401;
 }
 
 function buildRequestInit(

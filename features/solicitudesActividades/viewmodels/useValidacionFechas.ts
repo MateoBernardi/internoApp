@@ -8,6 +8,8 @@ interface ValidateParams {
     fechaInicio: string;
     fechaFin: string;
     participantes: number[];
+    tipo_actividad?: 'REUNION' | 'MANDATO';
+    tipoActividad?: 'REUNION' | 'MANDATO';
     solicitudIdExcluir?: number;
     actividadIdExcluir?: number | null;
 }
@@ -74,6 +76,8 @@ export function useValidacionFechas() {
                 fecha_inicio: params.fechaInicio,
                 fecha_fin: params.fechaFin,
                 participantes: params.participantes,
+                ...(params.tipo_actividad !== undefined ? { tipo_actividad: params.tipo_actividad } : {}),
+                ...(params.tipoActividad !== undefined ? { tipoActividad: params.tipoActividad } : {}),
                 ...(params.solicitudIdExcluir !== undefined ? { solicitudIdExcluir: params.solicitudIdExcluir } : {}),
                 ...(params.actividadIdExcluir !== undefined ? { actividadIdExcluir: params.actividadIdExcluir } : {}),
             };

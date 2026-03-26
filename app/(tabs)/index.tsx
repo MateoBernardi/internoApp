@@ -25,14 +25,16 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const canSeeSolicitudes = isEmployeeOrEncargado();
+  const isUserContextReady = Boolean(user?.user_context_id);
+  const shouldEnableHomeQueries = canSeeSolicitudes && isUserContextReady;
   const containerPaddingTop = Platform.OS === 'web' ? 0 : '10%';
 
-  const { isLoading: isLoadingEncuestas } = useGetEncuestas();
-  const { isLoading: isLoadingInvitaciones } = useInvitaciones(canSeeSolicitudes);
-  const { isLoading: isLoadingEnviadas } = useSolicitudesCreadas(canSeeSolicitudes);
+  const { isLoading: isLoadingEncuestas } = useGetEncuestas(shouldEnableHomeQueries);
+  const { isLoading: isLoadingInvitaciones } = useInvitaciones(shouldEnableHomeQueries);
+  const { isLoading: isLoadingEnviadas } = useSolicitudesCreadas(shouldEnableHomeQueries);
 
   const showHomeSkeleton =
-    canSeeSolicitudes &&
+    shouldEnableHomeQueries &&
     (isLoadingEncuestas || isLoadingInvitaciones || isLoadingEnviadas);
 
   const handleRefresh = useCallback(async () => {
@@ -53,8 +55,8 @@ export default function HomeScreen() {
         <>
       {/* Sección superior: novedades y encuestas */}
       <View style={styles.topSection}>
-        <TablonNovedades refreshTrigger={refreshTrigger} />
-        <EncuestasPendientes />
+        <TablonNovedades refreshTrigger={refreshTrigger} enabled={isUserContextReady} />
+        <EncuestasPendientes enabled={shouldEnableHomeQueries} />
       </View>
 
       {/* Sección principal: solicitudes o kanban (fuera del ScrollView para que el FAB flote) */}

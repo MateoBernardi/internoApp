@@ -3,18 +3,22 @@ import { Colors } from '@/constants/theme';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import {
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { useGetEncuestas } from '../viewmodels/useEncuestas';
 
 const colors = Colors['light'];
 
-export function EncuestasPendientes() {
+interface EncuestasPendientesProps {
+  enabled?: boolean;
+}
+
+export function EncuestasPendientes({ enabled = true }: EncuestasPendientesProps) {
   const router = useRouter();
-  const { data: encuestas, error } = useGetEncuestas();
+  const { data: encuestas, error } = useGetEncuestas(enabled);
 
   const handleVerPendientes = () => {
     router.push('/(extras)/encuestas-pendientes');

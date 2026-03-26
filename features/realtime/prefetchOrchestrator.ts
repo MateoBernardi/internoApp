@@ -37,6 +37,10 @@ export async function prefetchCoreRealtimeData(
       ? String(context.userContextId)
       : undefined;
 
+  if (!userId || !role) {
+    return;
+  }
+
   const tasks: Promise<unknown>[] = [];
 
   tasks.push(

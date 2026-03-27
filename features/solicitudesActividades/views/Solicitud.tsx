@@ -9,17 +9,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    TextInput,
-    TouchableOpacity,
-    TouchableWithoutFeedback,
-    View,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  View,
 } from 'react-native';
 import { RoleUserSelectionModal } from '../components/RoleUserSelectionModal';
 import { UserSelector } from '../components/UserSelector';
@@ -27,12 +27,13 @@ import { ValidacionFechasModal } from '../components/ValidacionFechasModal';
 import { EstadoInvitacionDB, estadoInvitacionMapping, ModificarSolicitudFechasRequest, ReenviarSolicitudRequest } from '../models/Solicitud';
 import { useCrearActividad } from '../viewmodels/useActividades';
 import {
-    useActualizarEstadoInvitacion,
-    useInvitaciones,
-    useModificarSolicitudFechas,
-    useReenviarSolicitud,
-    useSolicitudBitacora,
-    useSolicitudesCreadas
+  useAceptarModificaciones,
+  useActualizarEstadoInvitacion,
+  useInvitaciones,
+  useModificarSolicitudFechas,
+  useReenviarSolicitud,
+  useSolicitudBitacora,
+  useSolicitudesCreadas
 } from '../viewmodels/useSolicitudes';
 import { useValidacionFechas } from '../viewmodels/useValidacionFechas';
 
@@ -63,6 +64,7 @@ export function Solicitud() {
 
   const { data: bitacora, isLoading: isLoadingBitacora } = useSolicitudBitacora(solicitudId);
   const { mutate: actualizarEstado, isPending: isUpdatingEstado } = useActualizarEstadoInvitacion();
+  const { mutate: aceptarModificaciones, isPending: isAcceptingModificaciones } = useAceptarModificaciones();
   const { mutate: modificarSolicitud, isPending: isModifying } = useModificarSolicitudFechas();
   const { mutate: reenviarSolicitud, isPending: isSharing } = useReenviarSolicitud();
   const { mutate: crearActividad, isPending: isCreatingActividad } = useCrearActividad();
@@ -71,7 +73,7 @@ export function Solicitud() {
   const { data: enviadas } = useSolicitudesCreadas();
   const { data: recibidas } = useInvitaciones();
 
-  const isMutating = isUpdatingEstado || isModifying || isSharing || isCreatingActividad;
+  const isMutating = isUpdatingEstado || isAcceptingModificaciones || isModifying || isSharing || isCreatingActividad;
 
   // Estados para modales
   const [showAcceptModal, setShowAcceptModal] = useState(false);
@@ -171,7 +173,7 @@ export function Solicitud() {
 
     // Para recibidas: SENT, MODIFIED_BY_HOST, ACCEPTED_BY_HOST -> SEEN
     if (type === 'recibida') {
-        const estadosVistos = ['SENT', 'MODIFIED_BY_HOST', 'ACCEPTED_BY_HOST'];
+        const estadosVistos = ['SENT', 'MODIFIED_BY_HOST', 'ACCEPTED_BY_HOST', 'MODIFIED'];
         if (estadosVistos.includes(solicitud.estado)) {
             actualizarEstado({
                 solicitudId: solicitud.solicitud_id,
@@ -203,6 +205,18 @@ export function Solicitud() {
         }
       );
   }, [solicitudId, actualizarEstado]);
+
+  const confirmAceptarModificaciones = useCallback(() => {
+      aceptarModificaciones(solicitudId, {
+        onSuccess: () => {
+          setShowAcceptModal(false);
+          Alert.alert('Éxito', 'Modificaciones aceptadas');
+        },
+        onError: (error) => {
+          Alert.alert('Error', error instanceof Error ? error.message : 'Intenta nuevamente');
+        },
+      });
+  }, [solicitudId, aceptarModificaciones]);
 
   const handleRechazar = useCallback(() => {
     Alert.alert('Rechazar solicitud', '¿Deseas rechazar esta solicitud?', [
@@ -521,6 +535,7 @@ export function Solicitud() {
   const fechaFin = solicitud?.fecha_fin ? new Date(solicitud.fecha_fin) : new Date();
   const fechaInicioPasada = hasDates ? fechaInicio < new Date() : false;
   const isExpiredState = solicitud?.estado === 'EXPIRED';
+  const isAceptarModificacionesFlow = type === 'enviada' && solicitud?.estado === 'MODIFIED';
   
   if (!solicitud && !enviadas && !recibidas) {
        return (
@@ -705,7 +720,7 @@ export function Solicitud() {
                 )}
                 
                 {/* Opciones para Enviadas */}
-                {type === 'enviada' && solicitud?.estado !== 'ACCEPTED' && solicitud?.estado !== 'REJECTED' && !fechaInicioPasada && (
+                {type === 'enviada' && solicitud?.estado !== 'ACCEPTED' && solicitud?.estado !== 'REJECTED' && solicitud?.estado !== 'ACCEPTED_BY_HOST' && !fechaInicioPasada && (
                   <>
                     <TouchableOpacity style={[styles.fab, { backgroundColor: colors.lightTint, marginRight: 16 }]} onPress={handleModificarPress}>
                         <Ionicons name="create-outline" size={24} color={colors.background} />
@@ -727,8 +742,11 @@ export function Solicitud() {
             </TouchableOpacity>
           )}
 
-          {/* Main Action: Accept (Recibida) - only if date not passed */}
-          {!esActividadCreada && !isExpiredState && !fechaInicioPasada && type === 'recibida' && solicitud?.estado !== 'ACCEPTED' && solicitud?.estado !== 'REJECTED' && solicitud?.estado !== 'MODIFIED' && (
+          {/* Main Action: Accept */}
+          {!esActividadCreada && !isExpiredState && !fechaInicioPasada && (
+            (type === 'recibida' && solicitud?.estado !== 'ACCEPTED' && solicitud?.estado !== 'REJECTED' && solicitud?.estado !== 'MODIFIED')
+            || (type === 'enviada' && solicitud?.estado === 'MODIFIED')
+          ) && (
                <TouchableOpacity style={[styles.fab, { backgroundColor: colors.success, marginRight: 16 }]} onPress={handleAceptarPress}>
                    <Ionicons name="checkmark" size={24} color={colors.background} />
                </TouchableOpacity>
@@ -748,14 +766,21 @@ export function Solicitud() {
           <View style={styles.modalOverlay}>
             <TouchableWithoutFeedback onPress={e => e.stopPropagation()}>
               <View style={styles.modalContent}>
-                  <ThemedText type="subtitle" style={{marginBottom: 16}}>Aceptar Solicitud</ThemedText>
-                  <ThemedText style={{marginBottom: 8}}>¿Confirmas que deseas aceptar esta solicitud?</ThemedText>
+                  <ThemedText type="subtitle" style={{marginBottom: 16}}>{isAceptarModificacionesFlow ? 'Aceptar Modificaciones' : 'Aceptar Solicitud'}</ThemedText>
+                  <ThemedText style={{marginBottom: 8}}>{isAceptarModificacionesFlow ? '¿Confirmas que deseas aceptar las modificaciones propuestas?' : '¿Confirmas que deseas aceptar esta solicitud?'}</ThemedText>
                   <View style={styles.modalActions}>
                       <TouchableOpacity onPress={() => setShowAcceptModal(false)} style={styles.modalBtnCancel}>
                           <ThemedText style={{color: colors.error}}>Cancelar</ThemedText>
                       </TouchableOpacity>
-                      <TouchableOpacity onPress={confirmAceptar} style={styles.modalBtnConfirm}>
-                          <ThemedText style={{color: colors.background}}>Aceptar</ThemedText>
+                      <TouchableOpacity
+                        onPress={isAceptarModificacionesFlow ? confirmAceptarModificaciones : confirmAceptar}
+                        style={styles.modalBtnConfirm}
+                        disabled={isUpdatingEstado || isAcceptingModificaciones}
+                      >
+                          {(isUpdatingEstado || isAcceptingModificaciones)
+                            ? <ActivityIndicator color={colors.background}/>
+                            : <ThemedText style={{color: colors.background}}>Aceptar</ThemedText>
+                          }
                       </TouchableOpacity>
                   </View>
               </View>

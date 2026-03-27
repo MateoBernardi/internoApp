@@ -1,7 +1,7 @@
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import type { UpdateUserRequest, UserSummary } from "./User";
+import type { UpdatePasswordRequest, UpdateUserRequest, UserSummary } from "./User";
 import { bajaUsuario, getUserByRole, searchUsers, updatePassword, updateUserData, updateUserRole } from "./userApi";
 import type { UsuarioEntidadDTO } from "./UserDTO";
 
@@ -101,7 +101,7 @@ export function useUpdatePassword() {
     const { tokens } = useAuth();
 
     return useMutation({
-        mutationFn: async ({ oldPassword, newPassword }: { oldPassword: string; newPassword: string }) => {
+        mutationFn: async ({ oldPassword, newPassword }: UpdatePasswordRequest) => {
             const token = tokens?.accessToken;
             if (!token) {
                 throw new Error('No hay token de acceso');

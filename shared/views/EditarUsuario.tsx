@@ -17,6 +17,7 @@ const USERNAME_REGEX = /^[a-zA-Z0-9_-]{3,}$/;
 type ValidationErrors = {
   username?: string;
   email?: string;
+  oldPassword?: string;
   newPassword?: string;
   confirmPassword?: string;
 };
@@ -31,9 +32,11 @@ export default function EditarUsuario() {
   const [email, setEmail] = useState(user?.email || '');
   const [isEditingUserData, setIsEditingUserData] = useState(false);
 
-  // Form state - Password (new + confirm only)
+  // Form state - Password (old + new + confirm)
+  const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showOldPassword, setShowOldPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -60,8 +63,11 @@ export default function EditarUsuario() {
   };
 
   // Validate password field
-  const validatePasswordField = (field: 'newPassword' | 'confirmPassword', value: string): string => {
+  const validatePasswordField = (field: 'oldPassword' | 'newPassword' | 'confirmPassword', value: string): string => {
     switch (field) {
+      case 'oldPassword':
+        if (!value.trim()) return 'La contraseña actual es requerida';
+        return '';
       case 'newPassword':
         if (!value.trim()) return 'La nueva contraseña es requerida';
         if (value.length < 8) return 'Debe tener al menos 8 caracteres';
@@ -85,8 +91,9 @@ export default function EditarUsuario() {
   };
 
   // Handle password field change
-  const handlePasswordChange = (field: 'newPassword' | 'confirmPassword', value: string) => {
-    if (field === 'newPassword') setNewPassword(value);
+  const handlePasswordChange = (field: 'oldPassword' | 'newPassword' | 'confirmPassword', value: string) => {
+    if (field === 'oldPassword') setOldPassword(value);
+    else if (field === 'newPassword') setNewPassword(value);
     else setConfirmPassword(value);
 
     const error = validatePasswordField(field, value);
@@ -106,12 +113,14 @@ export default function EditarUsuario() {
   // Check if password form is valid
   const isPasswordFormValid = useMemo(() => {
     return (
+      oldPassword.trim() !== '' &&
       newPassword.trim() !== '' &&
       confirmPassword.trim() !== '' &&
+      !validatePasswordField('oldPassword', oldPassword) &&
       !validatePasswordField('newPassword', newPassword) &&
       !validatePasswordField('confirmPassword', confirmPassword)
     );
-  }, [newPassword, confirmPassword]);
+  }, [oldPassword, newPassword, confirmPassword]);
 
   // Submit user data
   const handleSubmitUserData = useCallback(async () => {
@@ -139,15 +148,16 @@ export default function EditarUsuario() {
 
     try {
       setSuccessPasswordMessage('');
-      await updatePasswordMutation.mutateAsync({ oldPassword: '', newPassword });
+      await updatePasswordMutation.mutateAsync({ oldPassword, newPassword });
       setSuccessPasswordMessage('Contraseña actualizada exitosamente');
+      setOldPassword('');
       setNewPassword('');
       setConfirmPassword('');
       setTimeout(() => setSuccessPasswordMessage(''), 3000);
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Intenta nuevamente');
     }
-  }, [isPasswordFormValid, newPassword, updatePasswordMutation]);
+  }, [isPasswordFormValid, oldPassword, newPassword, updatePasswordMutation]);
 
   if (!user) {
     return (
@@ -282,6 +292,18 @@ export default function EditarUsuario() {
                   <ThemedText style={styles.successText}>{successPasswordMessage}</ThemedText>
                 </View>
               ) : null}
+
+              <InputWithIcon
+                icon="🔒"
+                placeholder="Contraseña actual"
+                value={oldPassword}
+                onChangeText={(v) => handlePasswordChange('oldPassword', v)}
+                secureTextEntry={!showOldPassword}
+                onToggleSecure={() => setShowOldPassword(!showOldPassword)}
+                hasError={!!errors.oldPassword}
+                textContentType="password"
+              />
+              {errors.oldPassword ? <ThemedText style={styles.errorText}>{errors.oldPassword}</ThemedText> : null}
 
               <InputWithIcon
                 icon="🔒"

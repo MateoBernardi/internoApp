@@ -71,7 +71,7 @@ export interface ArchivoAdjunto {
 // DTO para crear una solicitud
 export interface CreateSolicitudDTO {
   tipo_licencia_id: number;
-  fecha_inicio: string;       // YYYY-MM-DD
+  fecha_inicio: string;       // YYYY-MM-DD-HH:mm (formato completo para backend)
   cantidad_dias?: number | null;     // Días solicitados (múltiplos de 0.5), null si es 0
   cantidad_horas?: number | null;    // Horas solicitadas (múltiplos de 0.5), null si es 0
   observacion?: string;       // Opcional

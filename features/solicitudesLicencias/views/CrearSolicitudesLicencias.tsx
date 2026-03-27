@@ -41,10 +41,12 @@ function normalizeToMinute(date: Date): Date {
 type CantidadMode = 'dias' | 'horas';
 
 /** Formatea la fecha como YYYY-MM-DD para el backend */
-function formatDateYMD(date: Date): string {
+function formatDate(date: Date): string {
     const y = date.getFullYear();
     const m = String(date.getMonth() + 1).padStart(2, '0');
     const d = String(date.getDate()).padStart(2, '0');
+    const hh = String(date.getHours()).padStart(2, '0');
+    const mm = String(date.getMinutes()).padStart(2, '0');
     return `${y}-${m}-${d}`;
 }
 
@@ -205,11 +207,17 @@ export function CrearSolicitudesLicencias() {
     // --- Crear Solicitud ---
     const procederCrearSolicitud = useCallback(() => {
         if (isPending || isSubmittingRef.current) return;
+        if (!tipoLicenciaId) return;
+        if (!fechaInicio){
+            Alert.alert('La fecha de inicio es requerida.');
+            return;
+        }
+
         isSubmittingRef.current = true;
 
         const payload: CreateSolicitudDTO = {
             tipo_licencia_id: tipoLicenciaId!,
-            fecha_inicio: formatDateYMD(fechaInicio ?? new Date()),
+            fecha_inicio: formatDate(fechaInicio),
             observacion: observacion.trim() || undefined,
         };
 
@@ -238,8 +246,18 @@ export function CrearSolicitudesLicencias() {
                                 uso: ArchivoUso.LICENCIA,
                             },
                         });
+                        const archivoId = archivoSubido.data?.id;
+                        if (!archivoId) {
+                            setIsUploadingFile(false);
+                            Alert.alert(
+                            'Solicitud creada',
+                            'La solicitud fue creada pero no se pudo obtener el id del archivo para adjuntarlo.'
+                            );
+                            router.back();
+                            return;
+                        }
                         adjuntarArchivoMutation(
-                            { solicitudId: nuevaSolicitud.id, archivoId: archivoSubido.id },
+                            { solicitudId: nuevaSolicitud.id, archivoId },
                             {
                                 onSuccess: () => {
                                     setIsUploadingFile(false);

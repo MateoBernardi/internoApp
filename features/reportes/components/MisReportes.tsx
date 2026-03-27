@@ -59,7 +59,7 @@ export function MisReportes() {
 			<ThemedText type="subtitle" style={styles.title}>Mis Reportes</ThemedText>
 			{(!reportes || reportes.length === 0) ? (
 				<View style={styles.centerContainer}>
-					<ThemedText type="subtitle">No hay reportes enviados</ThemedText>
+					<ThemedText type="subtitle">No hay nada para mostar aún.</ThemedText>
 				</View>
 			) : (
 				<OwnFlatList

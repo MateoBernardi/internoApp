@@ -128,7 +128,7 @@ export function CambiarRolEmpleado() {
           style: 'destructive',
           onPress: async () => {
             try {
-              await bajaMutation.mutateAsync(selectedUser.user_context_id);
+              await bajaMutation.mutateAsync(selectedUser.id_usuario);
               Alert.alert(
                 'Éxito',
                 `El usuario ${selectedUser.nombre} ${selectedUser.apellido} ha sido dado de baja.`

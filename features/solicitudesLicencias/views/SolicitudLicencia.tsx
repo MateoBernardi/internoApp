@@ -9,25 +9,25 @@ import * as DocumentPicker from 'expo-document-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Linking,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Linking,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { EstadoSolicitud } from '../models/SolicitudLicencia';
 import { formatCantidadLicencia } from '../utils/formatCantidad';
 import {
-    useAdjuntarArchivo,
-    useAprobarSolicitudLicencia,
-    useCancelarSolicitudLicencia,
-    useGetSolicitudesLicencias,
-    useGetSolicitudesUsuario,
-    useRechazarSolicitudLicencia,
+  useAdjuntarArchivo,
+  useAprobarSolicitudLicencia,
+  useCancelarSolicitudLicencia,
+  useGetSolicitudesLicencias,
+  useGetSolicitudesUsuario,
+  useRechazarSolicitudLicencia,
 } from '../viewmodels/useSolicitudes';
 
 const estadoMapping: Record<EstadoSolicitud, string> = {
@@ -242,10 +242,13 @@ export function SolicitudLicencia() {
             uso: ArchivoUso.LICENCIA,
           },
         });
+        if (!archivoSubido.data) {
+          throw new Error('No se recibió información del archivo subido');
+        }
         adjuntarArchivoMutation(
           {
             solicitudId,
-            archivoId: archivoSubido.id,
+            archivoId: archivoSubido.data?.id,
           },
           {
             onSuccess: () => {
@@ -286,9 +289,12 @@ export function SolicitudLicencia() {
     ['PENDIENTE', 'PENDIENTE_APROBACION'].includes(solicitud.estado) &&
     !isExpiredState;
   const isExpired = solicitud.fecha_fin ? new Date(solicitud.fecha_fin) < new Date() : false;
-  const hasStarted = solicitud.fecha_inicio
-    ? new Date(`${solicitud.fecha_inicio}T00:00:00`).getTime() <= Date.now()
-    : false;
+  const hasStarted = (() => {
+    if (!solicitud.fecha_inicio) return false;
+    const startMS = new Date(solicitud.fecha_inicio).getTime();
+    if (Number.isNaN(startMS)) return false;
+    return startMS <= Date.now();
+  })();
   const canCancel =
     isFromSentView &&
     isCreator &&
@@ -350,11 +356,6 @@ export function SolicitudLicencia() {
             </ThemedText>
           </View>
 
-          <View style={styles.dateRow}>
-            <ThemedText style={styles.dateValue}>
-              {fechaFin.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}
-            </ThemedText>
-          </View>
         </View>
 
         {/* Solicitante */}

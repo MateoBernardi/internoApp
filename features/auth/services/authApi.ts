@@ -41,7 +41,7 @@ export async function logout(refreshToken: string) {
 }
 
 export async function getUserContext(accessToken: string): Promise<UserContext> {
-  const response = await apiRequest({method: "GET", endpoint: "/auth/usuario-contexto", token: accessToken});
+  const response = await apiRequest({method: "GET", endpoint: "/auth/context", token: accessToken});
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
     throw new Error(data.message || data.error || 'Intenta nuevamente');

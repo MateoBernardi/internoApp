@@ -21,7 +21,13 @@ import { useArchivos, useCarpetas, useDeleteArchivo, useGetArchivoUrlFirmada, us
 
 const colors = Colors['light'];
 
-export default function DocumentosEmpresa({ query = '', selectedFolderId }: { query?: string; selectedFolderId?: number | null }) {
+type DocumentosEmpresaProps = {
+  query?: string;
+  selectedFolderId?: number | null;
+  listHeader?: React.ReactElement | null;
+};
+
+export default function DocumentosEmpresa({ query = '', selectedFolderId, listHeader = null }: DocumentosEmpresaProps) {
   const { user } = useAuth();
   const { data: carpetasData } = useCarpetas('list', true);
   const [fileToEdit, setFileToEdit] = useState<Archivo | null>(null);
@@ -172,6 +178,7 @@ export default function DocumentosEmpresa({ query = '', selectedFolderId }: { qu
           data={filteredData || []}
             renderItem={renderItem}
             keyExtractor={(item) => item.id.toString()}
+            ListHeaderComponent={listHeader}
             contentContainerStyle={styles.listContent}
             ItemSeparatorComponent={renderSeparator}
             ListEmptyComponent={

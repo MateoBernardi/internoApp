@@ -1,6 +1,6 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
-import { Colors, Layout } from '@/constants/theme';
+import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { triggerWebPushPermissionPrompt } from '@/features/devices/hooks/useRegisterDevice';
 import { useReportes } from '@/features/reportes/viewmodels/useReportes';
@@ -12,6 +12,7 @@ import {
   useGetSolicitudesLicencias,
   useGetSolicitudesUsuario,
 } from '@/features/solicitudesLicencias/viewmodels/useSolicitudes';
+import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
 import Constants from 'expo-constants';
 import { Href, Redirect, Tabs, useRouter, useSegments } from 'expo-router';
@@ -49,8 +50,9 @@ export default function TabLayout() {
     }
   }, [shouldRedirectUnknownRole, signOut]);
 
-  const isEmployeeUser = isEmployee();
-  const isEncargado = hasRole('encargado');
+  const isRolePending = !user?.rol_nombre;
+  const isEmployeeUser = isRolePending || isEmployee();
+  const isEncargado = !isRolePending && hasRole('encargado');
   const hideExplore = isEmployeeUser || isEncargado;
   const hideAdmin = isEmployeeUser;
   const hasSolicitudesTab = !hideExplore;
@@ -68,7 +70,8 @@ export default function TabLayout() {
   const [containerWidth, setContainerWidth] = useState(0);
   const [isRequestingWebPush, setIsRequestingWebPush] = useState(false);
   const hasShownWebPushDialogRef = useRef(false);
-  const isDesktopWeb = Platform.OS === 'web' && containerWidth >= Layout.web.desktopMinWidth;
+  const responsiveLayout = useResponsiveLayout();
+  const isDesktopWeb = Platform.OS === 'web' && responsiveLayout.isDesktop;
   const currentTab = useMemo(() => (segments[1] as string) || 'index', [segments]);
   const firebaseConfig = Constants.expoConfig?.extra?.FIREBASE_WEB;
   const hasFirebaseConfig =

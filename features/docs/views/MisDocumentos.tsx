@@ -20,7 +20,13 @@ import { useArchivosPersonales, useCarpetas, useDeleteArchivo, useGetArchivoUrlF
 
 const colors = Colors['light'];
 
-export default function MisDocumentos({ query = '', selectedFolderId }: { query?: string; selectedFolderId?: number | null }) {
+type MisDocumentosProps = {
+  query?: string;
+  selectedFolderId?: number | null;
+  listHeader?: React.ReactElement | null;
+};
+
+export default function MisDocumentos({ query = '', selectedFolderId, listHeader = null }: MisDocumentosProps) {
   const { user } = useAuth();
   const { data: carpetasData } = useCarpetas('list', true);
 
@@ -174,6 +180,7 @@ export default function MisDocumentos({ query = '', selectedFolderId }: { query?
           data={filteredData || []}
             renderItem={renderItem}
             keyExtractor={(item) => item.id.toString()}
+            ListHeaderComponent={listHeader}
             contentContainerStyle={styles.listContent}
             ItemSeparatorComponent={renderSeparator}
             ListEmptyComponent={

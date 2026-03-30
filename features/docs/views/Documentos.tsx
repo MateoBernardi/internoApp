@@ -10,7 +10,7 @@ import { showGlobalToast } from '@/shared/ui/toast';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Modal, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Modal, Platform, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CrearDocumento } from '../components/CrearDocumento';
 import { DocumentOptionAction, DocumentOptionsModal } from '../components/DocumentOptionsModal';
@@ -91,6 +91,49 @@ export default function Documentos() {
   }, [currentFolderId, foldersById]);
 
   const isSearchingWithResults = query.trim().length > 0 && (searchResults?.length || 0) > 0;
+
+  const folderHeader = !isSearchingWithResults ? (
+    <View style={styles.folderSection}>
+      <View style={styles.breadcrumbRow}>
+        <TouchableOpacity style={styles.homeButton} onPress={() => setCurrentFolderId(null)}>
+          <Ionicons name="home-outline" size={14} color={colors.tint} />
+        </TouchableOpacity>
+        {breadcrumbs.map((item) => (
+          <View key={item.id} style={styles.breadcrumbItem}>
+            <Ionicons name="chevron-forward" size={14} color={colors.secondaryText} />
+            <TouchableOpacity onPress={() => item.id !== null && setCurrentFolderId(item.id)}>
+              <ThemedText numberOfLines={1} style={styles.breadcrumbText}>{item.nombre}</ThemedText>
+            </TouchableOpacity>
+          </View>
+        ))}
+      </View>
+
+      <View style={styles.folderList}>
+        {childFolders.map((folder) => (
+          <View key={folder.id} style={styles.folderRowItem}>
+            <TouchableOpacity
+              style={styles.folderRowMain}
+              onPress={() => folder.id !== null && setCurrentFolderId(folder.id)}
+              onLongPress={() => openFolderOptions(folder)}
+            >
+              <View style={styles.folderRowLeft}>
+                <Ionicons name="folder-outline" size={18} color={colors.tint} />
+                <ThemedText style={styles.folderRowText}>{folder.nombre}</ThemedText>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={colors.secondaryText} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.folderOptionsButton}
+              onPress={() => openFolderOptions(folder)}
+              accessibilityLabel={`Opciones de carpeta ${folder.nombre}`}
+            >
+              <Ionicons name="ellipsis-vertical" size={16} color={colors.secondaryText} />
+            </TouchableOpacity>
+          </View>
+        ))}
+      </View>
+    </View>
+  ) : null;
 
   const handleCreateDocument = async () => {
     setFabMenuVisible(false);
@@ -301,54 +344,11 @@ export default function Documentos() {
         />
       </View>
 
-      {!isSearchingWithResults && (
-        <View style={styles.folderSection}>
-          <View style={styles.breadcrumbRow}>
-            <TouchableOpacity style={styles.homeButton} onPress={() => setCurrentFolderId(null)}>
-              <Ionicons name="home-outline" size={14} color={colors.tint} />
-            </TouchableOpacity>
-            {breadcrumbs.map((item) => (
-              <View key={item.id} style={styles.breadcrumbItem}>
-                <Ionicons name="chevron-forward" size={14} color={colors.secondaryText} />
-                <TouchableOpacity onPress={() => item.id !== null && setCurrentFolderId(item.id)}>
-                  <ThemedText numberOfLines={1} style={styles.breadcrumbText}>{item.nombre}</ThemedText>
-                </TouchableOpacity>
-              </View>
-            ))}
-          </View>
-
-          <View style={styles.folderList}>
-            {childFolders.map((folder) => (
-              <View key={folder.id} style={styles.folderRowItem}>
-                <TouchableOpacity
-                  style={styles.folderRowMain}
-                  onPress={() => folder.id !== null && setCurrentFolderId(folder.id)}
-                  onLongPress={() => openFolderOptions(folder)}
-                >
-                  <View style={styles.folderRowLeft}>
-                    <Ionicons name="folder-outline" size={18} color={colors.tint} />
-                    <ThemedText style={styles.folderRowText}>{folder.nombre}</ThemedText>
-                  </View>
-                  <Ionicons name="chevron-forward" size={16} color={colors.secondaryText} />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.folderOptionsButton}
-                  onPress={() => openFolderOptions(folder)}
-                  accessibilityLabel={`Opciones de carpeta ${folder.nombre}`}
-                >
-                  <Ionicons name="ellipsis-vertical" size={16} color={colors.secondaryText} />
-                </TouchableOpacity>
-              </View>
-            ))}
-          </View>
-        </View>
-      )}
-
       {/* Content - Direct render without extra wrapper */}
       <View style={styles.contentContainer}>
         {tab === 'mios' && canSeeMisDocumentos
-          ? <MisDocumentos query={query} selectedFolderId={currentFolderId} />
-          : <DocumentosEmpresa query={query} selectedFolderId={currentFolderId} />}
+          ? <MisDocumentos query={query} selectedFolderId={currentFolderId} listHeader={folderHeader} />
+          : <DocumentosEmpresa query={query} selectedFolderId={currentFolderId} listHeader={folderHeader} />}
       </View>
 
       {canCreate && (
@@ -393,27 +393,33 @@ export default function Documentos() {
         onRequestClose={() => setFolderModalVisible(false)}
       >
         <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <ThemedText style={styles.modalTitle}>Crear carpeta</ThemedText>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'position' : undefined}
+            keyboardVerticalOffset={insets.top + 12}
+            style={styles.modalKavWrapper}
+          >
+            <View style={styles.modalCard}>
+              <ThemedText style={styles.modalTitle}>Crear carpeta</ThemedText>
 
-            <ThemedText style={styles.modalLabel}>Nombre</ThemedText>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="Ej: Legales"
-              placeholderTextColor={colors.secondaryText}
-              value={folderName}
-              onChangeText={setFolderName}
-            />
+              <ThemedText style={styles.modalLabel}>Nombre</ThemedText>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Ej: Legales"
+                placeholderTextColor={colors.secondaryText}
+                value={folderName}
+                onChangeText={setFolderName}
+              />
 
-            <View style={styles.modalActions}>
-              <TouchableOpacity style={styles.modalCancelButton} onPress={() => setFolderModalVisible(false)}>
-                <ThemedText style={styles.modalCancelText}>Cancelar</ThemedText>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.modalConfirmButton} onPress={submitFolderModal}>
-                <ThemedText style={styles.modalConfirmText}>Crear</ThemedText>
-              </TouchableOpacity>
+              <View style={styles.modalActions}>
+                <TouchableOpacity style={styles.modalCancelButton} onPress={() => setFolderModalVisible(false)}>
+                  <ThemedText style={styles.modalCancelText}>Cancelar</ThemedText>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.modalConfirmButton} onPress={submitFolderModal}>
+                  <ThemedText style={styles.modalConfirmText}>Crear</ThemedText>
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
 
@@ -581,6 +587,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.35)',
     justifyContent: 'center',
     paddingHorizontal: '6%',
+  },
+  modalKavWrapper: {
+    width: '100%',
   },
   modalCard: {
     backgroundColor: colors.componentBackground,

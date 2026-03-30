@@ -6,9 +6,9 @@ import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
-    StyleSheet,
-    TouchableOpacity,
-    View
+	StyleSheet,
+	TouchableOpacity,
+	View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EstadoReporte, Reporte } from '../models/Reporte';
@@ -36,7 +36,7 @@ export function ReportesEmpleado({ userId, userNombre = '', userApellido = '', f
 	const insets = useSafeAreaInsets();
 	const { hasRole } = useRoleCheck();
 	const { data: reportes, isLoading, error } = useReportes(userId);
-	const canCreateReporte = hasRole(['gerencia', 'personasRelaciones']);
+	const canCreateReporte = hasRole(['gerencia', 'personasRelaciones', 'encargado']);
 
 	const [modalVisible, setModalVisible] = useState(false);
 	const [selectedReporte, setSelectedReporte] = useState<Reporte | null>(null);

@@ -9,19 +9,20 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    TouchableWithoutFeedback,
-    View,
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AgendaDiaria } from '../components/AgendaDiaria';
@@ -30,13 +31,14 @@ import { ValidacionFechasModal } from '../components/ValidacionFechasModal';
 import type { Actividad, Licencia } from '../models/Actividad';
 import type { Activity } from '../models/activityTypes';
 import {
-    useActividadesSemanales,
-    useCancelarActividad,
-    useCrearActividad,
+  useActividadesSemanales,
+  useCancelarActividad,
+  useCrearActividad,
 } from '../viewmodels/useActividades';
 import { useValidacionFechas } from '../viewmodels/useValidacionFechas';
 
 const colors = Colors['light'];
+const MODAL_MAX_HEIGHT = Math.min(640, Dimensions.get('window').height * 0.8);
 
 function normalizeToMinute(date: Date): Date {
   const normalized = new Date(date);
@@ -502,9 +504,10 @@ const AgendaPersonal: React.FC = () => {
       >
         <View style={styles.modalOverlay}>
           <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 12 : 0}
+            behavior="position"
+            keyboardVerticalOffset={insets.top + 12}
             style={styles.modalKavWrapper}
+            contentContainerStyle={styles.modalKavContent}
           >
             <TouchableWithoutFeedback onPress={closeAddActivityModal}>
               <View style={StyleSheet.absoluteFill} />
@@ -811,6 +814,9 @@ const styles = StyleSheet.create({
   modalKavWrapper: {
     flex: 1,
     width: '100%',
+  },
+  modalKavContent: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -819,7 +825,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     width: '90%',
     maxWidth: 450,
-    maxHeight: '80%',
+    maxHeight: MODAL_MAX_HEIGHT,
     elevation: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 5 },

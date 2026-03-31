@@ -77,15 +77,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   extra: {
     API_BASE_URL: process.env.API_BASE_URL,
-    FIREBASE_WEB: {
-      apiKey: process.env.FIREBASE_API_KEY ?? "",
-      authDomain: process.env.FIREBASE_AUTH_DOMAIN ?? "",
-      projectId: process.env.FIREBASE_PROJECT_ID ?? "",
-      storageBucket: process.env.FIREBASE_STORAGE_BUCKET ?? "",
-      messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID ?? "",
-      appId: process.env.FIREBASE_APP_ID ?? "",
-    },
-    VAPID_PUBLIC_KEY: process.env.FIREBASE_VAPID_PUBLIC_KEY ?? "",
+    VAPID_PUBLIC_KEY: process.env.FIREBASE_VAPID_PUBLIC_KEY,
     router: {},
     eas: {
       projectId: "f7cef901-9e89-441f-8cb3-ceb9c01a8b6c",

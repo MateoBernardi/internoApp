@@ -2,7 +2,6 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
-import { triggerWebPushPermissionPrompt } from '@/features/devices/hooks/useRegisterDevice';
 import { useReportes } from '@/features/reportes/viewmodels/useReportes';
 import {
   useInvitaciones,
@@ -14,7 +13,6 @@ import {
 } from '@/features/solicitudesLicencias/viewmodels/useSolicitudes';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
-import Constants from 'expo-constants';
 import { Href, Redirect, Tabs, useRouter, useSegments } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { LayoutChangeEvent, Platform, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -68,26 +66,11 @@ export default function TabLayout() {
   const colors = Colors['light'];
   const [activeMenu, setActiveMenu] = useState<'personal' | 'admin' | null>(null);
   const [containerWidth, setContainerWidth] = useState(0);
-  const [isRequestingWebPush, setIsRequestingWebPush] = useState(false);
   const hasShownWebPushDialogRef = useRef(false);
   const responsiveLayout = useResponsiveLayout();
   const isDesktopWeb = Platform.OS === 'web' && responsiveLayout.isDesktop;
   const currentTab = useMemo(() => (segments[1] as string) || 'index', [segments]);
-  const firebaseConfig = Constants.expoConfig?.extra?.FIREBASE_WEB;
-  const hasFirebaseConfig =
-    !!firebaseConfig &&
-    typeof firebaseConfig.apiKey === 'string' &&
-    firebaseConfig.apiKey.length > 0 &&
-    firebaseConfig.apiKey !== 'TU_API_KEY_WEB' &&
-    typeof firebaseConfig.projectId === 'string' &&
-    firebaseConfig.projectId.length > 0 &&
-    typeof firebaseConfig.messagingSenderId === 'string' &&
-    firebaseConfig.messagingSenderId.length > 0 &&
-    typeof firebaseConfig.appId === 'string' &&
-    firebaseConfig.appId.length > 0;
-  const vapidKey = Constants.expoConfig?.extra?.VAPID_PUBLIC_KEY;
-  const hasVapid = !!vapidKey && vapidKey !== 'TU_VAPID_PUBLIC_KEY';
-
+  
   const { data: invitaciones = [] } = useInvitaciones(canSeeActivityRequests && hasSessionContext);
   const { data: solicitudesEnviadas = [] } = useSolicitudesCreadas(canSeeActivityRequests && hasSessionContext);
   const { data: solicitudesLicenciasAdmin = [] } = useGetSolicitudesLicencias(
@@ -197,79 +180,6 @@ export default function TabLayout() {
   ];
 
   const hasPersonalBadge = personalMenuOptions.some((option) => !!option.hasBadge);
-
-  useEffect(() => {
-    if (Platform.OS !== 'web' || !hasSessionContext || isRequestingWebPush) {
-      return;
-    }
-
-    if (!hasFirebaseConfig || !hasVapid) {
-      return;
-    }
-
-    if (typeof window === 'undefined' || !window.isSecureContext || typeof Notification === 'undefined') {
-      return;
-    }
-
-    if (Notification.permission !== 'default') {
-      return;
-    }
-
-    if (hasShownWebPushDialogRef.current) {
-      return;
-    }
-
-    hasShownWebPushDialogRef.current = true;
-
-    const wantsNotifications = window.confirm(
-      'Quieres recibir notificaciones de tus mensajes?'
-    );
-
-    if (!wantsNotifications) {
-      return;
-    }
-
-    const requestWebPushFromDialog = async () => {
-      setIsRequestingWebPush(true);
-
-      try {
-        const result = await triggerWebPushPermissionPrompt();
-
-        if (result.permission === 'granted') {
-          return;
-        }
-
-        if (result.permission === 'denied') {
-          window.alert('No podremos enviarte notificaciones porque el permiso fue denegado.');
-          return;
-        }
-
-        if (result.permission === 'default') {
-          window.alert('No se pudo completar la accion. Si quieres, vuelve a intentar desde el proximo inicio de sesion.');
-          return;
-        }
-
-        if (result.permission === 'unsupported') {
-          window.alert('Este navegador o contexto no soporta notificaciones push.');
-          return;
-        }
-
-        window.alert('No pudimos activar notificaciones en este momento.');
-      } catch {
-        window.alert('No pudimos activar notificaciones en este momento.');
-      } finally {
-        setIsRequestingWebPush(false);
-      }
-    };
-
-    void requestWebPushFromDialog();
-  }, [hasFirebaseConfig, hasSessionContext, hasVapid, isRequestingWebPush]);
-
-  useEffect(() => {
-    if (!isAuthenticated) {
-      hasShownWebPushDialogRef.current = false;
-    }
-  }, [isAuthenticated]);
 
   const handlePress = (menuType: 'personal' | 'admin') => {
     if (activeMenu === menuType) {

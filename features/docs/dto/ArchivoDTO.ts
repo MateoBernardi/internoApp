@@ -1,0 +1,18 @@
+export interface ArchivoDTO {
+  id: number;
+  nombre: string;
+  ruta_r2: string;
+  tipo: string;
+  tamaño: number;
+  titulo?: string;
+  uso?: string;
+  created_by: number;
+  creador_nombre: string;
+  creador_apellido: string;
+  created_at: Date;
+  id_usuario_asociado?: number;
+  id_carpeta?: number | null;
+  allowed_roles?: string[];
+  usuarios_compartidos?: number[];
+  usuarios_asociados?: number[];
+}

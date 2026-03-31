@@ -2,12 +2,20 @@
 
 # dependencies
 node_modules/
+google-services.json
+ios/Pods/
+android/.gradle/
+android/app/build/
+android/build/
+ios/build/
+ios/DerivedData/
 
 # Expo
 .expo/
 dist/
 web-build/
 expo-env.d.ts
+italoapp-7def0-firebase-adminsdk-fbsvc-ce20e40ec1.json
 
 # Native
 .kotlin/
@@ -31,7 +39,11 @@ yarn-error.*
 *.pem
 
 # local env files
+.env
 .env*.local
+
+# generated service worker (contains Firebase keys from .env)
+public/firebase-messaging-sw.js
 
 # typescript
 *.tsbuildinfo

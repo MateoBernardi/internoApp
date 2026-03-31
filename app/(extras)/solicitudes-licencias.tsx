@@ -1,0 +1,17 @@
+import { ThemedView } from '@/components/themed-view';
+import SolicitudesLicenciasView from '@/features/solicitudesLicencias/views/SolicitudesLicencias';
+import { StyleSheet } from 'react-native';
+
+export default function SolicitudesLicenciasScreen() {
+  return (
+        <ThemedView style={styles.container} lightColor="#ffffff">
+          <SolicitudesLicenciasView />
+        </ThemedView>
+    );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+});

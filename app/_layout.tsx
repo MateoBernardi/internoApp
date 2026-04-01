@@ -4,10 +4,9 @@ import { getQueryClient, QueryProvider } from '@/context/QueryProvider';
 import { AuthProvider, useAuth } from '@/features/auth/context/AuthContext';
 import { useRegisterDevice } from '@/features/devices/hooks/useRegisterDevice';
 import { prefetchCoreRealtimeData } from '@/features/realtime/prefetchOrchestrator';
-import { usePushCacheSync } from '@/features/realtime/usePushCacheSync';
+import { syncPushPayloadToCache } from '@/features/realtime/querySync';
 import { installWebAlertPolyfill } from '@/shared/ui/webAlertPolyfill';
 import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 import { Redirect, Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -23,16 +22,6 @@ export const unstable_settings = {
 
 const colors = Colors['light']; // Usar siempre el tema claro
 
-function isPushCacheSyncEnabled(): boolean {
-  const rawValue = Constants.expoConfig?.extra?.ENABLE_PUSH_CACHE_SYNC;
-  if (typeof rawValue !== 'string') {
-    return true;
-  }
-
-  const normalized = rawValue.trim().toLowerCase();
-  return normalized !== 'false' && normalized !== '0' && normalized !== 'off';
-}
-
 function RootNavigator() {
   const { isAuthenticated, isLoading, requiresAssociation, tokens, user } = useAuth();
   const segments = useSegments();
@@ -41,9 +30,6 @@ function RootNavigator() {
   const authReadyAndEligible =
     !isLoading && isAuthenticated && !requiresAssociation && !!tokens?.accessToken;
   const authReadyWithUserContext = authReadyAndEligible && hasUserContext;
-  // Obtiene el push token y lo registra automáticamente cuando esté autenticado
-  useRegisterDevice({ enabled: authReadyAndEligible });
-  const pushCacheSyncEnabled = isPushCacheSyncEnabled();
   const navigateFromNotificationUrl = useCallback(
     (rawUrl: unknown): boolean => {
       if (typeof rawUrl !== 'string') {
@@ -112,8 +98,15 @@ function RootNavigator() {
     },
     [navigateFromNotificationUrl, router]
   );
-
-  usePushCacheSync(pushCacheSyncEnabled && authReadyWithUserContext, {
+  // Obtiene el push token, registra el dispositivo y sincroniza cache de queries por eventos push.
+  useRegisterDevice({
+    enabled: authReadyAndEligible,
+    onPushPayload: (payload, source) => {
+      if (!authReadyWithUserContext) {
+        return;
+      }
+      syncPushPayloadToCache(getQueryClient(), payload, source);
+    },
     onNotificationOpen: handleNotificationOpen,
   });
 

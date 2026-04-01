@@ -2,28 +2,43 @@ import { useAuth } from '@/features/auth/context/AuthContext';
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useRouter } from 'expo-router';
+import { Unsubscribe, onMessage } from 'firebase/messaging';
+import { useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import { registerDeviceSafely } from '../services/devicesApi';
 import {
-    requestWebPushTokenFromUserGesture,
-    WebPushPermissionResult,
+  getWebPushToken,
+  messaging
 } from '../services/webPush';
 
-const isDevBuild = typeof __DEV__ !== 'undefined' ? __DEV__ : process.env.NODE_ENV !== 'production';
-let webPushGestureRequester: (() => Promise<WebPushPermissionResult>) | null = null;
-
-export async function triggerWebPushPermissionPrompt(): Promise<WebPushPermissionResult> {
-  if (!webPushGestureRequester) {
-    return { permission: 'unsupported', token: null };
+export async function triggerWebPushPermissionAndToken() {
+  if(!('Notification' in window)){
+    console.warn('[Devices] Notificaciones web no soportadas en este navegador.');
+    return null;
   }
 
-  return webPushGestureRequester();
+  if(Notification.permission === 'granted'){
+    return await getWebPushToken();
+  }
+
+  if(Notification.permission !== 'denied'){
+    const permission = await Notification.requestPermission();
+    if(permission === 'granted'){
+      return await getWebPushToken();
+    }
+  }
+
+  console.warn('[Devices] Permiso para notificaciones web no concedido.');
+  return null;    
+
 }
 
 interface UseRegisterDeviceOptions {
   enabled?: boolean;
-}
+  onPushPayload?: (payload: unknown, source: 'web-foreground' | 'web-service-worker' | 'native') => void;
+  onNotificationOpen?: (payload: unknown) => void;
+}  
 
 /**
  * Hook para gestionar el registro del dispositivo
@@ -31,51 +46,119 @@ interface UseRegisterDeviceOptions {
  * cuando el usuario esté autenticado
  */
 export function useRegisterDevice(options: UseRegisterDeviceOptions = {}) {
+  const router = useRouter();
   const { enabled = true } = options;
+  const { onPushPayload, onNotificationOpen } = options;
   const { tokens, isAuthenticated } = useAuth();
   const [expoPushToken, setExpoPushToken] = useState<string | null>(null);
-  const [isLoadingToken, setIsLoadingToken] = useState(true);
+  const [token, setToken] = useState<string | null>(null);
+  const isLoadingToken = useRef(false);
   const lastRegistrationFingerprintRef = useRef<string | null>(null);
   const invalidTokenRegistryRef = useRef<Set<string>>(new Set());
-  const lastPrereqLogKeyRef = useRef<string | null>(null);
+  const [notificationPermissionStatus, setNotificationPermissionStatus] = useState<NotificationPermission | null>(null);
+  const retryLoadtoken = useRef(0);
 
-  const firebaseConfig = Constants.expoConfig?.extra?.FIREBASE_WEB;
-  const hasFirebaseConfig =
-    !!firebaseConfig &&
-    typeof firebaseConfig.apiKey === 'string' &&
-    firebaseConfig.apiKey.length > 0 &&
-    firebaseConfig.apiKey !== 'TU_API_KEY_WEB' &&
-    typeof firebaseConfig.projectId === 'string' &&
-    firebaseConfig.projectId.length > 0 &&
-    typeof firebaseConfig.messagingSenderId === 'string' &&
-    firebaseConfig.messagingSenderId.length > 0 &&
-    typeof firebaseConfig.appId === 'string' &&
-    firebaseConfig.appId.length > 0;
-  const vapidKey = Constants.expoConfig?.extra?.VAPID_PUBLIC_KEY;
-  const hasVapid = !!vapidKey && vapidKey !== 'TU_VAPID_PUBLIC_KEY';
+  const loadTokens = async () => {
+    if (isLoadingToken.current) return;
 
-  const requestWebPushPermissionWithGesture = useCallback(async (): Promise<WebPushPermissionResult> => {
-    if (!enabled || Platform.OS !== 'web' || !hasFirebaseConfig || !hasVapid) {
-      return { permission: 'unsupported', token: null };
+    isLoadingToken.current = true;
+    const token = await triggerWebPushPermissionAndToken();
+
+    if(Notification.permission === 'denied'){
+      setNotificationPermissionStatus('denied');
+      console.info('[Devices] Permiso de notificaciones denegado por el usuario.');
+      isLoadingToken.current = false;
+      return;
+    }
+    
+    if(!token){
+      if(retryLoadtoken.current >= 3){
+        console.warn('[Devices] Máximo de reintentos para cargar el token alcanzado.');
+        isLoadingToken.current = false;
+        return;
+      }
+
+      retryLoadtoken.current += 1;
+      console.error(`[Devices] Token no disponible. Intentando cargar token (intento ${retryLoadtoken.current})...`);
+      isLoadingToken.current = false;
+      await loadTokens();
+      return;
     }
 
-    const result = await requestWebPushTokenFromUserGesture();
-    if (result.token) {
-      invalidTokenRegistryRef.current.delete(result.token);
-      setExpoPushToken((current) => (current === result.token ? current : result.token));
-    }
-
-    return result;
-  }, [enabled, hasFirebaseConfig, hasVapid]);
+      setNotificationPermissionStatus(Notification.permission);
+      setToken(token);
+      isLoadingToken.current = false;
+  }
 
   useEffect(() => {
-    webPushGestureRequester = requestWebPushPermissionWithGesture;
+    if(Platform.OS === 'web' && 'Notification' in window && enabled){
+      loadTokens();
+    }
+  }, [enabled]);
+
+  useEffect(() => {
+    const setUpListener = async () => {
+      if (!token || !enabled) return;
+
+      const m = await messaging();
+      if (!m) return;
+
+      const unsubscribe = onMessage(m, (payload) => {
+        onPushPayload?.(payload, 'web-foreground');
+
+        if (Notification.permission !== 'granted') return;
+
+        const link = payload?.data?.link || payload?.data?.url || null;
+
+        const n = new Notification(payload.notification?.title || 'Nueva notificación', {
+          body: payload.notification?.body,
+          icon: '/assets/images/icon-1024.png',
+          data: link ? { url: link } : undefined,
+        });
+
+        n.onclick = (event) => {
+          event.preventDefault();
+          const nextLink = (event.target as Notification | null)?.data?.url || null;
+          if (nextLink) {
+            router.push(nextLink as any);
+            onNotificationOpen?.(payload);
+          } else {
+            console.log('[Devices] Notificación recibida sin link:', payload);
+          }
+        };
+      });
+
+      return unsubscribe;
+    };
+
+    const handleServiceWorkerMessage = (event: MessageEvent<{ type?: string; payload?: unknown }>) => {
+      if (event.data?.type !== 'PUSH_NOTIFICATION') {
+        return;
+      }
+      onPushPayload?.(event.data.payload, 'web-service-worker');
+    };
+
+    let unsubscribe: Unsubscribe | null = null;
+
+    if (Platform.OS === 'web' && token && enabled) {
+      setUpListener().then((u) => {
+        if (u) {
+          unsubscribe = u;
+        }
+      });
+
+      if (typeof navigator !== 'undefined' && navigator.serviceWorker) {
+        navigator.serviceWorker.addEventListener('message', handleServiceWorkerMessage);
+      }
+    }
+
     return () => {
-      if (webPushGestureRequester === requestWebPushPermissionWithGesture) {
-        webPushGestureRequester = null;
+      unsubscribe?.();
+      if (typeof navigator !== 'undefined' && navigator.serviceWorker) {
+        navigator.serviceWorker.removeEventListener('message', handleServiceWorkerMessage);
       }
     };
-  }, [requestWebPushPermissionWithGesture]);
+  }, [onNotificationOpen, onPushPayload, router, token, enabled]);
 
   // Configurar los canales de notificación para Android
   useEffect(() => {
@@ -93,18 +176,40 @@ export function useRegisterDevice(options: UseRegisterDeviceOptions = {}) {
     }
   }, [enabled]);
 
-  // Web push en web no hace solicitudes automaticas de token.
-  // El token solo se obtiene desde requestWebPushPermissionWithGesture (clic explicito del usuario).
   useEffect(() => {
-    if (!enabled) {
-      setIsLoadingToken(false);
+    if (!enabled || Platform.OS === 'web') {
       return;
     }
 
-    if (Platform.OS !== 'web') return;
+    const onReceived = Notifications.addNotificationReceivedListener((notification) => {
+      onPushPayload?.(notification.request.content.data, 'native');
+    });
 
-    setIsLoadingToken(false);
-  }, [enabled]);
+    const onResponse = Notifications.addNotificationResponseReceivedListener((response) => {
+      const payload = response.notification.request.content.data;
+      onPushPayload?.(payload, 'native');
+      onNotificationOpen?.(payload);
+    });
+
+    const response = Notifications.getLastNotificationResponse();
+
+    if (response) {
+      const payload = response.notification.request.content.data;
+      onPushPayload?.(payload, 'native');
+      onNotificationOpen?.(payload);
+
+      const notificationsModule = Notifications as typeof Notifications & {
+        clearLastNotificationResponse?: () => void;
+      };
+      notificationsModule.clearLastNotificationResponse?.();
+    }
+
+    return () => {
+      onReceived.remove();
+      onResponse.remove();
+    };
+  }, [enabled, onNotificationOpen, onPushPayload]);
+
 
   // Request de permisos de notificaciones y obtener el push token (nativo)
   useEffect(() => {
@@ -120,7 +225,7 @@ export function useRegisterDevice(options: UseRegisterDeviceOptions = {}) {
       try {
         if (!Device.isDevice) {
           if (isMounted) {
-            setIsLoadingToken(false);
+            isLoadingToken.current = false;
           }
           return;
         }
@@ -143,7 +248,7 @@ export function useRegisterDevice(options: UseRegisterDeviceOptions = {}) {
         if (finalStatus !== 'granted') {
           console.warn('No permission for push notifications');
           if (isMounted) {
-            setIsLoadingToken(false);
+            isLoadingToken.current = false;
           }
           return;
         }
@@ -155,7 +260,7 @@ export function useRegisterDevice(options: UseRegisterDeviceOptions = {}) {
         if (!projectId) {
           console.warn('Project ID not found for push notifications');
           if (isMounted) {
-            setIsLoadingToken(false);
+            isLoadingToken.current = false;
           }
           return;
         }
@@ -174,7 +279,7 @@ export function useRegisterDevice(options: UseRegisterDeviceOptions = {}) {
         console.error('Error setting up push notifications:', error);
       } finally {
         if (isMounted) {
-          setIsLoadingToken(false);
+          isLoadingToken.current = false;
         }
       }
     };
@@ -205,10 +310,12 @@ export function useRegisterDevice(options: UseRegisterDeviceOptions = {}) {
       return;
     }
 
-    if (expoPushToken && tokens?.accessToken && isAuthenticated) {
-      if (invalidTokenRegistryRef.current.has(expoPushToken)) {
+    const pushToken = Platform.OS === 'web' ? token : expoPushToken;
+
+    if (pushToken && tokens?.accessToken && isAuthenticated) {
+      if (invalidTokenRegistryRef.current.has(pushToken)) {
         console.warn('[Devices] Token marcado como invalido; se omite registro', {
-          tokenPreview: expoPushToken.slice(0, 24),
+          tokenPreview: pushToken.slice(0, 24),
         });
         return;
       }
@@ -219,18 +326,18 @@ export function useRegisterDevice(options: UseRegisterDeviceOptions = {}) {
       const platform: 'ios' | 'android' | 'web' =
         Platform.OS === 'web' ? 'web' : (Platform.OS as 'ios' | 'android') || 'android';
 
-      const registrationFingerprint = `${platform}:${tokens.accessToken.slice(0, 10)}:${expoPushToken}`;
+      const registrationFingerprint = `${platform}:${tokens.accessToken.slice(0, 10)}:${pushToken}`;
       if (lastRegistrationFingerprintRef.current === registrationFingerprint) {
         return;
       }
 
       lastRegistrationFingerprintRef.current = registrationFingerprint;
-      registerDeviceSafely(tokens.accessToken, expoPushToken, platform, deviceName, 3).then(async (result) => {
+      registerDeviceSafely(tokens.accessToken, pushToken, platform, deviceName, 3).then(async (result) => {
         if (!result.ok) {
           lastRegistrationFingerprintRef.current = null;
 
           if (result.invalidToken) {
-            invalidTokenRegistryRef.current.add(expoPushToken);
+            invalidTokenRegistryRef.current.add(pushToken);
             console.warn(
               '[Devices] Invalid push token while registering device:',
               result.message || 'Unable to register this device for notifications. Request a new token from user action.'
@@ -238,29 +345,14 @@ export function useRegisterDevice(options: UseRegisterDeviceOptions = {}) {
           }
         }
       });
-    } else if (Platform.OS === 'web' && isAuthenticated) {
-      const prereqState = {
-        hasPushToken: !!expoPushToken,
-        hasAccessToken: !!tokens?.accessToken,
-        isAuthenticated,
-        hasFirebaseConfig,
-        hasVapid,
-        notificationPermission: typeof Notification !== 'undefined' ? Notification.permission : 'unsupported',
-        isSecureContext: typeof window !== 'undefined' ? window.isSecureContext : false,
-      };
-      const nextLogKey = JSON.stringify(prereqState);
-
-      if (isDevBuild && lastPrereqLogKeyRef.current !== nextLogKey) {
-        lastPrereqLogKeyRef.current = nextLogKey;
-        console.log('[Devices] Registro web omitido por prerequisitos faltantes', prereqState);
-      }
     }
-  }, [enabled, expoPushToken, hasFirebaseConfig, hasVapid, tokens?.accessToken, isAuthenticated]);
+  }, [enabled, expoPushToken, token, tokens?.accessToken, isAuthenticated]);
 
   return {
     expoPushToken,
+    token,
+    notificationPermissionStatus,
     isLoadingToken,
-    requestWebPushPermissionWithGesture,
   };
 }
 

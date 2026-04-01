@@ -1,6 +1,6 @@
 import Constants from 'expo-constants';
-
-let messagingInstance: any = null;
+import { getApp, getApps, initializeApp } from 'firebase/app';
+import { getMessaging, getToken, isSupported } from 'firebase/messaging';
 
 export type WebPushPermissionStatus = NotificationPermission | 'unsupported' | 'error';
 
@@ -9,66 +9,46 @@ export interface WebPushPermissionResult {
   token: string | null;
 }
 
+const firebaseConfig = {
+  apiKey: "AIzaSyC0t94wuOGd2nI-bv1NDI-Lz-FYLbKx318",
+  authDomain: "italoapp-7def0.firebaseapp.com",
+  projectId: "italoapp-7def0",
+  storageBucket: "italoapp-7def0.firebasestorage.app",
+  messagingSenderId: "444092191215",
+  appId: "1:444092191215:web:39515ca4ca036f8a93261a",
+  measurementId: "G-B6F7QJ6X3Z"
+};
+
 /**
  * 1. Inicializa Firebase y Messaging de forma segura
  */
-async function getFirebaseMessaging() {
-  if (messagingInstance) return messagingInstance;
+export const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-  const { getApp, getApps, initializeApp } = await import('firebase/app');
-  const { getMessaging, isSupported } = await import('firebase/messaging');
-
-  // Verifica soporte del navegador
+export const messaging = async () => {
   const supported = await isSupported();
-  if (!supported) {
-    console.warn('[WebPush] Este navegador no soporta notificaciones push.');
-    return null;
-  }
-
-  const config = Constants.expoConfig?.extra?.FIREBASE_WEB;
-  if (!config) return null;
-
-  // Evita inicializar la app dos veces
-  const app = getApps().length > 0 ? getApp() : initializeApp(config);
-  messagingInstance = getMessaging(app);
-  
-  return messagingInstance;
-}
+  return supported ? getMessaging(app) : null;
+} 
 
 /**
  * 2. Obtiene el FCM Token (requiere permiso previamente concedido)
  */
 export async function getWebPushToken(): Promise<string | null> {
-  if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !('Notification' in window)) {
-    return null;
-  }
-
   try {
-    const messaging = await getFirebaseMessaging();
-    if (!messaging) return null;
+    const fcmMessaging = await messaging();
 
-    if (Notification.permission !== 'granted') {
-      console.warn('[WebPush] Permiso no concedido; se omite obtencion de token.', {
-        permission: Notification.permission,
+    if(fcmMessaging){
+      console.log('[WebPush] Obteniendo token de notificaciones push con vapid_key:' + Constants.expoConfig?.extra?.VAPID_PUBLIC_KEY);
+      const vapidKey = Constants.expoConfig?.extra?.VAPID_PUBLIC_KEY;
+      const token = await getToken(fcmMessaging, {
+        vapidKey: vapidKey,
       });
-      return null;
+      console.log('[WebPush] Token obtenido:', token);
+      return token;
     }
 
-    // Registrar el Service Worker
-    const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-    await navigator.serviceWorker.ready;
+    console.log('[WebPush] Messaging no soportado en este entorno');
 
-    const vapidKey = Constants.expoConfig?.extra?.VAPID_PUBLIC_KEY?.trim(); // El .trim() evita espacios fantasma
-
-    // Pedir el token a Firebase
-    const { getToken } = await import('firebase/messaging');
-    const token = await getToken(messaging, {
-      vapidKey,
-      serviceWorkerRegistration: registration,
-    });
-
-    console.log('[WebPush] ¡Token obtenido exitosamente!', token);
-    return token || null;
+    return null;
 
   } catch (error) {
     console.error('[WebPush] Error obteniendo el token:', error);
@@ -76,53 +56,3 @@ export async function getWebPushToken(): Promise<string | null> {
   }
 }
 
-/**
- * 2.b Solicita permiso en contexto de user gesture y, si se concede, obtiene token.
- */
-export async function requestWebPushTokenFromUserGesture(): Promise<WebPushPermissionResult> {
-  if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !('Notification' in window)) {
-    return { permission: 'unsupported', token: null };
-  }
-
-  if (!window.isSecureContext) {
-    return { permission: 'unsupported', token: null };
-  }
-
-  try {
-    const permission = await Notification.requestPermission();
-    if (permission !== 'granted') {
-      return { permission, token: null };
-    }
-
-    const token = await getWebPushToken();
-    return { permission, token };
-  } catch (error) {
-    console.error('[WebPush] Error solicitando permiso por gesto de usuario:', error);
-    return { permission: 'error', token: null };
-  }
-}
-
-/**
- * 3. Escucha mensajes mientras la app está abierta
- */
-export async function onForegroundMessage(
-  callback: (payload: { title?: string; body?: string; data?: any }) => void
-): Promise<(() => void) | null> {
-  try {
-    const messaging = await getFirebaseMessaging();
-    if (!messaging) return null;
-
-    const { onMessage } = await import('firebase/messaging');
-
-    return onMessage(messaging, (payload) => {
-      callback({
-        title: payload.notification?.title,
-        body: payload.notification?.body,
-        data: payload.data,
-      });
-    });
-  } catch (error) {
-    console.error('[WebPush] Error en el listener:', error);
-    return null;
-  }
-}

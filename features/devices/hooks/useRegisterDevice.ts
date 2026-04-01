@@ -91,14 +91,14 @@ export function useRegisterDevice(options: UseRegisterDeviceOptions = {}) {
   }
 
   useEffect(() => {
-    if(Platform.OS === 'web' && 'Notification' in window){
+    if(Platform.OS === 'web' && 'Notification' in window && enabled){
       loadTokens();
     }
-  }, []);
+  }, [enabled]);
 
   useEffect(() => {
     const setUpListener = async () => {
-      if (!token) return;
+      if (!token || !enabled) return;
 
       const m = await messaging();
       if (!m) return;
@@ -140,7 +140,7 @@ export function useRegisterDevice(options: UseRegisterDeviceOptions = {}) {
 
     let unsubscribe: Unsubscribe | null = null;
 
-    if (Platform.OS === 'web' && token) {
+    if (Platform.OS === 'web' && token && enabled) {
       setUpListener().then((u) => {
         if (u) {
           unsubscribe = u;
@@ -158,7 +158,7 @@ export function useRegisterDevice(options: UseRegisterDeviceOptions = {}) {
         navigator.serviceWorker.removeEventListener('message', handleServiceWorkerMessage);
       }
     };
-  }, [onNotificationOpen, onPushPayload, router, token]);
+  }, [onNotificationOpen, onPushPayload, router, token, enabled]);
 
   // Configurar los canales de notificación para Android
   useEffect(() => {
@@ -191,22 +191,18 @@ export function useRegisterDevice(options: UseRegisterDeviceOptions = {}) {
       onNotificationOpen?.(payload);
     });
 
-    Notifications.getLastNotificationResponseAsync()
-      .then((response) => {
-        if (!response) {
-          return;
-        }
+    const response = Notifications.getLastNotificationResponse();
 
-        const payload = response.notification.request.content.data;
-        onPushPayload?.(payload, 'native');
-        onNotificationOpen?.(payload);
+    if (response) {
+      const payload = response.notification.request.content.data;
+      onPushPayload?.(payload, 'native');
+      onNotificationOpen?.(payload);
 
-        const notificationsModule = Notifications as typeof Notifications & {
-          clearLastNotificationResponseAsync?: () => Promise<void>;
-        };
-        notificationsModule.clearLastNotificationResponseAsync?.().catch(() => null);
-      })
-      .catch(() => null);
+      const notificationsModule = Notifications as typeof Notifications & {
+        clearLastNotificationResponse?: () => void;
+      };
+      notificationsModule.clearLastNotificationResponse?.();
+    }
 
     return () => {
       onReceived.remove();

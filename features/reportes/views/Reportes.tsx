@@ -36,12 +36,6 @@ export function Reportes() {
 
 	return (
 		<View style={styles.container}>
-			<View style={styles.header}>
-				<ThemedText type="title" style={styles.headerTitle}>
-					Métricas de empleados
-				</ThemedText>
-			</View>
-
 			{/* Banner de comparación */}
 			{params.comparingWith && (
 				<View style={{ backgroundColor: colors.lightTint + '15', paddingVertical: '2.5%', paddingHorizontal: '4%' }}>
@@ -104,20 +98,6 @@ const styles = StyleSheet.create({
 	container: {
 		flex: 1,
 		backgroundColor: colors.componentBackground,
-	},
-	header: {
-		paddingHorizontal: '4%',
-		paddingTop: Platform.OS === 'web' ? 0 : '6%',
-		paddingBottom: '2%',
-	},
-	headerTitle: {
-		fontSize: 20,
-		fontWeight: 'bold',
-		textAlign: 'center',
-		backgroundColor: colors.componentBackground,
-		paddingVertical: '3%',
-		paddingHorizontal: '4%',
-		borderRadius: 8,
 	},
 	searchBarContainer: {
 		paddingHorizontal: '3%',

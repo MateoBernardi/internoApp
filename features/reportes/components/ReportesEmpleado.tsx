@@ -6,6 +6,7 @@ import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
+	ScrollView,
 	StyleSheet,
 	TouchableOpacity,
 	View
@@ -124,7 +125,11 @@ export function ReportesEmpleado({ userId, userNombre = '', userApellido = '', f
 
 	return (
 		<View style={styles.container}>
-			<View style={{ paddingBottom: 80 }}>
+			<ScrollView
+				style={styles.listScroll}
+				contentContainerStyle={styles.listContent}
+				showsVerticalScrollIndicator={false}
+			>
 				{reportes.map((item, index) => (
 					<React.Fragment key={item.id.toString()}>
 						{index > 0 && <Separator />}
@@ -135,7 +140,7 @@ export function ReportesEmpleado({ userId, userNombre = '', userApellido = '', f
 						/>
 					</React.Fragment>
 				))}
-			</View>
+			</ScrollView>
 			{selectedReporte && (
 				<ReporteModal
 					visible={modalVisible}
@@ -237,6 +242,12 @@ const styles = StyleSheet.create({
 	},
 	itemContent: {
 		flexDirection: 'column',
+	},
+	listScroll: {
+		flex: 1,
+	},
+	listContent: {
+		paddingBottom: 92,
 	},
 	description: {
 		fontSize: 13,

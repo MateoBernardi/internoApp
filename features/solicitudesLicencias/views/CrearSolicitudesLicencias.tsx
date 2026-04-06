@@ -310,14 +310,6 @@ export function CrearSolicitudesLicencias() {
     return (
         <View style={styles.container}>
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-
-                {/* Header */}
-                <View style={styles.header}>
-                    <View style={styles.iconButton} />
-                    <ThemedText style={styles.headerTitle}>Nueva Solicitud</ThemedText>
-                    <View style={{ width: 40 }} />
-                </View>
-
                 <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: 120 + insets.bottom }}>
 
                     {/* ── Tipo de Licencia ── */}
@@ -627,17 +619,6 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: colors.componentBackground,
     },
-    header: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingHorizontal: 16,
-        paddingTop: 16,
-        paddingBottom: 12,
-        backgroundColor: colors.componentBackground,
-    },
-    headerTitle: { fontSize: 18, fontWeight: '500', color: colors.text },
-    iconButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
     content: { flex: 1 },
     sectionCard: {
         backgroundColor: colors.componentBackground,

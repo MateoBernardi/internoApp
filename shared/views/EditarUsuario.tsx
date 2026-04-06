@@ -189,7 +189,6 @@ export default function EditarUsuario() {
           keyboardShouldPersistTaps="handled"
         >
           <ThemedView style={styles.formSection}>
-            <ThemedText style={styles.title}>Editar Perfil</ThemedText>
             <ThemedText style={styles.subtitle}>Modificá tus datos de cuenta</ThemedText>
 
             {/* Section 1: Account data */}
@@ -365,12 +364,6 @@ const styles = StyleSheet.create({
   formSection: {
     backgroundColor: 'transparent',
     alignItems: 'center',
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 8,
   },
   subtitle: {
     fontSize: 14,

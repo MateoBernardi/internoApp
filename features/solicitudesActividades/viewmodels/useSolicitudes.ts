@@ -134,71 +134,6 @@ export function useCancelarSolicitud() {
 }
 
 /**
- * Hook para modificar las fechas de una solicitud
- */
-export function useModificarSolicitudFechas() {
-  const { tokens } = useAuth();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (data: solicitudModels.ModificarSolicitudFechasRequest) => {
-      const accessToken = tokens?.accessToken;
-      if (!accessToken) {
-        throw new Error('No access token available');
-      }
-      return solicitudesApi.modificarSolicitudFechas(accessToken, data);
-    },
-    onSuccess: (_, variables) => {
-      // Invalidar la bitácora de la solicitud modificada
-      queryClient.invalidateQueries({
-        queryKey: solicitudesQueryKeys.bitacora(variables.solicitudId),
-      });
-      // Invalidar las listas de solicitudes
-      queryClient.invalidateQueries({
-        queryKey: solicitudesQueryKeys.creadas(),
-      });
-      queryClient.invalidateQueries({
-        queryKey: solicitudesQueryKeys.invitaciones(),
-      });
-    },
-    retry: 3,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-  });
-}
-
-/**
- * Hook para aceptar modificaciones en una solicitud
- */
-export function useAceptarModificaciones() {
-  const { tokens } = useAuth();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (solicitudId: number) => {
-      const accessToken = tokens?.accessToken;
-      if (!accessToken) {
-        throw new Error('No access token available');
-      }
-      return solicitudesApi.aceptarModificaciones(accessToken, solicitudId);
-    },
-    onSuccess: (_, solicitudId) => {
-      // Invalidar la bitácora y las listas
-      queryClient.invalidateQueries({
-        queryKey: solicitudesQueryKeys.bitacora(solicitudId),
-      });
-      queryClient.invalidateQueries({
-        queryKey: solicitudesQueryKeys.creadas(),
-      });
-      queryClient.invalidateQueries({
-        queryKey: solicitudesQueryKeys.invitaciones(),
-      });
-    },
-    retry: 3,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-  });
-}
-
-/**
  * Hook para reenviar una solicitud a nuevos invitados
  */
 export function useReenviarSolicitud() {
@@ -225,6 +160,34 @@ export function useReenviarSolicitud() {
 }
 
 /**
+ * Hook para ocultar una solicitud recibida por el invitado
+ */
+export function useOcultarSolicitudInvitado() {
+  const { tokens } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: solicitudModels.OcultarSolicitudInvitadoRequest) => {
+      const accessToken = tokens?.accessToken;
+      if (!accessToken) {
+        throw new Error('No access token available');
+      }
+      return solicitudesApi.ocultarSolicitudInvitado(accessToken, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: solicitudesQueryKeys.invitaciones(),
+      });
+      queryClient.invalidateQueries({
+        queryKey: solicitudesQueryKeys.creadas(),
+      });
+    },
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+  });
+}
+
+/**
  * Hook para actualizar el estado de una invitación (aceptar, rechazar, etc.)
  */
 export function useActualizarEstadoInvitacion() {
@@ -239,7 +202,10 @@ export function useActualizarEstadoInvitacion() {
       }
       return solicitudesApi.actualizarEstadoInvitacion(accessToken, data);
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: solicitudesQueryKeys.bitacora(variables.solicitud_id),
+      });
       // Invalidar las invitaciones para refrescar la lista
       queryClient.invalidateQueries({
         queryKey: solicitudesQueryKeys.invitaciones(),

@@ -83,6 +83,14 @@ export function RoleUserSelectionModal({
     }
   };
 
+  const handleClose = React.useCallback(() => {
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      const activeElement = document.activeElement as HTMLElement | null;
+      activeElement?.blur();
+    }
+    onClose();
+  }, [onClose]);
+
   const renderItem = ({ item }: { item: UserSummary }) => {
     const isSelected = isRoleSelected || selectedUsers.some(u => u.user_context_id === item.user_context_id);
     return (
@@ -108,9 +116,9 @@ export function RoleUserSelectionModal({
       transparent
       visible={visible}
       animationType="slide"
-      onRequestClose={onClose}
+      onRequestClose={handleClose}
     >
-      <TouchableWithoutFeedback onPress={onClose}>
+      <TouchableWithoutFeedback onPress={handleClose}>
         <View style={styles.modalOverlay}>
             <TouchableWithoutFeedback>
                 <View style={[styles.modalContent, { backgroundColor: colors.componentBackground, width: modalWidth }]}> 
@@ -121,7 +129,7 @@ export function RoleUserSelectionModal({
                             <ThemedText type="defaultSemiBold" style={{ fontSize: 18 }}>Rol: {roleName}</ThemedText>
                             <ThemedText style={{ fontSize: 12, color: colors.secondaryText }}>{roleUsers.length} usuarios</ThemedText>
                         </View>
-                        <TouchableOpacity onPress={onClose} style={{ padding: 4 }}>
+                        <TouchableOpacity onPress={handleClose} style={{ padding: 4 }}>
                             <Ionicons name="close" size={24} color={colors.secondaryText} />
                         </TouchableOpacity>
                     </View>
@@ -168,7 +176,7 @@ export function RoleUserSelectionModal({
                               borderWidth: 1,
                             },
                           ]}
-                          onPress={onClose}
+                          onPress={handleClose}
                         >
                           <ThemedText style={{ color: colors.lightTint, fontWeight: 'bold' }}>OK</ThemedText>
                         </TouchableOpacity>

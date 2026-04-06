@@ -1,7 +1,7 @@
 import { ThemedText } from '@/components/themed-text';
+import { UserSelector } from '@/components/UserSelector';
 import { Colors } from '@/constants/theme';
 import { RoleUserSelectionModal } from '@/features/solicitudesActividades/components/RoleUserSelectionModal';
-import { UserSelector } from '@/features/solicitudesActividades/components/UserSelector';
 import { UserSummary } from '@/shared/users/User';
 import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
 import { Ionicons } from '@expo/vector-icons';

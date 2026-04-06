@@ -1,8 +1,8 @@
 import { ThemedText } from '@/components/themed-text';
 import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
+import { UserSelector } from '@/components/UserSelector';
 import { Colors } from '@/constants/theme';
 import { RoleUserSelectionModal } from '@/features/solicitudesActividades/components/RoleUserSelectionModal';
-import { UserSelector } from '@/features/solicitudesActividades/components/UserSelector';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { showGlobalToast } from '@/shared/ui/toast';
 import { UserSummary } from '@/shared/users/User';

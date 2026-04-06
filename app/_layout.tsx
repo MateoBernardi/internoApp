@@ -83,7 +83,7 @@ function RootNavigator() {
       if (Number.isFinite(actividadId) && actividadId > 0) {
         router.push({
           pathname: '/(extras)/actividad-detalle' as any,
-          params: { actividadId: actividadId.toString() },
+          params: { id: actividadId.toString(), actividadId: actividadId.toString() },
         });
         return;
       }
@@ -172,7 +172,7 @@ function RootNavigator() {
         <Stack.Screen name="(association)" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>
-      <StatusBar style="auto" />
+      <StatusBar style="dark" />
     </ThemeProvider>
   );
 }

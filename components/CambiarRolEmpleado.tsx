@@ -6,13 +6,13 @@ import { useBajaUsuario, useSearchUsers, useUpdateUserRole } from '@/shared/user
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    FlatList,
+    ScrollView,
+    StyleSheet,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
 const allRoles = [
@@ -153,9 +153,6 @@ export function CambiarRolEmpleado() {
       style={[{ backgroundColor: colors.componentBackground }]}
       contentContainerStyle={[styles.container]}
     >
-      {/* Título */}
-      <ThemedText type="title" style={styles.pageTitle}>Gestión de Roles</ThemedText>
-
       {/* Buscador de usuarios */}
       <View style={styles.searchSection}>
         <SearchBar
@@ -433,19 +430,6 @@ export function CambiarRolEmpleado() {
 const styles = StyleSheet.create({
   container: {
     paddingBottom: 100,
-  },
-  pageTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    backgroundColor: colors.componentBackground,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    marginHorizontal: 16,
-    marginTop: 16,
-    marginBottom: 12,
-    borderRadius: 8,
-    color: colors.text,
   },
   searchSection: {
     marginBottom: 16,

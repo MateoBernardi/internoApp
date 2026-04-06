@@ -9,25 +9,25 @@ import * as DocumentPicker from 'expo-document-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Linking,
-  Modal,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    Linking,
+    Modal,
+    ScrollView,
+    StyleSheet,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { EstadoSolicitud } from '../models/SolicitudLicencia';
 import { formatCantidadLicencia } from '../utils/formatCantidad';
 import {
-  useAdjuntarArchivo,
-  useAprobarSolicitudLicencia,
-  useCancelarSolicitudLicencia,
-  useGetSolicitudesLicencias,
-  useGetSolicitudesUsuario,
-  useRechazarSolicitudLicencia,
+    useAdjuntarArchivo,
+    useAprobarSolicitudLicencia,
+    useCancelarSolicitudLicencia,
+    useGetSolicitudesLicencias,
+    useGetSolicitudesUsuario,
+    useRechazarSolicitudLicencia,
 } from '../viewmodels/useSolicitudes';
 
 const estadoMapping: Record<EstadoSolicitud, string> = {
@@ -308,15 +308,6 @@ export function SolicitudLicencia() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.iconButton} />
-        <ThemedText style={styles.headerTitle}>
-          {type === 'enviada' ? 'Enviada' : 'Recibida'}
-        </ThemedText>
-        <View style={{ width: 40 }} />
-      </View>
-
       <ScrollView
         style={styles.content}
         contentContainerStyle={styles.contentContainer}
@@ -617,21 +608,6 @@ export function SolicitudLicencia() {
   container: {
     flex: 1,
     backgroundColor: colors.componentBackground,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  headerTitle: {
-    fontSize: 20,
-    color: colors.lightTint,
-    fontWeight: '500',
-  },
-  iconButton: {
-    padding: 8,
   },
   content: {
     flex: 1,

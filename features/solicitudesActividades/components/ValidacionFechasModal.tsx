@@ -25,6 +25,61 @@ interface ValidacionFechasModalProps {
     errorMessage?: string;
     onConfirm: () => void;
     onCancel: () => void;
+    showConfirmAction?: boolean;
+    confirmLabel?: string;
+    cancelLabel?: string;
+    questionText?: string;
+}
+
+type TipoRangoFusionado = RangoOcupado['tipo'] | 'mixto';
+
+interface RangoFusionado {
+    usuario: string;
+    tipo: TipoRangoFusionado;
+    desde: Date;
+    hasta: Date;
+}
+
+function isOverlappingOrContiguous(current: RangoFusionado, next: RangoOcupado): boolean {
+    const nextStart = new Date(next.desde).getTime();
+    return nextStart <= current.hasta.getTime();
+}
+
+function mergeTipos(current: TipoRangoFusionado, next: RangoOcupado['tipo']): TipoRangoFusionado {
+    if (current === 'mixto') return 'mixto';
+    return current === next ? current : 'mixto';
+}
+
+function getRangoBadgeStyle(tipo: TipoRangoFusionado): { text: string; bgColor: string; textColor: string } {
+    if (tipo === 'licencia') {
+        return {
+            text: 'Licencia aprobada',
+            bgColor: colors.warning + '20',
+            textColor: colors.warning,
+        };
+    }
+
+    if (tipo === 'solicitud') {
+        return {
+            text: 'Solicitud',
+            bgColor: colors.info + '20',
+            textColor: colors.info,
+        };
+    }
+
+    if (tipo === 'mixto') {
+        return {
+            text: 'Mixto',
+            bgColor: colors.secondaryText + '20',
+            textColor: colors.secondaryText,
+        };
+    }
+
+    return {
+        text: 'Actividad',
+        bgColor: colors.lightTint + '20',
+        textColor: colors.lightTint,
+    };
 }
 
 export function ValidacionFechasModal({
@@ -34,6 +89,10 @@ export function ValidacionFechasModal({
     errorMessage,
     onConfirm,
     onCancel,
+    showConfirmAction = true,
+    confirmLabel = 'Continuar',
+    cancelLabel = 'Modificar fechas',
+    questionText = '¿Desea continuar de todos modos?',
 }: ValidacionFechasModalProps) {
     const responsiveLayout = useResponsiveLayout();
     const visible = state !== 'idle';
@@ -43,12 +102,44 @@ export function ValidacionFechasModal({
             : 400;
 
     const rangosAgrupadosPorUsuario = React.useMemo(() => {
-        const grouped = new Map<string, RangoOcupado[]>();
+        const grouped = new Map<string, RangoFusionado[]>();
 
         (rangosOcupados ?? []).forEach((rango) => {
             const current = grouped.get(rango.usuario) ?? [];
-            current.push(rango);
+            current.push({
+                usuario: rango.usuario,
+                tipo: rango.tipo,
+                desde: new Date(rango.desde),
+                hasta: new Date(rango.hasta),
+            });
             grouped.set(rango.usuario, current);
+        });
+
+        grouped.forEach((rangos, usuario) => {
+            const sorted = [...rangos].sort((a, b) => a.desde.getTime() - b.desde.getTime());
+            const merged: RangoFusionado[] = [];
+
+            sorted.forEach((rango) => {
+                const last = merged[merged.length - 1];
+
+                if (!last) {
+                    merged.push({ ...rango });
+                    return;
+                }
+
+                if (!isOverlappingOrContiguous(last, rango)) {
+                    merged.push({ ...rango });
+                    return;
+                }
+
+                if (rango.hasta.getTime() > last.hasta.getTime()) {
+                    last.hasta = rango.hasta;
+                }
+
+                last.tipo = mergeTipos(last.tipo, rango.tipo);
+            });
+
+            grouped.set(usuario, merged);
         });
 
         return Array.from(grouped.entries()).map(([usuario, rangos]) => ({
@@ -116,20 +207,19 @@ export function ValidacionFechasModal({
                                                     </View>
 
                                                     {rangos.map((rango, idx) => {
-                                                        const desde = new Date(rango.desde);
-                                                        const hasta = new Date(rango.hasta);
+                                                        const badge = getRangoBadgeStyle(rango.tipo);
 
                                                         return (
                                                             <View key={`${usuario}-${idx}`} style={styles.rangoItem}>
                                                                 <View style={styles.rangoItemHeader}>
-                                                                    <View style={[styles.rangoTipoBadge, { backgroundColor: rango.tipo === 'actividad' ? colors.lightTint + '20' : colors.warning + '20' }]}> 
-                                                                        <ThemedText style={[styles.rangoTipoText, { color: rango.tipo === 'actividad' ? colors.lightTint : colors.warning }]}> 
-                                                                            {rango.tipo === 'licencia' ? 'Licencia aprobada' : 'Actividad'}
+                                                                    <View style={[styles.rangoTipoBadge, { backgroundColor: badge.bgColor }]}> 
+                                                                        <ThemedText style={[styles.rangoTipoText, { color: badge.textColor }]}> 
+                                                                            {badge.text}
                                                                         </ThemedText>
                                                                     </View>
                                                                 </View>
                                                                 <ThemedText style={styles.rangoFechas}>
-                                                                    {desde.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })} {desde.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })} → {hasta.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                                                                    {rango.desde.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })} {rango.desde.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })} → {rango.hasta.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
                                                                 </ThemedText>
                                                             </View>
                                                         );
@@ -141,17 +231,17 @@ export function ValidacionFechasModal({
                                 )}
                             </ScrollView>
 
-                            <ThemedText style={styles.confirmQuestion}>
-                                ¿Desea continuar de todos modos?
-                            </ThemedText>
+                            <ThemedText style={styles.confirmQuestion}>{questionText}</ThemedText>
 
                             <View style={styles.actions}>
                                 <TouchableOpacity onPress={onCancel} style={styles.btnCancel}>
-                                    <ThemedText style={{ color: colors.lightTint }}>Modificar fechas</ThemedText>
+                                    <ThemedText style={{ color: colors.lightTint }}>{cancelLabel}</ThemedText>
                                 </TouchableOpacity>
-                                <TouchableOpacity onPress={onConfirm} style={styles.btnConfirm}>
-                                    <ThemedText style={{ color: colors.componentBackground }}>Continuar</ThemedText>
-                                </TouchableOpacity>
+                                {showConfirmAction && (
+                                    <TouchableOpacity onPress={onConfirm} style={styles.btnConfirm}>
+                                        <ThemedText style={{ color: colors.componentBackground }}>{confirmLabel}</ThemedText>
+                                    </TouchableOpacity>
+                                )}
                             </View>
                         </>
                     )}

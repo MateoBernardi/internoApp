@@ -3,37 +3,37 @@ import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
 import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { Colors, UI } from '@/constants/theme';
-import { useValidacionFechas } from '@/features/solicitudesActividades/viewmodels/useValidacionFechas';
 import { AppFab } from '@/shared/ui/AppFab';
 import { confirmAction } from '@/shared/ui/confirmAction';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-  Alert,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  useWindowDimensions,
-  View,
+    Alert,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    useWindowDimensions,
+    View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AgendaDiaria } from '../components/AgendaDiaria';
 import { AgendaSemanal } from '../components/AgendaSemanal';
 import { ValidacionFechasModal } from '../components/ValidacionFechasModal';
-import type { Actividad, Licencia } from '../models/Actividad';
+import type { Actividad, CrearActividadResponse, Licencia } from '../models/Actividad';
+import type { RangoOcupado } from '../models/Solicitud';
 import type { Activity } from '../models/activityTypes';
 import {
-  buildPeriodoVentanaFromMonth,
-  useActividadesPorPeriodo,
-  useCancelarActividad,
-  useCrearActividad,
+    buildPeriodoVentanaFromMonth,
+    useActividadesPorPeriodo,
+    useCancelarActividad,
+    useCrearActividad,
 } from '../viewmodels/useActividades';
 
 const colors = Colors['light'];
@@ -274,7 +274,6 @@ const AgendaPersonal: React.FC = () => {
 
   const crearActividadMutation = useCrearActividad();
   const cancelarActividadMutation = useCancelarActividad();
-  const validacion = useValidacionFechas();
 
   const handleRefresh = useCallback(async () => {
     await actividadesPeriodoQuery.refetch();
@@ -290,9 +289,21 @@ const AgendaPersonal: React.FC = () => {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [datePickerMode, setDatePickerMode] = useState<'date' | 'time'>('date');
   const [activeDateType, setActiveDateType] = useState<'startDate' | 'startTime' | 'endDate' | 'endTime' | 'monthJump' | null>(null);
+  const [backendRangosOcupados, setBackendRangosOcupados] = useState<RangoOcupado[]>([]);
 
   const isLoading = actividadesPeriodoQuery.isLoading;
   const isMutating = crearActividadMutation.isPending || cancelarActividadMutation.isPending;
+
+  const avisosBackend = useMemo(() => {
+    const grouped = new Map<string, number>();
+    backendRangosOcupados.forEach((rango) => {
+      grouped.set(rango.usuario, (grouped.get(rango.usuario) ?? 0) + 1);
+    });
+
+    return Array.from(grouped.entries()).map(([usuario, cantidad]) =>
+      `${usuario}: ${cantidad} solapamiento${cantidad > 1 ? 's' : ''}`
+    );
+  }, [backendRangosOcupados]);
 
   const allActivities = useMemo(() => {
     if (!actividadesPeriodoQuery.data) return [];
@@ -528,7 +539,13 @@ const AgendaPersonal: React.FC = () => {
     fecha_fin?: Date;
   }) => {
     try {
-      await crearActividadMutation.mutateAsync(payload);
+      const response: CrearActividadResponse = await crearActividadMutation.mutateAsync(payload);
+
+      if (!response.success && (response.rangosOcupados?.length ?? 0) > 0) {
+        setBackendRangosOcupados(response.rangosOcupados ?? []);
+        return;
+      }
+
       setNewActivity(buildDefaultNewActivityState(viewMode, selectedDate));
       closeAddActivityModal();
       Alert.alert('Éxito', 'Actividad creada correctamente.');
@@ -908,12 +925,14 @@ const AgendaPersonal: React.FC = () => {
       )}
 
       <ValidacionFechasModal
-        state={validacion.state}
-        avisos={validacion.avisos}
-        rangosOcupados={validacion.rangosOcupados}
-        errorMessage={validacion.errorMessage}
-        onConfirm={validacion.confirm}
-        onCancel={validacion.cancel}
+        state={backendRangosOcupados.length > 0 ? 'warnings' : 'idle'}
+        avisos={avisosBackend}
+        rangosOcupados={backendRangosOcupados}
+        onConfirm={() => setBackendRangosOcupados([])}
+        onCancel={() => setBackendRangosOcupados([])}
+        showConfirmAction={false}
+        cancelLabel="Modificar fechas"
+        questionText="Modificá las fechas y volvé a intentar."
       />
 
       <OperacionPendienteModal visible={isMutating} />

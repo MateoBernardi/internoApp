@@ -9,6 +9,20 @@ import {
 } from "../mappers";
 import * as actividades from "../models/Actividad";
 
+function parseRangosOcupados(payload: any): actividades.CrearActividadResponse['rangosOcupados'] {
+    const raw = payload?.rangosOcupados;
+    if (!Array.isArray(raw)) return [];
+
+    return raw.map((item: any) => ({
+        usuario: String(item?.usuario ?? ''),
+        tipo: item?.tipo === 'actividad' || item?.tipo === 'licencia' || item?.tipo === 'solicitud'
+            ? item.tipo
+            : 'actividad',
+        desde: new Date(item?.desde),
+        hasta: new Date(item?.hasta),
+    }));
+}
+
 /** Extrae el mensaje de error del body JSON del backend (si aplica) */
 async function extractErrorText(response: Response): Promise<string> {
     const text = await response.text();
@@ -28,7 +42,16 @@ export async function createActividad(accessToken: string, data: actividades.Cre
         console.error("Error en createActividad:", response.status, errorMsg);
         throw new Error(errorMsg);
     }
-    return await response.json();
+
+    const result = await response.json();
+    return {
+        success: typeof result?.success === 'boolean'
+            ? result.success
+            : Boolean(result?.created ?? result?.updated),
+        id: Number(result?.id ?? 0),
+        mensaje: typeof result?.mensaje === 'string' ? result.mensaje : undefined,
+        rangosOcupados: parseRangosOcupados(result),
+    };
 }
 
 export async function agregarParticipanteActividad(accessToken: string, data: actividades.AgregarParticipanteRequest): Promise<actividades.AgregarParticipanteResponse> {
@@ -80,7 +103,15 @@ export async function modificarActividadFechas(accessToken: string, data: activi
         console.error("Error en modificarActividadFechas:", response.status, errorMsg);
         throw new Error(errorMsg);
     }
-    return await response.json();
+
+    const result = await response.json();
+    return {
+        success: typeof result?.success === 'boolean'
+            ? result.success
+            : Boolean(result?.updated ?? result?.created),
+        mensaje: typeof result?.mensaje === 'string' ? result.mensaje : undefined,
+        rangosOcupados: parseRangosOcupados(result),
+    };
 }
 
 export async function obtenerActividadById(accessToken: string, actividadId: number): Promise<actividades.ActividadDetalleResponse> {

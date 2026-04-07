@@ -109,6 +109,7 @@ export interface ActualizarEstadoInvitacionRequest {
   fecha_inicio_nueva?: Date | null;
   fecha_fin_nueva?: Date | null;
   observacion?: string | null;
+  crear_de_todos_modos?: number;
 }
 
 export interface ActualizarEstadoInvitacionResponse {

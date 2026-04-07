@@ -1,21 +1,21 @@
 import type {
-  CreateSolicitudResult,
-  RangoOcupadoDTO,
-  SolicitudBitacoraDTO,
-  SolicitudDTO,
-  SolicitudInfoDTO,
-  UpdateSolicitudResult,
+    CreateSolicitudResult,
+    RangoOcupadoDTO,
+    SolicitudBitacoraDTO,
+    SolicitudDTO,
+    SolicitudInfoDTO,
+    UpdateSolicitudResult,
 } from '../dto/SolicitudDTO';
 import type {
-  BitacoraSolicitud,
-  CrearSolicitudRequest,
-  CrearSolicitudResponse,
-  EstadoInvitacionDB,
-  RangoOcupado,
-  Solicitud,
-  SolicitudEnviada,
-  UpdateSolicitudRequest,
-  UpdateSolicitudResponse,
+    BitacoraSolicitud,
+    CrearSolicitudRequest,
+    CrearSolicitudResponse,
+    EstadoInvitacionDB,
+    RangoOcupado,
+    Solicitud,
+    SolicitudEnviada,
+    UpdateSolicitudRequest,
+    UpdateSolicitudResponse,
 } from '../models/Solicitud';
 import { parseBackendDate, toIsoDate, toIsoDateOrNull } from './dateMapper';
 
@@ -109,7 +109,7 @@ export function mapCrearSolicitudRequestToSolicitudDTO(request: CrearSolicitudRe
     fecha_fin: request.fecha_fin ?? null,
     tipo_actividad: request.tipo_actividad,
     invitados: request.invitados,
-    crear_de_todos_modos: 0,
+    crear_de_todos_modos: request.crear_de_todos_modos ?? 0,
   };
 }
 
@@ -146,6 +146,9 @@ export function mapUpdateSolicitudRequestToPayload(
         }
       : {}),
     ...(request.observacion !== undefined ? { observacion: request.observacion } : {}),
+    ...(request.crear_de_todos_modos !== undefined
+      ? { crear_de_todos_modos: request.crear_de_todos_modos }
+      : {}),
   };
 }
 

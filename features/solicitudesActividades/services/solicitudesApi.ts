@@ -105,6 +105,7 @@ export async function obtenerMisInvitaciones(accessToken: string): Promise<solic
 
 export async function actualizarEstadoInvitacion(accessToken: string, data: solicitudes.ActualizarEstadoInvitacionRequest): Promise<solicitudes.ActualizarEstadoInvitacionResponse> {
     const payload = mapUpdateSolicitudRequestToPayload(data);
+    console.log('Payload para actualizarEstadoInvitacion:', payload);
     const response = await apiRequest({method: 'PUT', endpoint: `/solicitudes-actividades/solicitudes/update`, token: accessToken, body: payload});
 
     if (!response.ok) {

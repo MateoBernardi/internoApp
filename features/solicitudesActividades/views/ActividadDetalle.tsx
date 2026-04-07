@@ -7,20 +7,23 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Alert,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    TouchableOpacity,
+    View
 } from 'react-native';
+import { ValidacionFechasModal } from '../components/ValidacionFechasModal';
+import type { ModificarActividadFechasResponse } from '../models/Actividad';
+import type { RangoOcupado } from '../models/Solicitud';
 import {
-  useActividadById,
-  useCancelarActividad,
-  useModificarActividadFechas,
+    useActividadById,
+    useCancelarActividad,
+    useModificarActividadFechas,
 } from '../viewmodels/useActividades';
 
 const colors = Colors['light'];
@@ -70,6 +73,18 @@ export function ActividadDetalle({ actividadId, rol }: ActividadDetalleProps) {
     mode: 'date' | 'time';
     target: 'start' | 'end';
   }>({ show: false, mode: 'date', target: 'start' });
+  const [backendRangosOcupados, setBackendRangosOcupados] = useState<RangoOcupado[]>([]);
+
+  const avisosBackend = React.useMemo(() => {
+    const grouped = new Map<string, number>();
+    backendRangosOcupados.forEach((rango) => {
+      grouped.set(rango.usuario, (grouped.get(rango.usuario) ?? 0) + 1);
+    });
+
+    return Array.from(grouped.entries()).map(([usuario, cantidad]) =>
+      `${usuario}: ${cantidad} solapamiento${cantidad > 1 ? 's' : ''}`
+    );
+  }, [backendRangosOcupados]);
 
   const actividad = actividadQuery.data ?? null;
   const roleFromParams = typeof rol === 'string' ? rol.toLowerCase() : '';
@@ -165,15 +180,21 @@ export function ActividadDetalle({ actividadId, rol }: ActividadDetalleProps) {
         ...(showEndDateFields ? { fecha_fin: modEndDate } : {}),
       },
       {
-        onSuccess: () => {
-          setShowModifyModal(false);
-          Alert.alert('Exito', 'Fechas de la actividad modificadas');
-        },
         onError: (error) => {
           Alert.alert(
             'Error',
             error instanceof Error ? error.message : 'Intenta nuevamente'
           );
+        },
+        onSuccess: (response: ModificarActividadFechasResponse) => {
+          if (!response.success && (response.rangosOcupados?.length ?? 0) > 0) {
+            setBackendRangosOcupados(response.rangosOcupados ?? []);
+            return;
+          }
+
+          setBackendRangosOcupados([]);
+          setShowModifyModal(false);
+          Alert.alert('Exito', 'Fechas de la actividad modificadas');
         },
       }
     );
@@ -476,6 +497,17 @@ export function ActividadDetalle({ actividadId, rol }: ActividadDetalleProps) {
       </Modal>
 
       <OperacionPendienteModal visible={isModifying || isCancelling} />
+
+      <ValidacionFechasModal
+        state={backendRangosOcupados.length > 0 ? 'warnings' : 'idle'}
+        avisos={avisosBackend}
+        rangosOcupados={backendRangosOcupados}
+        onConfirm={() => setBackendRangosOcupados([])}
+        onCancel={() => setBackendRangosOcupados([])}
+        showConfirmAction={false}
+        cancelLabel="Modificar fechas"
+        questionText="Modificá las fechas y volvé a intentar."
+      />
     </View>
   );
 }

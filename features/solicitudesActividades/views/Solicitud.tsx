@@ -4,13 +4,12 @@ import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal
 import { Colors, UI } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { useValidacionFechas } from '@/features/solicitudesActividades/viewmodels/useValidacionFechas';
-import { AppBackButton } from '@/shared/ui/AppBackButton';
 import { AppFab } from '@/shared/ui/AppFab';
 import { UserSummary } from '@/shared/users/User';
 import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -27,10 +26,11 @@ import {
 import { UserSelector } from '../../../components/UserSelector';
 import { RoleUserSelectionModal } from '../components/RoleUserSelectionModal';
 import { ValidacionFechasModal } from '../components/ValidacionFechasModal';
-import { EstadoInvitacionDB, estadoInvitacionMapping, ReenviarSolicitudRequest } from '../models/Solicitud';
+import { EstadoInvitacionDB, estadoInvitacionMapping, RangoOcupado, ReenviarSolicitudRequest, UpdateSolicitudResponse } from '../models/Solicitud';
 import { useCrearActividad } from '../viewmodels/useActividades';
 import {
   useActualizarEstadoInvitacion,
+  useCancelarSolicitud,
   useInvitaciones,
   useReenviarSolicitud,
   useSolicitudBitacora,
@@ -45,7 +45,8 @@ const DATE_FORMATTER = new Intl.DateTimeFormat('es-AR', {
   year: 'numeric',
 });
 
-const MODIFIED_STATES: EstadoInvitacionDB[] = ['MODIFIED', 'MODIFIED_BY_HOST'];
+const MODIFIED_STATES: EstadoInvitacionDB[] = ['MODIFIED', 'MODIFIED_BY_HOST', 'ACCEPTED', 'REJECTED'];
+const CANCELABLE_ENVIADA_STATES: EstadoInvitacionDB[] = ['SENT', 'SEEN', 'MODIFIED', 'MODIFIED_BY_HOST', 'ACCEPTED_BY_HOST'];
 
 function formatDateDDMMYYYY(date: Date): string {
   return DATE_FORMATTER.format(date);
@@ -55,12 +56,6 @@ function formatTimeHHMM(date: Date): string {
   const hours = String(date.getHours()).padStart(2, '0');
   const minutes = String(date.getMinutes()).padStart(2, '0');
   return `${hours}:${minutes}`;
-}
-
-function normalizeToMinute(date: Date): Date {
-  const normalized = new Date(date);
-  normalized.setSeconds(0, 0);
-  return normalized;
 }
 
 function ceilToNextMinute(date: Date): Date {
@@ -82,6 +77,7 @@ export function Solicitud() {
 
   const { data: bitacora, isLoading: isLoadingBitacora } = useSolicitudBitacora(solicitudId);
   const { mutate: actualizarEstado, isPending: isUpdatingEstado } = useActualizarEstadoInvitacion();
+  const { mutate: cancelarSolicitud, isPending: isCancellingSolicitud } = useCancelarSolicitud();
   const { mutate: reenviarSolicitud, isPending: isSharing } = useReenviarSolicitud();
   const { mutate: crearActividad, isPending: isCreatingActividad } = useCrearActividad();
   const validacion = useValidacionFechas();
@@ -89,12 +85,14 @@ export function Solicitud() {
   const { data: enviadas } = useSolicitudesCreadas();
   const { data: recibidas } = useInvitaciones();
 
-  const isMutating = isUpdatingEstado || isSharing || isCreatingActividad;
+  const isMutating = isUpdatingEstado || isCancellingSolicitud || isSharing || isCreatingActividad;
+  const seenAutoMarkKeyRef = useRef<string | null>(null);
 
   // Estados para modales
   const [showAcceptModal, setShowAcceptModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showModifyModal, setShowModifyModal] = useState(false);
+  const [isModifyModalMinimized, setIsModifyModalMinimized] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showAddToAgendaModal, setShowAddToAgendaModal] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -108,10 +106,17 @@ export function Solicitud() {
   const [showAgendaDatePicker, setShowAgendaDatePicker] = useState<{show: boolean, mode: 'date'|'time', target: 'start'|'end'}>({show: false, mode: 'date', target: 'start'});
   
   // Estado para modificación
-  const [modStartDate, setModStartDate] = useState(new Date());
-  const [modEndDate, setModEndDate] = useState(new Date());
+  const [modStartDate, setModStartDate] = useState<Date | null>(null);
+  const [modEndDate, setModEndDate] = useState<Date | null>(null);
   const [modObservation, setModObservation] = useState('');
   const [showDatePicker, setShowDatePicker] = useState<{show: boolean, mode: 'date'|'time', target: 'start'|'end'}>({show: false, mode: 'date', target: 'start'});
+  const [backendSolicitudRangos, setBackendSolicitudRangos] = useState<RangoOcupado[]>([]);
+  const [backendActividadRangos, setBackendActividadRangos] = useState<RangoOcupado[]>([]);
+  const [pendingModificarPayload, setPendingModificarPayload] = useState<{
+    fecha_inicio_nueva?: Date | null;
+    fecha_fin_nueva?: Date | null;
+    observacion?: string | null;
+  } | null>(null);
 
   // Estado para compartir
   const [searchQuery, setSearchQuery] = useState('');
@@ -125,6 +130,28 @@ export function Solicitud() {
 
   const users = searchResults || [];
   const isLoadingUsers = isSearchingUsers || isLoadingRole;
+
+  const avisosBackendSolicitud = useMemo(() => {
+    const grouped = new Map<string, number>();
+    backendSolicitudRangos.forEach((rango) => {
+      grouped.set(rango.usuario, (grouped.get(rango.usuario) ?? 0) + 1);
+    });
+
+    return Array.from(grouped.entries()).map(([usuario, cantidad]) =>
+      `${usuario}: ${cantidad} solapamiento${cantidad > 1 ? 's' : ''}`
+    );
+  }, [backendSolicitudRangos]);
+
+  const avisosBackendActividad = useMemo(() => {
+    const grouped = new Map<string, number>();
+    backendActividadRangos.forEach((rango) => {
+      grouped.set(rango.usuario, (grouped.get(rango.usuario) ?? 0) + 1);
+    });
+
+    return Array.from(grouped.entries()).map(([usuario, cantidad]) =>
+      `${usuario}: ${cantidad} solapamiento${cantidad > 1 ? 's' : ''}`
+    );
+  }, [backendActividadRangos]);
 
   const solicitud = useMemo(() => {
     if (type === 'enviada') {
@@ -181,20 +208,57 @@ export function Solicitud() {
 
   const esActividadCreada = solicitud?.estado === 'ACTIVIDAD_CREADA';
 
+  const resetModifyDraft = useCallback(() => {
+    setShowDatePicker({ show: false, mode: 'date', target: 'start' });
+    setModStartDate(null);
+    setModEndDate(null);
+    setModObservation('');
+    setShowModifyModal(false);
+    setIsModifyModalMinimized(false);
+  }, []);
+
+  const minimizeModifyModal = useCallback(() => {
+    setShowDatePicker(prev => ({ ...prev, show: false }));
+    setShowModifyModal(false);
+    setIsModifyModalMinimized(true);
+  }, []);
+
+  const restoreModifyModal = useCallback(() => {
+    setShowModifyModal(true);
+    setIsModifyModalMinimized(false);
+  }, []);
+
   // Marcar como visto
   useEffect(() => {
     if (!solicitud) return;
 
-    // Para recibidas: SENT, MODIFIED_BY_HOST, ACCEPTED_BY_HOST -> SEEN
-    if (type === 'recibida') {
-        const estadosVistos = ['SENT', 'MODIFIED_BY_HOST', 'ACCEPTED_BY_HOST', 'MODIFIED'];
-        if (estadosVistos.includes(solicitud.estado)) {
-            actualizarEstado({
-            solicitud_id: solicitud.solicitud_id,
-                estado: 'SEEN' as EstadoInvitacionDB,
-            });
-        }
-    } 
+    const shouldMarkSeen =
+      (type === 'recibida' && ['SENT', 'MODIFIED_BY_HOST', 'ACCEPTED_BY_HOST'].includes(solicitud.estado))
+      || (type === 'enviada' && solicitud.estado === 'MODIFIED');
+
+    if (!shouldMarkSeen) {
+      seenAutoMarkKeyRef.current = null;
+      return;
+    }
+
+    const attemptKey = `${type}:${solicitud.solicitud_id}:${solicitud.estado}`;
+    if (seenAutoMarkKeyRef.current === attemptKey) {
+      return;
+    }
+
+    seenAutoMarkKeyRef.current = attemptKey;
+
+    actualizarEstado(
+      {
+        solicitud_id: solicitud.solicitud_id,
+        estado: 'SEEN' as EstadoInvitacionDB,
+      },
+      {
+        onError: () => {
+          seenAutoMarkKeyRef.current = null;
+        },
+      }
+    );
   }, [type, solicitud, actualizarEstado]);
 
   const handleAceptarPress = useCallback(() => {
@@ -277,77 +341,105 @@ export function Solicitud() {
     );
   }, [solicitudId, actualizarEstado, rejectObservation, closeRejectModal, router]);
 
+  const handleCancelarSolicitud = useCallback(() => {
+    if (!solicitud) return;
+
+    Alert.alert(
+      'Cancelar solicitud',
+      '¿Deseas cancelar esta solicitud?',
+      [
+        { text: 'No', style: 'cancel' },
+        {
+          text: 'Sí, cancelar',
+          style: 'destructive',
+          onPress: () => {
+            cancelarSolicitud(
+              { solicitudId: solicitud.solicitud_id },
+              {
+                onSuccess: () => {
+                  setMenuOpen(false);
+                  Alert.alert('Éxito', 'Solicitud cancelada');
+                  router.back();
+                },
+                onError: (error) => {
+                  Alert.alert('Error', error instanceof Error ? error.message : 'Intenta nuevamente');
+                },
+              }
+            );
+          },
+        },
+      ]
+    );
+  }, [solicitud, cancelarSolicitud, router]);
+
   const handleModificarPress = useCallback(() => {
-      if (solicitud) {
-          setModStartDate(solicitud.fecha_inicio ? new Date(solicitud.fecha_inicio) : new Date());
-          setModEndDate(solicitud.fecha_fin ? new Date(solicitud.fecha_fin) : new Date(Date.now() + 3600000));
-          setModObservation('');
-          setShowModifyModal(true);
+      if (!solicitud) return;
+
+      if (!isModifyModalMinimized) {
+        setModStartDate(null);
+        setModEndDate(null);
+        setModObservation('');
       }
-  }, [solicitud]);
 
-  const ejecutarModificar = useCallback(() => {
-      const normalizedStart = normalizeToMinute(modStartDate);
-      const normalizedEnd = normalizeToMinute(modEndDate);
-      const originalStart = solicitud?.fecha_inicio ? normalizeToMinute(new Date(solicitud.fecha_inicio)) : null;
-      const originalEnd = solicitud?.fecha_fin ? normalizeToMinute(new Date(solicitud.fecha_fin)) : null;
-      const shouldSendDateChanges = !!originalStart
-        && !!originalEnd
-        && (
-          normalizedStart.getTime() !== originalStart.getTime()
-          || normalizedEnd.getTime() !== originalEnd.getTime()
-        );
+      restoreModifyModal();
+  }, [solicitud, isModifyModalMinimized, restoreModifyModal]);
 
+    const ejecutarModificar = useCallback((crearDeTodosModos: number = 0) => {
+      const payload = {
+        fecha_inicio_nueva: modStartDate,
+        fecha_fin_nueva: modEndDate,
+        observacion: modObservation.trim() || null,
+      };
+
+      setPendingModificarPayload(payload);
       actualizarEstado({
           solicitud_id: solicitudId,
           estado: type === 'enviada' ? 'MODIFIED_BY_HOST' : 'MODIFIED',
-          ...(shouldSendDateChanges
-            ? {
-                fecha_inicio_nueva: normalizedStart,
-                fecha_fin_nueva: normalizedEnd,
-              }
-            : {}),
-          observacion: modObservation.trim() || null,
+        ...payload,
+        crear_de_todos_modos: crearDeTodosModos,
       }, {
-          onSuccess: () => {
-              setShowModifyModal(false);
+        onSuccess: (response: UpdateSolicitudResponse) => {
+          if (!response.success && (response.rangosOcupados?.length ?? 0) > 0) {
+            setBackendSolicitudRangos(response.rangosOcupados ?? []);
+            return;
+          }
+
+          setBackendSolicitudRangos([]);
+              resetModifyDraft();
               Alert.alert('Éxito', 'Solicitud modificada');
           },
           onError: (error) => {
               Alert.alert('Error', error instanceof Error ? error.message : 'Intenta nuevamente');
           }
       });
-        }, [solicitudId, modStartDate, modEndDate, modObservation, actualizarEstado, type, solicitud]);
+  }, [solicitudId, modStartDate, modEndDate, modObservation, actualizarEstado, type, solicitud, resetModifyDraft]);
 
-  const modStartDateNormalized = useMemo(() => normalizeToMinute(modStartDate), [modStartDate]);
-  const modEndDateNormalized = useMemo(() => normalizeToMinute(modEndDate), [modEndDate]);
-  const originalModStartDate = useMemo(
-    () => (solicitud?.fecha_inicio ? normalizeToMinute(new Date(solicitud.fecha_inicio)) : null),
-    [solicitud?.fecha_inicio]
-  );
-  const originalModEndDate = useMemo(
-    () => (solicitud?.fecha_fin ? normalizeToMinute(new Date(solicitud.fecha_fin)) : null),
-    [solicitud?.fecha_fin]
-  );
+  const forceModificarSolicitud = useCallback(() => {
+    if (!pendingModificarPayload) return;
+    ejecutarModificar(1);
+    setBackendSolicitudRangos([]);
+  }, [pendingModificarPayload, ejecutarModificar]);
+
   const hasDateChanges = useMemo(() => {
-    if (!originalModStartDate || !originalModEndDate) {
+    if (!modStartDate || !modEndDate) {
       return false;
     }
-    return (
-      modStartDateNormalized.getTime() !== originalModStartDate.getTime() ||
-      modEndDateNormalized.getTime() !== originalModEndDate.getTime()
-    );
-  }, [modStartDateNormalized, modEndDateNormalized, originalModStartDate, originalModEndDate]);
+  }, [modStartDate, modEndDate]);
+
   const modNowThreshold = useMemo(
     () => ceilToNextMinute(new Date()),
     [modStartDate, modEndDate, showModifyModal]
   );
   const modDateErrorMessage = useMemo(() => {
-    if (!hasDateChanges) return null;
-    if (modStartDateNormalized < modNowThreshold) return 'La fecha de inicio es menor a la actual.';
-    if (modEndDateNormalized <= modStartDateNormalized) return 'La fecha de fin debe ser mayor a la de inicio.';
+    const hasAnyDateSelection = !!modStartDate || !!modEndDate;
+    if (hasAnyDateSelection && (!modStartDate || !modEndDate)) {
+      return 'Completá fecha de inicio y fin para aplicar cambios de fecha.';
+    }
+    if (!modStartDate || !modEndDate) return null;
+    if (modStartDate < modNowThreshold) return 'La fecha de inicio es menor a la actual.';
+    if (modEndDate <= modStartDate) return 'La fecha de fin debe ser mayor a la de inicio.';
     return null;
-  }, [hasDateChanges, modStartDateNormalized, modEndDateNormalized, modNowThreshold]);
+  }, [modStartDate, modEndDate, modNowThreshold]);
 
   const canSubmitModificar = useMemo(
     () => !modDateErrorMessage && (hasDateChanges || modObservation.trim().length > 0),
@@ -370,28 +462,33 @@ export function Solicitud() {
       // Deduplicar
       const uniqueParticipantes = [...new Set(participantes)];
 
+      if (!modStartDate || !modEndDate) {
+        ejecutarModificar();
+        return;
+      }
+
       validacion.validate(
         {
-          fechaInicio: modStartDateNormalized,
-          fechaFin: modEndDateNormalized,
+          fechaInicio: modStartDate,
+          fechaFin: modEndDate,
           participantes: uniqueParticipantes,
           solicitudIdExcluir: solicitudId,
         },
         () => ejecutarModificar()
       );
-  }, [canSubmitModificar, hasDateChanges, solicitudId, solicitud, user, validacion, ejecutarModificar, modStartDateNormalized, modEndDateNormalized]);
+  }, [canSubmitModificar, hasDateChanges, solicitudId, solicitud, user, validacion, ejecutarModificar, modStartDate, modEndDate]);
 
   const onDateChange = (event: any, selectedDate?: Date) => {
       const currentTarget = showDatePicker.target;
       setShowDatePicker(prev => ({ ...prev, show: Platform.OS === 'ios' })); // En Android se cierra
       
       if (selectedDate && event.type !== 'dismissed') {
-          const normalizedSelectedDate = normalizeToMinute(selectedDate);
+          const normalizedSelectedDate = selectedDate;
           if (currentTarget === 'start') {
             setModStartDate(normalizedSelectedDate);
               // Validar fin
-            if (normalizedSelectedDate > modEndDate) {
-              setModEndDate(normalizeToMinute(new Date(normalizedSelectedDate.getTime() + 3600000)));
+            if (modEndDate && normalizedSelectedDate > modEndDate) {
+              setModEndDate(new Date(normalizedSelectedDate.getTime() + 3600000));
               }
           } else {
             setModEndDate(normalizedSelectedDate);
@@ -404,8 +501,30 @@ export function Solicitud() {
   };
 
   const showPicker = (mode: 'date' | 'time', target: 'start' | 'end') => {
+      if (target === 'start' && !modStartDate) {
+        setModStartDate(ceilToNextMinute(new Date()));
+      }
+
+      if (target === 'end' && !modEndDate) {
+        const seedBase = modStartDate ?? ceilToNextMinute(new Date());
+        setModEndDate(new Date(seedBase.getTime() + 3600000));
+      }
+
       setShowDatePicker({ show: true, mode, target });
   };
+
+  const modPickerValue = useMemo(() => {
+    if (showDatePicker.target === 'start') {
+      return modStartDate ?? ceilToNextMinute(new Date());
+    }
+
+    if (modEndDate) {
+      return modEndDate;
+    }
+
+    const seedBase = modStartDate ?? ceilToNextMinute(new Date());
+    return (new Date(seedBase.getTime() + 3600000));
+  }, [showDatePicker.target, modStartDate, modEndDate]);
 
   const handleCompartir = useCallback(() => {
     setSelectedUsersToShare([]);
@@ -417,11 +536,8 @@ export function Solicitud() {
   const handleAgregarAAgenda = useCallback(() => {
     // Prellena fechas desde la solicitud si existen
     if (solicitud?.fecha_inicio && solicitud?.fecha_fin) {
-      setAgendaFechaInicio(normalizeToMinute(new Date(solicitud.fecha_inicio)));
-      setAgendaFechaFin(normalizeToMinute(new Date(solicitud.fecha_fin)));
-    } else {
-      setAgendaFechaInicio(normalizeToMinute(new Date()));
-      setAgendaFechaFin(normalizeToMinute(new Date(Date.now() + 3600000)));
+      setAgendaFechaInicio(new Date(solicitud.fecha_inicio));
+      setAgendaFechaFin(new Date(solicitud.fecha_fin));
     }
     setShowAddToAgendaModal(true);
   }, [solicitud]);
@@ -432,11 +548,11 @@ export function Solicitud() {
       setShowAgendaDatePicker(prev => ({ ...prev, show: false }));
     }
     if (selectedDate && event.type !== 'dismissed') {
-      const normalizedSelectedDate = normalizeToMinute(selectedDate);
+      const normalizedSelectedDate = selectedDate;
       if (currentTarget === 'start') {
         setAgendaFechaInicio(normalizedSelectedDate);
         if (normalizedSelectedDate >= agendaFechaFin) {
-          setAgendaFechaFin(normalizeToMinute(new Date(normalizedSelectedDate.getTime() + 3600000)));
+          setAgendaFechaFin(new Date(normalizedSelectedDate.getTime() + 3600000));
         }
       } else {
         setAgendaFechaFin(normalizedSelectedDate);
@@ -444,8 +560,8 @@ export function Solicitud() {
     }
   };
 
-  const agendaStartDate = useMemo(() => normalizeToMinute(agendaFechaInicio), [agendaFechaInicio]);
-  const agendaEndDate = useMemo(() => normalizeToMinute(agendaFechaFin), [agendaFechaFin]);
+  const agendaStartDate = useMemo(() => agendaFechaInicio, [agendaFechaInicio]);
+  const agendaEndDate = useMemo(() => agendaFechaFin, [agendaFechaFin]);
   const agendaNow = useMemo(() => ceilToNextMinute(new Date()), [agendaFechaInicio, agendaFechaFin, showAddToAgendaModal]);
   const agendaDateErrorMessage = useMemo(() => {
     if (agendaStartDate < agendaNow) return 'La fecha de inicio es menor a la actual.';
@@ -456,8 +572,8 @@ export function Solicitud() {
   const ejecutarAgregarAAgenda = useCallback(() => {
     if (!solicitud) return;
     const esReunion = solicitud.tipo_actividad === 'REUNION';
-    const start = normalizeToMinute(agendaFechaInicio);
-    const end = normalizeToMinute(agendaFechaFin);
+    const start = agendaFechaInicio;
+    const end = agendaFechaFin;
 
     crearActividad(
       {
@@ -470,15 +586,21 @@ export function Solicitud() {
         ...(esReunion ? { participantes: participantesAceptados } : {}),
       },
       {
-        onSuccess: () => {
+        onError: (error) => {
+          const msg = error instanceof Error ? error.message : 'Intenta nuevamente';
+          Alert.alert('Error', msg);
+        },
+        onSuccess: (response) => {
+          if (!response.success && (response.rangosOcupados?.length ?? 0) > 0) {
+            setBackendActividadRangos(response.rangosOcupados ?? []);
+            return;
+          }
+
+          setBackendActividadRangos([]);
           setShowAddToAgendaModal(false);
           Alert.alert('Éxito', esReunion
             ? 'Actividad agregada a la agenda de todos los participantes'
             : 'Actividad agregada a tu agenda');
-        },
-        onError: (error) => {
-          const msg = error instanceof Error ? error.message : 'Intenta nuevamente';
-          Alert.alert('Error', msg);
         },
       }
     );
@@ -611,8 +733,13 @@ export function Solicitud() {
   const isSentState = solicitud?.estado === 'SENT';
   const isAceptarModificacionesFlow = type === 'enviada' && solicitud?.estado === 'MODIFIED';
   const puedeCompartirEnviada = type === 'enviada' && !isExpiredState && !esActividadCreada;
+  const puedeCancelarEnviada = type === 'enviada' && !!solicitud && CANCELABLE_ENVIADA_STATES.includes(solicitud.estado);
   const compartirEnMenuEnviadaVista = type === 'enviada' && solicitud?.estado === 'SEEN';
-  const canOpenMenu = !esActividadCreada && !isExpiredState && solicitud?.estado !== 'ACCEPTED' && solicitud?.estado !== 'REJECTED' && (!fechaInicioPasada || isSentState);
+  const canOpenMenu = !esActividadCreada
+    && !isExpiredState
+    && solicitud?.estado !== 'ACCEPTED'
+    && solicitud?.estado !== 'REJECTED'
+    && (!fechaInicioPasada || isSentState || puedeCancelarEnviada);
   const bitacoraVisible = useMemo(() => {
     if (!bitacora) return [];
     if (showFullBitacora) return bitacora;
@@ -784,6 +911,18 @@ export function Solicitud() {
 
       {/* Footer Actions (FABs) */}
       <View style={styles.fabContainer}>
+          {isModifyModalMinimized && (
+            <View style={styles.minimizedModifyDraftContainer}>
+              <TouchableOpacity style={styles.minimizedModifyDraftMain} onPress={restoreModifyModal}>
+                <Ionicons name="chevron-up" size={18} color={colors.lightTint} />
+                <ThemedText style={styles.minimizedModifyDraftText}>Borrador de modificación</ThemedText>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.minimizedModifyDraftClose} onPress={resetModifyDraft}>
+                <Ionicons name="close" size={16} color={colors.secondaryText} />
+              </TouchableOpacity>
+            </View>
+          )}
+
           {/* Indicador de actividad creada */}
           {esActividadCreada && (
             <View style={[styles.fab, { backgroundColor: colors.activityCreated, marginRight: 16, width: 'auto', paddingHorizontal: 16, borderRadius: 28, flexDirection: 'row', gap: 6 }]}> 
@@ -818,6 +957,16 @@ export function Solicitud() {
                     )}
                     <AppFab icon="create-outline" floating={false} backgroundColor={colors.lightTint} onPress={handleModificarPress} style={{ marginRight: 16 }} />
                   </>
+                )}
+
+                {puedeCancelarEnviada && (
+                  <AppFab
+                    icon="trash-outline"
+                    floating={false}
+                    backgroundColor={colors.error}
+                    onPress={handleCancelarSolicitud}
+                    style={{ marginRight: 16 }}
+                  />
                 )}
               </>
           )}
@@ -920,11 +1069,18 @@ export function Solicitud() {
       </Modal>
 
       {/* Modal Modificar */}
-      <Modal visible={showModifyModal} transparent={false} animationType="slide">
+      <Modal visible={showModifyModal} transparent={false} animationType="slide" onRequestClose={minimizeModifyModal}>
         <View style={styles.container}>
-          <View style={styles.header}>
-            <AppBackButton iconName="chevron-down" onPress={() => setShowModifyModal(false)} />
-            <ThemedText style={styles.headerTitle}>Modificar solicitud</ThemedText>
+          <View style={styles.modifyModalHeader}>
+            <ThemedText style={styles.modifyModalTitle}>Modificar solicitud</ThemedText>
+            <View style={styles.modifyModalHeaderActions}>
+              <TouchableOpacity onPress={minimizeModifyModal} style={styles.modifyModalHeaderBtn}>
+                <Ionicons name="chevron-down" size={24} color={colors.secondaryText} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={resetModifyDraft} style={styles.modifyModalHeaderBtn}>
+                <Ionicons name="close" size={22} color={colors.secondaryText} />
+              </TouchableOpacity>
+            </View>
           </View>
 
           <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
@@ -932,20 +1088,20 @@ export function Solicitud() {
               <ThemedText style={styles.label}>Nueva Fecha Inicio</ThemedText>
               <View style={styles.row}>
                 <TouchableOpacity onPress={() => showPicker('date', 'start')} style={styles.dateBtn}>
-                  <ThemedText>{formatDateDDMMYYYY(modStartDate)}</ThemedText>
+                  <ThemedText>{modStartDate ? formatDateDDMMYYYY(modStartDate) : 'Día'}</ThemedText>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => showPicker('time', 'start')} style={styles.dateBtn}>
-                  <ThemedText>{formatTimeHHMM(modStartDate)}</ThemedText>
+                  <ThemedText>{modStartDate ? formatTimeHHMM(modStartDate) : 'Hora'}</ThemedText>
                 </TouchableOpacity>
               </View>
 
               <ThemedText style={styles.label}>Nueva Fecha Fin</ThemedText>
               <View style={styles.row}>
                 <TouchableOpacity onPress={() => showPicker('date', 'end')} style={styles.dateBtn}>
-                  <ThemedText>{formatDateDDMMYYYY(modEndDate)}</ThemedText>
+                  <ThemedText>{modEndDate ? formatDateDDMMYYYY(modEndDate) : 'Día'}</ThemedText>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => showPicker('time', 'end')} style={styles.dateBtn}>
-                  <ThemedText>{formatTimeHHMM(modEndDate)}</ThemedText>
+                  <ThemedText>{modEndDate ? formatTimeHHMM(modEndDate) : 'Hora'}</ThemedText>
                 </TouchableOpacity>
               </View>
 
@@ -982,7 +1138,7 @@ export function Solicitud() {
           {showDatePicker.show && (
             <DateTimePicker
               testID="dateTimePicker"
-              value={showDatePicker.target === 'start' ? modStartDate : modEndDate}
+              value={modPickerValue}
               mode={showDatePicker.mode}
               is24Hour={true}
               display="default"
@@ -1116,6 +1272,25 @@ export function Solicitud() {
         errorMessage={validacion.errorMessage}
         onConfirm={validacion.confirm}
         onCancel={validacion.cancel}
+      />
+
+      <ValidacionFechasModal
+        state={backendSolicitudRangos.length > 0 ? 'warnings' : 'idle'}
+        avisos={avisosBackendSolicitud}
+        rangosOcupados={backendSolicitudRangos}
+        onConfirm={forceModificarSolicitud}
+        onCancel={() => setBackendSolicitudRangos([])}
+      />
+
+      <ValidacionFechasModal
+        state={backendActividadRangos.length > 0 ? 'warnings' : 'idle'}
+        avisos={avisosBackendActividad}
+        rangosOcupados={backendActividadRangos}
+        onConfirm={() => setBackendActividadRangos([])}
+        onCancel={() => setBackendActividadRangos([])}
+        showConfirmAction={false}
+        cancelLabel="Modificar fechas"
+        questionText="Modificá las fechas y volvé a intentar."
       />
 
       {/* Modal operación pendiente */}
@@ -1329,6 +1504,41 @@ const styles = StyleSheet.create({
       right: UI.fab.offsetRight,
       flexDirection: 'row',
       justifyContent: 'flex-end',
+      alignItems: 'center',
+  },
+  minimizedModifyDraftContainer: {
+    position: 'absolute',
+    right: 8,
+    bottom: 72,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: colors.neutralBorder,
+    borderRadius: UI.radius.md,
+    paddingLeft: UI.spacing.sm,
+    paddingRight: UI.spacing.xs,
+    paddingVertical: UI.spacing.xs,
+    shadowColor: UI.shadow.color,
+    shadowOffset: UI.shadow.offset,
+    shadowOpacity: UI.shadow.opacity,
+    shadowRadius: UI.shadow.radius,
+    elevation: UI.shadow.elevation,
+  },
+  minimizedModifyDraftMain: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingRight: UI.spacing.xs,
+  },
+  minimizedModifyDraftText: {
+    marginLeft: 6,
+    color: colors.text,
+    fontSize: UI.fontSize.sm,
+    fontWeight: '600',
+  },
+  minimizedModifyDraftClose: {
+    marginLeft: 6,
+    padding: 4,
   },
   fab: {
       width: 56,
@@ -1410,6 +1620,26 @@ const styles = StyleSheet.create({
       flexDirection: 'row',
       justifyContent: 'space-between',
       marginBottom: 16,
+  },
+  modifyModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: UI.header.horizontalPadding,
+    paddingVertical: UI.header.verticalPadding,
+  },
+  modifyModalTitle: {
+    fontSize: UI.fontSize.xxl,
+    color: colors.tint,
+    fontWeight: '500',
+  },
+  modifyModalHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  modifyModalHeaderBtn: {
+    padding: 4,
+    marginLeft: 8,
   },
   dateBtn: {
       padding: 10,

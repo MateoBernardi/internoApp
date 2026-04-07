@@ -24,7 +24,8 @@ import {
 } from 'react-native';
 import { UserSelector } from '../../../components/UserSelector';
 import { RoleUserSelectionModal } from '../components/RoleUserSelectionModal';
-import type { CrearSolicitudRequest } from '../models/Solicitud';
+import { ValidacionFechasModal } from '../components/ValidacionFechasModal';
+import type { CrearSolicitudRequest, CrearSolicitudResponse, RangoOcupado } from '../models/Solicitud';
 import { useCrearSolicitud } from '../viewmodels/useSolicitudes';
 
 const colors = Colors['light'];
@@ -41,12 +42,6 @@ function formatTimeHHMM(date: Date): string {
   const hours = String(date.getHours()).padStart(2, '0');
   const minutes = String(date.getMinutes()).padStart(2, '0');
   return `${hours}:${minutes}`;
-}
-
-function normalizeToMinute(date: Date): Date {
-  const normalized = new Date(date);
-  normalized.setSeconds(0, 0);
-  return normalized;
 }
 
 function ceilToNextMinute(date: Date): Date {
@@ -98,6 +93,8 @@ export function CrearSolicitud() {
   const [datePickerMode, setDatePickerMode] = useState<'date' | 'time'>('date');
   const [activeDateType, setActiveDateType] = useState<'start' | 'end' | null>(null);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [backendRangosOcupados, setBackendRangosOcupados] = useState<RangoOcupado[]>([]);
+  const [pendingPayload, setPendingPayload] = useState<CrearSolicitudRequest | null>(null);
   const isKeyboardOpen = keyboardHeight > 0;
 
   const ignoreDatePressUntilRef = useRef(0);
@@ -189,7 +186,7 @@ export function CrearSolicitud() {
       return;
     }
 
-    const currentDate = normalizeToMinute(selectedDate);
+    const currentDate = selectedDate;
     if (activeDateType === 'start') {
       setFechaInicio(currentDate);
     } else {
@@ -199,13 +196,13 @@ export function CrearSolicitud() {
   };
 
   const getPickerValue = useCallback((): Date => {
-    if (activeDateType === 'start') return normalizeToMinute(fechaInicio ?? new Date());
+    if (activeDateType === 'start') return fechaInicio ?? new Date();
     if (activeDateType === 'end') {
-      if (fechaFin) return normalizeToMinute(fechaFin);
-      if (fechaInicio) return normalizeToMinute(fechaInicio);
-      return normalizeToMinute(new Date(Date.now() + 3600000));
+      if (fechaFin) return fechaFin;
+      if (fechaInicio) return fechaInicio;
+      return new Date(Date.now() + 3600000);
     }
-    return normalizeToMinute(new Date());
+    return new Date();
   }, [activeDateType, fechaInicio, fechaFin]);
 
   const showDatepicker = (type: 'start' | 'end', mode: 'date' | 'time') => {
@@ -237,8 +234,8 @@ export function CrearSolicitud() {
   const now = ceilToNextMinute(new Date());
   const areDatesMissing = hasDates && (!fechaInicio || !fechaFin);
   const isAllDayCurrentDay = hasDates && allDay && !!fechaInicio && isSameLocalDay(fechaInicio, now);
-  const effectiveStartDate = hasDates && fechaInicio ? (allDay ? toStartOfDay(fechaInicio) : normalizeToMinute(fechaInicio)) : null;
-  const effectiveEndDate = hasDates && fechaFin ? (allDay ? toEndOfDay(fechaFin) : normalizeToMinute(fechaFin)) : null;
+  const effectiveStartDate = hasDates && fechaInicio ? (allDay ? toStartOfDay(fechaInicio) : fechaInicio) : null;
+  const effectiveEndDate = hasDates && fechaFin ? (allDay ? toEndOfDay(fechaFin) : fechaFin) : null;
   const isStartDatePast = !!effectiveStartDate && effectiveStartDate < now;
   const isDateRangeInvalid = !!effectiveStartDate && !!effectiveEndDate && effectiveEndDate <= effectiveStartDate;
 
@@ -260,9 +257,30 @@ export function CrearSolicitud() {
     );
   }, [titulo, descripcion, selectedUsers, dateErrorMessage, isConsejo]);
 
+  const avisosBackend = useMemo(() => {
+    const grouped = new Map<string, number>();
+    backendRangosOcupados.forEach((rango) => {
+      grouped.set(rango.usuario, (grouped.get(rango.usuario) ?? 0) + 1);
+    });
+
+    return Array.from(grouped.entries()).map(([usuario, cantidad]) =>
+      `${usuario}: ${cantidad} solapamiento${cantidad > 1 ? 's' : ''}`
+    );
+  }, [backendRangosOcupados]);
+
+  const closeBackendConflicts = useCallback(() => {
+    setBackendRangosOcupados([]);
+  }, []);
+
   const ejecutarCreacion = useCallback((payload: CrearSolicitudRequest) => {
+    setPendingPayload(payload);
     crearSolicitud(payload, {
-      onSuccess: () => {
+      onSuccess: (response: CrearSolicitudResponse) => {
+        if (!response.success && (response.rangosOcupados?.length ?? 0) > 0) {
+          setBackendRangosOcupados(response.rangosOcupados ?? []);
+          return;
+        }
+
         Alert.alert('Éxito', 'Solicitud creada correctamente');
         router.back();
       },
@@ -272,6 +290,16 @@ export function CrearSolicitud() {
     });
   }, [crearSolicitud, router]);
 
+  const forceCreateSolicitud = useCallback(() => {
+    if (!pendingPayload) return;
+
+    ejecutarCreacion({
+      ...pendingPayload,
+      crear_de_todos_modos: 1,
+    });
+    setBackendRangosOcupados([]);
+  }, [pendingPayload, ejecutarCreacion]);
+
   const handleCrearSolicitud = useCallback(() => {
     if (!isFormValid) {
       Alert.alert('Formulario incompleto', 'Por favor completa todos los campos');
@@ -280,8 +308,8 @@ export function CrearSolicitud() {
 
     if (hasDates && (!fechaInicio || !fechaFin)) return;
 
-    let start = normalizeToMinute(new Date(fechaInicio ?? new Date()));
-    let end = normalizeToMinute(new Date(fechaFin ?? new Date()));
+    let start = new Date(fechaInicio ?? new Date());
+    let end = new Date(fechaFin ?? new Date());
     if (allDay) {
       start = toStartOfDay(start);
       end = toEndOfDay(end);
@@ -292,6 +320,7 @@ export function CrearSolicitud() {
       descripcion: descripcion.trim(),
       tipo_actividad: tipoActividad,
       invitados: selectedUsers.map((u) => u.user_context_id),
+      crear_de_todos_modos: 0,
       ...(hasDates ? { fecha_inicio: start, fecha_fin: end } : {}),
     };
 
@@ -496,6 +525,14 @@ export function CrearSolicitud() {
       )}
 
       <OperacionPendienteModal visible={isPending} />
+
+      <ValidacionFechasModal
+        state={backendRangosOcupados.length > 0 ? 'warnings' : 'idle'}
+        avisos={avisosBackend}
+        rangosOcupados={backendRangosOcupados}
+        onConfirm={forceCreateSolicitud}
+        onCancel={closeBackendConflicts}
+      />
     </View>
   );
 }

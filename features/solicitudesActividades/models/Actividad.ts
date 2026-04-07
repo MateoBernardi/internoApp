@@ -1,10 +1,11 @@
 import type {
-  ActividadDetalleDTO as ActividadDetalleDtoType,
-  ActividadDTO as ActividadDtoType,
-  ActividadParticipanteDTO as ActividadParticipanteDtoType,
-  CrearActividadDTO,
-  CrearActividadResultDTO,
+    ActividadDetalleDTO as ActividadDetalleDtoType,
+    ActividadDTO as ActividadDtoType,
+    ActividadParticipanteDTO as ActividadParticipanteDtoType,
+    CrearActividadDTO,
+    CrearActividadResultDTO,
 } from '../dto/ActividadDTO';
+import type { RangoOcupado } from './Solicitud';
 import { RolActividad } from './Solicitud';
 
 // Participante de una actividad (devuelto por el backend)
@@ -75,6 +76,8 @@ export interface CrearActividadRequest {
 export interface CrearActividadResponse {
   success: boolean;
   id: number;
+  rangosOcupados?: RangoOcupado[];
+  mensaje?: string;
 }
 
 // DTO aliases para mantener compatibilidad en imports existentes.
@@ -104,6 +107,7 @@ export interface ModificarActividadFechasRequest {
 export interface ModificarActividadFechasResponse {
   success: boolean;
   mensaje?: string;
+  rangosOcupados?: RangoOcupado[];
 }
 
 export interface ActividadDetalleParticipante {

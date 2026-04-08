@@ -8,10 +8,14 @@ import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
+import { AppFab } from '@/shared/ui/AppFab';
+import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
+    Keyboard,
+    KeyboardAvoidingView,
     Modal,
     Platform,
     ScrollView,
@@ -30,6 +34,29 @@ import {
 import type { CreateObjetivoDTO, Objetivo } from '../models/Objetivo';
 
 const ESTADOS = ['PENDIENTE', 'PRIORIDAD', 'PROGRESO', 'REALIZADO'] as const;
+const DEFAULT_OBJETIVO_ESTADO = 'PENDIENTE' as const;
+
+interface ObjetivoCreateDraft {
+    titulo: string;
+    descripcion: string;
+    estado: (typeof ESTADOS)[number];
+}
+
+interface MoveDraft {
+    nuevoEstado: string;
+    observacion: string;
+}
+
+const DEFAULT_CREATE_DRAFT: ObjetivoCreateDraft = {
+    titulo: '',
+    descripcion: '',
+    estado: DEFAULT_OBJETIVO_ESTADO,
+};
+
+const DEFAULT_MOVE_DRAFT: MoveDraft = {
+    nuevoEstado: '',
+    observacion: '',
+};
 
 // ============================================
 // Modal para crear/editar objetivo
@@ -39,27 +66,95 @@ interface FormObjetivoModalProps {
     visible: boolean;
     objetivo?: Objetivo;
     onClose: () => void;
+    onMinimize?: () => void;
     onSuccess?: () => void;
+    draftValues?: ObjetivoCreateDraft;
+    onDraftChange?: (draft: ObjetivoCreateDraft) => void;
+    resumeDraft?: boolean;
+    onResumeDraftHandled?: () => void;
+    resetDraftSignal?: number;
 }
 
-function FormObjetivoModal({ visible, objetivo, onClose, onSuccess }: FormObjetivoModalProps) {
+function FormObjetivoModal({
+    visible,
+    objetivo,
+    onClose,
+    onMinimize,
+    onSuccess,
+    draftValues,
+    onDraftChange,
+    resumeDraft = false,
+    onResumeDraftHandled,
+    resetDraftSignal = 0,
+}: FormObjetivoModalProps) {
     const [titulo, setTitulo] = useState(objetivo?.titulo || '');
     const [descripcion, setDescripcion] = useState(objetivo?.descripcion || '');
-    const [estado, setEstado] = useState(objetivo?.estado || 'PENDIENTE');
+    const [estado, setEstado] = useState<(typeof ESTADOS)[number]>(objetivo?.estado || DEFAULT_OBJETIVO_ESTADO);
+    const [keyboardHeight, setKeyboardHeight] = useState(0);
     const createMutation = useCreateObjetivo();
     const updateMutation = useUpdateObjetivo();
 
     const isEditing = !!objetivo;
     const isLoading = createMutation.isPending || updateMutation.isPending;
+    const isKeyboardOpen = keyboardHeight > 0;
 
-    // Actualizar estado cuando el modal se abre o el objetivo cambia
+    const syncCreateDraft = (partial: Partial<ObjetivoCreateDraft>) => {
+        if (isEditing || !onDraftChange) return;
+        onDraftChange({
+            titulo,
+            descripcion,
+            estado,
+            ...partial,
+        });
+    };
+
     useEffect(() => {
-        if (visible) {
-            setTitulo(objetivo?.titulo || '');
-            setDescripcion(objetivo?.descripcion || '');
-            setEstado(objetivo?.estado || 'PENDIENTE');
+        const onShow = Keyboard.addListener('keyboardDidShow', (event) => {
+            setKeyboardHeight(event.endCoordinates.height);
+        });
+        const onHide = Keyboard.addListener('keyboardDidHide', () => {
+            setKeyboardHeight(0);
+        });
+
+        return () => {
+            onShow.remove();
+            onHide.remove();
+        };
+    }, []);
+
+    // Actualizar estado cuando el modal se abre o el objetivo cambia.
+    // Si se está restaurando un borrador minimizado, preservamos el contenido.
+    useEffect(() => {
+        if (!visible) return;
+
+        if (isEditing && objetivo) {
+            setTitulo(objetivo.titulo || '');
+            setDescripcion(objetivo.descripcion || '');
+            setEstado((objetivo.estado || DEFAULT_OBJETIVO_ESTADO) as (typeof ESTADOS)[number]);
+            return;
         }
-    }, [visible, objetivo]);
+
+        if (!resumeDraft) {
+            setTitulo(draftValues?.titulo ?? '');
+            setDescripcion(draftValues?.descripcion ?? '');
+            setEstado((draftValues?.estado ?? DEFAULT_OBJETIVO_ESTADO) as (typeof ESTADOS)[number]);
+        }
+
+        if (resumeDraft) {
+            setTitulo(draftValues?.titulo ?? '');
+            setDescripcion(draftValues?.descripcion ?? '');
+            setEstado((draftValues?.estado ?? DEFAULT_OBJETIVO_ESTADO) as (typeof ESTADOS)[number]);
+            onResumeDraftHandled?.();
+        }
+    }, [visible, objetivo, isEditing, resumeDraft, onResumeDraftHandled, draftValues]);
+
+    useEffect(() => {
+        if (resetDraftSignal > 0 && !isEditing) {
+            setTitulo('');
+            setDescripcion('');
+            setEstado(DEFAULT_OBJETIVO_ESTADO);
+        }
+    }, [resetDraftSignal, isEditing]);
 
     const handleSubmit = async () => {
         if (!titulo.trim()) {
@@ -93,96 +188,132 @@ function FormObjetivoModal({ visible, objetivo, onClose, onSuccess }: FormObjeti
     };
 
     const handleClose = () => {
+        if (!isEditing) {
+            setTitulo('');
+            setDescripcion('');
+            setEstado(DEFAULT_OBJETIVO_ESTADO);
+        }
         onClose();
     };
 
+    const handleMinimize = () => {
+        if (isEditing || !onMinimize) return;
+        onMinimize();
+    };
+
     return (
-        <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={handleClose}>
-            <View style={styles.modalContainer}>
-                <View style={styles.modalHeader}>
-                    <TouchableOpacity onPress={handleClose} disabled={isLoading}>
-                        <Text style={styles.closeButton}>✕</Text>
-                    </TouchableOpacity>
-                    <Text style={styles.modalTitle}>
-                        {isEditing ? 'Editar Objetivo' : 'Crear Objetivo'}
-                    </Text>
-                    <View style={{ width: 30 }} />
-                </View>
-
-                <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
-                    <View style={styles.formGroup}>
-                        <Text style={styles.label}>Título *</Text>
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Ingresa el título"
-                            value={titulo}
-                            onChangeText={setTitulo}
-                            editable={!isLoading}
-                            placeholderTextColor="#999"
-                        />
-                    </View>
-
-                    <View style={styles.formGroup}>
-                        <Text style={styles.label}>Descripción</Text>
-                        <TextInput
-                            style={[styles.input, styles.textArea]}
-                            placeholder="Ingresa la descripción"
-                            value={descripcion}
-                            onChangeText={setDescripcion}
-                            editable={!isLoading}
-                            multiline
-                            numberOfLines={4}
-                            placeholderTextColor="#999"
-                            textAlignVertical="top"
-                        />
-                    </View>
-
-                    <View style={styles.formGroup}>
-                        <Text style={styles.label}>Estado</Text>
-                        <View style={styles.estadoButtons}>
-                            {ESTADOS.map((est) => (
-                                <TouchableOpacity
-                                    key={est}
-                                    style={[
-                                        styles.estadoButton,
-                                        estado === est && styles.estadoButtonActive,
-                                    ]}
-                                    onPress={() => setEstado(est)}
-                                    disabled={isLoading}
-                                >
-                                    <Text
-                                        style={[
-                                            styles.estadoButtonText,
-                                            estado === est && styles.estadoButtonTextActive,
-                                        ]}
-                                    >
-                                        {est}
-                                    </Text>
+        <Modal
+            visible={visible}
+            animationType="slide"
+            transparent={false}
+            onRequestClose={isEditing ? handleClose : (onMinimize ? handleMinimize : handleClose)}
+        >
+            <KeyboardAvoidingView
+                style={styles.modalKeyboardAvoiding}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                keyboardVerticalOffset={0}
+            >
+                <View style={styles.modalContainer}>
+                    <View style={styles.modalHeader}>
+                        <Text style={styles.modalTitle}>
+                            {isEditing ? 'Editar Objetivo' : 'Crear Objetivo'}
+                        </Text>
+                        <View style={styles.modalHeaderActions}>
+                            {!isEditing && (
+                                <TouchableOpacity onPress={handleMinimize} style={styles.modalIconButton} disabled={isLoading}>
+                                    <Ionicons name="chevron-down" size={24} color="#999" />
                                 </TouchableOpacity>
-                            ))}
+                            )}
+                            <TouchableOpacity onPress={handleClose} style={styles.modalIconButton} disabled={isLoading}>
+                                <Ionicons name="close" size={22} color="#999" />
+                            </TouchableOpacity>
                         </View>
                     </View>
-                </ScrollView>
 
-                <View style={styles.modalFooter}>
-                    <TouchableOpacity
-                        style={[styles.button, styles.buttonSecondary]}
-                        onPress={handleClose}
-                        disabled={isLoading}
+                    <ScrollView
+                        style={styles.modalFormContent}
+                        contentContainerStyle={[
+                            styles.modalFormContentContainer,
+                            { paddingBottom: 88 + keyboardHeight },
+                        ]}
+                        keyboardShouldPersistTaps={isKeyboardOpen ? 'handled' : 'never'}
+                        keyboardDismissMode={isKeyboardOpen ? 'none' : (Platform.OS === 'ios' ? 'interactive' : 'on-drag')}
+                        nestedScrollEnabled
+                        showsVerticalScrollIndicator={false}
                     >
-                        <Text style={styles.buttonSecondaryText}>Cancelar</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={[styles.button, styles.buttonPrimary, isLoading && styles.buttonDisabled]}
+                        <View style={styles.formGroup}>
+                            <Text style={styles.label}>Título</Text>
+                            <TextInput
+                                style={styles.input}
+                                placeholder="Ingresa el título"
+                                value={titulo}
+                                onChangeText={(value) => {
+                                    setTitulo(value);
+                                    syncCreateDraft({ titulo: value });
+                                }}
+                                editable={!isLoading}
+                                placeholderTextColor="#999"
+                            />
+                        </View>
+
+                        <View style={styles.formGroup}>
+                            <Text style={styles.label}>Descripción (opcional)</Text>
+                            <TextInput
+                                style={[styles.input, styles.textArea]}
+                                placeholder="Ingresa la descripción"
+                                value={descripcion}
+                                onChangeText={(value) => {
+                                    setDescripcion(value);
+                                    syncCreateDraft({ descripcion: value });
+                                }}
+                                editable={!isLoading}
+                                multiline
+                                numberOfLines={4}
+                                placeholderTextColor="#999"
+                                textAlignVertical="top"
+                            />
+                        </View>
+
+                        <View style={styles.formGroup}>
+                            <Text style={styles.label}>Estado</Text>
+                            <View style={styles.estadoButtons}>
+                                {ESTADOS.map((est) => (
+                                    <TouchableOpacity
+                                        key={est}
+                                        style={[
+                                            styles.estadoButton,
+                                            estado === est && styles.estadoButtonActive,
+                                        ]}
+                                        onPress={() => {
+                                            setEstado(est);
+                                            syncCreateDraft({ estado: est });
+                                        }}
+                                        disabled={isLoading}
+                                    >
+                                        <Text
+                                            style={[
+                                                styles.estadoButtonText,
+                                                estado === est && styles.estadoButtonTextActive,
+                                            ]}
+                                        >
+                                            {est}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        </View>
+                    </ScrollView>
+
+                    <AppFab
+                        icon="checkmark"
+                        floating={false}
                         onPress={handleSubmit}
-                        disabled={isLoading}
-                    >
-                        <Text style={styles.buttonPrimaryText}>
-                            {isLoading ? 'Guardando...' : isEditing ? 'Actualizar' : 'Crear'}
-                        </Text>
-                    </TouchableOpacity>
+                        disabled={isLoading || !titulo.trim()}
+                        isLoading={isLoading}
+                        style={styles.modalSubmitFab}
+                    />
                 </View>
-            </View>
+            </KeyboardAvoidingView>
         </Modal>
     );
 }
@@ -362,13 +493,75 @@ interface MoveModalProps {
     visible: boolean;
     objetivo?: Objetivo;
     onClose: () => void;
+    onMinimize?: () => void;
     onMove: (objetivoId: number, nuevoEstado: string, observacion: string) => void;
     isLoading?: boolean;
+    draftValues?: MoveDraft;
+    onDraftChange?: (draft: MoveDraft) => void;
+    resumeDraft?: boolean;
+    onResumeDraftHandled?: () => void;
+    resetDraftSignal?: number;
 }
 
-function MoveModal({ visible, objetivo, onClose, onMove, isLoading }: MoveModalProps) {
+function MoveModal({
+    visible,
+    objetivo,
+    onClose,
+    onMinimize,
+    onMove,
+    isLoading,
+    draftValues,
+    onDraftChange,
+    resumeDraft = false,
+    onResumeDraftHandled,
+    resetDraftSignal = 0,
+}: MoveModalProps) {
     const [nuevoEstado, setNuevoEstado] = useState('');
     const [observacion, setObservacion] = useState('');
+    const [keyboardHeight, setKeyboardHeight] = useState(0);
+    const isKeyboardOpen = keyboardHeight > 0;
+
+    const syncMoveDraft = (partial: Partial<MoveDraft>) => {
+        if (!onDraftChange) return;
+        onDraftChange({
+            nuevoEstado,
+            observacion,
+            ...partial,
+        });
+    };
+
+    useEffect(() => {
+        const onShow = Keyboard.addListener('keyboardDidShow', (event) => {
+            setKeyboardHeight(event.endCoordinates.height);
+        });
+        const onHide = Keyboard.addListener('keyboardDidHide', () => {
+            setKeyboardHeight(0);
+        });
+
+        return () => {
+            onShow.remove();
+            onHide.remove();
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!visible) return;
+        if (!resumeDraft) {
+            setNuevoEstado(draftValues?.nuevoEstado ?? '');
+            setObservacion(draftValues?.observacion ?? '');
+        } else {
+            setNuevoEstado(draftValues?.nuevoEstado ?? '');
+            setObservacion(draftValues?.observacion ?? '');
+            onResumeDraftHandled?.();
+        }
+    }, [visible, resumeDraft, onResumeDraftHandled, draftValues]);
+
+    useEffect(() => {
+        if (resetDraftSignal > 0) {
+            setNuevoEstado('');
+            setObservacion('');
+        }
+    }, [resetDraftSignal]);
 
     if (!objetivo) return null;
 
@@ -389,87 +582,113 @@ function MoveModal({ visible, objetivo, onClose, onMove, isLoading }: MoveModalP
         onClose();
     };
 
+    const handleMinimize = () => {
+        if (!onMinimize) return;
+        onMinimize();
+    };
+
     return (
-        <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={handleClose}>
-            <View style={styles.modalContainer}>
-                <View style={styles.modalHeader}>
-                    <TouchableOpacity onPress={handleClose} disabled={isLoading}>
-                        <Text style={styles.closeButton}>✕</Text>
-                    </TouchableOpacity>
-                    <Text style={styles.modalTitle}>Mover Objetivo</Text>
-                    <View style={{ width: 30 }} />
-                </View>
-
-                <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
-                    <View style={styles.formGroup}>
-                        <Text style={styles.label}>Objetivo Actual</Text>
-                        <View style={styles.objetivoInfo}>
-                            <Text style={styles.infoTitle}>{objetivo.titulo}</Text>
-                            <Text style={styles.infoEstado}>Estado actual: {objetivo.estado}</Text>
+        <Modal
+            visible={visible}
+            animationType="slide"
+            transparent={false}
+            onRequestClose={onMinimize ? handleMinimize : handleClose}
+        >
+            <KeyboardAvoidingView
+                style={styles.modalKeyboardAvoiding}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                keyboardVerticalOffset={0}
+            >
+                <View style={styles.modalContainer}>
+                    <View style={styles.modalHeader}>
+                        <Text style={styles.modalTitle}>Mover Objetivo</Text>
+                        <View style={styles.modalHeaderActions}>
+                            <TouchableOpacity onPress={handleMinimize} style={styles.modalIconButton} disabled={isLoading}>
+                                <Ionicons name="chevron-down" size={24} color="#999" />
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={handleClose} style={styles.modalIconButton} disabled={isLoading}>
+                                <Ionicons name="close" size={22} color="#999" />
+                            </TouchableOpacity>
                         </View>
                     </View>
 
-                    <View style={styles.formGroup}>
-                        <Text style={styles.label}>Mover a *</Text>
-                        <View style={styles.estadoButtons}>
-                            {ESTADOS.filter((e) => e !== objetivo.estado).map((est) => (
-                                <TouchableOpacity
-                                    key={est}
-                                    style={[
-                                        styles.estadoButton,
-                                        nuevoEstado === est && styles.estadoButtonActive,
-                                    ]}
-                                    onPress={() => setNuevoEstado(est)}
-                                    disabled={isLoading}
-                                >
-                                    <Text
+                    <ScrollView
+                        style={styles.modalFormContent}
+                        contentContainerStyle={[
+                            styles.modalFormContentContainer,
+                            { paddingBottom: 88 + keyboardHeight },
+                        ]}
+                        keyboardShouldPersistTaps={isKeyboardOpen ? 'handled' : 'never'}
+                        keyboardDismissMode={isKeyboardOpen ? 'none' : (Platform.OS === 'ios' ? 'interactive' : 'on-drag')}
+                        nestedScrollEnabled
+                        showsVerticalScrollIndicator={false}
+                    >
+                        <View style={styles.formGroup}>
+                            <Text style={styles.label}>Objetivo Actual</Text>
+                            <View style={styles.objetivoInfo}>
+                                <Text style={styles.infoTitle}>{objetivo.titulo}</Text>
+                                <Text style={styles.infoEstado}>Estado actual: {objetivo.estado}</Text>
+                            </View>
+                        </View>
+
+                        <View style={styles.formGroup}>
+                            <Text style={styles.label}>Mover a</Text>
+                            <View style={styles.estadoButtons}>
+                                {ESTADOS.filter((e) => e !== objetivo.estado).map((est) => (
+                                    <TouchableOpacity
+                                        key={est}
                                         style={[
-                                            styles.estadoButtonText,
-                                            nuevoEstado === est && styles.estadoButtonTextActive,
+                                            styles.estadoButton,
+                                            nuevoEstado === est && styles.estadoButtonActive,
                                         ]}
+                                        onPress={() => {
+                                            setNuevoEstado(est);
+                                            syncMoveDraft({ nuevoEstado: est });
+                                        }}
+                                        disabled={isLoading}
                                     >
-                                        {est}
-                                    </Text>
-                                </TouchableOpacity>
-                            ))}
+                                        <Text
+                                            style={[
+                                                styles.estadoButtonText,
+                                                nuevoEstado === est && styles.estadoButtonTextActive,
+                                            ]}
+                                        >
+                                            {est}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
                         </View>
-                    </View>
 
-                    <View style={styles.formGroup}>
-                        <Text style={styles.label}>Observación (Opcional)</Text>
-                        <TextInput
-                            style={[styles.input, styles.textArea]}
-                            placeholder="Añade una nota sobre este cambio"
-                            value={observacion}
-                            onChangeText={setObservacion}
-                            editable={!isLoading}
-                            multiline
-                            numberOfLines={3}
-                            placeholderTextColor="#999"
-                            textAlignVertical="top"
-                        />
-                    </View>
-                </ScrollView>
+                        <View style={styles.formGroup}>
+                            <Text style={styles.label}>Observación (opcional)</Text>
+                            <TextInput
+                                style={[styles.input, styles.textArea]}
+                                placeholder="Añade una nota sobre este cambio"
+                                value={observacion}
+                                onChangeText={(value) => {
+                                    setObservacion(value);
+                                    syncMoveDraft({ observacion: value });
+                                }}
+                                editable={!isLoading}
+                                multiline
+                                numberOfLines={3}
+                                placeholderTextColor="#999"
+                                textAlignVertical="top"
+                            />
+                        </View>
+                    </ScrollView>
 
-                <View style={styles.modalFooter}>
-                    <TouchableOpacity
-                        style={[styles.button, styles.buttonSecondary]}
-                        onPress={handleClose}
-                        disabled={isLoading}
-                    >
-                        <Text style={styles.buttonSecondaryText}>Cancelar</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={[styles.button, styles.buttonPrimary, isLoading && styles.buttonDisabled]}
+                    <AppFab
+                        icon="checkmark"
+                        floating={false}
                         onPress={handleMove}
-                        disabled={isLoading || !nuevoEstado}
-                    >
-                        <Text style={styles.buttonPrimaryText}>
-                            {isLoading ? 'Moviendo...' : 'Mover'}
-                        </Text>
-                    </TouchableOpacity>
+                        disabled={!!isLoading || !nuevoEstado}
+                        isLoading={!!isLoading}
+                        style={styles.modalSubmitFab}
+                    />
                 </View>
-            </View>
+            </KeyboardAvoidingView>
         </Modal>
     );
 }
@@ -495,8 +714,8 @@ function ObjetivoItem({ objetivo, onPress, onMove, isOptimisticLoading, canManag
                     <Text style={styles.loadingText}>Actualizando...</Text>
                 </View>
             )}
-            <TouchableOpacity 
-                onPress={() => onPress(objetivo)} 
+            <TouchableOpacity
+                onPress={() => onPress(objetivo)}
                 activeOpacity={0.7}
                 disabled={isOptimisticLoading}
             >
@@ -591,8 +810,8 @@ function KanbanColumn({ estado, objetivos, onObjetivoPress, onMovePress, optimis
 export function KanbanBoard() {
     const { user } = useAuth();
     const { hasRole } = useRoleCheck();
-    const isConsejo = hasRole('consejo');
-    const canManage = !isConsejo;
+    const isEstudioContable = hasRole('estudio-contable');
+    const canManage = !isEstudioContable;
     const { data: objetivos = [], isLoading, error } = useObjetivos();
     const updateMutation = useUpdateObjetivo();
     const deleteMutation = useDeleteObjetivo();
@@ -601,10 +820,18 @@ export function KanbanBoard() {
     const [formModalVisible, setFormModalVisible] = useState(false);
     const [detailModalVisible, setDetailModalVisible] = useState(false);
     const [moveModalVisible, setMoveModalVisible] = useState(false);
+    const [formModalMinimized, setFormModalMinimized] = useState(false);
+    const [resumeCreateDraft, setResumeCreateDraft] = useState(false);
+    const [resetCreateDraftSignal, setResetCreateDraftSignal] = useState(0);
+    const [moveModalMinimized, setMoveModalMinimized] = useState(false);
+    const [resumeMoveDraft, setResumeMoveDraft] = useState(false);
+    const [resetMoveDraftSignal, setResetMoveDraftSignal] = useState(0);
+    const [createDraft, setCreateDraft] = useState<ObjetivoCreateDraft>(DEFAULT_CREATE_DRAFT);
+    const [moveDraft, setMoveDraft] = useState<MoveDraft>(DEFAULT_MOVE_DRAFT);
 
     const [selectedObjetivo, setSelectedObjetivo] = useState<Objetivo | undefined>();
     const [editingObjetivo, setEditingObjetivo] = useState<Objetivo | undefined>();
-    
+
     // Estado para tracking de operaciones optimistas
     const [optimisticObjetivoId, setOptimisticObjetivoId] = useState<number | null>(null);
 
@@ -627,22 +854,94 @@ export function KanbanBoard() {
     const handleOpenCreate = useCallback(() => {
         if (!canManage) return;
         setEditingObjetivo(undefined);
+        if (!formModalMinimized) {
+            setCreateDraft(DEFAULT_CREATE_DRAFT);
+        }
+        setResumeCreateDraft(false);
+        setFormModalMinimized(false);
+        setFormModalVisible(true);
+    }, [canManage, formModalMinimized]);
+
+    const handleRestoreCreateDraft = useCallback(() => {
+        if (!canManage) return;
+        setResumeCreateDraft(true);
+        setFormModalMinimized(false);
         setFormModalVisible(true);
     }, [canManage]);
+
+    const handleMinimizeCreateDraft = useCallback(() => {
+        setFormModalVisible(false);
+        setFormModalMinimized(true);
+        setResumeCreateDraft(true);
+    }, []);
+
+    const handleDiscardCreateDraft = useCallback(() => {
+        setFormModalVisible(false);
+        setFormModalMinimized(false);
+        setResumeCreateDraft(false);
+        setEditingObjetivo(undefined);
+        setCreateDraft(DEFAULT_CREATE_DRAFT);
+        setResetCreateDraftSignal((prev) => prev + 1);
+    }, []);
+
+    const handleCloseFormModal = useCallback(() => {
+        setFormModalVisible(false);
+        setFormModalMinimized(false);
+        setResumeCreateDraft(false);
+        setEditingObjetivo(undefined);
+        setCreateDraft(DEFAULT_CREATE_DRAFT);
+        setResetCreateDraftSignal((prev) => prev + 1);
+    }, []);
 
     const handleOpenEdit = useCallback((objetivo: Objetivo) => {
         if (!canManage) return;
         setEditingObjetivo(objetivo);
+        setResumeCreateDraft(false);
+        setFormModalMinimized(false);
         setFormModalVisible(true);
         setDetailModalVisible(false);
     }, [canManage]);
 
+    const handleMinimizeMoveDraft = useCallback(() => {
+        setMoveModalVisible(false);
+        setMoveModalMinimized(true);
+        setResumeMoveDraft(true);
+    }, []);
+
+    const handleRestoreMoveDraft = useCallback(() => {
+        if (!canManage) return;
+        setMoveModalMinimized(false);
+        setResumeMoveDraft(true);
+        setMoveModalVisible(true);
+    }, [canManage]);
+
+    const handleCloseMoveModal = useCallback(() => {
+        setMoveModalVisible(false);
+        setMoveModalMinimized(false);
+        setResumeMoveDraft(false);
+        setMoveDraft(DEFAULT_MOVE_DRAFT);
+        setResetMoveDraftSignal((prev) => prev + 1);
+    }, []);
+
+    const handleDiscardMoveDraft = useCallback(() => {
+        setMoveModalVisible(false);
+        setMoveModalMinimized(false);
+        setResumeMoveDraft(false);
+        setMoveDraft(DEFAULT_MOVE_DRAFT);
+        setResetMoveDraftSignal((prev) => prev + 1);
+    }, []);
+
     const handleOpenMove = useCallback((objetivo: Objetivo) => {
         if (!canManage) return;
         setSelectedObjetivo(objetivo);
+        if (!moveModalMinimized) {
+            setMoveDraft(DEFAULT_MOVE_DRAFT);
+        }
+        setMoveModalMinimized(false);
+        setResumeMoveDraft(false);
         setMoveModalVisible(true);
         setDetailModalVisible(false);
-    }, [canManage]);
+    }, [canManage, moveModalMinimized]);
 
     const handleMoveObjetivo = useCallback(
         async (objetivoId: number, nuevoEstado: string, observacion: string) => {
@@ -654,19 +953,19 @@ export function KanbanBoard() {
             try {
                 // Mostrar estado optimista visual
                 setOptimisticObjetivoId(objetivoId);
-                
+
                 // Actualizar el estado del objetivo con observación en la bitácora
                 await updateMutation.mutateAsync({
                     id: objetivoId,
                     data: {
-                        estado: nuevoEstado as 'PENDIENTE' |'PRIORIDAD' | 'PROGRESO' | 'REALIZADO',
+                        estado: nuevoEstado as 'PENDIENTE' | 'PRIORIDAD' | 'PROGRESO' | 'REALIZADO',
                         observacion: observacion,
                     },
                 });
 
                 // Éxito - limpiar estado optimista
                 setOptimisticObjetivoId(null);
-                setMoveModalVisible(false);
+                handleCloseMoveModal();
             } catch (err) {
                 // Error - limpiar estado optimista (el cache ya revirtió automáticamente)
                 setOptimisticObjetivoId(null);
@@ -674,10 +973,10 @@ export function KanbanBoard() {
                     'Error',
                     err instanceof Error ? err.message : 'Intenta nuevamente'
                 );
-                setMoveModalVisible(false);
+                handleCloseMoveModal();
             }
         },
-        [canManage, updateMutation]
+        [canManage, updateMutation, handleCloseMoveModal]
     );
 
     const handleDeleteObjetivo = useCallback(
@@ -709,6 +1008,10 @@ export function KanbanBoard() {
                 </Text>
             </View>
         );
+    }
+
+    if (isEstudioContable) {
+        return null;
     }
 
     return (
@@ -752,14 +1055,49 @@ export function KanbanBoard() {
                 </View>
             </ScrollView>
 
+            {canManage && formModalMinimized && (
+                <View style={styles.minimizedDraftContainer}>
+                    <TouchableOpacity style={styles.minimizedDraftMain} onPress={handleRestoreCreateDraft}>
+                        <Ionicons name="chevron-up" size={18} color={Colors.light.tint} />
+                        <Text style={styles.minimizedDraftText}>
+                            {editingObjetivo ? 'Edicion de objetivo' : 'Borrador de objetivo'}
+                        </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.minimizedDraftClose} onPress={handleDiscardCreateDraft}>
+                        <Ionicons name="close" size={16} color="#999" />
+                    </TouchableOpacity>
+                </View>
+            )}
+
+            {canManage && moveModalMinimized && (
+                <View style={styles.minimizedDraftContainer}>
+                    <TouchableOpacity style={styles.minimizedDraftMain} onPress={handleRestoreMoveDraft}>
+                        <Ionicons name="chevron-up" size={18} color={Colors.light.tint} />
+                        <Text style={styles.minimizedDraftText}>Borrador de movimiento</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.minimizedDraftClose} onPress={handleDiscardMoveDraft}>
+                        <Ionicons name="close" size={16} color="#999" />
+                    </TouchableOpacity>
+                </View>
+            )}
+
             {/* Modales */}
             <FormObjetivoModal
                 visible={formModalVisible}
                 objetivo={editingObjetivo}
-                onClose={() => setFormModalVisible(false)}
+                onClose={handleCloseFormModal}
+                onMinimize={!editingObjetivo ? handleMinimizeCreateDraft : undefined}
+                draftValues={!editingObjetivo ? createDraft : undefined}
+                onDraftChange={!editingObjetivo ? setCreateDraft : undefined}
+                resumeDraft={resumeCreateDraft}
+                onResumeDraftHandled={() => setResumeCreateDraft(false)}
+                resetDraftSignal={resetCreateDraftSignal}
                 onSuccess={() => {
                     setFormModalVisible(false);
                     setEditingObjetivo(undefined);
+                    setFormModalMinimized(false);
+                    setResumeCreateDraft(false);
+                    setCreateDraft(DEFAULT_CREATE_DRAFT);
                 }}
             />
 
@@ -777,9 +1115,15 @@ export function KanbanBoard() {
             <MoveModal
                 visible={moveModalVisible}
                 objetivo={selectedObjetivo}
-                onClose={() => setMoveModalVisible(false)}
+                onClose={handleCloseMoveModal}
+                onMinimize={handleMinimizeMoveDraft}
                 onMove={handleMoveObjetivo}
                 isLoading={updateMutation.isPending}
+                draftValues={moveDraft}
+                onDraftChange={setMoveDraft}
+                resumeDraft={resumeMoveDraft}
+                onResumeDraftHandled={() => setResumeMoveDraft(false)}
+                resetDraftSignal={resetMoveDraftSignal}
             />
 
             {/* Modal operación pendiente */}
@@ -1027,8 +1371,11 @@ const styles = StyleSheet.create({
     modalContainer: {
         flex: 1,
         backgroundColor: '#fff',
-        paddingTop: '10%',
         paddingBottom: 16,
+    },
+    modalKeyboardAvoiding: {
+        flex: 1,
+        backgroundColor: '#fff',
     },
     modalHeader: {
         paddingHorizontal: 16,
@@ -1045,6 +1392,14 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         color: '#1a1a1a',
     },
+    modalHeaderActions: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginLeft: 12,
+    },
+    modalIconButton: {
+        padding: 8,
+    },
     closeButton: {
         fontSize: 24,
         fontWeight: '600',
@@ -1055,6 +1410,12 @@ const styles = StyleSheet.create({
         flex: 1,
         padding: 16,
     },
+    modalFormContent: {
+        flex: 1,
+    },
+    modalFormContentContainer: {
+        padding: 16,
+    },
     modalFooter: {
         flexDirection: 'row',
         paddingHorizontal: 16,
@@ -1063,6 +1424,11 @@ const styles = StyleSheet.create({
         borderTopWidth: 1,
         borderTopColor: '#e0e0e0',
         gap: 12,
+    },
+    modalSubmitFab: {
+        alignSelf: 'flex-end',
+        marginRight: 20,
+        marginBottom: 20,
     },
 
     // ============================================
@@ -1297,5 +1663,39 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
         paddingVertical: 12,
         borderRadius: 8,
+    },
+    minimizedDraftContainer: {
+        position: 'absolute',
+        right: 16,
+        bottom: 24,
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#fff',
+        borderWidth: 1,
+        borderColor: '#e0e0e0',
+        borderRadius: 12,
+        paddingLeft: 10,
+        paddingRight: 6,
+        paddingVertical: 6,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 4,
+        elevation: 4,
+    },
+    minimizedDraftMain: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingRight: 6,
+    },
+    minimizedDraftText: {
+        marginLeft: 6,
+        color: '#1a1a1a',
+        fontSize: 12,
+        fontWeight: '600',
+    },
+    minimizedDraftClose: {
+        marginLeft: 6,
+        padding: 4,
     },
 });

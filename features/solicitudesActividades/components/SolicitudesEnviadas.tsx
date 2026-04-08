@@ -1,14 +1,15 @@
 import { ThemedText } from '@/components/themed-text';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { Colors } from '@/constants/theme';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useMemo } from 'react';
 import {
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    TouchableOpacity,
-    View
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { InvitadoResumen, SolicitudEnviada, SolicitudEnviadaAgrupada, estadoInvitacionMapping } from '../models/Solicitud';
 import { useSolicitudesCreadas } from '../viewmodels/useSolicitudes';
@@ -34,6 +35,7 @@ function agruparSolicitudes(solicitudes: SolicitudEnviada[]): SolicitudEnviadaAg
         created_by: s.created_by,
         fecha_inicio: s.fecha_inicio,
         fecha_fin: s.fecha_fin,
+        tipo_actividad: s.tipo_actividad,
         invitados: [invitado],
       });
     }
@@ -66,8 +68,6 @@ export function SolicitudesEnviadas({ onRefresh, refreshing }: SolicitudesEnviad
     await refetch();
     if (onRefresh) await onRefresh();
   }, [refetch, onRefresh]);
-
-
 
   if (isLoading) {
     return (
@@ -135,38 +135,63 @@ interface SolicitudEnviadaItemProps {
 }
 
 function SolicitudEnviadaItem({ solicitud, onPress }: SolicitudEnviadaItemProps) {
-  const getEstadoColor = (estado: string): string => {
+  const destinatarios = useMemo(() => {
+    const nombres = solicitud.invitados
+      .map((inv) => [inv.nombre, inv.apellido].filter(Boolean).join(' ').trim())
+      .filter(Boolean);
+    return nombres.join(', ');
+  }, [solicitud.invitados]);
+
+  const getContainerColor = (): string => {
+    const estadoUIList = solicitud.invitados.map((inv) => estadoInvitacionMapping[inv.estado]);
+    const hasBackgroundState = estadoUIList.some((estado) =>
+      ['Visto', 'Modificado por creador', 'Aceptado', 'Rechazado', 'Actividad creada', 'Expirada'].includes(estado)
+    );
+    const hasOnlyPending = estadoUIList.length > 0 && estadoUIList.every((estado) => estado === 'Pendiente');
+    if (hasOnlyPending) return colors.background;
+    return hasBackgroundState ? colors.background : colors.componentBackground;
+  };
+
+  const getEstadoIcon = (estado: string): { name: keyof typeof Ionicons.glyphMap; color: string } | null => {
     switch (estado) {
-      case 'Pendiente':
-        return '#FF9800';
-      case 'Visto':
-        return '#2196F3';
-      case 'Aceptado':
-        return '#4CAF50';
-      case 'Rechazado':
-        return '#F44336';
       case 'Modificado':
-      case 'Modificado por creador':
-      case 'Aceptado por creador':
-        return '#9C27B0';
+        return { name: 'create-outline', color: colors.secondaryText };
+      case 'Visto':
+        return { name: 'checkmark-done', color: '#1E88E5' };
+      case 'Aceptado':
+        return { name: 'checkmark', color: '#43A047' };
+      case 'Rechazado':
+        return { name: 'close', color: '#E53935' };
       case 'Actividad creada':
-        return '#00897B';
+        return { name: 'checkmark-done', color: '#2E7D32' };
       case 'Expirada':
-        return '#757575';
+        return { name: 'time-outline', color: '#757575' };
       default:
-        return colors.icon;
+        return null;
     }
   };
+
+  const estadoIcon = useMemo(() => {
+    for (const inv of solicitud.invitados) {
+      const estadoUI = estadoInvitacionMapping[inv.estado];
+      const icon = getEstadoIcon(estadoUI);
+      if (icon) return icon;
+    }
+    return null;
+  }, [solicitud.invitados]);
 
   return (
     <TouchableOpacity
       onPress={onPress}
       style={[
         styles.itemContainer,
-        { backgroundColor: colors.componentBackground },
+        { backgroundColor: getContainerColor() },
       ]}
     >
       <View style={styles.itemContent}>
+        <ThemedText style={[styles.destinatario, { color: colors.secondaryText }]} numberOfLines={1}>
+          Para: {destinatarios}
+        </ThemedText>
         <ThemedText type="defaultSemiBold" numberOfLines={1}>
           {solicitud.titulo}
         </ThemedText>
@@ -177,28 +202,20 @@ function SolicitudEnviadaItem({ solicitud, onPress }: SolicitudEnviadaItemProps)
           {solicitud.descripcion}
         </ThemedText>
 
-        {/* Lista de invitados con su estado */}
-        <View style={styles.invitadosContainer}>
-          {solicitud.invitados.map((inv, idx) => {
-            const estadoUI = estadoInvitacionMapping[inv.estado];
-            return (
-              <View key={`${inv.nombre}-${inv.apellido}-${idx}`} style={styles.invitadoRow}>
-                <ThemedText style={styles.invitadoName} numberOfLines={1}>
-                  {inv.nombre} {inv.apellido}
-                </ThemedText>
-                <View style={[styles.estadoBadge, { backgroundColor: getEstadoColor(estadoUI) + '20' }]}>
-                  <ThemedText style={[styles.estadoText, { color: getEstadoColor(estadoUI) }]}>
-                    {estadoUI}
-                  </ThemedText>
-                </View>
+        <View style={styles.footerContainer}>
+          <ThemedText style={[styles.dateText, { color: colors.secondaryText }]}>
+            {solicitud.fecha_inicio ? solicitud.fecha_inicio.toLocaleDateString('es-AR') : 'Sin fecha'}
+          </ThemedText>
+          <View style={styles.footerRightGroup}>
+            {estadoIcon ? (
+              <View style={styles.estadoIconContainer}>
+                <Ionicons name={estadoIcon.name} size={18} color={estadoIcon.color} />
               </View>
-            );
-          })}
+            ) : (
+              <View style={styles.estadoIconContainer} />
+            )}
+          </View>
         </View>
-
-        <ThemedText style={[styles.dateText, { color: colors.secondaryText }]}>
-          {solicitud.fecha_inicio ? new Date(solicitud.fecha_inicio).toLocaleDateString('es-AR') : 'Sin fecha'}
-        </ThemedText>
       </View>
     </TouchableOpacity>
   );
@@ -225,24 +242,14 @@ const styles = StyleSheet.create({
   itemContent: {
     flexDirection: 'column',
   },
+  destinatario: {
+    fontSize: 12,
+    marginTop: 2,
+    fontWeight: '500',
+  },
   description: {
     fontSize: 13,
     marginTop: 4,
-  },
-  invitadosContainer: {
-    marginTop: 8,
-    gap: 4,
-  },
-  invitadoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  invitadoName: {
-    fontSize: 13,
-    color: colors.secondaryText,
-    flex: 1,
-    marginRight: 8,
   },
   footerContainer: {
     flexDirection: 'row',
@@ -250,17 +257,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 8,
   },
+  footerRightGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   dateText: {
     fontSize: 12,
-    marginTop: 8,
   },
-  estadoBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-  },
-  estadoText: {
-    fontSize: 11,
-    fontWeight: '600',
+  estadoIconContainer: {
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

@@ -1,15 +1,19 @@
 import { ThemedText } from '@/components/themed-text';
 import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
 import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
-import { Colors } from '@/constants/theme';
+import { Colors, UI } from '@/constants/theme';
+import { useAuth } from '@/features/auth/context/AuthContext';
+import { AppFab } from '@/shared/ui/AppFab';
 import { UserSummary } from '@/shared/users/User';
+import { adminRoles, allRoles } from '@/shared/users/roles';
 import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
 import { Ionicons } from '@expo/vector-icons';
+import { useHeaderHeight } from '@react-navigation/elements';
 import { useRouter } from 'expo-router';
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -17,20 +21,27 @@ import {
   Switch,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
+import { UserSelector } from '../../../components/UserSelector';
 import { RoleUserSelectionModal } from '../components/RoleUserSelectionModal';
-import { UserSelector } from '../components/UserSelector';
 import { ValidacionFechasModal } from '../components/ValidacionFechasModal';
+import type { CrearSolicitudRequest, CrearSolicitudResponse, RangoOcupado } from '../models/Solicitud';
 import { useCrearSolicitud } from '../viewmodels/useSolicitudes';
-import { useValidacionFechas } from '../viewmodels/useValidacionFechas';
 
 const colors = Colors['light'];
 
-function normalizeToMinute(date: Date): Date {
-  const normalized = new Date(date);
-  normalized.setSeconds(0, 0);
-  return normalized;
+function formatDateDDMMYYYY(date: Date): string {
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  return `${day}/${month}/${year}`;
+}
+
+function formatTimeHHMM(date: Date): string {
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${hours}:${minutes}`;
 }
 
 function ceilToNextMinute(date: Date): Date {
@@ -64,207 +75,149 @@ function isSameLocalDay(a: Date, b: Date): boolean {
 
 export function CrearSolicitud() {
   const router = useRouter();
-  
+  const headerHeight = useHeaderHeight();
+  const { user } = useAuth();
+
   const [titulo, setTitulo] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [fechaInicio, setFechaInicio] = useState<Date | null>(null);
   const [fechaFin, setFechaFin] = useState<Date | null>(null);
   const [allDay, setAllDay] = useState(false);
-  const [tipoActividad, setTipoActividad] = useState<'REUNION' | 'MANDATO'>('REUNION');
-  const [includeDates, setIncludeDates] = useState(true); // MANDATO can skip dates
+  const [tipoActividad, setTipoActividad] = useState<'REUNION' | 'MANDATO'>('MANDATO');
+  const [includeDates, setIncludeDates] = useState(false);
+  const [showRoleModal, setShowRoleModal] = useState(false);
+  const [activeRole, setActiveRole] = useState('');
+  const [selectedUsers, setSelectedUsers] = useState<UserSummary[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [datePickerMode, setDatePickerMode] = useState<'date' | 'time'>('date');
+  const [activeDateType, setActiveDateType] = useState<'start' | 'end' | null>(null);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [backendRangosOcupados, setBackendRangosOcupados] = useState<RangoOcupado[]>([]);
+  const [pendingPayload, setPendingPayload] = useState<CrearSolicitudRequest | null>(null);
+  const isKeyboardOpen = keyboardHeight > 0;
+
   const ignoreDatePressUntilRef = useRef(0);
   const { mutate: crearSolicitud, isPending } = useCrearSolicitud();
-  const validacion = useValidacionFechas();
-  const isValidationInProgress = validacion.state === 'validating' || validacion.state === 'warnings';
+  const { data: searchResults, isLoading: isSearchingUsers } = useSearchUsers(searchQuery);
+  const { data: roleUsersData, isLoading: isLoadingRole } = useGetUserByRole(activeRole);
+
+  const users = searchResults || [];
+  const isLoadingUsers = isSearchingUsers || isLoadingRole;
+  const isConsejo = (user?.rol_nombre ?? '').toLowerCase() === 'consejo';
+
+  const rolesForSelector = useMemo(
+    () => (isConsejo ? adminRoles : allRoles),
+    [isConsejo]
+  );
 
   const blockDatePickerFromToggle = useCallback(() => {
-    // Evita que un toque residual del Switch abra el picker de fecha.
     ignoreDatePressUntilRef.current = Date.now() + 300;
   }, []);
 
   const handleToggleAllDay = useCallback((value: boolean) => {
-    if (isValidationInProgress) return;
     blockDatePickerFromToggle();
     setAllDay(value);
-  }, [blockDatePickerFromToggle, isValidationInProgress]);
+  }, [blockDatePickerFromToggle]);
 
   const handleToggleIncludeDates = useCallback((value: boolean) => {
-    if (isValidationInProgress) return;
     blockDatePickerFromToggle();
     setIncludeDates(value);
     if (!value) {
-      // Borrar las fechas de la memoria cuando el usuario desactiva las fechas
       setFechaInicio(null);
       setFechaFin(null);
     }
-  }, [blockDatePickerFromToggle, isValidationInProgress]);
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [datePickerMode, setDatePickerMode] = useState<'date' | 'time'>('date');
-  const [activeDateType, setActiveDateType] = useState<'start' | 'end' | null>(null);
+  }, [blockDatePickerFromToggle]);
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const { data: searchResults, isLoading: isSearchingUsers } = useSearchUsers(searchQuery);
-
-  const users = searchResults || [];
-
-  // Role Selection Logic
-  const [activeRole, setActiveRole] = useState('');
-  const [roleUsers, setRoleUsers] = useState<UserSummary[]>([]);
-  const [showRoleModal, setShowRoleModal] = useState(false);
-  const { data: roleUsersData, isLoading: isLoadingRole, error: roleError } = useGetUserByRole(activeRole);
-
-  const [selectedUsers, setSelectedUsers] = useState<UserSummary[]>([]);
-  const isLoadingUsers = isSearchingUsers || isLoadingRole;
-
-  React.useEffect(() => {
-      // Logic: if new role data comes in, prepare it for the modal and open it.
-      if (activeRole && roleUsersData) {
-          const roleUsersList = roleUsersData;
-          setRoleUsers(roleUsersList);
-          setShowRoleModal(true);
-      } else if (roleError) {
-          Alert.alert("No se encontraron usuarios con ese rol");
-          setActiveRole('');
-      }
-  }, [roleUsersData, activeRole, roleError]);
-
-  const handleCloseRoleModal = () => {
-      setShowRoleModal(false);
-      setActiveRole(''); // Reset to allow re-selection
-      setRoleUsers([]);
-  };
-
-  const handleToggleUser = useCallback((user: UserSummary) => {
-      setSelectedUsers(prev => {
-          const isSelected = prev.some(u => u.user_context_id === user.user_context_id);
-          if (isSelected) {
-              return prev.filter(u => u.user_context_id !== user.user_context_id);
-          } else {
-              return [...prev, user];
-          }
-      });
+  const handleToggleUser = useCallback((selectedUser: UserSummary) => {
+    setSelectedUsers((prev) => {
+      const exists = prev.some((u) => u.user_context_id === selectedUser.user_context_id);
+      return exists
+        ? prev.filter((u) => u.user_context_id !== selectedUser.user_context_id)
+        : [...prev, selectedUser];
+    });
   }, []);
 
   const handleSelectAllRoleUsers = useCallback((usersToSelect: UserSummary[]) => {
-      setSelectedUsers(prev => {
-          const prevIds = new Set(prev.map(u => u.user_context_id));
-          const newUsers = usersToSelect.filter(u => !prevIds.has(u.user_context_id));
-          return [...prev, ...newUsers];
-      });
+    setSelectedUsers((prev) => {
+      const prevIds = new Set(prev.map((u) => u.user_context_id));
+      const newUsers = usersToSelect.filter((u) => !prevIds.has(u.user_context_id));
+      return [...prev, ...newUsers];
+    });
   }, []);
 
   const handleDeselectAllRoleUsers = useCallback((usersToDeselect: UserSummary[]) => {
-      setSelectedUsers(prev => {
-          const idsToRemove = new Set(usersToDeselect.map(u => u.user_context_id));
-          return prev.filter(u => !idsToRemove.has(u.user_context_id));
-      });
-  }, []);
-
-  const handleSearchUsers = useCallback((query: string) => {
-      setSearchQuery(query);
+    setSelectedUsers((prev) => {
+      const idsToRemove = new Set(usersToDeselect.map((u) => u.user_context_id));
+      return prev.filter((u) => !idsToRemove.has(u.user_context_id));
+    });
   }, []);
 
   const handleRoleSelect = useCallback((role: string) => {
-      setActiveRole(role);
+    setActiveRole(role);
+    setShowRoleModal(true);
   }, []);
 
-  const allRoles = [
-  { label: 'Contable', value: 'contable' },
-  { label: 'Sistemas', value: 'sistemas' },
-  { label: 'Personal Admin', value: 'empleado-admin' },
-  { label: 'Personal Insumos', value: 'empleado-insumos' },
-  { label: 'Personal Mayorista', value: 'empleado-mayorista' },
-  { label: 'Personal Super', value: 'empleado-super' },
-  { label: 'Consejo', value: 'consejo' },
-  { label: 'Encargado', value: 'encargado' },
-  { label: 'Gerencia', value: 'gerencia' },
-  { label: 'Personal Limpieza', value: 'empleado-limpieza' },
-  { label: 'Personas y Relaciones', value: 'personasRelaciones' },
-  { label: 'Presidencia', value: 'presidencia' },
-  ];
-
   const onDateChange = (event: any, selectedDate?: Date) => {
-      if (Platform.OS === 'android') {
-          setShowDatePicker(false);
-      }
+    if (Platform.OS !== 'ios') {
+      setShowDatePicker(false);
+    }
 
-      if (event.type === 'dismissed') {
-        setActiveDateType(null);
-        return;
-      }
-
-      if (!selectedDate) {
-        setActiveDateType(null);
-        return;
-      }
-
-      const currentDate = normalizeToMinute(selectedDate);
-
-      if (activeDateType === 'start') {
-          setFechaInicio(currentDate);
-      } else {
-          setFechaFin(currentDate);
-      }
-
+    if (event.type === 'dismissed' || !selectedDate) {
       setActiveDateType(null);
+      return;
+    }
+
+    const currentDate = selectedDate;
+    if (activeDateType === 'start') {
+      setFechaInicio(currentDate);
+    } else {
+      setFechaFin(currentDate);
+    }
+    setActiveDateType(null);
   };
 
   const getPickerValue = useCallback((): Date => {
-    if (activeDateType === 'start') {
-      return normalizeToMinute(fechaInicio ?? new Date());
-    }
-
+    if (activeDateType === 'start') return fechaInicio ?? new Date();
     if (activeDateType === 'end') {
-      if (fechaFin) {
-        return normalizeToMinute(fechaFin);
-      }
-
-      if (fechaInicio) {
-        return normalizeToMinute(fechaInicio);
-      }
-
-      return normalizeToMinute(new Date(Date.now() + 3600000));
+      if (fechaFin) return fechaFin;
+      if (fechaInicio) return fechaInicio;
+      return new Date(Date.now() + 3600000);
     }
-
-    return normalizeToMinute(new Date());
+    return new Date();
   }, [activeDateType, fechaInicio, fechaFin]);
 
   const showDatepicker = (type: 'start' | 'end', mode: 'date' | 'time') => {
-    if (isValidationInProgress) {
-      return;
-    }
-    if (Date.now() < ignoreDatePressUntilRef.current) {
-      return;
-    }
+    if (Date.now() < ignoreDatePressUntilRef.current) return;
     setActiveDateType(type);
     setDatePickerMode(mode);
     setShowDatePicker(true);
   };
-    
-  // Handlers for specific fields
-  const handleStartDate = () => {
-      showDatepicker('start', 'date');
-  };
-  const handleStartTime = () => {
-      showDatepicker('start', 'time');
-  };
-  const handleEndDate = () => {
-      showDatepicker('end', 'date');
-  };
-  const handleEndTime = () => {
-      showDatepicker('end', 'time');
-  };
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const onShow = Keyboard.addListener(showEvent, (event) => {
+      setKeyboardHeight(event.endCoordinates.height);
+    });
+
+    const onHide = Keyboard.addListener(hideEvent, () => {
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      onShow.remove();
+      onHide.remove();
+    };
+  }, []);
 
   const hasDates = tipoActividad === 'REUNION' || includeDates;
   const now = ceilToNextMinute(new Date());
   const areDatesMissing = hasDates && (!fechaInicio || !fechaFin);
   const isAllDayCurrentDay = hasDates && allDay && !!fechaInicio && isSameLocalDay(fechaInicio, now);
-  const effectiveStartDate = hasDates && fechaInicio
-    ? (allDay ? toStartOfDay(fechaInicio) : normalizeToMinute(fechaInicio))
-    : null;
-  const effectiveEndDate = hasDates && fechaFin
-    ? (allDay ? toEndOfDay(fechaFin) : normalizeToMinute(fechaFin))
-    : null;
+  const effectiveStartDate = hasDates && fechaInicio ? (allDay ? toStartOfDay(fechaInicio) : fechaInicio) : null;
+  const effectiveEndDate = hasDates && fechaFin ? (allDay ? toEndOfDay(fechaFin) : fechaFin) : null;
   const isStartDatePast = !!effectiveStartDate && effectiveStartDate < now;
   const isDateRangeInvalid = !!effectiveStartDate && !!effectiveEndDate && effectiveEndDate <= effectiveStartDate;
 
@@ -278,278 +231,226 @@ export function CrearSolicitud() {
   }, [hasDates, areDatesMissing, isAllDayCurrentDay, isStartDatePast, isDateRangeInvalid]);
 
   const isFormValid = useMemo(() => {
-    const dateValid = !dateErrorMessage;
     return (
       titulo.trim().length > 0 &&
       descripcion.trim().length > 0 &&
-      selectedUsers.length > 0 &&
-      dateValid
+      (isConsejo || selectedUsers.length > 0) &&
+      !dateErrorMessage
     );
-  }, [titulo, descripcion, selectedUsers, dateErrorMessage]);
+  }, [titulo, descripcion, selectedUsers, dateErrorMessage, isConsejo]);
 
-  const ejecutarCreacion = useCallback((payload: {
-    titulo: string;
-    descripcion: string;
-    tipo_actividad: 'REUNION' | 'MANDATO';
-    invitados: number[];
-    fecha_inicio?: string;
-    fecha_fin?: string;
-  }) => {
-    crearSolicitud(
-      payload,
-      {
-        onSuccess: () => {
-          Alert.alert('Éxito', 'Solicitud creada correctamente');
-          router.back();
-        },
-        onError: (error: any) => {
-          Alert.alert(
-            'Error',
-            error instanceof Error ? error.message : 'Intenta nuevamente'
-          );
-        },
-      }
+  const avisosBackend = useMemo(() => {
+    const grouped = new Map<string, number>();
+    backendRangosOcupados.forEach((rango) => {
+      grouped.set(rango.usuario, (grouped.get(rango.usuario) ?? 0) + 1);
+    });
+
+    return Array.from(grouped.entries()).map(([usuario, cantidad]) =>
+      `${usuario}: ${cantidad} solapamiento${cantidad > 1 ? 's' : ''}`
     );
+  }, [backendRangosOcupados]);
+
+  const closeBackendConflicts = useCallback(() => {
+    setBackendRangosOcupados([]);
+  }, []);
+
+  const ejecutarCreacion = useCallback((payload: CrearSolicitudRequest) => {
+    setPendingPayload(payload);
+    crearSolicitud(payload, {
+      onSuccess: (response: CrearSolicitudResponse) => {
+        if (!response.success && (response.rangosOcupados?.length ?? 0) > 0) {
+          setBackendRangosOcupados(response.rangosOcupados ?? []);
+          return;
+        }
+
+        Alert.alert('Éxito', 'Solicitud creada correctamente');
+        router.back();
+      },
+      onError: (error: any) => {
+        Alert.alert('Error', error instanceof Error ? error.message : 'Intenta nuevamente');
+      },
+    });
   }, [crearSolicitud, router]);
 
-  const handleCrearSolicitud = useCallback(() => {
-    if (isValidationInProgress) {
-      return;
-    }
+  const forceCreateSolicitud = useCallback(() => {
+    if (!pendingPayload) return;
 
+    ejecutarCreacion({
+      ...pendingPayload,
+      crear_de_todos_modos: 1,
+    });
+    setBackendRangosOcupados([]);
+  }, [pendingPayload, ejecutarCreacion]);
+
+  const handleCrearSolicitud = useCallback(() => {
     if (!isFormValid) {
       Alert.alert('Formulario incompleto', 'Por favor completa todos los campos');
       return;
     }
 
-    if (hasDates && (!fechaInicio || !fechaFin)) {
-      return;
-    }
+    if (hasDates && (!fechaInicio || !fechaFin)) return;
 
-    let start = normalizeToMinute(new Date(fechaInicio ?? new Date()));
-    let end = normalizeToMinute(new Date(fechaFin ?? new Date()));
-
+    let start = new Date(fechaInicio ?? new Date());
+    let end = new Date(fechaFin ?? new Date());
     if (allDay) {
       start = toStartOfDay(start);
       end = toEndOfDay(end);
     }
 
-    const invitados = selectedUsers.map((u: UserSummary) => u.user_context_id);
-    const payload = {
+    const payload: CrearSolicitudRequest = {
       titulo: titulo.trim(),
       descripcion: descripcion.trim(),
       tipo_actividad: tipoActividad,
-      invitados,
-      ...(hasDates
-        ? { fecha_inicio: start.toISOString(), fecha_fin: end.toISOString() }
-        : {}),
+      invitados: selectedUsers.map((u) => u.user_context_id),
+      crear_de_todos_modos: 0,
+      ...(hasDates ? { fecha_inicio: start, fecha_fin: end } : {}),
     };
 
-    if (hasDates) {
-      // Validar fechas antes de crear
-      validacion.validate(
-        {
-          fechaInicio: start.toISOString(),
-          fechaFin: end.toISOString(),
-          participantes: invitados,
-          tipo_actividad: tipoActividad,
-        },
-        () => ejecutarCreacion(payload)
-      );
-    } else {
-      // Sin fechas, crear directamente
-      ejecutarCreacion(payload);
-    }
-  }, [isValidationInProgress, isFormValid, hasDates, fechaInicio, fechaFin, selectedUsers, allDay, tipoActividad, includeDates, titulo, descripcion, validacion, ejecutarCreacion]);
+    ejecutarCreacion(payload);
+  }, [isFormValid, hasDates, fechaInicio, fechaFin, allDay, tipoActividad, selectedUsers, titulo, descripcion, ejecutarCreacion]);
 
   return (
     <View style={styles.container}>
       <KeyboardAvoidingView
+        style={styles.content}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 100} // Adjust based on header
-        style={styles.container}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? headerHeight : 0}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.iconButton} />
-          <ThemedText style={styles.headerTitle}>Redactar invitación</ThemedText>
-          <View style={{ width: 40 }} />
-        </View>
-
         <ScrollView
           style={styles.content}
-          contentContainerStyle={styles.contentContainer}
+          contentContainerStyle={[
+            styles.contentContainer,
+            { paddingBottom: UI.fab.offsetBottom + keyboardHeight + 16 },
+          ]}
+          keyboardShouldPersistTaps={isKeyboardOpen ? 'handled' : 'never'}
+          keyboardDismissMode={isKeyboardOpen ? 'none' : (Platform.OS === 'ios' ? 'interactive' : 'on-drag')}
+          nestedScrollEnabled
           showsVerticalScrollIndicator={false}
         >
-          {/* Dates Section (Moved to Top) */}
+          {!isConsejo ? (
+            <View style={styles.inputSection}>
+              <View style={{ flex: 1 }}>
+                <UserSelector
+                  selectedUsers={selectedUsers}
+                  onSelectUsers={setSelectedUsers}
+                  users={users}
+                  roles={rolesForSelector}
+                  isLoadingUsers={isLoadingUsers}
+                  isLoadingRoles={false}
+                  onSearch={setSearchQuery}
+                  onSelectRole={handleRoleSelect}
+                />
+              </View>
+            </View>
+          ) : (
+            <View style={styles.inputSection}>
+              <View style={styles.rolesOnlyRow}>
+                <ThemedText style={styles.rolesOnlyLabel}>Seleccionar por rol</ThemedText>
+                <TouchableOpacity style={styles.rolesOnlyBtn} onPress={() => setShowRoleModal(true)}>
+                  <ThemedText style={styles.rolesOnlyBtnText}>Roles</ThemedText>
+                  <Ionicons name="chevron-down" size={16} color={colors.icon} style={{ marginLeft: 4 }} />
+                </TouchableOpacity>
+              </View>
+              <View style={styles.selectedUsersWrap}>
+                {selectedUsers.map((selected) => (
+                  <TouchableOpacity key={selected.user_context_id} onPress={() => handleToggleUser(selected)} style={styles.selectedUserChip}>
+                    <ThemedText style={styles.selectedUserChipText}>{selected.nombre} {selected.apellido}</ThemedText>
+                    <Ionicons name="close" size={14} color={colors.secondaryText} style={{ marginLeft: 6 }} />
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          )}
+
+          <View style={[styles.inputSection, { borderBottomWidth: 0, paddingVertical: 10, alignItems: 'center' }]}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <TouchableOpacity
+                style={[styles.chip, tipoActividad === 'MANDATO' && { borderColor: colors.lightTint, backgroundColor: 'transparent', borderWidth: 1 }]}
+                onPress={() => {
+                  setTipoActividad('MANDATO');
+                  handleToggleIncludeDates(false);
+                }}
+              >
+                <ThemedText style={[styles.chipText, tipoActividad === 'MANDATO' ? { color: colors.lightTint, fontWeight: 'bold' } : { color: colors.secondaryText }]}>Actividad</ThemedText>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.chip, tipoActividad === 'REUNION' && { borderColor: colors.lightTint, backgroundColor: 'transparent', borderWidth: 1 }]}
+                onPress={() => {
+                  setTipoActividad('REUNION');
+                  setIncludeDates(true);
+                }}
+              >
+                <ThemedText style={[styles.chipText, tipoActividad === 'REUNION' ? { color: colors.lightTint, fontWeight: 'bold' } : { color: colors.secondaryText }]}>Reunión</ThemedText>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+
           <View style={styles.dateSection}>
-             <View style={styles.switchRow}>
+            {tipoActividad === 'MANDATO' && (
+              <View style={[styles.switchRow, { marginTop: 4 }]}>
+                <Ionicons name="calendar-outline" size={20} color={colors.secondaryText} style={{ marginRight: 8 }} />
+                <ThemedText style={[styles.dateSectionTitle, { color: colors.secondaryText }]}>Incluir fechas</ThemedText>
+                <View style={{ flex: 1 }} />
+                <Switch
+                  value={includeDates}
+                  onValueChange={handleToggleIncludeDates}
+                  trackColor={{ false: colors.secondaryText, true: colors.success }}
+                  thumbColor={colors.componentBackground}
+                />
+              </View>
+            )}
+
+            {(tipoActividad === 'REUNION' || includeDates) && (
+              <View style={styles.switchRow}>
                 <Ionicons name="time-outline" size={20} color={colors.lightTint} style={{ marginRight: 8 }} />
                 <ThemedText style={styles.dateSectionTitle}>Todo el día</ThemedText>
                 <View style={{ flex: 1 }} />
-                <Switch 
-                    value={allDay} 
-                    onValueChange={handleToggleAllDay}
-                    disabled={isValidationInProgress}
-                    trackColor={{ false: colors.secondaryText, true: colors.success }} 
-                    thumbColor={colors.componentBackground} 
+                <Switch
+                  value={allDay}
+                  onValueChange={handleToggleAllDay}
+                  trackColor={{ false: colors.secondaryText, true: colors.success }}
+                  thumbColor={colors.componentBackground}
                 />
-             </View>
+              </View>
+            )}
 
-             {/* Solo para MANDATO: mostrar opción de incluir fechas */}
-             {tipoActividad === 'MANDATO' && (
-               <View style={[styles.switchRow, { marginTop: 4 }]}>
-                 <Ionicons name="calendar-outline" size={20} color={colors.secondaryText} style={{ marginRight: 8 }} />
-                 <ThemedText style={[styles.dateSectionTitle, { color: colors.secondaryText }]}>Incluir fechas</ThemedText>
-                 <View style={{ flex: 1 }} />
-                 <Switch
-                   value={includeDates}
-                   onValueChange={handleToggleIncludeDates}
-                   disabled={isValidationInProgress}
-                   trackColor={{ false: colors.secondaryText, true: colors.success }}
-                   thumbColor={colors.componentBackground}
-                 />
-               </View>
-             )}
+            {(tipoActividad === 'REUNION' || includeDates) && (
+              <>
+                <View style={styles.dateRow}>
+                  <View style={{ flex: 1 }}>
+                    <TouchableOpacity onPress={() => showDatepicker('start', 'date')} activeOpacity={0.7}>
+                      <ThemedText style={styles.dateLabel}>Fecha de inicio</ThemedText>
+                      <ThemedText style={styles.dateValue}>{fechaInicio ? formatDateDDMMYYYY(fechaInicio) : 'Día'}</ThemedText>
+                    </TouchableOpacity>
+                  </View>
+                  {!allDay && (
+                    <TouchableOpacity onPress={() => showDatepicker('start', 'time')} activeOpacity={0.7}>
+                      <ThemedText style={styles.dateLabel}></ThemedText>
+                      <ThemedText style={styles.timeValue}>{fechaInicio ? formatTimeHHMM(fechaInicio) : 'Hora'}</ThemedText>
+                    </TouchableOpacity>
+                  )}
+                </View>
 
-             {(tipoActividad === 'REUNION' || includeDates) && (
-               <>
-                 <View style={styles.dateRow}>
-                     <View style={{ flex: 1 }}>
-                         <TouchableOpacity 
-                            onPress={handleStartDate}
-                            activeOpacity={0.7}
-                         >
-                            <ThemedText style={styles.dateLabel}>Fecha de inicio</ThemedText>
-                            <ThemedText style={styles.dateValue}>
-                                {fechaInicio
-                                  ? fechaInicio.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short' })
-                                  : 'Seleccionar fecha'}
-                            </ThemedText>
-                         </TouchableOpacity>
-                     </View>
-                     {!allDay && (
-                         <View>
-                             <TouchableOpacity 
-                                onPress={handleStartTime}
-                                activeOpacity={0.7}
-                             >
-                                <ThemedText style={styles.dateLabel}>Hora</ThemedText>
-                                <ThemedText style={styles.timeValue}>
-                                    {fechaInicio
-                                      ? fechaInicio.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
-                                      : 'Seleccionar hora'}
-                                </ThemedText>
-                             </TouchableOpacity>
-                         </View>
-                     )}
-                 </View>
+                <View style={styles.dateRow}>
+                  <View style={{ flex: 1 }}>
+                    <TouchableOpacity onPress={() => showDatepicker('end', 'date')} activeOpacity={0.7}>
+                      <ThemedText style={styles.dateLabel}>Fecha de cierre</ThemedText>
+                      <ThemedText style={styles.dateValue}>{fechaFin ? formatDateDDMMYYYY(fechaFin) : 'Día'}</ThemedText>
+                    </TouchableOpacity>
+                  </View>
+                  {!allDay && (
+                    <TouchableOpacity onPress={() => showDatepicker('end', 'time')} activeOpacity={0.7}>
+                      <ThemedText style={styles.dateLabel}></ThemedText>
+                      <ThemedText style={styles.timeValue}>{fechaFin ? formatTimeHHMM(fechaFin) : 'Hora'}</ThemedText>
+                    </TouchableOpacity>
+                  )}
+                </View>
 
-                 <View style={styles.dateRow}>
-                     <View style={{ flex: 1 }}>
-                         <TouchableOpacity 
-                            onPress={handleEndDate}
-                            activeOpacity={0.7}
-                         >
-                            <ThemedText style={styles.dateLabel}>Fecha de finalización</ThemedText>
-                            <ThemedText style={styles.dateValue}>
-                                {fechaFin
-                                  ? fechaFin.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short' })
-                                  : 'Seleccionar fecha'}
-                            </ThemedText>
-                         </TouchableOpacity>
-                     </View>
-                     {!allDay && (
-                         <View>
-                             <TouchableOpacity 
-                                onPress={handleEndTime}
-                                activeOpacity={0.7}
-                             >
-                                <ThemedText style={styles.dateLabel}>Hora</ThemedText>
-                                <ThemedText style={styles.timeValue}>
-                                    {fechaFin
-                                      ? fechaFin.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
-                                      : 'Seleccionar hora'}
-                                </ThemedText>
-                             </TouchableOpacity>
-                         </View>
-                     )}
-                 </View>
-
-                 {dateErrorMessage && (
-                   <ThemedText style={{ color: colors.error, fontSize: 12, marginTop: 8 }}>
-                     {dateErrorMessage}
-                   </ThemedText>
-                 )}
-               </>
-             )}
+                {dateErrorMessage && <ThemedText style={styles.errorText}>{dateErrorMessage}</ThemedText>}
+              </>
+            )}
           </View>
 
-          {/* UserSelector */}
-          <View style={styles.inputSection}>
-             <View style={{ flex: 1 }}>
-                <UserSelector
-                    selectedUsers={selectedUsers}
-                    onSelectUsers={setSelectedUsers}
-                    users={users}
-                    roles={allRoles}
-                    isLoadingUsers={isLoadingUsers}
-                    isLoadingRoles={false}
-                    onSearch={handleSearchUsers}
-                    onSelectRole={handleRoleSelect}
-                />
-             </View>
-          </View>
-          
-          <RoleUserSelectionModal
-             visible={showRoleModal}
-             onClose={handleCloseRoleModal}
-             roleName={activeRole}
-             roleUsers={roleUsers}
-             selectedUsers={selectedUsers}
-             onToggleUser={handleToggleUser}
-             onSelectAll={handleSelectAllRoleUsers}
-             onDeselectAll={handleDeselectAllRoleUsers}
-          />
-
-          {/* Tipo de actividad */}
-          <View style={[styles.inputSection, { borderBottomWidth: 0, paddingVertical: 10, alignItems: 'center' }]}>
-             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <TouchableOpacity
-                    style={[
-                        styles.chip,
-                        tipoActividad === 'REUNION' && { borderColor: colors.lightTint, backgroundColor: 'transparent', borderWidth: 1 }
-                    ]}
-                    onPress={() => {
-                      if (isValidationInProgress) return;
-                      setTipoActividad('REUNION');
-                      setIncludeDates(true);
-                    }}
-                >
-                    <ThemedText style={[
-                        styles.chipText,
-                        tipoActividad === 'REUNION' ? { color: colors.lightTint, fontWeight: 'bold' } : { color: colors.secondaryText }
-                    ]}>Reunión</ThemedText>
-                </TouchableOpacity>
-                <TouchableOpacity
-                    style={[
-                        styles.chip,
-                        tipoActividad === 'MANDATO' && { borderColor: colors.lightTint, backgroundColor: 'transparent', borderWidth: 1 }
-                    ]}
-                    onPress={() => {
-                      if (isValidationInProgress) return;
-                      setTipoActividad('MANDATO');
-                    }}
-                >
-                    <ThemedText style={[
-                         styles.chipText,
-                        tipoActividad === 'MANDATO' ? { color: colors.lightTint, fontWeight: 'bold' } : { color: colors.secondaryText }
-                    ]}>Tarea</ThemedText>
-                </TouchableOpacity>
-             </ScrollView>
-          </View>
-
-           {/* Asunto */}
           <View style={styles.inputSection}>
             <TextInput
               style={styles.input}
@@ -561,39 +462,40 @@ export function CrearSolicitud() {
             />
           </View>
 
-          {/* Mensaje */}
           <TextInput
             style={styles.messageInput}
-            placeholder="Escribe un mensaje"
+            placeholder="Escribí un mensaje descriptivo para el/los invitado/s"
             placeholderTextColor={colors.secondaryText}
             value={descripcion}
             onChangeText={setDescripcion}
             multiline
             textAlignVertical="top"
           />
-
         </ScrollView>
-
       </KeyboardAvoidingView>
 
-      {/* Floating Send Button */}
-        <TouchableOpacity 
-            style={[
-                styles.fab, 
-            { backgroundColor: !isFormValid || isPending || isValidationInProgress ? colors.icon : colors.lightTint }
-            ]}
-            onPress={handleCrearSolicitud}
-          disabled={!isFormValid || isPending || isValidationInProgress}
-        >
-            {isPending ? (
-                <ActivityIndicator size="small" color={colors.componentBackground} />
-            ) : (
-                <Ionicons name="send" size={24} color={colors.componentBackground} />
-            )}
-        </TouchableOpacity>
+      <RoleUserSelectionModal
+        visible={showRoleModal}
+        onClose={() => {
+          setShowRoleModal(false);
+          setActiveRole('');
+        }}
+        roleName={activeRole}
+        roleUsers={roleUsersData ?? []}
+        selectedUsers={selectedUsers}
+        onToggleUser={handleToggleUser}
+        onSelectAll={handleSelectAllRoleUsers}
+        onDeselectAll={handleDeselectAllRoleUsers}
+      />
 
-      {/* Date Picker Component */}
-      {(showDatePicker) && (
+      <AppFab
+        icon="send"
+        onPress={handleCrearSolicitud}
+        disabled={!isFormValid}
+        isLoading={isPending}
+      />
+
+      {showDatePicker && (
         <DateTimePicker
           testID="dateTimePicker"
           value={getPickerValue()}
@@ -604,18 +506,15 @@ export function CrearSolicitud() {
         />
       )}
 
-      {/* Modal de validación de fechas */}
-      <ValidacionFechasModal
-        state={validacion.state}
-        avisos={validacion.avisos}
-        rangosOcupados={validacion.rangosOcupados}
-        errorMessage={validacion.errorMessage}
-        onConfirm={validacion.confirm}
-        onCancel={validacion.cancel}
-      />
-
-      {/* Modal operación pendiente */}
       <OperacionPendienteModal visible={isPending} />
+
+      <ValidacionFechasModal
+        state={backendRangosOcupados.length > 0 ? 'warnings' : 'idle'}
+        avisos={avisosBackend}
+        rangosOcupados={backendRangosOcupados}
+        onConfirm={forceCreateSolicitud}
+        onCancel={closeBackendConflicts}
+      />
     </View>
   );
 }
@@ -625,27 +524,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.componentBackground,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginTop: Platform.OS === 'android' ? 0 : 0, // Cleaned up
-  },
-  headerTitle: {
-    fontSize: 20,
-    color: colors.lightTint,
-    fontWeight: '500',
-  },
-  iconButton: {
-    padding: 8,
-  },
   content: {
     flex: 1,
   },
   contentContainer: {
-    paddingBottom: 80,
+    flexGrow: 1,
   },
   inputSection: {
     flexDirection: 'row',
@@ -659,6 +542,48 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.text,
     padding: 0,
+  },
+  rolesOnlyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  rolesOnlyLabel: {
+    fontSize: 16,
+    color: colors.secondaryText,
+  },
+  rolesOnlyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: colors.componentBackground,
+    borderRadius: 16,
+  },
+  rolesOnlyBtnText: {
+    fontSize: 14,
+    color: colors.secondaryText,
+    fontWeight: '500',
+  },
+  selectedUsersWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  selectedUserChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.lightTint,
+    borderRadius: 16,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    backgroundColor: colors.componentBackground,
+  },
+  selectedUserChipText: {
+    color: colors.text,
+    fontSize: 13,
   },
   chip: {
     paddingHorizontal: 16,
@@ -685,8 +610,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   dateSectionTitle: {
-     fontSize: 16,
-     color: colors.text,
+    fontSize: 16,
+    color: colors.text,
   },
   dateRow: {
     flexDirection: 'row',
@@ -695,38 +620,27 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   dateLabel: {
-     fontSize: 12,
-     color: colors.secondaryText,
-     marginBottom: 4,
+    fontSize: 12,
+    color: colors.secondaryText,
+    marginBottom: 4,
   },
   dateValue: {
-     fontSize: 16,
-     color: colors.lightTint,
+    fontSize: 16,
+    color: colors.lightTint,
   },
   timeValue: {
-      fontSize: 16,
-      color: colors.lightTint,
+    fontSize: 16,
+    color: colors.lightTint,
+  },
+  errorText: {
+    color: colors.error,
+    fontSize: 12,
+    marginTop: 8,
   },
   messageInput: {
-      flex: 1,
-      fontSize: 16,
-      color: colors.text,
-      padding: 16,
-      minHeight: 250, 
+    fontSize: 16,
+    color: colors.text,
+    padding: 16,
+    minHeight: 250,
   },
-  fab: {
-      position: 'absolute',
-      bottom: 80,
-      right: 24,
-      width: 56,
-      height: 56,
-      borderRadius: 28,
-      justifyContent: 'center',
-      alignItems: 'center',
-      elevation: 6,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.25,
-      shadowRadius: 4,
-  }
 });

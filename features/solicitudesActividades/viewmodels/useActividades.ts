@@ -1,13 +1,35 @@
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as actividadesModels from '../models/Actividad';
-import { SolicitudEnviada } from '../models/Solicitud';
 import * as actividadesApi from '../services/actividadesApi';
 
+export interface PeriodoVentana {
+  fechaInicio: Date;
+  fechaFin: Date;
+  monthKey: string;
+}
+
+function formatMonthKey(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
+
+export function buildPeriodoVentanaFromMonth(date: Date): PeriodoVentana {
+  // Ventana requerida: mes anterior | mes actual | mes siguiente.
+  const inicio = new Date(date.getFullYear(), date.getMonth() - 1, 1, 0, 0, 0, 0);
+  const fin = new Date(date.getFullYear(), date.getMonth() + 2, 0, 23, 59, 59, 999);
+  return {
+    fechaInicio: inicio,
+    fechaFin: fin,
+    monthKey: formatMonthKey(date),
+  };
+}
+
 // ==================== QUERY KEYS ====================
-const actividadesQueryKeys = {
+export const actividadesQueryKeys = {
   all: ['actividades'] as const,
   semanales: () => [...actividadesQueryKeys.all, 'semanales'] as const,
+  porPeriodo: (monthKey: string) => [...actividadesQueryKeys.all, 'periodo', monthKey] as const,
+  detalle: (actividadId: number) => [...actividadesQueryKeys.all, 'detalle', actividadId] as const,
 };
 
 const solicitudesQueryKeys = {
@@ -22,19 +44,53 @@ const solicitudesQueryKeys = {
  * Hook para obtener las actividades semanales futuras del usuario
  */
 export function useActividadesSemanales() {
+  const periodoDefault = buildPeriodoVentanaFromMonth(new Date());
+  return useActividadesPorPeriodo(periodoDefault);
+}
+
+export function useActividadesPorPeriodo(periodo: PeriodoVentana) {
   const { tokens } = useAuth();
 
   return useQuery({
-    queryKey: actividadesQueryKeys.semanales(),
+    queryKey: actividadesQueryKeys.porPeriodo(periodo.monthKey),
     queryFn: async () => {
       const accessToken = tokens?.accessToken;
       if (!accessToken) {
         throw new Error('No access token available');
       }
-      return actividadesApi.obtenerActividadesSemanales(accessToken);
+      return actividadesApi.obtenerActividadesPorPeriodo(accessToken, {
+        fechaInicio: periodo.fechaInicio,
+        fechaFin: periodo.fechaFin,
+      });
     },
-    staleTime: 1000 * 60 * 5, // 5 minutos
+    // Siempre revalidar contra el backend al entrar/cambiar de mes.
+    staleTime: 0,
     gcTime: 1000 * 60 * 10, // 10 minutos (anteriormente cacheTime)
+    refetchOnMount: 'always',
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+  });
+}
+
+export function useActividadById(actividadId?: number) {
+  const { tokens } = useAuth();
+  const hasValidId = Number.isFinite(actividadId) && (actividadId ?? 0) > 0;
+
+  return useQuery({
+    queryKey: actividadesQueryKeys.detalle(actividadId ?? 0),
+    queryFn: async () => {
+      const accessToken = tokens?.accessToken;
+      if (!accessToken) {
+        throw new Error('No access token available');
+      }
+      if (!hasValidId) {
+        throw new Error('Actividad inválida');
+      }
+      return actividadesApi.obtenerActividadById(accessToken, actividadId as number);
+    },
+    enabled: hasValidId,
+    staleTime: 0,
+    gcTime: 1000 * 60 * 10,
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
@@ -57,82 +113,9 @@ export function useCrearActividad() {
       }
       return actividadesApi.createActividad(accessToken, data);
     },
-    onMutate: async (newData) => {
-      // Cancelar refetches en curso
-      await queryClient.cancelQueries({ queryKey: actividadesQueryKeys.semanales() });
-      await queryClient.cancelQueries({ queryKey: solicitudesQueryKeys.creadas() });
-      await queryClient.cancelQueries({ queryKey: solicitudesQueryKeys.invitaciones() });
-
-      // Snapshot del estado previo
-      const previousData = queryClient.getQueryData<actividadesModels.ActividadesSemanalesResponse>(
-        actividadesQueryKeys.semanales()
-      );
-      const previousCreadas = queryClient.getQueryData<SolicitudEnviada[]>(
-        solicitudesQueryKeys.creadas()
-      );
-      const previousInvitaciones = queryClient.getQueryData<SolicitudEnviada[]>(
-        solicitudesQueryKeys.invitaciones()
-      );
-
-      // Actualización optimista de actividades semanales
-      queryClient.setQueryData<actividadesModels.ActividadesSemanalesResponse>(
-        actividadesQueryKeys.semanales(),
-        (old) => {
-          if (!old) return { actividades: [], licencias: [] };
-          const optimisticActividad: actividadesModels.Actividad = {
-            id: Date.now(), // ID temporal
-            titulo: newData.titulo,
-            descripcion: newData.descripcion,
-            fecha_inicio: newData.fecha_inicio,
-            fecha_fin: newData.fecha_fin,
-            rol: 'host',
-            participantes: [],
-            solicitud_id: newData.solicitud_id ?? null,
-          };
-          return {
-            ...old,
-            actividades: [...old.actividades, optimisticActividad],
-          };
-        }
-      );
-
-      // Actualización optimista de solicitudes: marcar como ACTIVIDAD_CREADA
-      if (newData.solicitud_id) {
-        const updateSolicitudes = (old: SolicitudEnviada[] | undefined) => {
-          if (!old) return old;
-          return old.map(s =>
-            s.solicitud_id === newData.solicitud_id
-              ? { ...s, estado: 'ACTIVIDAD_CREADA' as const }
-              : s
-          );
-        };
-        queryClient.setQueryData<SolicitudEnviada[]>(
-          solicitudesQueryKeys.creadas(),
-          updateSolicitudes
-        );
-        queryClient.setQueryData<SolicitudEnviada[]>(
-          solicitudesQueryKeys.invitaciones(),
-          updateSolicitudes
-        );
-      }
-
-      return { previousData, previousCreadas, previousInvitaciones };
-    },
-    onError: (_err, _newData, context) => {
-      // Revertir al estado previo en caso de error
-      if (context?.previousData) {
-        queryClient.setQueryData(actividadesQueryKeys.semanales(), context.previousData);
-      }
-      if (context?.previousCreadas) {
-        queryClient.setQueryData(solicitudesQueryKeys.creadas(), context.previousCreadas);
-      }
-      if (context?.previousInvitaciones) {
-        queryClient.setQueryData(solicitudesQueryKeys.invitaciones(), context.previousInvitaciones);
-      }
-    },
     onSettled: () => {
       // Siempre revalidar con el servidor
-      queryClient.invalidateQueries({ queryKey: actividadesQueryKeys.semanales() });
+      queryClient.invalidateQueries({ queryKey: actividadesQueryKeys.all });
       queryClient.invalidateQueries({ queryKey: solicitudesQueryKeys.creadas() });
       queryClient.invalidateQueries({ queryKey: solicitudesQueryKeys.invitaciones() });
     },
@@ -159,7 +142,7 @@ export function useAgregarParticipante() {
     onSuccess: () => {
       // Invalidar las listas de actividades para refrescar
       queryClient.invalidateQueries({
-        queryKey: actividadesQueryKeys.semanales(),
+        queryKey: actividadesQueryKeys.all,
       });
     },
     retry: 3,
@@ -184,36 +167,12 @@ export function useCancelarActividad() {
     },
     onMutate: async (cancelData) => {
       // Cancelar refetches en curso
-      await queryClient.cancelQueries({ queryKey: actividadesQueryKeys.semanales() });
-
-      // Snapshot del estado previo
-      const previousData = queryClient.getQueryData<actividadesModels.ActividadesSemanalesResponse>(
-        actividadesQueryKeys.semanales()
-      );
-
-      // Actualización optimista: remover la actividad de la lista
-      queryClient.setQueryData<actividadesModels.ActividadesSemanalesResponse>(
-        actividadesQueryKeys.semanales(),
-        (old) => {
-          if (!old) return { actividades: [], licencias: [] };
-          return {
-            ...old,
-            actividades: old.actividades.filter((a) => a.id !== cancelData.actividadId),
-          };
-        }
-      );
-
-      return { previousData };
-    },
-    onError: (_err, _cancelData, context) => {
-      // Revertir al estado previo en caso de error
-      if (context?.previousData) {
-        queryClient.setQueryData(actividadesQueryKeys.semanales(), context.previousData);
-      }
+      await queryClient.cancelQueries({ queryKey: actividadesQueryKeys.all });
+      return { cancelData };
     },
     onSettled: () => {
       // Siempre revalidar con el servidor
-      queryClient.invalidateQueries({ queryKey: actividadesQueryKeys.semanales() });
+      queryClient.invalidateQueries({ queryKey: actividadesQueryKeys.all });
     },
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
@@ -238,7 +197,7 @@ export function useModificarActividadFechas() {
       return actividadesApi.modificarActividadFechas(accessToken, data);
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: actividadesQueryKeys.semanales() });
+      queryClient.invalidateQueries({ queryKey: actividadesQueryKeys.all });
     },
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),

@@ -4,6 +4,7 @@ import { NovedadFormModal } from '@/components/NovedadFormModal';
 import { NovedadModal } from '@/components/NovedadModal';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { useAuth } from '@/features/auth/context/AuthContext';
+import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { Novedad } from '../models/Novedades';
@@ -35,6 +36,20 @@ interface TablonNovedadesProps {
   enabled?: boolean;
 }
 
+interface NovedadCreateDraft {
+  titulo: string;
+  descripcion: string;
+  tipo: number;
+  prioridad: number;
+}
+
+const DEFAULT_NOVEDAD_DRAFT: NovedadCreateDraft = {
+  titulo: '',
+  descripcion: '',
+  tipo: 1,
+  prioridad: 2,
+};
+
 export default function TablonNovedades({ refreshTrigger, enabled = true }: TablonNovedadesProps) {
   const { user } = useAuth();
   const { obtenerNovedades, crearNovedad, actualizarNovedad, eliminarNovedad, isLoading, error } =
@@ -44,7 +59,11 @@ export default function TablonNovedades({ refreshTrigger, enabled = true }: Tabl
   const [selectedNovedad, setSelectedNovedad] = useState<NovedadView | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
+  const [isFormModalMinimized, setIsFormModalMinimized] = useState(false);
+  const [resumeFormDraft, setResumeFormDraft] = useState(false);
+  const [resetFormDraftSignal, setResetFormDraftSignal] = useState(0);
   const [formMode, setFormMode] = useState<'create' | 'edit'>('create');
+  const [createDraft, setCreateDraft] = useState<NovedadCreateDraft>(DEFAULT_NOVEDAD_DRAFT);
   const [localLoading, setLocalLoading] = useState(true);
 
   // Cargar novedades al montar el componente
@@ -112,12 +131,19 @@ export default function TablonNovedades({ refreshTrigger, enabled = true }: Tabl
   const handleCreatePress = () => {
     setFormMode('create');
     setSelectedNovedad(null);
+    if (!isFormModalMinimized) {
+      setCreateDraft(DEFAULT_NOVEDAD_DRAFT);
+    }
+    setResumeFormDraft(false);
+    setIsFormModalMinimized(false);
     setIsFormModalOpen(true);
   };
 
   const handleEditPress = () => {
     setIsDetailModalOpen(false);
     setFormMode('edit');
+    setResumeFormDraft(false);
+    setIsFormModalMinimized(false);
     setIsFormModalOpen(true);
   };
 
@@ -195,6 +221,37 @@ export default function TablonNovedades({ refreshTrigger, enabled = true }: Tabl
 
   const closeFormModal = () => {
     setIsFormModalOpen(false);
+    setIsFormModalMinimized(false);
+    setResumeFormDraft(false);
+    setCreateDraft(DEFAULT_NOVEDAD_DRAFT);
+    setResetFormDraftSignal((prev) => prev + 1);
+    setSelectedNovedad(null);
+  };
+
+  const minimizeFormModal = () => {
+    if (formMode !== 'create') {
+      closeFormModal();
+      return;
+    }
+    setIsFormModalOpen(false);
+    setIsFormModalMinimized(true);
+    setResumeFormDraft(true);
+  };
+
+  const restoreFormModal = () => {
+    setFormMode('create');
+    setSelectedNovedad(null);
+    setIsFormModalMinimized(false);
+    setResumeFormDraft(true);
+    setIsFormModalOpen(true);
+  };
+
+  const discardFormDraft = () => {
+    setIsFormModalOpen(false);
+    setIsFormModalMinimized(false);
+    setResumeFormDraft(false);
+    setCreateDraft(DEFAULT_NOVEDAD_DRAFT);
+    setResetFormDraftSignal((prev) => prev + 1);
     setSelectedNovedad(null);
   };
 
@@ -262,9 +319,27 @@ export default function TablonNovedades({ refreshTrigger, enabled = true }: Tabl
         visible={isFormModalOpen}
         novedad={selectedNovedad}
         onClose={closeFormModal}
+        onMinimize={minimizeFormModal}
         onSubmit={handleFormSubmit}
         mode={formMode}
+        draftValues={formMode === 'create' ? createDraft : undefined}
+        onDraftChange={formMode === 'create' ? setCreateDraft : undefined}
+        resumeDraft={resumeFormDraft}
+        onResumeDraftHandled={() => setResumeFormDraft(false)}
+        resetDraftSignal={resetFormDraftSignal}
       />
+
+      {canCreate && isFormModalMinimized && (
+        <View style={styles.minimizedDraftContainer}>
+          <TouchableOpacity style={styles.minimizedDraftMain} onPress={restoreFormModal}>
+            <Ionicons name="chevron-up" size={18} color="#3b82f6" />
+            <Text style={styles.minimizedDraftText}>Borrador de novedad</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.minimizedDraftClose} onPress={discardFormDraft}>
+            <Ionicons name="close" size={16} color="#6b7280" />
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 }
@@ -314,5 +389,39 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#6b7280',
     textAlign: 'center',
+  },
+  minimizedDraftContainer: {
+    position: 'absolute',
+    right: 16,
+    bottom: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 12,
+    paddingLeft: 10,
+    paddingRight: 6,
+    paddingVertical: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.14,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  minimizedDraftMain: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingRight: 6,
+  },
+  minimizedDraftText: {
+    marginLeft: 6,
+    color: '#111827',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  minimizedDraftClose: {
+    marginLeft: 6,
+    padding: 4,
   },
 });

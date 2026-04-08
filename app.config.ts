@@ -46,6 +46,15 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     startUrl: "/",
     scope: "/",
   },
+  androidStatusBar: {
+    backgroundColor: "#e3e6eb",
+    barStyle: "dark-content",
+    translucent: false,
+  },
+  androidNavigationBar: {
+    backgroundColor: "#dfe3e8",
+    barStyle: "dark-content",
+  },
   plugins: [
     [
       "expo-notifications",

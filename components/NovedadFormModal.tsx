@@ -1,16 +1,18 @@
 import type { Novedad } from '@/features/novedades/models/Novedades';
+import { AppFab } from '@/shared/ui/AppFab';
+import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    TouchableWithoutFeedback,
-    View,
+  Keyboard,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { Dropdown } from 'react-native-element-dropdown';
 
@@ -18,8 +20,24 @@ interface NovedadFormModalProps {
   visible: boolean;
   novedad?: Novedad | null;
   onClose: () => void;
+  onMinimize?: () => void;
   onSubmit: (data: Omit<Novedad, 'id' | 'createdAt'>) => Promise<void>;
   mode: 'create' | 'edit';
+  draftValues?: {
+    titulo: string;
+    descripcion: string;
+    tipo: number;
+    prioridad: number;
+  };
+  onDraftChange?: (draft: {
+    titulo: string;
+    descripcion: string;
+    tipo: number;
+    prioridad: number;
+  }) => void;
+  resumeDraft?: boolean;
+  onResumeDraftHandled?: () => void;
+  resetDraftSignal?: number;
 }
 
 // Adaptamos los datos para la librería (label y value)
@@ -46,30 +64,81 @@ export function NovedadFormModal({
   visible,
   novedad,
   onClose,
+  onMinimize,
   onSubmit,
   mode,
+  draftValues,
+  onDraftChange,
+  resumeDraft = false,
+  onResumeDraftHandled,
+  resetDraftSignal = 0,
 }: NovedadFormModalProps) {
   const [titulo, setTitulo] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [tipo, setTipo] = useState<number>(1);
   const [prioridad, setPrioridad] = useState<number>(2);
   const [loading, setLoading] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const isKeyboardOpen = keyboardHeight > 0;
+
+  const syncCreateDraft = (partial: Partial<{ titulo: string; descripcion: string; tipo: number; prioridad: number }>) => {
+    if (mode !== 'create' || !onDraftChange) return;
+    onDraftChange({
+      titulo,
+      descripcion,
+      tipo,
+      prioridad,
+      ...partial,
+    });
+  };
+
+  useEffect(() => {
+    const onShow = Keyboard.addListener('keyboardDidShow', (event) => {
+      setKeyboardHeight(event.endCoordinates.height);
+    });
+    const onHide = Keyboard.addListener('keyboardDidHide', () => {
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      onShow.remove();
+      onHide.remove();
+    };
+  }, []);
   
   useEffect(() => {
-    if (visible) {
-      if (mode === 'edit' && novedad) {
-        setTitulo(novedad.titulo);
-        setDescripcion(novedad.descripcion);
-        setTipo(novedad.id_etiqueta || 1);
-        setPrioridad(novedad.prioridad);
-      } else {
-        setTitulo('');
-        setDescripcion('');
-        setTipo(1);
-        setPrioridad(2);
-      }
+    if (!visible) return;
+
+    if (mode === 'edit' && novedad) {
+      setTitulo(novedad.titulo);
+      setDescripcion(novedad.descripcion);
+      setTipo(novedad.id_etiqueta || 1);
+      setPrioridad(novedad.prioridad);
+      return;
     }
-  }, [mode, novedad, visible]);
+
+    if (!resumeDraft) {
+      setTitulo(draftValues?.titulo ?? '');
+      setDescripcion(draftValues?.descripcion ?? '');
+      setTipo(draftValues?.tipo ?? 1);
+      setPrioridad(draftValues?.prioridad ?? 2);
+    } else {
+      setTitulo(draftValues?.titulo ?? '');
+      setDescripcion(draftValues?.descripcion ?? '');
+      setTipo(draftValues?.tipo ?? 1);
+      setPrioridad(draftValues?.prioridad ?? 2);
+      onResumeDraftHandled?.();
+    }
+  }, [mode, novedad, visible, resumeDraft, onResumeDraftHandled, draftValues]);
+
+  useEffect(() => {
+    if (resetDraftSignal > 0 && mode === 'create') {
+      setTitulo('');
+      setDescripcion('');
+      setTipo(1);
+      setPrioridad(2);
+    }
+  }, [resetDraftSignal, mode]);
 
   const handleSubmit = async () => {
     if (!titulo.trim()) return;
@@ -90,33 +159,51 @@ export function NovedadFormModal({
     }
   };
 
+  const handleMinimize = () => {
+    if (mode !== 'create' || !onMinimize || loading) return;
+    onMinimize();
+  };
+
   return (
     <Modal
       visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
+      transparent={false}
+      animationType="slide"
+      onRequestClose={mode === 'create' && onMinimize ? handleMinimize : onClose}
     >
-      {/* Usamos un View simple como overlay para evitar conflictos de gestos */}
-      <View style={styles.overlay}>
-        <TouchableWithoutFeedback onPress={onClose}>
-          <View style={StyleSheet.absoluteFill} />
-        </TouchableWithoutFeedback>
-
+      <KeyboardAvoidingView
+        style={styles.modalKeyboardAvoiding}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={0}
+      >
         <View style={styles.modalContainer}>
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            style={{ width: '100%' }}
+          <View style={styles.modalHeader}>
+            <Text style={styles.headerTitle}>
+              {mode === 'create' ? 'Crear Novedad' : 'Editar Novedad'}
+            </Text>
+            <View style={styles.modalHeaderActions}>
+              {mode === 'create' && (
+                <TouchableOpacity onPress={handleMinimize} style={styles.headerIconButton} disabled={loading}>
+                  <Ionicons name="chevron-down" size={24} color="#6b7280" />
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity onPress={onClose} style={styles.headerIconButton} disabled={loading}>
+                <Ionicons name="close" size={22} color="#6b7280" />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <ScrollView
+            style={styles.formScroll}
+            contentContainerStyle={[
+              styles.scrollContent,
+              { paddingBottom: 88 + keyboardHeight },
+            ]}
+            keyboardShouldPersistTaps={isKeyboardOpen ? 'handled' : 'never'}
+            keyboardDismissMode={isKeyboardOpen ? 'none' : (Platform.OS === 'ios' ? 'interactive' : 'on-drag')}
+            nestedScrollEnabled
+            showsVerticalScrollIndicator={false}
           >
-            {/* Quitamos flex: 1 del ScrollView y usamos flexGrow */}
-            <ScrollView 
-              contentContainerStyle={styles.scrollContent}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-            >
-              <Text style={styles.headerTitle}>
-                {mode === 'create' ? 'Crear Nueva Novedad' : 'Editar Novedad'}
-              </Text>
 
               {/* Título */}
               <View style={styles.fieldContainer}>
@@ -124,7 +211,10 @@ export function NovedadFormModal({
                 <TextInput
                   style={styles.input}
                   value={titulo}
-                  onChangeText={setTitulo}
+                  onChangeText={(value) => {
+                    setTitulo(value);
+                    syncCreateDraft({ titulo: value });
+                  }}
                   placeholder="Título"
                   placeholderTextColor="#9ca3af"
                 />
@@ -136,7 +226,10 @@ export function NovedadFormModal({
                 <TextInput
                   style={[styles.input, styles.textArea]}
                   value={descripcion}
-                  onChangeText={setDescripcion}
+                  onChangeText={(value) => {
+                    setDescripcion(value);
+                    syncCreateDraft({ descripcion: value });
+                  }}
                   placeholder="Descripción"
                   placeholderTextColor="#9ca3af"
                   multiline
@@ -155,7 +248,10 @@ export function NovedadFormModal({
                   labelField="label"
                   valueField="value"
                   value={tipo}
-                  onChange={item => setTipo(item.value)}
+                  onChange={item => {
+                    setTipo(item.value);
+                    syncCreateDraft({ tipo: item.value });
+                  }}
                 />
               </View>
 
@@ -169,66 +265,67 @@ export function NovedadFormModal({
                   labelField="label"
                   valueField="value"
                   value={prioridad}
-                  onChange={item => setPrioridad(item.value)}
+                  onChange={item => {
+                    setPrioridad(item.value);
+                    syncCreateDraft({ prioridad: item.value });
+                  }}
                 />
               </View>
 
-              {/* Botones */}
-              <View style={styles.buttonContainer}>
-                <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
-                  <Text style={styles.cancelButtonText}>Cancelar</Text>
-                </TouchableOpacity>
+          </ScrollView>
 
-                <TouchableOpacity
-                  style={[styles.submitButton, !titulo.trim() && styles.submitButtonDisabled]}
-                  onPress={handleSubmit}
-                  disabled={!titulo.trim() || loading}
-                >
-                  <Text style={styles.submitButtonText}>
-                    {loading ? '...' : 'Guardar'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </ScrollView>
-          </KeyboardAvoidingView>
+          <AppFab
+            icon="checkmark"
+            floating={false}
+            onPress={handleSubmit}
+            disabled={!titulo.trim() || loading}
+            isLoading={loading}
+            style={styles.modalSubmitFab}
+          />
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: {
+  modalKeyboardAvoiding: {
     flex: 1,
-  },
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)', // Un poco más oscuro para ver si el modal resalta
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: '#ffffff',
   },
   modalContainer: {
+    flex: 1,
     backgroundColor: 'white',
-    borderRadius: 16,
-    width: '90%',
-    maxWidth: 450,
-    // Importante: No uses maxHeight solo, dale un espacio mínimo o deja que crezca
-    maxHeight: '85%', 
-    elevation: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#e5e7eb',
+  },
+  modalHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerIconButton: {
+    padding: 8,
+    marginLeft: 4,
+  },
+  formScroll: {
+    flex: 1,
   },
   scrollContent: {
-    padding: 24,
-    flexGrow: 1, // Esto asegura que el contenido empuje las paredes del modal
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    flexGrow: 1,
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     color: '#111827',
-    marginBottom: 20,
   },
   fieldContainer: {
     marginBottom: 16,
@@ -269,37 +366,9 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#111827',
   },
-  buttonContainer: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 10,
-    paddingBottom: 10,
-  },
-  cancelButton: {
-    flex: 1,
-    backgroundColor: '#e5e7eb',
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    color: '#374151',
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  submitButton: {
-    flex: 1,
-    backgroundColor: '#3b82f6',
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  submitButtonDisabled: {
-    backgroundColor: '#d1d5db',
-  },
-  submitButtonText: {
-    color: 'white',
-    fontSize: 15,
-    fontWeight: '600',
+  modalSubmitFab: {
+    alignSelf: 'flex-end',
+    marginRight: 20,
+    marginBottom: 20,
   },
 });

@@ -8,20 +8,34 @@ interface AgendaSemanalProps {
   today: Date;
   onDeleteActivity: (id: string) => void;
   onPressActivity?: (activity: Activity) => void;
+  onPressDay?: (dateKey: string) => void;
 }
 
-export const AgendaSemanal: React.FC<AgendaSemanalProps> = ({ activities, today, onDeleteActivity, onPressActivity }) => {
+function formatDateKey(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+export const AgendaSemanal: React.FC<AgendaSemanalProps> = ({
+  activities,
+  today,
+  onDeleteActivity,
+  onPressActivity,
+  onPressDay,
+}) => {
   const dayLabels = [
     'Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado',
   ];
   const daysOfWeek = [];
+
+  // FIX: Usamos una copia de today para no mutar la prop
+  const todayDateStr = formatDateKey(today);
 
   for (let i = 0; i < 7; i++) {
     const dayDate = new Date(today);
     const dayOfWeek = dayDate.getDay();
     const daysOffset = i - dayOfWeek;
     dayDate.setDate(dayDate.getDate() + daysOffset);
-    const dateStr = dayDate.toISOString().split('T')[0];
+    const dateStr = formatDateKey(dayDate);
 
     const dayActivities = activities
       .filter((a) => a.date === dateStr)
@@ -32,7 +46,7 @@ export const AgendaSemanal: React.FC<AgendaSemanalProps> = ({ activities, today,
       dayLabel: dayLabels[i],
       dayNum: dayDate.getDate(),
       activities: dayActivities,
-      isToday: dateStr === today.toISOString().split('T')[0],
+      isToday: dateStr === todayDateStr,
     });
   }
 
@@ -42,7 +56,7 @@ export const AgendaSemanal: React.FC<AgendaSemanalProps> = ({ activities, today,
       keyExtractor={(item) => item.dateStr}
       renderItem={({ item: day }) => (
         <View style={[styles.dayCard, day.isToday && styles.dayCardToday]}>
-          <View style={styles.dayHeader}>
+          <TouchableOpacity style={styles.dayHeader} onPress={() => onPressDay?.(day.dateStr)}>
             <Text style={[styles.dayLabel, day.isToday && styles.dayLabelToday]}>
               {day.dayLabel}
             </Text>
@@ -51,13 +65,13 @@ export const AgendaSemanal: React.FC<AgendaSemanalProps> = ({ activities, today,
                 .toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
                 .toUpperCase()}
             </Text>
-          </View>
+          </TouchableOpacity>
 
-          {day.activities.length === 0 ? (
-            <Text style={styles.noActivitiesText}>Sin actividades</Text>
-          ) : (
-            <View style={styles.activitiesContainer}>
-              {day.activities.map((activity) => {
+          <View style={styles.activitiesContainer}>
+            {day.activities.length === 0 ? (
+              <Text style={styles.emptyText}>Sin actividades</Text>
+            ) : (
+              day.activities.map((activity) => {
                 const esReunionVacia =
                   activity.tipo_actividad === 'REUNION' &&
                   (activity.participantes?.length ?? 0) <= 1;
@@ -103,9 +117,9 @@ export const AgendaSemanal: React.FC<AgendaSemanalProps> = ({ activities, today,
                     </View>
                   </TouchableOpacity>
                 );
-              })}
-            </View>
-          )}
+              })
+            )}
+          </View>
         </View>
       )}
       scrollEnabled={false}
@@ -160,12 +174,14 @@ const styles = StyleSheet.create({
   dayDateToday: {
     color: '#1a73e8',
   },
-  noActivitiesText: {
-    fontSize: 12,
-    color: '#9CA3AF',
-  },
   activitiesContainer: {
     gap: 6,
+  },
+  emptyText: {
+    fontSize: 12,
+    color: '#9AA0A6',
+    fontStyle: 'italic',
+    paddingVertical: 4,
   },
   activityCard: {
     flexDirection: 'row',

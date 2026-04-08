@@ -149,7 +149,7 @@ export function CrearSolicitudesLicencias() {
 
     // --- Handlers Fecha ---
     const onDateChange = useCallback((event: any, selectedDate?: Date) => {
-        if (Platform.OS === 'android') setShowDatePicker(false);
+        if (Platform.OS !== 'ios') setShowDatePicker(false);
         if (event.type === 'dismissed') return;
         if (selectedDate) {
             setFechaInicio(normalizeToMinute(selectedDate));
@@ -157,7 +157,7 @@ export function CrearSolicitudesLicencias() {
     }, []);
 
     const onTimeChange = useCallback((event: any, selectedTime?: Date) => {
-        if (Platform.OS === 'android') setShowTimePicker(false);
+        if (Platform.OS !== 'ios') setShowTimePicker(false);
         if (event.type === 'dismissed') return;
         if (selectedTime) {
             const updated = new Date(fechaInicio ?? new Date());
@@ -208,7 +208,7 @@ export function CrearSolicitudesLicencias() {
     const procederCrearSolicitud = useCallback(() => {
         if (isPending || isSubmittingRef.current) return;
         if (!tipoLicenciaId) return;
-        if (!fechaInicio){
+        if (!fechaInicio) {
             Alert.alert('La fecha de inicio es requerida.');
             return;
         }
@@ -250,8 +250,8 @@ export function CrearSolicitudesLicencias() {
                         if (!archivoId) {
                             setIsUploadingFile(false);
                             Alert.alert(
-                            'Solicitud creada',
-                            'La solicitud fue creada pero no se pudo obtener el id del archivo para adjuntarlo.'
+                                'Solicitud creada',
+                                'La solicitud fue creada pero no se pudo obtener el id del archivo para adjuntarlo.'
                             );
                             router.back();
                             return;
@@ -310,14 +310,6 @@ export function CrearSolicitudesLicencias() {
     return (
         <View style={styles.container}>
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-
-                {/* Header */}
-                <View style={styles.header}>
-                    <View style={styles.iconButton} />
-                    <ThemedText style={styles.headerTitle}>Nueva Solicitud</ThemedText>
-                    <View style={{ width: 40 }} />
-                </View>
-
                 <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: 120 + insets.bottom }}>
 
                     {/* ── Tipo de Licencia ── */}
@@ -627,17 +619,6 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: colors.componentBackground,
     },
-    header: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingHorizontal: 16,
-        paddingTop: 16,
-        paddingBottom: 12,
-        backgroundColor: colors.componentBackground,
-    },
-    headerTitle: { fontSize: 18, fontWeight: '500', color: colors.text },
-    iconButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
     content: { flex: 1 },
     sectionCard: {
         backgroundColor: colors.componentBackground,

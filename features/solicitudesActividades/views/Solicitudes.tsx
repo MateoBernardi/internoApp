@@ -2,13 +2,12 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { CreateButton } from '@/components/ui/CreateButton';
 import { Colors } from '@/constants/theme';
-import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
-    StyleSheet,
-    TouchableOpacity,
-    View
+  StyleSheet,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SolicitudesEnviadas } from '../components/SolicitudesEnviadas';
@@ -26,16 +25,8 @@ interface SolicitudesViewProps {
 export default function SolicitudesView({ onRefresh, refreshing }: SolicitudesViewProps = {}) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { hasRole } = useRoleCheck();
-  const isConsejo = hasRole('consejo');
 
   const [activeTab, setActiveTab] = useState<TabType>('recibidas');
-
-  useEffect(() => {
-    if (isConsejo && activeTab === 'enviadas') {
-      setActiveTab('recibidas');
-    }
-  }, [isConsejo, activeTab]);
 
   const handleCreatePress = () => {
     router.push('/(extras)/crear-solicitud');
@@ -69,7 +60,6 @@ export default function SolicitudesView({ onRefresh, refreshing }: SolicitudesVi
                 Recibidas
               </ThemedText>
             </TouchableOpacity>
-            {!isConsejo && (
               <TouchableOpacity
                 style={[
                   styles.tab,
@@ -89,30 +79,27 @@ export default function SolicitudesView({ onRefresh, refreshing }: SolicitudesVi
                   Enviadas
                 </ThemedText>
               </TouchableOpacity>
-            )}
           </View>
         </View>
       </View>
 
       {/* Contenido */}
       <View style={styles.content}>
-        {activeTab === 'enviadas' && !isConsejo ? (
+        {activeTab === 'enviadas' ? (
           <SolicitudesEnviadas onRefresh={onRefresh} refreshing={refreshing} />
         ) : (
           <SolicitudesRecibidas onRefresh={onRefresh} refreshing={refreshing} />
         )}
       </View>
 
-      {/* Botón flotante */}
-      {!isConsejo &&
-        <View style={[styles.floatingButtonContainer, { bottom: insets.bottom + 8, right: 36 }]}>
+      {/* Botón flotante */}     
+      <View style={[styles.floatingButtonContainer, { bottom: insets.bottom + 8, right: 36 }]}>
           <CreateButton
             onPress={handleCreatePress}
             size={56}
             accessibilityLabel="Crear nueva solicitud"
           />
         </View>
-      }
     </ThemedView>
   );
 }
@@ -120,11 +107,11 @@ export default function SolicitudesView({ onRefresh, refreshing }: SolicitudesVi
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.componentBackground,
+    backgroundColor: colors.background,
   },
   headerContent: {
     paddingHorizontal: '4%',
-    paddingVertical: '3%',
+    paddingTop: '4%',
   },
   header: {
     backgroundColor: colors.componentBackground,

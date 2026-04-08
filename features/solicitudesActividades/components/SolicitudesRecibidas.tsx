@@ -1,17 +1,20 @@
 import { ThemedText } from '@/components/themed-text';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { Colors } from '@/constants/theme';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useCallback } from 'react';
 import {
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    TouchableOpacity,
-    View
+  Alert,
+  GestureResponderEvent,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { SolicitudEnviada, estadoInvitacionMapping } from '../models/Solicitud';
-import { useInvitaciones } from '../viewmodels/useSolicitudes';
+import { useInvitaciones, useOcultarSolicitudInvitado } from '../viewmodels/useSolicitudes';
 
 const colors = Colors['light'];
 
@@ -23,6 +26,7 @@ interface SolicitudesRecibidasProps {
 export function SolicitudesRecibidas({ onRefresh, refreshing }: SolicitudesRecibidasProps = {}) {
   const router = useRouter();
   const { data: invitaciones, isLoading, error, refetch } = useInvitaciones();
+  const { mutate: ocultarSolicitud, isPending: isHidingSolicitud } = useOcultarSolicitudInvitado();
 
   const handleOpenSolicitud = useCallback((solicitudId: number) => {
     router.push({
@@ -35,6 +39,30 @@ export function SolicitudesRecibidas({ onRefresh, refreshing }: SolicitudesRecib
     await refetch();
     if (onRefresh) await onRefresh();
   }, [refetch, onRefresh]);
+
+  const handleOcultarSolicitud = useCallback((solicitudId: number) => {
+    Alert.alert(
+      'Ocultar solicitud',
+      'Esta solicitud dejará de verse en tu lista de recibidas. ¿Deseas continuar?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Ocultar',
+          style: 'destructive',
+          onPress: () => {
+            ocultarSolicitud(
+              { solicitudId },
+              {
+                onError: (error) => {
+                  Alert.alert('Error', error instanceof Error ? error.message : 'No se pudo ocultar la solicitud');
+                },
+              }
+            );
+          },
+        },
+      ]
+    );
+  }, [ocultarSolicitud]);
 
 
 
@@ -94,6 +122,8 @@ export function SolicitudesRecibidas({ onRefresh, refreshing }: SolicitudesRecib
               solicitud={item}
               estadoUI={estadoUI}
               onPress={() => handleOpenSolicitud(item.solicitud_id)}
+              onHide={() => handleOcultarSolicitud(item.solicitud_id)}
+              isHiding={isHidingSolicitud}
             />
           </React.Fragment>
         );
@@ -106,46 +136,63 @@ interface SolicitudRecibidaItemProps {
   solicitud: SolicitudEnviada;
   estadoUI: string;
   onPress: () => void;
+  onHide: () => void;
+  isHiding: boolean;
 }
 
-function SolicitudRecibidaItem({ solicitud, estadoUI, onPress }: SolicitudRecibidaItemProps) {
-  const getEstadoColor = (estado: string): string => {
+function SolicitudRecibidaItem({ solicitud, estadoUI, onPress, onHide, isHiding }: SolicitudRecibidaItemProps) {
+  const getContainerColor = (estado: string): string => {
     switch (estado) {
       case 'Pendiente':
-        return '#FF9800';
-      case 'Visto':
-        return '#2196F3';
-      case 'Aceptado':
-        return '#4CAF50';
-      case 'Rechazado':
-        return '#F44336';
-      case 'Modificado':
       case 'Modificado por creador':
-      case 'Aceptado por creador':
-        return '#9C27B0';
+        return colors.componentBackground;
+      case 'Visto':
+      case 'Modificado':
+      case 'Aceptado':
+      case 'Rechazado':
       case 'Actividad creada':
-        return '#00897B';
       case 'Expirada':
-        return '#757575';
+        return colors.background;
       default:
-        return colors.icon;
+        return colors.componentBackground;
     }
   };
+
+  const getEstadoIcon = (estado: string): { name: keyof typeof Ionicons.glyphMap; color: string } | null => {
+    switch (estado) {
+      case 'Modificado por creador':
+        return { name: 'create-outline', color: colors.secondaryText };
+      case 'Visto':
+        return { name: 'checkmark-done', color: '#1E88E5' };
+      case 'Aceptado':
+        return { name: 'checkmark', color: '#43A047' };
+      case 'Rechazado':
+        return { name: 'close', color: '#E53935' };
+      case 'Actividad creada':
+        return { name: 'checkmark-done', color: '#2E7D32' };
+      case 'Expirada':
+        return { name: 'time-outline', color: '#757575' };
+      default:
+        return null;
+    }
+  };
+
+  const estadoIcon = getEstadoIcon(estadoUI);
 
   return (
     <TouchableOpacity
       onPress={onPress}
       style={[
         styles.itemContainer,
-        { backgroundColor: colors.componentBackground },
+        { backgroundColor: getContainerColor(estadoUI) },
       ]}
     >
       <View style={styles.itemContent}>
-        <ThemedText type="defaultSemiBold" numberOfLines={1}>
-          {solicitud.titulo}
-        </ThemedText>
         <ThemedText style={[styles.creador, { color: colors.secondaryText }]}>
           De: {solicitud.nombre_creador} {solicitud.apellido_creador}
+        </ThemedText>
+        <ThemedText type="defaultSemiBold" numberOfLines={1}>
+          {solicitud.titulo}
         </ThemedText>
         <ThemedText
           numberOfLines={2}
@@ -155,19 +202,24 @@ function SolicitudRecibidaItem({ solicitud, estadoUI, onPress }: SolicitudRecibi
         </ThemedText>
         <View style={styles.footerContainer}>
           <ThemedText style={[styles.dateText, { color: colors.secondaryText }]}>
-            {solicitud.fecha_inicio ? new Date(solicitud.fecha_inicio).toLocaleDateString('es-AR') : 'Sin fecha'}
+            {solicitud.fecha_inicio ? solicitud.fecha_inicio.toLocaleDateString('es-AR') : 'Sin fecha'}
           </ThemedText>
-          <View
-            style={[
-              styles.estadoBadge,
-              { backgroundColor: getEstadoColor(estadoUI) + '20' },
-            ]}
-          >
-            <ThemedText
-              style={[styles.estadoText, { color: getEstadoColor(estadoUI) }]}
+          <View style={styles.footerRightGroup}>
+            {estadoIcon ? (
+              <View style={styles.estadoIconContainer}>
+                <Ionicons name={estadoIcon.name} size={18} color={estadoIcon.color} />
+              </View>
+            ) : null}
+            <TouchableOpacity
+              onPress={(event: GestureResponderEvent) => {
+                event.stopPropagation();
+                onHide();
+              }}
+              disabled={isHiding}
+              style={[styles.hideButton, isHiding && styles.hideButtonDisabled]}
             >
-              {estadoUI}
-            </ThemedText>
+              <Ionicons name="trash-outline" size={15} color={colors.error} />
+            </TouchableOpacity>
           </View>
         </View>
       </View>
@@ -211,16 +263,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 8,
   },
+  footerRightGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   dateText: {
     fontSize: 12,
   },
-  estadoBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
+  hideButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.error + '14',
   },
-  estadoText: {
-    fontSize: 11,
-    fontWeight: '600',
+  hideButtonDisabled: {
+    opacity: 0.6,
+  },
+  estadoIconContainer: {
+    width: 20,
+    alignItems: 'center',
   },
 });

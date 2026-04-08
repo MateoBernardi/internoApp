@@ -102,8 +102,6 @@ export function MisSolicitudes() {
 
   return (
     <View style={styles.container}>
-      <ThemedText type="title" style={styles.pageTitle}>Mis Solicitudes</ThemedText>
-      
       {(!solicitudes || solicitudes.length === 0) ? (
         <View style={styles.centerContainer}>
           <ThemedText type="subtitle">No hay solicitudes enviadas</ThemedText>
@@ -225,18 +223,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.componentBackground,
-  },
-  pageTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    backgroundColor: colors.componentBackground,
-    paddingVertical: '3%',
-    paddingHorizontal: '4%',
-    marginHorizontal: '4%',
-    marginTop: 16,
-    marginBottom: 12,
-    borderRadius: 8,
   },
   centerContainer: {
     flex: 1,

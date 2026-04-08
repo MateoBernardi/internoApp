@@ -2,7 +2,7 @@ import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
 import { Encuesta } from '@/features/encuestas/models/Encuesta';
 import { ResponderEncuesta } from '@/features/encuestas/views/ResponderEncuesta';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
 import {
     KeyboardAvoidingView,
@@ -45,6 +45,7 @@ export default function ResponderEncuestaScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
     >
+      <Stack.Screen options={{ title: encuesta.titulo }} />
       <ResponderEncuesta
         encuesta={encuesta}
         onCancelar={() => router.back()}

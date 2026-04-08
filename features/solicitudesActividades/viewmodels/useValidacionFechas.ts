@@ -1,124 +1,93 @@
-import { useAuth } from '@/features/auth/context/AuthContext';
-import { useCallback, useRef, useState } from 'react';
-import type { ValidacionState } from '../components/ValidacionFechasModal';
-import type { RangoOcupado, ValidarFechasRequest } from '../models/Solicitud';
-import * as solicitudesApi from '../services/solicitudesApi';
+import { useCallback, useState } from 'react';
+import type { RangoOcupado } from '../models/Solicitud';
 
-interface ValidateParams {
-    fechaInicio: string;
-    fechaFin: string;
-    participantes: number[];
-    tipo_actividad?: 'REUNION' | 'MANDATO';
-    tipoActividad?: 'REUNION' | 'MANDATO';
-    solicitudIdExcluir?: number;
-    actividadIdExcluir?: number | null;
+export type ValidacionState = 'idle' | 'validating' | 'success' | 'warnings' | 'error';
+
+export interface ValidarFechasPayload {
+  fechaInicio: string | Date;
+  fechaFin: string | Date;
+  participantes: number[];
+  solicitudIdExcluir?: number | null;
+  actividadIdExcluir?: number | null;
+  tipo_actividad?: 'REUNION' | 'MANDATO';
 }
 
-/**
- * Hook reutilizable para manejar el flujo de validación de fechas.
- * 
- * Uso:
- * ```
- * const validacion = useValidacionFechas();
- * 
- * // Al enviar el formulario:
- * validacion.validate({
- *   fechaInicio: start.toISOString(),
- *   fechaFin: end.toISOString(),
- *   participantes: [1, 2, 3],
- * }, () => {
- *   // Callback que se ejecuta cuando se confirma (sin avisos o tras aceptar avisos)
- *   crearSolicitud(data);
- * });
- * 
- * // En el JSX:
- * <ValidacionFechasModal
- *   state={validacion.state}
- *   avisos={validacion.avisos}
- *   errorMessage={validacion.errorMessage}
- *   onConfirm={validacion.confirm}
- *   onCancel={validacion.cancel}
- * />
- * ```
- */
-export function useValidacionFechas() {
-    const { tokens } = useAuth();
-    const [state, setState] = useState<ValidacionState>('idle');
-    const [avisos, setAvisos] = useState<string[]>([]);
-    const [rangosOcupados, setRangosOcupados] = useState<RangoOcupado[]>([]);
-    const [errorMessage, setErrorMessage] = useState<string | undefined>();
-    const onConfirmRef = useRef<(() => void) | null>(null);
+interface UseValidacionFechasResult {
+  state: ValidacionState;
+  avisos: string[];
+  rangosOcupados: RangoOcupado[];
+  errorMessage?: string;
+  validate: (payload: ValidarFechasPayload, onValid: () => void) => void;
+  confirm: () => void;
+  cancel: () => void;
+}
 
-    const reset = useCallback(() => {
-        setState('idle');
-        setAvisos([]);
-        setRangosOcupados([]);
-        setErrorMessage(undefined);
-        onConfirmRef.current = null;
-    }, []);
+function toDate(value: string | Date): Date {
+  return value instanceof Date ? value : new Date(value);
+}
 
-    const validate = useCallback(async (params: ValidateParams, onConfirm: () => void) => {
-        const accessToken = tokens?.accessToken;
-        if (!accessToken) {
-            setErrorMessage('No hay sesión activa');
-            setState('error');
-            return;
-        }
+export function useValidacionFechas(): UseValidacionFechasResult {
+  const [state, setState] = useState<ValidacionState>('idle');
+  const [avisos, setAvisos] = useState<string[]>([]);
+  const [rangosOcupados, setRangosOcupados] = useState<RangoOcupado[]>([]);
+  const [errorMessage, setErrorMessage] = useState<string | undefined>();
+  const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
 
-        onConfirmRef.current = onConfirm;
-        setState('validating');
-        setAvisos([]);
-        setRangosOcupados([]);
-        setErrorMessage(undefined);
+  const reset = useCallback(() => {
+    setState('idle');
+    setAvisos([]);
+    setRangosOcupados([]);
+    setErrorMessage(undefined);
+    setPendingAction(null);
+  }, []);
 
-        try {
-            const request: ValidarFechasRequest = {
-                fecha_inicio: params.fechaInicio,
-                fecha_fin: params.fechaFin,
-                participantes: params.participantes,
-                ...(params.tipo_actividad !== undefined ? { tipo_actividad: params.tipo_actividad } : {}),
-                ...(params.tipoActividad !== undefined ? { tipoActividad: params.tipoActividad } : {}),
-                ...(params.solicitudIdExcluir !== undefined ? { solicitudIdExcluir: params.solicitudIdExcluir } : {}),
-                ...(params.actividadIdExcluir !== undefined ? { actividadIdExcluir: params.actividadIdExcluir } : {}),
-            };
+  const validate = useCallback((payload: ValidarFechasPayload, onValid: () => void) => {
+    const inicio = toDate(payload.fechaInicio);
+    const fin = toDate(payload.fechaFin);
 
-            const result = await solicitudesApi.validarFechas(accessToken, request);
+    if (Number.isNaN(inicio.getTime()) || Number.isNaN(fin.getTime())) {
+      setState('error');
+      setErrorMessage('Fechas inválidas. Revisá los valores ingresados.');
+      return;
+    }
 
-            if (result.avisos && result.avisos.length > 0) {
-                setAvisos(result.avisos);
-                setRangosOcupados(result.rangosOcupados ?? []);
-                setState('warnings');
-            } else {
-                setState('success');
-                // Auto-proceder después de un breve momento
-                setTimeout(() => {
-                    onConfirmRef.current?.();
-                    reset();
-                }, 800);
-            }
-        } catch (error) {
-            const msg = error instanceof Error ? error.message : 'Intenta nuevamente';
-            setErrorMessage(msg);
-            setState('error');
-        }
-    }, [tokens, reset]);
+    if (fin <= inicio) {
+      setState('error');
+      setErrorMessage('La fecha de fin debe ser mayor a la de inicio.');
+      return;
+    }
 
-    const confirm = useCallback(() => {
-        onConfirmRef.current?.();
-        reset();
-    }, [reset]);
+    // Mantiene la API de validación para el modal y futuras integraciones backend.
+    setState('idle');
+    setAvisos([]);
+    setRangosOcupados([]);
+    setErrorMessage(undefined);
+    setPendingAction(null);
+    onValid();
+  }, []);
 
-    const cancel = useCallback(() => {
-        reset();
-    }, [reset]);
+  const confirm = useCallback(() => {
+    if (pendingAction) {
+      const action = pendingAction;
+      reset();
+      action();
+      return;
+    }
 
-    return {
-        state,
-        avisos,
-        rangosOcupados,
-        errorMessage,
-        validate,
-        confirm,
-        cancel,
-    };
+    reset();
+  }, [pendingAction, reset]);
+
+  const cancel = useCallback(() => {
+    reset();
+  }, [reset]);
+
+  return {
+    state,
+    avisos,
+    rangosOcupados,
+    errorMessage,
+    validate,
+    confirm,
+    cancel,
+  };
 }

@@ -1,7 +1,9 @@
 import { ThemedText } from '@/components/themed-text';
+import { UserSelector } from '@/components/UserSelector';
 import { Colors } from '@/constants/theme';
 import { RoleUserSelectionModal } from '@/features/solicitudesActividades/components/RoleUserSelectionModal';
-import { UserSelector } from '@/features/solicitudesActividades/components/UserSelector';
+import { useRoleCheck } from '@/hooks/useRoleCheck';
+import { adminRoles, allRoles } from '@/shared/users/roles';
 import { UserSummary } from '@/shared/users/User';
 import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
 import { Ionicons } from '@expo/vector-icons';
@@ -35,24 +37,6 @@ interface EditCarpetaModalProps {
   onSubmit: (payload: UpdateCarpetaPayload) => void;
 }
 
-const allRoles = [
-  { label: 'Todos', value: '*' },
-  { label: 'Contable', value: 'contable' },
-  { label: 'Sistemas', value: 'sistemas' },
-  { label: 'Personal Admin', value: 'empleado-admin' },
-  { label: 'Personal Insumos', value: 'empleado-insumos' },
-  { label: 'Personal Mayorista', value: 'empleado-mayorista' },
-  { label: 'Personal Super', value: 'empleado-super' },
-  { label: 'Consejo', value: 'consejo' },
-  { label: 'Encargado', value: 'encargado' },
-  { label: 'Gerencia', value: 'gerencia' },
-  { label: 'Personal Limpieza', value: 'empleado-limpieza' },
-  { label: 'Personas y Relaciones', value: 'personasRelaciones' },
-  { label: 'Presidencia', value: 'presidencia' },
-];
-
-const availableRoleValues = allRoles.filter((role) => role.value !== '*').map((role) => role.value);
-
 export function EditCarpetaModal({
   visible,
   carpeta,
@@ -63,6 +47,20 @@ export function EditCarpetaModal({
   onDismissPartialWarning,
 }: EditCarpetaModalProps) {
   const insets = useSafeAreaInsets();
+  const { hasRole } = useRoleCheck();
+  const isConsejo = hasRole('consejo');
+  const rolesForSelector = useMemo(
+    () => (isConsejo ? adminRoles : allRoles),
+    [isConsejo]
+  );
+  const rolesForSelectorWithAll = useMemo(
+    () => [{ label: 'Todos', value: '*' }, ...rolesForSelector],
+    [rolesForSelector]
+  );
+  const availableRoleValues = useMemo(
+    () => rolesForSelector.map((role) => role.value),
+    [rolesForSelector]
+  );
 
   const [nombre, setNombre] = useState(carpeta.nombre);
   const [searchQuery, setSearchQuery] = useState('');
@@ -286,7 +284,7 @@ export function EditCarpetaModal({
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={styles.container}>
-        <View style={[styles.header, { paddingTop: insets.top || 12 }]}> 
+        <View style={[styles.header, { paddingTop: insets.top || 12 }]}>
           <TouchableOpacity onPress={onClose} style={styles.iconButton}>
             <Ionicons name="close" size={24} color={colors.icon} />
           </TouchableOpacity>
@@ -306,7 +304,7 @@ export function EditCarpetaModal({
             keyboardShouldPersistTaps="handled"
           >
             {partialWarningMessage ? (
-              <PartialSaveBanner message={partialWarningMessage} onClose={onDismissPartialWarning || (() => {})} />
+              <PartialSaveBanner message={partialWarningMessage} onClose={onDismissPartialWarning || (() => { })} />
             ) : null}
 
             <View style={styles.inputSection}>
@@ -406,7 +404,7 @@ export function EditCarpetaModal({
                           selectedUsers={selectedUsers}
                           onSelectUsers={setSelectedUsers}
                           users={users}
-                          roles={allRoles}
+                          roles={rolesForSelectorWithAll}
                           selectedRoles={selectedRolesForDisplay}
                           onRemoveRole={(roleValue) => setAllowedRoles((prev) => prev.filter((r) => r !== roleValue))}
                           isLoadingUsers={isLoadingUsers}
@@ -462,7 +460,7 @@ export function EditCarpetaModal({
           </ScrollView>
         </KeyboardAvoidingView>
 
-        <View style={[styles.bottomBar, { paddingBottom: insets.bottom || 16 }]}> 
+        <View style={[styles.bottomBar, { paddingBottom: insets.bottom || 16 }]}>
           <TouchableOpacity
             style={[styles.saveButton, { backgroundColor: !isFormValid || isSaving ? colors.icon : colors.lightTint }]}
             onPress={handleSubmit}

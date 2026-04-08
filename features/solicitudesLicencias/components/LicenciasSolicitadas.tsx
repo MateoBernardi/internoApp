@@ -9,7 +9,6 @@ import {
     ActivityIndicator,
     FlatList,
     ListRenderItem,
-    Platform,
     RefreshControl,
     ScrollView,
     StyleSheet,
@@ -111,10 +110,6 @@ export function LicenciasSolicitadas() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <ThemedText type="title" style={styles.headerTitle}>Solicitudes Recibidas</ThemedText>
-      </View>
-
       <SearchBar
         placeholder="Buscar un usuario..."
         value={searchQuery}
@@ -258,8 +253,6 @@ function LicenciaSolicitadaItem({ solicitud, estadoUI, onPress }: LicenciaSolici
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.componentBackground },
-  header: { paddingHorizontal: '4%', paddingTop: Platform.OS === 'web' ? 0 : '4%', marginBottom: 12 },
-  headerTitle: { fontSize: 20, fontWeight: 'bold', textAlign: 'center', backgroundColor: colors.componentBackground, paddingVertical: '3%', paddingHorizontal: '4%', borderRadius: 8 },
   title: { color: colors.tint, fontSize: 14, justifyContent: 'center' },
   underline: { height: 3, backgroundColor: colors.tint, width: 100, marginTop: 4, borderRadius: 2 },
   centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: '5%' },

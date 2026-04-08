@@ -62,7 +62,7 @@ const getEstadoColor = (estado: string): string => {
   }
 };
 
- const colors = Colors['light'];
+const colors = Colors['light'];
 
 
 export function SolicitudLicencia() {
@@ -191,7 +191,7 @@ export function SolicitudLicencia() {
   const handleCancel = useCallback(() => {
     setMenuOpen(false);
     Alert.alert('Cancelar solicitud', '¿Deseas cancelar esta solicitud?', [
-      { text: 'No', onPress: () => {} },
+      { text: 'No', onPress: () => { } },
       {
         text: 'Sí, cancelar',
         onPress: () => {
@@ -308,15 +308,6 @@ export function SolicitudLicencia() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.iconButton} />
-        <ThemedText style={styles.headerTitle}>
-          {type === 'enviada' ? 'Enviada' : 'Recibida'}
-        </ThemedText>
-        <View style={{ width: 40 }} />
-      </View>
-
       <ScrollView
         style={styles.content}
         contentContainerStyle={styles.contentContainer}
@@ -501,7 +492,7 @@ export function SolicitudLicencia() {
               {canTakeAction && (
                 <>
                   <TouchableOpacity
-                    style={[styles.fab, { backgroundColor: colors.error, marginRight: 16 }]}
+                    style={[styles.fab, { backgroundColor: colors.error, marginBottom: 16 }]}
                     onPress={handleRejectPress}
                     disabled={isRejecting}
                   >
@@ -512,7 +503,7 @@ export function SolicitudLicencia() {
                     )}
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.fab, { backgroundColor: colors.success, marginRight: 16 }]}
+                    style={[styles.fab, { backgroundColor: colors.success, marginBottom: 16 }]}
                     onPress={handleApprovePress}
                     disabled={isApproving}
                   >
@@ -527,7 +518,7 @@ export function SolicitudLicencia() {
 
               {canCancel && (
                 <TouchableOpacity
-                  style={[styles.fab, { backgroundColor: colors.error, marginRight: 16 }]}
+                  style={[styles.fab, { backgroundColor: colors.error, marginBottom: 16 }]}
                   onPress={handleCancel}
                   disabled={isCanceling}
                 >
@@ -565,14 +556,14 @@ export function SolicitudLicencia() {
             </ThemedText>
 
             <ThemedText style={{ marginBottom: 8, color: colors.secondaryText }}>
-              {actionType === 'approve' 
-                ? 'Agregar observación (opcional)' 
+              {actionType === 'approve'
+                ? 'Agregar observación (opcional)'
                 : 'Agregar observación (obligatorio)'}
             </ThemedText>
 
             <TextInput
-              placeholder={actionType === 'approve' 
-                ? "Observación..." 
+              placeholder={actionType === 'approve'
+                ? "Observación..."
                 : "Motivo del rechazo..."}
               placeholderTextColor={colors.secondaryText}
               value={observationText}
@@ -613,25 +604,10 @@ export function SolicitudLicencia() {
       <OperacionPendienteModal visible={isApproving || isRejecting || isCanceling || isAdjuntando} />
     </View>
   );
-}const styles = StyleSheet.create({
+} const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.componentBackground,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  headerTitle: {
-    fontSize: 20,
-    color: colors.lightTint,
-    fontWeight: '500',
-  },
-  iconButton: {
-    padding: 8,
   },
   content: {
     flex: 1,
@@ -789,8 +765,9 @@ export function SolicitudLicencia() {
     position: 'absolute',
     bottom: 80,
     right: 24,
-    flexDirection: 'row',
+    flexDirection: 'column',
     justifyContent: 'flex-end',
+    alignItems: 'flex-end',
   },
   fab: {
     width: 56,

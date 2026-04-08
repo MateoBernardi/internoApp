@@ -37,8 +37,8 @@ export interface Solicitud {
   titulo: string;
   descripcion: string;
   created_by: number;
-  fecha_inicio: string | null; // ISO 8601 UTC — null para MANDATOs sin fechas
-  fecha_fin: string | null; // ISO 8601 UTC — null para MANDATOs sin fechas
+  fecha_inicio: Date | null;
+  fecha_fin: Date | null;
   tipo_actividad?: TipoActividadDB;
   estado: EstadoInvitacionDB; // Estado de la invitación
   nombre: string; // Opcional: nombre del creador de la solicitud
@@ -50,8 +50,8 @@ export interface SolicitudEnviada{
   titulo: string;
   descripcion: string;
   created_by: number;
-  fecha_inicio: string | null; // ISO 8601 UTC — null para MANDATOs sin fechas
-  fecha_fin: string | null; // ISO 8601 UTC — null para MANDATOs sin fechas
+  fecha_inicio: Date | null;
+  fecha_fin: Date | null;
   tipo_actividad?: TipoActividadDB;
   estado: EstadoInvitacionDB; // Estado de la invitación
   nombre_creador: string; // Nombre del creador de la solicitud
@@ -71,8 +71,8 @@ export interface SolicitudEnviadaAgrupada {
   titulo: string;
   descripcion: string;
   created_by: number;
-  fecha_inicio: string | null;
-  fecha_fin: string | null;
+  fecha_inicio: Date | null;
+  fecha_fin: Date | null;
   tipo_actividad?: TipoActividadDB;
   invitados: InvitadoResumen[];
 }
@@ -83,24 +83,53 @@ export type TipoActividadDB = 'MANDATO' | 'REUNION';
 export interface CrearSolicitudRequest {
   titulo: string;
   descripcion: string;
-  fecha_inicio?: string; // ISO 8601 UTC — obligatorio para REUNION, opcional para MANDATO
-  fecha_fin?: string; // ISO 8601 UTC — obligatorio para REUNION, opcional para MANDATO
+  fecha_inicio?: Date | null;
+  fecha_fin?: Date | null;
   tipo_actividad: TipoActividadDB;
   invitados: number[]; // Array de IDs de usuario_entidad
+  crear_de_todos_modos?: number;
+}
+
+export interface RangoOcupado {
+  usuario: string;
+  tipo: 'solicitud' | 'actividad' | 'licencia';
+  desde: Date;
+  hasta: Date;
 }
 
 export interface CrearSolicitudResponse {
   success: boolean;
-  solicitudId: number;
+  solicitudId: number | null;
+  rangosOcupados?: RangoOcupado[];
 }
 
 export interface ActualizarEstadoInvitacionRequest {
-  solicitudId: number;
+  solicitud_id: number;
   estado: EstadoInvitacionDB;
+  fecha_inicio_nueva?: Date | null;
+  fecha_fin_nueva?: Date | null;
+  observacion?: string | null;
+  crear_de_todos_modos?: number;
 }
 
 export interface ActualizarEstadoInvitacionResponse {
   success: boolean;
+  rangosOcupados?: RangoOcupado[];
+}
+
+export interface UpdateSolicitudRequest {
+  solicitud_id: number;
+  estado: EstadoInvitacionDB;
+  fecha_inicio_nueva?: Date | null;
+  fecha_fin_nueva?: Date | null;
+  observacion?: string | null;
+  crear_de_todos_modos?: number;
+}
+
+export interface UpdateSolicitudResponse {
+  success: boolean;
+  rangosOcupados?: RangoOcupado[];
+  mensaje?: string;
 }
 
 /* ==================== SOLICITUDES ==================== */
@@ -111,6 +140,14 @@ export interface ReenviarSolicitudRequest {
 }
 
 export interface ReenviarSolicitudResponse {
+  success: boolean;
+}
+
+export interface OcultarSolicitudInvitadoRequest {
+  solicitudId: number;
+}
+
+export interface OcultarSolicitudInvitadoResponse {
   success: boolean;
 }
 
@@ -134,60 +171,24 @@ export interface CancelarSolicitudRequest {
 
 export interface CancelarSolicitudResponse {
   success: boolean;
-}
-
-export interface ModificarSolicitudFechasRequest {
-  solicitudId: number;
-  nuevaFechaInicio: string; // ISO 8601 UTC
-  nuevaFechaFin: string; // ISO 8601 UTC
-  observacion?: string;
-}
-
-export interface ModificarSolicitudFechasResponse {
-  success: boolean;
   mensaje?: string;
 }
 
 export interface BitacoraSolicitud {
-  id: number;
+  id: number | null;
   solicitud_id?: number;
-  fecha_inicio_anterior?: string;
-  fecha_fin_anterior?: string;
-  fecha_inicio_nueva?: string | null;
-  fecha_fin_nueva?: string | null;
+  fecha_inicio_anterior?: Date;
+  fecha_fin_anterior?: Date;
+  fecha_inicio_nueva?: Date | null;
+  fecha_fin_nueva?: Date | null;
   observacion?: string | null;
   modificado_por?: number;
   modificado_por_nombre?: string;
   modificado_por_apellido?: string;
-  fecha_modificacion?: string;
-  created_at: string;
-  usuario_id: number;
+  fecha_modificacion?: Date;
+  created_at: Date;
+  usuario_id: number | null;
   usuario_nombre: string;
   usuario_apellido: string;
   estado: EstadoInvitacionDB;
-}
-
-/* ==================== VALIDACIÓN DE FECHAS ==================== */
-
-export interface ValidarFechasRequest {
-  fecha_inicio: string; // ISO 8601
-  fecha_fin: string; // ISO 8601
-  participantes: number[]; // IDs de usuario_entidad
-  tipo_actividad?: 'REUNION' | 'MANDATO'; // Permite al backend ajustar inclusión del creador en validación
-  tipoActividad?: 'REUNION' | 'MANDATO'; // Compatibilidad opcional si backend acepta camelCase
-  solicitudIdExcluir?: number; // Excluir esta solicitud de la validación (para modificaciones)
-  actividadIdExcluir?: number | null; // Excluir esta actividad de la validación (para modificaciones de actividades)
-}
-
-export interface RangoOcupado {
-  usuario: string;
-  tipo: string;
-  desde: string;
-  hasta: string;
-}
-
-export interface ValidarFechasResponse {
-  success: boolean;
-  avisos: string[];
-  rangosOcupados?: RangoOcupado[];
 }

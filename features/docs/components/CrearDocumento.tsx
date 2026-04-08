@@ -1,9 +1,10 @@
 import { ThemedText } from '@/components/themed-text';
+import { UserSelector } from '@/components/UserSelector';
 import { Colors } from '@/constants/theme';
 import { RoleUserSelectionModal } from '@/features/solicitudesActividades/components/RoleUserSelectionModal';
-import { UserSelector } from '@/features/solicitudesActividades/components/UserSelector';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { showGlobalToast } from '@/shared/ui/toast';
+import { adminRoles, allRoles } from '@/shared/users/roles';
 import { UserSummary } from '@/shared/users/User';
 import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
 import { Ionicons } from '@expo/vector-icons';
@@ -57,30 +58,24 @@ export function CrearDocumento({ visible, onClose, initialFile, initialFolderId 
   const [didPartialSuccess, setDidPartialSuccess] = useState(false);
 
   const { hasRole } = useRoleCheck();
+  const isConsejo = hasRole('consejo');
   const isSupervisor = hasRole(['gerencia', 'personasRelaciones', 'encargado']);
 
   const isLoadingUsers = isSearchingUsers || isLoadingRole;
   const { mutate: uploadArchivo, isPending: isUploading } = useUploadArchivo();
 
-  const allRoles = [
-    { label: 'Todos', value: '*' },
-    { label: 'Contable', value: 'contable' },
-    { label: 'Sistemas', value: 'sistemas' },
-    { label: 'Personal Admin', value: 'empleado-admin' },
-    { label: 'Personal Insumos', value: 'empleado-insumos' },
-    { label: 'Personal Mayorista', value: 'empleado-mayorista' },
-    { label: 'Personal Super', value: 'empleado-super' },
-    { label: 'Consejo', value: 'consejo' },
-    { label: 'Encargado', value: 'encargado' },
-    { label: 'Gerencia', value: 'gerencia' },
-    { label: 'Personal Limpieza', value: 'empleado-limpieza' },
-    { label: 'Personas y Relaciones', value: 'personasRelaciones' },
-    { label: 'Presidencia', value: 'presidencia' },
-  ];
+  const rolesForSelector = useMemo(
+    () => (isConsejo ? adminRoles : allRoles),
+    [isConsejo]
+  );
+  const rolesForSelectorWithAll = useMemo(
+    () => [{ label: 'Todos', value: '*' }, ...rolesForSelector],
+    [rolesForSelector]
+  );
 
   const availableRoleValues = useMemo(
-    () => allRoles.filter((role) => role.value !== '*').map((role) => role.value),
-    [allRoles]
+    () => rolesForSelector.map((role) => role.value),
+    [rolesForSelector]
   );
 
   React.useEffect(() => {
@@ -196,7 +191,7 @@ export function CrearDocumento({ visible, onClose, initialFile, initialFolderId 
 
   const selectedRolesForDisplay = useMemo(() => {
     return allRoles.filter((r) => allowedRoles.includes(r.value));
-  }, [allRoles, allowedRoles]);
+  }, [allowedRoles]);
 
   const handleRemoveRole = useCallback((roleValue: string) => {
     setAllowedRoles((prev) => prev.filter((r) => r !== roleValue));
@@ -292,7 +287,7 @@ export function CrearDocumento({ visible, onClose, initialFile, initialFolderId 
       }
 
       Alert.alert('Descartar cambios', '¿Deseas descartar los cambios?', [
-        { text: 'Cancelar', onPress: () => {} },
+        { text: 'Cancelar', onPress: () => { } },
         { text: 'Descartar', onPress: () => { onClose(); resetForm(); } },
       ]);
     } else {
@@ -392,7 +387,7 @@ export function CrearDocumento({ visible, onClose, initialFile, initialFolderId 
                 selectedUsers={usuariosCompartidos}
                 onSelectUsers={setUsuariosCompartidos}
                 users={users}
-                roles={allRoles}
+                roles={rolesForSelectorWithAll}
                 selectedRoles={selectedRolesForDisplay}
                 onRemoveRole={handleRemoveRole}
                 isLoadingUsers={isLoadingUsers}
@@ -421,7 +416,7 @@ export function CrearDocumento({ visible, onClose, initialFile, initialFolderId 
                   selectedUsers={usuariosAsociados}
                   onSelectUsers={setUsuariosAsociados}
                   users={users}
-                  roles={allRoles}
+                  roles={rolesForSelectorWithAll}
                   isLoadingUsers={isLoadingUsers}
                   isLoadingRoles={false}
                   onSearch={handleSearchUsers}

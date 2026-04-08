@@ -4,15 +4,15 @@ import { UserSummary } from '@/shared/users/User';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
-    ActivityIndicator,
-    Modal,
-    Platform,
-    ScrollView,
-    StyleSheet, TextInput, TouchableOpacity,
-    TouchableWithoutFeedback,
-    UIManager,
-    useWindowDimensions,
-    View,
+  ActivityIndicator,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet, TextInput, TouchableOpacity,
+  TouchableWithoutFeedback,
+  UIManager,
+  useWindowDimensions,
+  View,
 } from 'react-native';
 
 if (Platform.OS === 'android') {
@@ -53,7 +53,7 @@ export function UserSelector({
 }: UserSelectorProps) {
   const { width } = useWindowDimensions();
   const [searchQuery, setSearchQuery] = useState('');
-  
+
   // States for Modals/Popups
   const [isRolesVisible, setIsRolesVisible] = useState(false);
   const [showResults, setShowResults] = useState(false);
@@ -63,10 +63,10 @@ export function UserSelector({
     setSearchQuery(text);
     onSearch(text);
     if (text.length > 0) {
-        setIsRolesVisible(false);
-        setShowResults(true);
+      setIsRolesVisible(false);
+      setShowResults(true);
     } else {
-        setShowResults(false);
+      setShowResults(false);
     }
   };
 
@@ -82,14 +82,14 @@ export function UserSelector({
     } else {
       onSelectUsers([...selectedUsers, user]);
       setSearchQuery('');
-      onSearch(''); 
+      onSearch('');
       setShowResults(false);
     }
   };
 
   const handleSelectRole = (role: string) => {
-      onSelectRole(role);
-      setIsRolesVisible(false);
+    onSelectRole(role);
+    setIsRolesVisible(false);
   };
 
   const rolesModalWidth = Platform.OS === 'web'
@@ -101,145 +101,145 @@ export function UserSelector({
       {/* Input Row */}
       <View style={styles.topRow}>
         <View style={styles.inputWrapper}>
-             <TextInput
-                style={[styles.input, { color: colors.text }]}
-               placeholder="Buscar usuario..."
-                placeholderTextColor= {colors.secondaryText}
-                value={searchQuery}
-                onChangeText={handleSearch}
-                onFocus={() => {
-                    if (searchQuery.length > 0) setShowResults(true);
-                }}
-                autoCapitalize="none"
-             />
+          <TextInput
+            style={[styles.input, { color: colors.text }]}
+            placeholder="Buscar usuario..."
+            placeholderTextColor={colors.secondaryText}
+            value={searchQuery}
+            onChangeText={handleSearch}
+            onFocus={() => {
+              if (searchQuery.length > 0) setShowResults(true);
+            }}
+            autoCapitalize="none"
+          />
         </View>
 
-        <TouchableOpacity 
-             style={styles.rolesButton} 
-             onPress={handleOpenRoles}
-         >
-             <ThemedText style={styles.rolesButtonText}>Roles</ThemedText>
-             <Ionicons name="chevron-down" size={16} color={colors.icon} style={{ marginLeft: 4 }} />
+        <TouchableOpacity
+          style={styles.rolesButton}
+          onPress={handleOpenRoles}
+        >
+          <ThemedText style={styles.rolesButtonText}>Roles</ThemedText>
+          <Ionicons name="chevron-down" size={16} color={colors.icon} style={{ marginLeft: 4 }} />
         </TouchableOpacity>
       </View>
 
       {/* Roles Modal (Popup) */}
       <Modal
-         transparent
-         visible={isRolesVisible}
-         animationType="fade"
-         onRequestClose={() => setIsRolesVisible(false)}
+        transparent
+        visible={isRolesVisible}
+        animationType="fade"
+        onRequestClose={() => setIsRolesVisible(false)}
       >
-          <TouchableWithoutFeedback onPress={() => setIsRolesVisible(false)}>
-              <View style={[styles.modalOverlay, Platform.OS === 'web' && styles.modalOverlayWeb]}>
-                  <TouchableWithoutFeedback>
-                    <View
-                      style={[
-                        styles.modalContent,
-                        { width: rolesModalWidth },
-                        Platform.OS === 'web' && styles.modalContentWeb,
-                      ]}
-                    >
-                        <ThemedText type="defaultSemiBold" style={{ marginBottom: 10, textAlign: 'center' }}>Seleccionar Rol</ThemedText>
-                        {isLoadingRoles ? (
-                          <ActivityIndicator color={colors.tint} />
-                        ) : roles && roles.length > 0 ? (
-                          <ScrollView style={styles.rolesScroll} contentContainerStyle={styles.rolesScrollContent}>
-                            {roles.map(role => (
-                              <TouchableOpacity
-                                key={role.value}
-                                style={styles.modalItem}
-                                onPress={() => handleSelectRole(role.value)}
-                              >
-                                <ThemedText style={styles.roleText}>{role.label}</ThemedText>
-                                <Ionicons name="people-outline" size={20} color={colors.tint} />
-                              </TouchableOpacity>
-                            ))}
-                          </ScrollView>
-                        ) : (
-                          <ThemedText style={{ color: colors.secondaryText, padding: 10 }}>No se encontraron roles</ThemedText>
-                        )}
-                    </View>
-                  </TouchableWithoutFeedback>
+        <TouchableWithoutFeedback onPress={() => setIsRolesVisible(false)}>
+          <View style={[styles.modalOverlay, Platform.OS === 'web' && styles.modalOverlayWeb]}>
+            <TouchableWithoutFeedback>
+              <View
+                style={[
+                  styles.modalContent,
+                  { width: rolesModalWidth },
+                  Platform.OS === 'web' && styles.modalContentWeb,
+                ]}
+              >
+                <ThemedText type="defaultSemiBold" style={{ marginBottom: 10, textAlign: 'center' }}>Seleccionar Rol</ThemedText>
+                {isLoadingRoles ? (
+                  <ActivityIndicator color={colors.tint} />
+                ) : roles && roles.length > 0 ? (
+                  <ScrollView style={styles.rolesScroll} contentContainerStyle={styles.rolesScrollContent}>
+                    {roles.map(role => (
+                      <TouchableOpacity
+                        key={role.value}
+                        style={styles.modalItem}
+                        onPress={() => handleSelectRole(role.value)}
+                      >
+                        <ThemedText style={styles.roleText}>{role.label}</ThemedText>
+                        <Ionicons name="people-outline" size={20} color={colors.tint} />
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                ) : (
+                  <ThemedText style={{ color: colors.secondaryText, padding: 10 }}>No se encontraron roles</ThemedText>
+                )}
               </View>
-          </TouchableWithoutFeedback>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
       </Modal>
 
       {/* Search Results Dropdown (In-Flow but looks overlay) */}
       {showResults && searchQuery.length > 0 && (
-          <View
-            style={[
-              styles.resultsContainer,
-              { borderColor: colors.componentBackground },
-              Platform.OS === 'web' && styles.resultsContainerWeb,
-            ]}
-          >
-               <View style={styles.resultsHeader}>
-                   <ThemedText style={{ fontSize: 12, color: colors.secondaryText }}>Resultados</ThemedText>
-                   <TouchableOpacity onPress={() => setShowResults(false)}>
-                       <Ionicons name="close" size={16} color={colors.icon} />
-                   </TouchableOpacity>
-               </View>
-
-               {isLoadingUsers ? (
-                   <ActivityIndicator size="small" color={colors.tint} style={{ padding: 20 }} />
-               ) : (
-                   users && users.length > 0 ? (
-                    <ScrollView style={styles.resultsScroll} keyboardShouldPersistTaps="handled">
-                      {users.map((item) => {
-                        const isSelected = selectedUsers.some((u) => u.user_context_id === item.user_context_id);
-                        return (
-                          <TouchableOpacity
-                            key={item.user_context_id}
-                            style={styles.resultItem}
-                            onPress={() => toggleUserSelection(item)}
-                          >
-                            <View style={styles.resultInfo}>
-                              <ThemedText style={styles.resultName}>{item.nombre} {item.apellido}</ThemedText>
-                              <ThemedText style={styles.resultEmail}>{item.email}</ThemedText>
-                            </View>
-                            {isSelected && <Ionicons name="checkmark" size={16} color={colors.tint} />}
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </ScrollView>
-                   ) : (
-                        <View style={{ padding: 16, alignItems: 'center' }}>
-                            <ThemedText style={{ color: colors.secondaryText }}>No se encontraron usuarios</ThemedText>
-                        </View>
-                   )
-               )}
+        <View
+          style={[
+            styles.resultsContainer,
+            { borderColor: colors.componentBackground },
+            Platform.OS === 'web' && styles.resultsContainerWeb,
+          ]}
+        >
+          <View style={styles.resultsHeader}>
+            <ThemedText style={{ fontSize: 12, color: colors.secondaryText }}>Resultados</ThemedText>
+            <TouchableOpacity onPress={() => setShowResults(false)}>
+              <Ionicons name="close" size={16} color={colors.icon} />
+            </TouchableOpacity>
           </View>
+
+          {isLoadingUsers ? (
+            <ActivityIndicator size="small" color={colors.tint} style={{ padding: 20 }} />
+          ) : (
+            users && users.length > 0 ? (
+              <ScrollView style={styles.resultsScroll} keyboardShouldPersistTaps="handled">
+                {users.map((item) => {
+                  const isSelected = selectedUsers.some((u) => u.user_context_id === item.user_context_id);
+                  return (
+                    <TouchableOpacity
+                      key={item.user_context_id}
+                      style={styles.resultItem}
+                      onPress={() => toggleUserSelection(item)}
+                    >
+                      <View style={styles.resultInfo}>
+                        <ThemedText style={styles.resultName}>{item.nombre} {item.apellido}</ThemedText>
+                        <ThemedText style={styles.resultEmail}>{item.email}</ThemedText>
+                      </View>
+                      {isSelected && <Ionicons name="checkmark" size={16} color={colors.tint} />}
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            ) : (
+              <View style={{ padding: 16, alignItems: 'center' }}>
+                <ThemedText style={{ color: colors.secondaryText }}>No se encontraron usuarios</ThemedText>
+              </View>
+            )
+          )}
+        </View>
       )}
 
       {showSelectedChips ? (
         <View style={styles.selectedChipsContainer}>
-            {selectedRoles.map((role) => (
-              <TouchableOpacity
-                key={`role-${role.value}`}
-                onPress={() => onRemoveRole?.(role.value)}
-                style={[styles.userChip, styles.roleChip]}>
-                <Ionicons name="people" size={14} color={colors.tint} style={{ marginRight: 4 }} />
-                <ThemedText style={[styles.userChipText, { color: colors.tint }]}>
-                  {role.label}
-                </ThemedText>
-                <Ionicons name="close" size={16} color={colors.tint} style={{ marginLeft: 6 }} />
-              </TouchableOpacity>
-            ))}
-            {selectedUsers.map((user) => (
-              <TouchableOpacity
-                key={user.user_context_id}
-                onPress={() => toggleUserSelection(user)}
-                style={[styles.userChip, { borderColor: colors.lightTint, backgroundColor: colors.componentBackground }]}>
-                <ThemedText style={[styles.userChipText, { color: colors.text }]}> 
-                  {user.nombre} {user.apellido}
-                </ThemedText>
-                <Ionicons name="close" size={16} color={colors.secondaryText} style={{ marginLeft: 6 }} />
-              </TouchableOpacity>
-            ))}
+          {selectedRoles.map((role) => (
+            <TouchableOpacity
+              key={`role-${role.value}`}
+              onPress={() => onRemoveRole?.(role.value)}
+              style={[styles.userChip, styles.roleChip]}>
+              <Ionicons name="people" size={14} color={colors.tint} style={{ marginRight: 4 }} />
+              <ThemedText style={[styles.userChipText, { color: colors.tint }]}>
+                {role.label}
+              </ThemedText>
+              <Ionicons name="close" size={16} color={colors.tint} style={{ marginLeft: 6 }} />
+            </TouchableOpacity>
+          ))}
+          {selectedUsers.map((user) => (
+            <TouchableOpacity
+              key={user.user_context_id}
+              onPress={() => toggleUserSelection(user)}
+              style={[styles.userChip, { borderColor: colors.lightTint, backgroundColor: colors.componentBackground }]}>
+              <ThemedText style={[styles.userChipText, { color: colors.text }]}>
+                {user.nombre} {user.apellido}
+              </ThemedText>
+              <Ionicons name="close" size={16} color={colors.secondaryText} style={{ marginLeft: 6 }} />
+            </TouchableOpacity>
+          ))}
         </View>
       ) : null}
-      
+
     </View>
   );
 }
@@ -276,56 +276,56 @@ const styles = StyleSheet.create({
     height: 30, // Increased height for easier touch
   },
   rolesButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingVertical: 6,
-      paddingHorizontal: 12,
-      backgroundColor: colors.componentBackground,
-      borderRadius: 16, // Pill shape
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: colors.componentBackground,
+    borderRadius: 16, // Pill shape
   },
   rolesButtonText: {
-     fontSize: 14,
-     color: colors.secondaryText,
-     fontWeight: '500',
+    fontSize: 14,
+    color: colors.secondaryText,
+    fontWeight: '500',
   },
   modalOverlay: {
-      flex: 1,
-      backgroundColor: 'rgba(0,0,0,0.4)',
-      justifyContent: 'center',
-      alignItems: 'center',
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-    modalOverlayWeb: {
-      zIndex: 1000,
-      pointerEvents: 'auto',
-    },
+  modalOverlayWeb: {
+    zIndex: 1000,
+    pointerEvents: 'auto',
+  },
   modalContent: {
-      backgroundColor: colors.componentBackground,
-      borderRadius: 12,
-      padding: 16,
-      maxHeight: '70%',
-      elevation: 5,
+    backgroundColor: colors.componentBackground,
+    borderRadius: 12,
+    padding: 16,
+    maxHeight: '70%',
+    elevation: 5,
   },
-    modalContentWeb: {
-      zIndex: 1001,
-      pointerEvents: 'auto',
-    },
-    rolesScroll: {
-      maxHeight: 360,
-    },
-    rolesScrollContent: {
-      paddingBottom: 6,
-    },
+  modalContentWeb: {
+    zIndex: 1001,
+    pointerEvents: 'auto',
+  },
+  rolesScroll: {
+    maxHeight: 360,
+  },
+  rolesScrollContent: {
+    paddingBottom: 6,
+  },
   modalItem: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingVertical: 14,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: colors.componentBackground,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.componentBackground,
   },
   roleText: {
-      fontSize: 16,
-      color: colors.text,
+    fontSize: 16,
+    color: colors.text,
   },
   resultsContainer: {
     marginTop: 8,
@@ -350,14 +350,14 @@ const styles = StyleSheet.create({
     maxHeight: 270,
   },
   resultsHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingHorizontal: 12,
-      paddingTop: 8,
-      paddingBottom: 4,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: colors.componentBackground,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingTop: 8,
+    paddingBottom: 4,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.componentBackground,
   },
   resultItem: {
     flexDirection: 'row',

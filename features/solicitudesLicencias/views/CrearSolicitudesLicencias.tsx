@@ -208,7 +208,7 @@ export function CrearSolicitudesLicencias() {
     const procederCrearSolicitud = useCallback(() => {
         if (isPending || isSubmittingRef.current) return;
         if (!tipoLicenciaId) return;
-        if (!fechaInicio){
+        if (!fechaInicio) {
             Alert.alert('La fecha de inicio es requerida.');
             return;
         }
@@ -250,8 +250,8 @@ export function CrearSolicitudesLicencias() {
                         if (!archivoId) {
                             setIsUploadingFile(false);
                             Alert.alert(
-                            'Solicitud creada',
-                            'La solicitud fue creada pero no se pudo obtener el id del archivo para adjuntarlo.'
+                                'Solicitud creada',
+                                'La solicitud fue creada pero no se pudo obtener el id del archivo para adjuntarlo.'
                             );
                             router.back();
                             return;

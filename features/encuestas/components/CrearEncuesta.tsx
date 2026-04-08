@@ -1,19 +1,19 @@
 import { ThemedText } from '@/components/themed-text';
-import { Colors } from '@/constants/theme';
 import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
+import { Colors } from '@/constants/theme';
 import React, { useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Switch,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Encuesta, Pregunta, TipoPregunta } from '../models/Encuesta';
@@ -154,7 +154,7 @@ export const CrearEncuesta: React.FC<CrearEncuestaProps> = ({ onEncuestaCreada, 
           />
 
           <ThemedText style={styles.subLabel}>Fecha de finalización (opcional)</ThemedText>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.dateButton}
             onPress={() => setShowDatePicker(true)}
           >

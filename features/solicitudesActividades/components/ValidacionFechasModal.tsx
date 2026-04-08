@@ -212,8 +212,8 @@ export function ValidacionFechasModal({
                                                         return (
                                                             <View key={`${usuario}-${idx}`} style={styles.rangoItem}>
                                                                 <View style={styles.rangoItemHeader}>
-                                                                    <View style={[styles.rangoTipoBadge, { backgroundColor: badge.bgColor }]}> 
-                                                                        <ThemedText style={[styles.rangoTipoText, { color: badge.textColor }]}> 
+                                                                    <View style={[styles.rangoTipoBadge, { backgroundColor: badge.bgColor }]}>
+                                                                        <ThemedText style={[styles.rangoTipoText, { color: badge.textColor }]}>
                                                                             {badge.text}
                                                                         </ThemedText>
                                                                     </View>

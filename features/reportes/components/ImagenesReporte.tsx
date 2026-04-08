@@ -285,43 +285,43 @@ export function ImagenesReporte({
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.imageScroll}>
                     {imagenesDetalle && imagenesDetalle.length > 0
                         ? imagenesDetalle.map((img) => (
-                              <View key={img.id} style={styles.imageWrapper}>
-                                  <TouchableOpacity onPress={() => setFullscreenImage(img.url)}>
-                                      <Image
-                                          source={{ uri: img.url }}
-                                          style={styles.image}
-                                          contentFit="cover"
-                                          placeholder={PLACEHOLDER}
-                                      />
-                                  </TouchableOpacity>
-                                  {img.imagen_descripcion ? (
-                                      <ThemedText style={styles.imageCaption} numberOfLines={2}>
-                                          {img.imagen_descripcion}
-                                      </ThemedText>
-                                  ) : null}
-                                  {canManage && (
-                                      <TouchableOpacity
-                                          style={styles.deleteBtn}
-                                          onPress={() => handleUnlink(img.image_id, img.orden)}
-                                          disabled={unlinking}
-                                      >
-                                          <Ionicons name="trash-outline" size={16} color={colors.error} />
-                                      </TouchableOpacity>
-                                  )}
-                              </View>
-                          ))
+                            <View key={img.id} style={styles.imageWrapper}>
+                                <TouchableOpacity onPress={() => setFullscreenImage(img.url)}>
+                                    <Image
+                                        source={{ uri: img.url }}
+                                        style={styles.image}
+                                        contentFit="cover"
+                                        placeholder={PLACEHOLDER}
+                                    />
+                                </TouchableOpacity>
+                                {img.imagen_descripcion ? (
+                                    <ThemedText style={styles.imageCaption} numberOfLines={2}>
+                                        {img.imagen_descripcion}
+                                    </ThemedText>
+                                ) : null}
+                                {canManage && (
+                                    <TouchableOpacity
+                                        style={styles.deleteBtn}
+                                        onPress={() => handleUnlink(img.image_id, img.orden)}
+                                        disabled={unlinking}
+                                    >
+                                        <Ionicons name="trash-outline" size={16} color={colors.error} />
+                                    </TouchableOpacity>
+                                )}
+                            </View>
+                        ))
                         : (imagenesUrl ?? []).map((url, idx) => (
-                              <View key={idx} style={styles.imageWrapper}>
-                                  <TouchableOpacity onPress={() => setFullscreenImage(url)}>
-                                      <Image
-                                          source={{ uri: url }}
-                                          style={styles.image}
-                                          contentFit="cover"
-                                          placeholder={PLACEHOLDER}
-                                      />
-                                  </TouchableOpacity>
-                              </View>
-                          ))}
+                            <View key={idx} style={styles.imageWrapper}>
+                                <TouchableOpacity onPress={() => setFullscreenImage(url)}>
+                                    <Image
+                                        source={{ uri: url }}
+                                        style={styles.image}
+                                        contentFit="cover"
+                                        placeholder={PLACEHOLDER}
+                                    />
+                                </TouchableOpacity>
+                            </View>
+                        ))}
                 </ScrollView>
             ) : (
                 <ThemedText style={styles.emptyText}>Sin imágenes adjuntas</ThemedText>

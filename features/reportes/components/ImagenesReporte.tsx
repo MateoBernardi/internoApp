@@ -7,12 +7,14 @@ import React, { useCallback, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
-    Dimensions,
+    ImageStyle,
     Modal,
+    Platform,
     ScrollView,
     StyleSheet,
     TextInput,
     TouchableOpacity,
+    useWindowDimensions,
     View,
 } from 'react-native';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -39,11 +41,16 @@ const colors = Colors['light'];
 const PLACEHOLDER = require('@/assets/images/react-logo.png');
 
 const IMAGE_SIZE = 120;
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const AnimatedImage = Animated.createAnimatedComponent(Image);
 
-function ZoomableImage({ uri }: { uri: string }) {
+function ZoomableImage({
+    uri,
+    imageStyle,
+}: {
+    uri: string;
+    imageStyle: ImageStyle;
+}) {
     const scale = useSharedValue(1);
     const savedScale = useSharedValue(1);
     const translateX = useSharedValue(0);
@@ -110,7 +117,7 @@ function ZoomableImage({ uri }: { uri: string }) {
         <GestureDetector gesture={composed}>
             <AnimatedImage
                 source={{ uri }}
-                style={[styles.fullscreenImage, animatedStyle]}
+                style={[imageStyle, animatedStyle]}
                 contentFit="contain"
             />
         </GestureDetector>
@@ -122,6 +129,7 @@ export function ImagenesReporte({
     imagenesUrl,
     canManage,
 }: ImagenesReporteProps) {
+    const { width: windowWidth, height: windowHeight } = useWindowDimensions();
     const [showUploadForm, setShowUploadForm] = useState(false);
     const [uploadDescription, setUploadDescription] = useState('');
     const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
@@ -209,6 +217,15 @@ export function ImagenesReporte({
     // Usamos imagenesDetalle cuando están disponibles, sino las URLs simples
     const hasImages = (imagenesDetalle?.length ?? 0) > 0
         || (imagenesUrl?.length ?? 0) > 0;
+
+    const fullscreenImageStyle: ImageStyle = {
+        width: Platform.OS === 'web'
+            ? Math.min(windowWidth * 0.92, 1200)
+            : windowWidth,
+        height: Platform.OS === 'web'
+            ? Math.min(windowHeight * 0.86, 920)
+            : windowHeight * 0.8,
+    };
 
     return (
         <View style={styles.container}>
@@ -311,10 +328,26 @@ export function ImagenesReporte({
             )}
 
             {/* Modal pantalla completa con zoom */}
-            <Modal visible={!!fullscreenImage} transparent animationType="fade" onRequestClose={() => setFullscreenImage(null)}>
-                <GestureHandlerRootView style={styles.fullscreenOverlay}>
-                    <ZoomableImage uri={fullscreenImage ?? ''} />
-                    <TouchableOpacity style={styles.fullscreenCloseBtn} onPress={() => setFullscreenImage(null)}>
+            <Modal
+                visible={!!fullscreenImage}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setFullscreenImage(null)}
+            >
+                <GestureHandlerRootView
+                    style={[
+                        styles.fullscreenOverlay,
+                        Platform.OS === 'web' && styles.fullscreenOverlayWeb,
+                    ]}
+                >
+                    <ZoomableImage uri={fullscreenImage ?? ''} imageStyle={fullscreenImageStyle} />
+                    <TouchableOpacity
+                        style={[
+                            styles.fullscreenCloseBtn,
+                            Platform.OS === 'web' && styles.fullscreenCloseBtnWeb,
+                        ]}
+                        onPress={() => setFullscreenImage(null)}
+                    >
                         <Ionicons name="close-circle" size={36} color="#fff" />
                     </TouchableOpacity>
                 </GestureHandlerRootView>
@@ -427,13 +460,17 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
-    fullscreenImage: {
-        width: SCREEN_WIDTH,
-        height: SCREEN_HEIGHT * 0.8,
+    fullscreenOverlayWeb: {
+        zIndex: 1000,
+        pointerEvents: 'auto',
     },
     fullscreenCloseBtn: {
         position: 'absolute',
         top: 50,
         right: 20,
+    },
+    fullscreenCloseBtnWeb: {
+        zIndex: 1001,
+        pointerEvents: 'auto',
     },
 });

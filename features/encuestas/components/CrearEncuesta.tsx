@@ -40,7 +40,7 @@ export const CrearEncuesta: React.FC<CrearEncuestaProps> = ({ onEncuestaCreada, 
   const { mutate: crearEncuesta, isPending } = useCreateEncuestaCompleta();
 
   const onDateChange = (event: any, selectedDate?: Date) => {
-    if (Platform.OS === 'android') setShowDatePicker(false);
+    if (Platform.OS !== 'ios') setShowDatePicker(false);
     if (event.type === 'dismissed') return;
     if (selectedDate) setFechaFin(selectedDate);
   };

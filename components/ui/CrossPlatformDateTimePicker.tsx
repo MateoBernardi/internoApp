@@ -6,9 +6,11 @@ type InteractionPoint = { x: number; y: number };
 
 let listenersReady = false;
 let lastInteractionPoint: InteractionPoint | null = null;
+let lastInteractionTimestamp = 0;
 
 function rememberInteractionPoint(x: number, y: number) {
   lastInteractionPoint = { x, y };
+  lastInteractionTimestamp = Date.now();
 }
 
 function ensureInteractionListeners() {
@@ -56,7 +58,10 @@ function getFallbackAnchorPoint(): InteractionPoint {
 }
 
 function getAnchorPoint(): InteractionPoint {
-  return lastInteractionPoint ?? getFallbackAnchorPoint();
+  const hasRecentInteraction = Date.now() - lastInteractionTimestamp < 1500;
+  return hasRecentInteraction && lastInteractionPoint
+    ? lastInteractionPoint
+    : getFallbackAnchorPoint();
 }
 
 type PickerMode = 'date' | 'time' | 'datetime';
@@ -133,18 +138,31 @@ export default function CrossPlatformDateTimePicker(props: CrossPlatformDateTime
     input.style.pointerEvents = 'auto';
     input.style.width = '1px';
     input.style.height = '1px';
+    input.style.border = '0';
+    input.style.padding = '0';
+    input.style.margin = '0';
     input.style.zIndex = '2147483647';
 
     const anchor = getAnchorPoint();
-    input.style.left = `${Math.max(anchor.x, 0)}px`;
-    input.style.top = `${Math.max(anchor.y, 0)}px`;
+    const left = typeof window !== 'undefined'
+      ? Math.min(Math.max(anchor.x, 0), Math.max(window.innerWidth - 1, 0))
+      : Math.max(anchor.x, 0);
+    const top = typeof window !== 'undefined'
+      ? Math.min(Math.max(anchor.y, 0), Math.max(window.innerHeight - 1, 0))
+      : Math.max(anchor.y, 0);
+
+    input.style.left = `${left}px`;
+    input.style.top = `${top}px`;
 
     input.type = mode === 'time' ? 'time' : 'date';
     input.value = mode === 'time' ? toTimeInputValue(value) : toDateInputValue(value);
 
     let changed = false;
+    let finished = false;
 
     const emitDismissed = () => {
+      if (finished) return;
+      finished = true;
       onChange?.({ type: 'dismissed', nativeEvent: { timestamp: value.getTime() } }, undefined);
     };
 
@@ -160,6 +178,7 @@ export default function CrossPlatformDateTimePicker(props: CrossPlatformDateTime
       }
 
       changed = true;
+      finished = true;
       const normalizedDate = normalizeToMinute(nextDate);
       onChange?.(
         {
@@ -176,8 +195,18 @@ export default function CrossPlatformDateTimePicker(props: CrossPlatformDateTime
       }
     };
 
+    const handleBlur = () => {
+      // Some browsers do not emit cancel for native pickers; blur is a safe fallback.
+      if (!changed) {
+        window.setTimeout(() => {
+          if (!finished) emitDismissed();
+        }, 0);
+      }
+    };
+
     input.addEventListener('change', handleChange);
     input.addEventListener('cancel', handleCancel as EventListener);
+    input.addEventListener('blur', handleBlur as EventListener);
     document.body.appendChild(input);
 
     const openPicker = () => {
@@ -194,11 +223,13 @@ export default function CrossPlatformDateTimePicker(props: CrossPlatformDateTime
       }
     };
 
-    openPicker();
+    const openTimer = window.setTimeout(openPicker, 0);
 
     return () => {
+      window.clearTimeout(openTimer);
       input.removeEventListener('change', handleChange);
       input.removeEventListener('cancel', handleCancel as EventListener);
+      input.removeEventListener('blur', handleBlur as EventListener);
       if (input.parentElement) {
         input.parentElement.removeChild(input);
       }

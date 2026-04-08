@@ -159,7 +159,7 @@ export function CrearSolicitud() {
   }, []);
 
   const onDateChange = (event: any, selectedDate?: Date) => {
-    if (Platform.OS === 'android') {
+    if (Platform.OS !== 'ios') {
       setShowDatePicker(false);
     }
 

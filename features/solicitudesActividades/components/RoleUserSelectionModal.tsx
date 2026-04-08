@@ -84,10 +84,6 @@ export function RoleUserSelectionModal({
   };
 
   const handleClose = React.useCallback(() => {
-    if (Platform.OS === 'web' && typeof document !== 'undefined') {
-      const activeElement = document.activeElement as HTMLElement | null;
-      activeElement?.blur();
-    }
     onClose();
   }, [onClose]);
 
@@ -119,9 +115,15 @@ export function RoleUserSelectionModal({
       onRequestClose={handleClose}
     >
       <TouchableWithoutFeedback onPress={handleClose}>
-        <View style={styles.modalOverlay}>
+        <View style={[styles.modalOverlay, Platform.OS === 'web' && styles.modalOverlayWeb]}>
             <TouchableWithoutFeedback>
-                <View style={[styles.modalContent, { backgroundColor: colors.componentBackground, width: modalWidth }]}> 
+                <View
+                  style={[
+                    styles.modalContent,
+                    { backgroundColor: colors.componentBackground, width: modalWidth },
+                    Platform.OS === 'web' && styles.modalContentWeb,
+                  ]}
+                >
                     
                     {/* Header */}
                     <View style={styles.header}>
@@ -199,6 +201,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16
   },
+  modalOverlayWeb: {
+    zIndex: 1000,
+    pointerEvents: 'auto',
+  },
   modalContent: {
     width: '100%',
     minHeight: 420,
@@ -211,6 +217,10 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 8,
+  },
+  modalContentWeb: {
+    zIndex: 1001,
+    pointerEvents: 'auto',
   },
   header: {
       flexDirection: 'row',

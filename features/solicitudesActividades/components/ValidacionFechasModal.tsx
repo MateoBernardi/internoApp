@@ -150,7 +150,7 @@ export function ValidacionFechasModal({
 
     return (
         <Modal visible={visible} transparent animationType="fade">
-            <View style={styles.overlay}>
+            <View style={[styles.overlay, Platform.OS === 'web' && styles.overlayWeb]}>
                 <View style={[styles.content, { maxWidth: modalMaxWidth }]}>
                     {/* Estado: Validando */}
                     {state === 'validating' && (
@@ -270,6 +270,10 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(0,0,0,0.6)',
         justifyContent: 'center',
         alignItems: 'center',
+    },
+    overlayWeb: {
+        zIndex: 1000,
+        pointerEvents: 'auto',
     },
     content: {
         width: '85%',

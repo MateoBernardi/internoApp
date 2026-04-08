@@ -63,10 +63,16 @@ export function UserSelector({
     setSearchQuery(text);
     onSearch(text);
     if (text.length > 0) {
+        setIsRolesVisible(false);
         setShowResults(true);
     } else {
         setShowResults(false);
     }
+  };
+
+  const handleOpenRoles = () => {
+    setShowResults(false);
+    setIsRolesVisible(true);
   };
 
   const toggleUserSelection = (user: UserSummary) => {
@@ -110,7 +116,7 @@ export function UserSelector({
 
         <TouchableOpacity 
              style={styles.rolesButton} 
-             onPress={() => setIsRolesVisible(true)}
+             onPress={handleOpenRoles}
          >
              <ThemedText style={styles.rolesButtonText}>Roles</ThemedText>
              <Ionicons name="chevron-down" size={16} color={colors.icon} style={{ marginLeft: 4 }} />
@@ -125,9 +131,15 @@ export function UserSelector({
          onRequestClose={() => setIsRolesVisible(false)}
       >
           <TouchableWithoutFeedback onPress={() => setIsRolesVisible(false)}>
-              <View style={styles.modalOverlay}>
+              <View style={[styles.modalOverlay, Platform.OS === 'web' && styles.modalOverlayWeb]}>
                   <TouchableWithoutFeedback>
-                    <View style={[styles.modalContent, { width: rolesModalWidth }]}>
+                    <View
+                      style={[
+                        styles.modalContent,
+                        { width: rolesModalWidth },
+                        Platform.OS === 'web' && styles.modalContentWeb,
+                      ]}
+                    >
                         <ThemedText type="defaultSemiBold" style={{ marginBottom: 10, textAlign: 'center' }}>Seleccionar Rol</ThemedText>
                         {isLoadingRoles ? (
                           <ActivityIndicator color={colors.tint} />
@@ -155,7 +167,13 @@ export function UserSelector({
 
       {/* Search Results Dropdown (In-Flow but looks overlay) */}
       {showResults && searchQuery.length > 0 && (
-          <View style={[styles.resultsContainer, { borderColor: colors.componentBackground }]}>
+          <View
+            style={[
+              styles.resultsContainer,
+              { borderColor: colors.componentBackground },
+              Platform.OS === 'web' && styles.resultsContainerWeb,
+            ]}
+          >
                <View style={styles.resultsHeader}>
                    <ThemedText style={{ fontSize: 12, color: colors.secondaryText }}>Resultados</ThemedText>
                    <TouchableOpacity onPress={() => setShowResults(false)}>
@@ -276,6 +294,10 @@ const styles = StyleSheet.create({
       justifyContent: 'center',
       alignItems: 'center',
   },
+    modalOverlayWeb: {
+      zIndex: 1000,
+      pointerEvents: 'auto',
+    },
   modalContent: {
       backgroundColor: colors.componentBackground,
       borderRadius: 12,
@@ -283,6 +305,10 @@ const styles = StyleSheet.create({
       maxHeight: '70%',
       elevation: 5,
   },
+    modalContentWeb: {
+      zIndex: 1001,
+      pointerEvents: 'auto',
+    },
     rolesScroll: {
       maxHeight: 360,
     },
@@ -314,6 +340,11 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     width: '100%',
     overflow: 'hidden',
+  },
+  resultsContainerWeb: {
+    position: 'relative',
+    zIndex: 40,
+    pointerEvents: 'auto',
   },
   resultsScroll: {
     maxHeight: 270,

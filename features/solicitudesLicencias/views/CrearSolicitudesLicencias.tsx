@@ -149,7 +149,7 @@ export function CrearSolicitudesLicencias() {
 
     // --- Handlers Fecha ---
     const onDateChange = useCallback((event: any, selectedDate?: Date) => {
-        if (Platform.OS === 'android') setShowDatePicker(false);
+        if (Platform.OS !== 'ios') setShowDatePicker(false);
         if (event.type === 'dismissed') return;
         if (selectedDate) {
             setFechaInicio(normalizeToMinute(selectedDate));
@@ -157,7 +157,7 @@ export function CrearSolicitudesLicencias() {
     }, []);
 
     const onTimeChange = useCallback((event: any, selectedTime?: Date) => {
-        if (Platform.OS === 'android') setShowTimePicker(false);
+        if (Platform.OS !== 'ios') setShowTimePicker(false);
         if (event.type === 'dismissed') return;
         if (selectedTime) {
             const updated = new Date(fechaInicio ?? new Date());

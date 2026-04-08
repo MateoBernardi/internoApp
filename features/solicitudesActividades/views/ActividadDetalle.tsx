@@ -7,23 +7,23 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { ValidacionFechasModal } from '../components/ValidacionFechasModal';
 import type { ModificarActividadFechasResponse } from '../models/Actividad';
 import type { RangoOcupado } from '../models/Solicitud';
 import {
-    useActividadById,
-    useCancelarActividad,
-    useModificarActividadFechas,
+  useActividadById,
+  useCancelarActividad,
+  useModificarActividadFechas,
 } from '../viewmodels/useActividades';
 
 const colors = Colors['light'];
@@ -346,14 +346,14 @@ export function ActividadDetalle({ actividadId, rol }: ActividadDetalleProps) {
               floating={false}
               onPress={handleHostDeletePress}
               backgroundColor={colors.error}
-              style={{ marginRight: 16 }}
+              style={{ marginBottom: 16 }}
             />
             <AppFab
               icon="create-outline"
               floating={false}
               onPress={handleModificarPress}
               backgroundColor={colors.tint}
-              style={{ marginRight: 16 }}
+              style={{ marginBottom: 16 }}
             />
           </>
         )}
@@ -609,9 +609,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: UI.fab.offsetBottom,
     right: UI.fab.offsetRight,
-    flexDirection: 'row',
+    flexDirection: 'column',
     justifyContent: 'flex-end',
-    alignItems: 'center',
+    alignItems: 'flex-end',
   },
   modalOverlay: {
     flex: 1,

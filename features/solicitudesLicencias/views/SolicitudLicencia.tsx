@@ -9,25 +9,25 @@ import * as DocumentPicker from 'expo-document-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Linking,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Linking,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { EstadoSolicitud } from '../models/SolicitudLicencia';
 import { formatCantidadLicencia } from '../utils/formatCantidad';
 import {
-    useAdjuntarArchivo,
-    useAprobarSolicitudLicencia,
-    useCancelarSolicitudLicencia,
-    useGetSolicitudesLicencias,
-    useGetSolicitudesUsuario,
-    useRechazarSolicitudLicencia,
+  useAdjuntarArchivo,
+  useAprobarSolicitudLicencia,
+  useCancelarSolicitudLicencia,
+  useGetSolicitudesLicencias,
+  useGetSolicitudesUsuario,
+  useRechazarSolicitudLicencia,
 } from '../viewmodels/useSolicitudes';
 
 const estadoMapping: Record<EstadoSolicitud, string> = {
@@ -62,7 +62,7 @@ const getEstadoColor = (estado: string): string => {
   }
 };
 
- const colors = Colors['light'];
+const colors = Colors['light'];
 
 
 export function SolicitudLicencia() {
@@ -191,7 +191,7 @@ export function SolicitudLicencia() {
   const handleCancel = useCallback(() => {
     setMenuOpen(false);
     Alert.alert('Cancelar solicitud', '¿Deseas cancelar esta solicitud?', [
-      { text: 'No', onPress: () => {} },
+      { text: 'No', onPress: () => { } },
       {
         text: 'Sí, cancelar',
         onPress: () => {
@@ -492,7 +492,7 @@ export function SolicitudLicencia() {
               {canTakeAction && (
                 <>
                   <TouchableOpacity
-                    style={[styles.fab, { backgroundColor: colors.error, marginRight: 16 }]}
+                    style={[styles.fab, { backgroundColor: colors.error, marginBottom: 16 }]}
                     onPress={handleRejectPress}
                     disabled={isRejecting}
                   >
@@ -503,7 +503,7 @@ export function SolicitudLicencia() {
                     )}
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.fab, { backgroundColor: colors.success, marginRight: 16 }]}
+                    style={[styles.fab, { backgroundColor: colors.success, marginBottom: 16 }]}
                     onPress={handleApprovePress}
                     disabled={isApproving}
                   >
@@ -518,7 +518,7 @@ export function SolicitudLicencia() {
 
               {canCancel && (
                 <TouchableOpacity
-                  style={[styles.fab, { backgroundColor: colors.error, marginRight: 16 }]}
+                  style={[styles.fab, { backgroundColor: colors.error, marginBottom: 16 }]}
                   onPress={handleCancel}
                   disabled={isCanceling}
                 >
@@ -556,14 +556,14 @@ export function SolicitudLicencia() {
             </ThemedText>
 
             <ThemedText style={{ marginBottom: 8, color: colors.secondaryText }}>
-              {actionType === 'approve' 
-                ? 'Agregar observación (opcional)' 
+              {actionType === 'approve'
+                ? 'Agregar observación (opcional)'
                 : 'Agregar observación (obligatorio)'}
             </ThemedText>
 
             <TextInput
-              placeholder={actionType === 'approve' 
-                ? "Observación..." 
+              placeholder={actionType === 'approve'
+                ? "Observación..."
                 : "Motivo del rechazo..."}
               placeholderTextColor={colors.secondaryText}
               value={observationText}
@@ -604,7 +604,7 @@ export function SolicitudLicencia() {
       <OperacionPendienteModal visible={isApproving || isRejecting || isCanceling || isAdjuntando} />
     </View>
   );
-}const styles = StyleSheet.create({
+} const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.componentBackground,
@@ -765,8 +765,9 @@ export function SolicitudLicencia() {
     position: 'absolute',
     bottom: 80,
     right: 24,
-    flexDirection: 'row',
+    flexDirection: 'column',
     justifyContent: 'flex-end',
+    alignItems: 'flex-end',
   },
   fab: {
     width: 56,

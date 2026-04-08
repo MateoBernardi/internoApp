@@ -70,7 +70,7 @@ export default function TabLayout() {
   const responsiveLayout = useResponsiveLayout();
   const isDesktopWeb = Platform.OS === 'web' && responsiveLayout.isDesktop;
   const currentTab = useMemo(() => (segments[1] as string) || 'index', [segments]);
-  
+
   const { data: invitaciones = [] } = useInvitaciones(canSeeActivityRequests && hasSessionContext);
   const { data: solicitudesEnviadas = [] } = useSolicitudesCreadas(canSeeActivityRequests && hasSessionContext);
   const { data: solicitudesLicenciasAdmin = [] } = useGetSolicitudesLicencias(
@@ -144,8 +144,8 @@ export default function TabLayout() {
     }] : []),
   ];
 
-  const hideMisReportes = hasRole(['gerencia', 'personasRelaciones', 'consejo', 'contable', 'sistemas', 'presidencia']);
-  const hideMisLicencias = hasRole(['consejo', 'presidencia', 'contable', 'sistemas']);
+  const hideMisReportes = hasRole(['gerencia', 'personasRelaciones', 'consejo', 'contable', 'sistemas', 'presidencia', 'estudio-contable']);
+  const hideMisLicencias = hasRole(['consejo', 'presidencia', 'contable', 'sistemas', 'estudio-contable']);
 
   const personalMenuOptions: MenuOption[] = [
     {
@@ -207,7 +207,7 @@ export default function TabLayout() {
     if (!isDesktopWeb) return null;
 
     return (
-      <View style={[styles.desktopTopBar, { height: DESKTOP_NAV_HEIGHT }]}> 
+      <View style={[styles.desktopTopBar, { height: DESKTOP_NAV_HEIGHT }]}>
         <View style={styles.desktopTopBarLeft}>
           <TouchableOpacity
             style={[styles.desktopTopButton, currentTab === 'index' && styles.desktopTopButtonActive]}
@@ -273,7 +273,7 @@ export default function TabLayout() {
       return (
         <View style={styles.menuLayer} pointerEvents="box-none">
           <Pressable style={styles.dismissArea} onPress={() => setActiveMenu(null)} />
-          <View style={[styles.menuContainer, styles.desktopMenuContainer, { top: DESKTOP_NAV_HEIGHT + 12, width: menuWidth }]}> 
+          <View style={[styles.menuContainer, styles.desktopMenuContainer, { top: DESKTOP_NAV_HEIGHT + 12, width: menuWidth }]}>
             <View style={styles.menuHeader}>
               <Text style={styles.menuTitle}>{title}</Text>
             </View>
@@ -284,7 +284,7 @@ export default function TabLayout() {
                 onPress={() => handleMenuOptionPress(opt)}
               >
                 <View style={styles.menuItemLabelRow}>
-                  <Text style={[styles.menuItemText, opt.textColor && { color: opt.textColor }]}> 
+                  <Text style={[styles.menuItemText, opt.textColor && { color: opt.textColor }]}>
                     {opt.label}
                   </Text>
                   {opt.hasBadge && <View style={styles.menuPendingDot} />}
@@ -325,15 +325,15 @@ export default function TabLayout() {
     return (
       <View style={styles.menuLayer} pointerEvents="box-none">
         <Pressable style={styles.dismissArea} onPress={() => setActiveMenu(null)} />
-        <View style={[styles.menuContainer, { bottom: tabBarHeight + 10, left: menuLeft, width: menuWidth }]}> 
+        <View style={[styles.menuContainer, { bottom: tabBarHeight + 10, left: menuLeft, width: menuWidth }]}>
           <View style={[styles.menuArrow, { left: arrowLeft }]} />
           <View style={styles.menuHeader}>
             <Text style={styles.menuTitle}>{title}</Text>
           </View>
           {options.map((opt) => (
-            <TouchableOpacity 
-              key={opt.id} 
-              style={styles.menuItem} 
+            <TouchableOpacity
+              key={opt.id}
+              style={styles.menuItem}
               onPress={() => handleMenuOptionPress(opt)}
             >
               <View style={styles.menuItemLabelRow}>
@@ -378,14 +378,14 @@ export default function TabLayout() {
           tabBarStyle: isDesktopWeb
             ? { display: 'none' }
             : {
-                position: 'relative',
-                height: tabBarHeight,
-                paddingBottom: insets.bottom,
-              },
+              position: 'relative',
+              height: tabBarHeight,
+              paddingBottom: insets.bottom,
+            },
         }}>
-        
-        <Tabs.Screen 
-          name="index" 
+
+        <Tabs.Screen
+          name="index"
           listeners={{ tabPress: () => setActiveMenu(null) }}
           options={{
             title: 'Inicio',
@@ -395,28 +395,28 @@ export default function TabLayout() {
                 {hasSolicitudesBadgeInHome && <View style={styles.tabPendingDot} />}
               </View>
             ),
-          }} 
+          }}
         />
 
-        <Tabs.Screen 
-          name="explore" 
+        <Tabs.Screen
+          name="explore"
           listeners={{ tabPress: () => setActiveMenu(null) }}
-          options={{ 
+          options={{
             href: hideExplore ? null : undefined,
-            title: 'Solicitudes', 
+            title: 'Solicitudes',
             tabBarIcon: ({ color }) => (
               <View style={styles.tabIconContainer}>
                 <IconSymbol size={24} name="paperplane.fill" color={color} />
                 {hasSolicitudesBadgeInTab && <View style={styles.tabPendingDot} />}
               </View>
             ),
-          }} 
+          }}
         />
 
-        <Tabs.Screen 
-          name="documentos" 
+        <Tabs.Screen
+          name="documentos"
           listeners={{ tabPress: () => setActiveMenu(null) }}
-          options={{ title: 'Documentos', tabBarIcon: ({ color }) => <IconSymbol size={24} name="doc.text.fill" color={color} /> }} 
+          options={{ title: 'Documentos', tabBarIcon: ({ color }) => <IconSymbol size={24} name="doc.text.fill" color={color} /> }}
         />
 
         <Tabs.Screen
@@ -427,10 +427,10 @@ export default function TabLayout() {
             title: 'Admin',
             tabBarIcon: ({ color }) => (
               <View style={styles.tabIconContainer}>
-                <IconSymbol 
-                  size={24} 
-                  name={activeMenu === 'admin' ? 'xmark' : 'chart.bar.fill'} 
-                  color={activeMenu === 'admin' ? colors.tint : color} 
+                <IconSymbol
+                  size={24}
+                  name={activeMenu === 'admin' ? 'xmark' : 'chart.bar.fill'}
+                  color={activeMenu === 'admin' ? colors.tint : color}
                 />
                 {hasAdminBadge && <View style={styles.tabPendingDot} />}
               </View>
@@ -445,10 +445,10 @@ export default function TabLayout() {
             title: user?.nombre || 'Usuario',
             tabBarIcon: ({ color }) => (
               <View style={styles.tabIconContainer}>
-                <IconSymbol 
-                  size={24} 
-                  name={activeMenu === 'personal' ? 'xmark' : 'user.fill'} 
-                  color={activeMenu === 'personal' ? colors.tint : color} 
+                <IconSymbol
+                  size={24}
+                  name={activeMenu === 'personal' ? 'xmark' : 'user.fill'}
+                  color={activeMenu === 'personal' ? colors.tint : color}
                 />
                 {hasPersonalBadge && <View style={styles.tabPendingDot} />}
               </View>

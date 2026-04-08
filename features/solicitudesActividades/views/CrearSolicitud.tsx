@@ -5,6 +5,7 @@ import { Colors, UI } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { AppFab } from '@/shared/ui/AppFab';
 import { UserSummary } from '@/shared/users/User';
+import { adminRoles, allRoles } from '@/shared/users/roles';
 import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
 import { Ionicons } from '@expo/vector-icons';
 import { useHeaderHeight } from '@react-navigation/elements';
@@ -29,7 +30,6 @@ import type { CrearSolicitudRequest, CrearSolicitudResponse, RangoOcupado } from
 import { useCrearSolicitud } from '../viewmodels/useSolicitudes';
 
 const colors = Colors['light'];
-const managementRoles = ['gerencia', 'personasRelaciones', 'presidencia', 'encargado', 'consejo'] as const;
 
 function formatDateDDMMYYYY(date: Date): string {
   const day = String(date.getDate()).padStart(2, '0');
@@ -106,27 +106,9 @@ export function CrearSolicitud() {
   const isLoadingUsers = isSearchingUsers || isLoadingRole;
   const isConsejo = (user?.rol_nombre ?? '').toLowerCase() === 'consejo';
 
-  const allRoles = useMemo(
-    () => [
-      { label: 'Contable', value: 'contable' },
-      { label: 'Sistemas', value: 'sistemas' },
-      { label: 'Personal Admin', value: 'empleado-admin' },
-      { label: 'Personal Insumos', value: 'empleado-insumos' },
-      { label: 'Personal Mayorista', value: 'empleado-mayorista' },
-      { label: 'Personal Super', value: 'empleado-super' },
-      { label: 'Consejo', value: 'consejo' },
-      { label: 'Encargado', value: 'encargado' },
-      { label: 'Gerencia', value: 'gerencia' },
-      { label: 'Personal Limpieza', value: 'empleado-limpieza' },
-      { label: 'Personas y Relaciones', value: 'personasRelaciones' },
-      { label: 'Presidencia', value: 'presidencia' },
-    ],
-    []
-  );
-
   const rolesForSelector = useMemo(
-    () => (isConsejo ? allRoles.filter((role) => managementRoles.includes(role.value as typeof managementRoles[number])) : allRoles),
-    [isConsejo, allRoles]
+    () => (isConsejo ? adminRoles : allRoles),
+    [isConsejo]
   );
 
   const blockDatePickerFromToggle = useCallback(() => {
@@ -345,150 +327,150 @@ export function CrearSolicitud() {
           nestedScrollEnabled
           showsVerticalScrollIndicator={false}
         >
-        {!isConsejo ? (
-          <View style={styles.inputSection}>
-            <View style={{ flex: 1 }}>
-              <UserSelector
-                selectedUsers={selectedUsers}
-                onSelectUsers={setSelectedUsers}
-                users={users}
-                roles={rolesForSelector}
-                isLoadingUsers={isLoadingUsers}
-                isLoadingRoles={false}
-                onSearch={setSearchQuery}
-                onSelectRole={handleRoleSelect}
-              />
+          {!isConsejo ? (
+            <View style={styles.inputSection}>
+              <View style={{ flex: 1 }}>
+                <UserSelector
+                  selectedUsers={selectedUsers}
+                  onSelectUsers={setSelectedUsers}
+                  users={users}
+                  roles={rolesForSelector}
+                  isLoadingUsers={isLoadingUsers}
+                  isLoadingRoles={false}
+                  onSearch={setSearchQuery}
+                  onSelectRole={handleRoleSelect}
+                />
+              </View>
             </View>
-          </View>
-        ) : (
-          <View style={styles.inputSection}>
-            <View style={styles.rolesOnlyRow}>
-              <ThemedText style={styles.rolesOnlyLabel}>Seleccionar por rol</ThemedText>
-              <TouchableOpacity style={styles.rolesOnlyBtn} onPress={() => setShowRoleModal(true)}>
-                <ThemedText style={styles.rolesOnlyBtnText}>Roles</ThemedText>
-                <Ionicons name="chevron-down" size={16} color={colors.icon} style={{ marginLeft: 4 }} />
-              </TouchableOpacity>
-            </View>
-            <View style={styles.selectedUsersWrap}>
-              {selectedUsers.map((selected) => (
-                <TouchableOpacity key={selected.user_context_id} onPress={() => handleToggleUser(selected)} style={styles.selectedUserChip}>
-                  <ThemedText style={styles.selectedUserChipText}>{selected.nombre} {selected.apellido}</ThemedText>
-                  <Ionicons name="close" size={14} color={colors.secondaryText} style={{ marginLeft: 6 }} />
+          ) : (
+            <View style={styles.inputSection}>
+              <View style={styles.rolesOnlyRow}>
+                <ThemedText style={styles.rolesOnlyLabel}>Seleccionar por rol</ThemedText>
+                <TouchableOpacity style={styles.rolesOnlyBtn} onPress={() => setShowRoleModal(true)}>
+                  <ThemedText style={styles.rolesOnlyBtnText}>Roles</ThemedText>
+                  <Ionicons name="chevron-down" size={16} color={colors.icon} style={{ marginLeft: 4 }} />
                 </TouchableOpacity>
-              ))}
+              </View>
+              <View style={styles.selectedUsersWrap}>
+                {selectedUsers.map((selected) => (
+                  <TouchableOpacity key={selected.user_context_id} onPress={() => handleToggleUser(selected)} style={styles.selectedUserChip}>
+                    <ThemedText style={styles.selectedUserChipText}>{selected.nombre} {selected.apellido}</ThemedText>
+                    <Ionicons name="close" size={14} color={colors.secondaryText} style={{ marginLeft: 6 }} />
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
+          )}
+
+          <View style={[styles.inputSection, { borderBottomWidth: 0, paddingVertical: 10, alignItems: 'center' }]}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <TouchableOpacity
+                style={[styles.chip, tipoActividad === 'MANDATO' && { borderColor: colors.lightTint, backgroundColor: 'transparent', borderWidth: 1 }]}
+                onPress={() => {
+                  setTipoActividad('MANDATO');
+                  handleToggleIncludeDates(false);
+                }}
+              >
+                <ThemedText style={[styles.chipText, tipoActividad === 'MANDATO' ? { color: colors.lightTint, fontWeight: 'bold' } : { color: colors.secondaryText }]}>Actividad</ThemedText>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.chip, tipoActividad === 'REUNION' && { borderColor: colors.lightTint, backgroundColor: 'transparent', borderWidth: 1 }]}
+                onPress={() => {
+                  setTipoActividad('REUNION');
+                  setIncludeDates(true);
+                }}
+              >
+                <ThemedText style={[styles.chipText, tipoActividad === 'REUNION' ? { color: colors.lightTint, fontWeight: 'bold' } : { color: colors.secondaryText }]}>Reunión</ThemedText>
+              </TouchableOpacity>
+            </ScrollView>
           </View>
-        )}
 
-        <View style={[styles.inputSection, { borderBottomWidth: 0, paddingVertical: 10, alignItems: 'center' }]}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <TouchableOpacity
-              style={[styles.chip, tipoActividad === 'MANDATO' && { borderColor: colors.lightTint, backgroundColor: 'transparent', borderWidth: 1 }]}
-              onPress={() => {
-                setTipoActividad('MANDATO');
-                handleToggleIncludeDates(false);
-              }}
-            >
-              <ThemedText style={[styles.chipText, tipoActividad === 'MANDATO' ? { color: colors.lightTint, fontWeight: 'bold' } : { color: colors.secondaryText }]}>Actividad</ThemedText>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.chip, tipoActividad === 'REUNION' && { borderColor: colors.lightTint, backgroundColor: 'transparent', borderWidth: 1 }]}
-              onPress={() => {
-                setTipoActividad('REUNION');
-                setIncludeDates(true);
-              }}
-            >
-              <ThemedText style={[styles.chipText, tipoActividad === 'REUNION' ? { color: colors.lightTint, fontWeight: 'bold' } : { color: colors.secondaryText }]}>Reunión</ThemedText>
-            </TouchableOpacity>
-          </ScrollView>
-        </View>
-
-        <View style={styles.dateSection}>
-          {tipoActividad === 'MANDATO' && (
-            <View style={[styles.switchRow, { marginTop: 4 }]}> 
-              <Ionicons name="calendar-outline" size={20} color={colors.secondaryText} style={{ marginRight: 8 }} />
-              <ThemedText style={[styles.dateSectionTitle, { color: colors.secondaryText }]}>Incluir fechas</ThemedText>
-              <View style={{ flex: 1 }} />
-              <Switch
-                value={includeDates}
-                onValueChange={handleToggleIncludeDates}
-                trackColor={{ false: colors.secondaryText, true: colors.success }}
-                thumbColor={colors.componentBackground}
-              />
-            </View>
-          )}
-
-          {(tipoActividad === 'REUNION' || includeDates) && (
-            <View style={styles.switchRow}>
-              <Ionicons name="time-outline" size={20} color={colors.lightTint} style={{ marginRight: 8 }} />
-              <ThemedText style={styles.dateSectionTitle}>Todo el día</ThemedText>
-              <View style={{ flex: 1 }} />
-              <Switch
-                value={allDay}
-                onValueChange={handleToggleAllDay}
-                trackColor={{ false: colors.secondaryText, true: colors.success }}
-                thumbColor={colors.componentBackground}
-              />
-            </View>
-          )}
-
-          {(tipoActividad === 'REUNION' || includeDates) && (
-            <>
-              <View style={styles.dateRow}>
-                <View style={{ flex: 1 }}>
-                  <TouchableOpacity onPress={() => showDatepicker('start', 'date')} activeOpacity={0.7}>
-                    <ThemedText style={styles.dateLabel}>Fecha de inicio</ThemedText>
-                    <ThemedText style={styles.dateValue}>{fechaInicio ? formatDateDDMMYYYY(fechaInicio) : 'Día'}</ThemedText>
-                  </TouchableOpacity>
-                </View>
-                {!allDay && (
-                  <TouchableOpacity onPress={() => showDatepicker('start', 'time')} activeOpacity={0.7}>
-                    <ThemedText style={styles.dateLabel}></ThemedText>
-                    <ThemedText style={styles.timeValue}>{fechaInicio ? formatTimeHHMM(fechaInicio) : 'Hora'}</ThemedText>
-                  </TouchableOpacity>
-                )}
+          <View style={styles.dateSection}>
+            {tipoActividad === 'MANDATO' && (
+              <View style={[styles.switchRow, { marginTop: 4 }]}>
+                <Ionicons name="calendar-outline" size={20} color={colors.secondaryText} style={{ marginRight: 8 }} />
+                <ThemedText style={[styles.dateSectionTitle, { color: colors.secondaryText }]}>Incluir fechas</ThemedText>
+                <View style={{ flex: 1 }} />
+                <Switch
+                  value={includeDates}
+                  onValueChange={handleToggleIncludeDates}
+                  trackColor={{ false: colors.secondaryText, true: colors.success }}
+                  thumbColor={colors.componentBackground}
+                />
               </View>
+            )}
 
-              <View style={styles.dateRow}>
-                <View style={{ flex: 1 }}>
-                  <TouchableOpacity onPress={() => showDatepicker('end', 'date')} activeOpacity={0.7}>
-                    <ThemedText style={styles.dateLabel}>Fecha de cierre</ThemedText>
-                    <ThemedText style={styles.dateValue}>{fechaFin ? formatDateDDMMYYYY(fechaFin) : 'Día'}</ThemedText>
-                  </TouchableOpacity>
-                </View>
-                {!allDay && (
-                  <TouchableOpacity onPress={() => showDatepicker('end', 'time')} activeOpacity={0.7}>
-                    <ThemedText style={styles.dateLabel}></ThemedText>
-                    <ThemedText style={styles.timeValue}>{fechaFin ? formatTimeHHMM(fechaFin) : 'Hora'}</ThemedText>
-                  </TouchableOpacity>
-                )}
+            {(tipoActividad === 'REUNION' || includeDates) && (
+              <View style={styles.switchRow}>
+                <Ionicons name="time-outline" size={20} color={colors.lightTint} style={{ marginRight: 8 }} />
+                <ThemedText style={styles.dateSectionTitle}>Todo el día</ThemedText>
+                <View style={{ flex: 1 }} />
+                <Switch
+                  value={allDay}
+                  onValueChange={handleToggleAllDay}
+                  trackColor={{ false: colors.secondaryText, true: colors.success }}
+                  thumbColor={colors.componentBackground}
+                />
               </View>
+            )}
 
-              {dateErrorMessage && <ThemedText style={styles.errorText}>{dateErrorMessage}</ThemedText>}
-            </>
-          )}
-        </View>
+            {(tipoActividad === 'REUNION' || includeDates) && (
+              <>
+                <View style={styles.dateRow}>
+                  <View style={{ flex: 1 }}>
+                    <TouchableOpacity onPress={() => showDatepicker('start', 'date')} activeOpacity={0.7}>
+                      <ThemedText style={styles.dateLabel}>Fecha de inicio</ThemedText>
+                      <ThemedText style={styles.dateValue}>{fechaInicio ? formatDateDDMMYYYY(fechaInicio) : 'Día'}</ThemedText>
+                    </TouchableOpacity>
+                  </View>
+                  {!allDay && (
+                    <TouchableOpacity onPress={() => showDatepicker('start', 'time')} activeOpacity={0.7}>
+                      <ThemedText style={styles.dateLabel}></ThemedText>
+                      <ThemedText style={styles.timeValue}>{fechaInicio ? formatTimeHHMM(fechaInicio) : 'Hora'}</ThemedText>
+                    </TouchableOpacity>
+                  )}
+                </View>
 
-        <View style={styles.inputSection}>
+                <View style={styles.dateRow}>
+                  <View style={{ flex: 1 }}>
+                    <TouchableOpacity onPress={() => showDatepicker('end', 'date')} activeOpacity={0.7}>
+                      <ThemedText style={styles.dateLabel}>Fecha de cierre</ThemedText>
+                      <ThemedText style={styles.dateValue}>{fechaFin ? formatDateDDMMYYYY(fechaFin) : 'Día'}</ThemedText>
+                    </TouchableOpacity>
+                  </View>
+                  {!allDay && (
+                    <TouchableOpacity onPress={() => showDatepicker('end', 'time')} activeOpacity={0.7}>
+                      <ThemedText style={styles.dateLabel}></ThemedText>
+                      <ThemedText style={styles.timeValue}>{fechaFin ? formatTimeHHMM(fechaFin) : 'Hora'}</ThemedText>
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                {dateErrorMessage && <ThemedText style={styles.errorText}>{dateErrorMessage}</ThemedText>}
+              </>
+            )}
+          </View>
+
+          <View style={styles.inputSection}>
+            <TextInput
+              style={styles.input}
+              placeholder="Asunto"
+              placeholderTextColor={colors.secondaryText}
+              value={titulo}
+              onChangeText={setTitulo}
+              maxLength={100}
+            />
+          </View>
+
           <TextInput
-            style={styles.input}
-            placeholder="Asunto"
+            style={styles.messageInput}
+            placeholder="Escribí un mensaje descriptivo para el/los invitado/s"
             placeholderTextColor={colors.secondaryText}
-            value={titulo}
-            onChangeText={setTitulo}
-            maxLength={100}
+            value={descripcion}
+            onChangeText={setDescripcion}
+            multiline
+            textAlignVertical="top"
           />
-        </View>
-
-        <TextInput
-          style={styles.messageInput}
-          placeholder="Escribí un mensaje descriptivo para el/los invitado/s"
-          placeholderTextColor={colors.secondaryText}
-          value={descripcion}
-          onChangeText={setDescripcion}
-          multiline
-          textAlignVertical="top"
-        />
         </ScrollView>
       </KeyboardAvoidingView>
 
@@ -662,4 +644,3 @@ const styles = StyleSheet.create({
     minHeight: 250,
   },
 });
- 

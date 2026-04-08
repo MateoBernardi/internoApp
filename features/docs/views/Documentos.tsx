@@ -3,8 +3,6 @@ import { ThemedView } from '@/components/themed-view';
 import { CreateButton } from '@/components/ui/CreateButton';
 import { SearchBar } from '@/components/ui/SearchBar';
 import { Colors } from '@/constants/theme';
-import { useAuth } from '@/features/auth/context/AuthContext';
-import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { confirmAction } from '@/shared/ui/confirmAction';
 import { showGlobalToast } from '@/shared/ui/toast';
 import { Ionicons } from '@expo/vector-icons';
@@ -27,11 +25,8 @@ type TabType = 'empresa' | 'mios';
 
 export default function Documentos() {
   const insets = useSafeAreaInsets();
-  const { user } = useAuth();
-  const { hasRole } = useRoleCheck();
-  const isConsejo = hasRole('consejo');
-  const canCreate = !isConsejo;
-  const canSeeMisDocumentos = !isConsejo;
+  const canCreate = true;
+  const canSeeMisDocumentos = true;
   const { data: carpetasData } = useCarpetas('list', true);
   const createCarpeta = useCreateCarpeta();
   const updateCarpeta = useUpdateCarpeta();
@@ -373,7 +368,7 @@ export default function Documentos() {
       {canCreate && fabMenuVisible && (
         <View style={styles.fabMenuLayer} pointerEvents="box-none">
           <TouchableOpacity style={styles.fabOverlay} activeOpacity={1} onPress={() => setFabMenuVisible(false)} />
-          <View style={[styles.fabMenu, { bottom: insets.bottom + 76 }]}> 
+          <View style={[styles.fabMenu, { bottom: insets.bottom + 76 }]}>
             <TouchableOpacity style={styles.fabMenuItem} onPress={handleCreateDocument}>
               <Ionicons name="document-text-outline" size={18} color={colors.icon} />
               <ThemedText style={styles.fabMenuText}>Crear documento</ThemedText>

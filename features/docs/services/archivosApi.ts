@@ -116,37 +116,37 @@ const uriToBlob = async (uri: string) => {
 
 // Helper to get MIME type from file extension
 const getMimeType = (fileName: string, providedType?: string): string => {
-  // If a type is provided and it looks like a MIME type, use it
-  if (providedType && providedType.includes('/')) {
-    return providedType;
-  }
+    // If a type is provided and it looks like a MIME type, use it
+    if (providedType && providedType.includes('/')) {
+        return providedType;
+    }
 
-  // Fallback: map by file extension
-  const extension = fileName.toLowerCase().split('.').pop() || '';
-  const mimeTypes: Record<string, string> = {
-    pdf: 'application/pdf',
-    doc: 'application/msword',
-    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    xls: 'application/vnd.ms-excel',
-    xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    ppt: 'application/vnd.ms-powerpoint',
-    pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-    txt: 'text/plain',
-    csv: 'text/csv',
-    jpg: 'image/jpeg',
-    jpeg: 'image/jpeg',
-    png: 'image/png',
-    gif: 'image/gif',
-    zip: 'application/zip',
-    mp3: 'audio/mpeg',
-    mp4: 'video/mp4',
-  };
+    // Fallback: map by file extension
+    const extension = fileName.toLowerCase().split('.').pop() || '';
+    const mimeTypes: Record<string, string> = {
+        pdf: 'application/pdf',
+        doc: 'application/msword',
+        docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        xls: 'application/vnd.ms-excel',
+        xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ppt: 'application/vnd.ms-powerpoint',
+        pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        txt: 'text/plain',
+        csv: 'text/csv',
+        jpg: 'image/jpeg',
+        jpeg: 'image/jpeg',
+        png: 'image/png',
+        gif: 'image/gif',
+        zip: 'application/zip',
+        mp3: 'audio/mpeg',
+        mp4: 'video/mp4',
+    };
 
-  return mimeTypes[extension] || 'application/octet-stream';
+    return mimeTypes[extension] || 'application/octet-stream';
 };
 
-export async function fetchArchivos(accessToken: string) : Promise<archivos.Archivo[]> {   
-    const response = await apiRequest({method: 'GET', endpoint: '/archivos', token: accessToken})
+export async function fetchArchivos(accessToken: string): Promise<archivos.Archivo[]> {
+    const response = await apiRequest({ method: 'GET', endpoint: '/archivos', token: accessToken })
 
     if (!response.ok) {
         const errorText = await response.text();
@@ -159,8 +159,8 @@ export async function fetchArchivos(accessToken: string) : Promise<archivos.Arch
     return archivosFormateados;
 }
 
-export async function searchArchivosByNombre(accessToken: string, query: string) : Promise<archivos.Archivo[]> {
-    const response = await apiRequest({method: 'GET', endpoint: `/archivos/searchByNombre?nombre=${encodeURIComponent(query)}`, token: accessToken});
+export async function searchArchivosByNombre(accessToken: string, query: string): Promise<archivos.Archivo[]> {
+    const response = await apiRequest({ method: 'GET', endpoint: `/archivos/searchByNombre?nombre=${encodeURIComponent(query)}`, token: accessToken });
 
     if (!response.ok) {
         console.error(`Error searching by name: ${response.status}`);
@@ -176,9 +176,9 @@ export async function searchArchivosByNombre(accessToken: string, query: string)
     return archivosFormateados;
 }
 
-export async function searchArchivosByPersona(accessToken: string, query: string) : Promise<archivos.Archivo[]> {
-    const response = await apiRequest({method: 'GET', endpoint: `/archivos/?search=${encodeURIComponent(query)}`, token: accessToken});
-    
+export async function searchArchivosByPersona(accessToken: string, query: string): Promise<archivos.Archivo[]> {
+    const response = await apiRequest({ method: 'GET', endpoint: `/archivos/?search=${encodeURIComponent(query)}`, token: accessToken });
+
     if (!response.ok) {
         console.error(`Error searching by person: ${response.status}`);
         return [];
@@ -193,8 +193,8 @@ export async function searchArchivosByPersona(accessToken: string, query: string
     return archivosFormateados;
 }
 
-export async function getArchivosByIdUsuario(accessToken: string, idUsuario: number) : Promise<archivos.Archivo[]> {
-    const response = await apiRequest({method: 'GET', endpoint: `/archivos/usuario/${idUsuario}`, token: accessToken});
+export async function getArchivosByIdUsuario(accessToken: string, idUsuario: number): Promise<archivos.Archivo[]> {
+    const response = await apiRequest({ method: 'GET', endpoint: `/archivos/usuario/${idUsuario}`, token: accessToken });
 
     if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
@@ -206,7 +206,7 @@ export async function getArchivosByIdUsuario(accessToken: string, idUsuario: num
     return archivosFormateados;
 }
 
-export async function searchArchivos(query: string) : Promise<archivos.Archivo[]> {
+export async function searchArchivos(query: string): Promise<archivos.Archivo[]> {
     const trimmedQuery = query.trim();
 
     if (trimmedQuery.length < 1) {
@@ -220,35 +220,35 @@ export async function searchArchivos(query: string) : Promise<archivos.Archivo[]
                 return [] as archivos.Archivo[];
             }),
             trimmedQuery.length >= 2
-            ? searchArchivosByPersona('', trimmedQuery).catch(err => {
-                console.error('Error buscando archivos por persona:', err);
-                return [] as archivos.Archivo[];
-            })
-            : Promise.resolve([] as archivos.Archivo[])
+                ? searchArchivosByPersona('', trimmedQuery).catch(err => {
+                    console.error('Error buscando archivos por persona:', err);
+                    return [] as archivos.Archivo[];
+                })
+                : Promise.resolve([] as archivos.Archivo[])
         ]
 
-    const [resultadosNombre, resultadosPersona] = await Promise.all(promises);
+        const [resultadosNombre, resultadosPersona] = await Promise.all(promises);
 
-    const resultadosCombinados = [...resultadosNombre, ...resultadosPersona];
+        const resultadosCombinados = [...resultadosNombre, ...resultadosPersona];
 
-    const resultadosUnicos = resultadosCombinados.reduce((acc: archivos.Archivo[], actual) => {
-      const existe = acc.find(item => item.id === actual.id);
-      if (!existe) {
-        acc.push(actual);
-      }
-      return acc;
-    }, []);
+        const resultadosUnicos = resultadosCombinados.reduce((acc: archivos.Archivo[], actual) => {
+            const existe = acc.find(item => item.id === actual.id);
+            if (!existe) {
+                acc.push(actual);
+            }
+            return acc;
+        }, []);
 
-    return resultadosUnicos;
+        return resultadosUnicos;
 
     } catch (error) {
-    console.error('Error en búsqueda de archivos:', error);
-    return [];
+        console.error('Error en búsqueda de archivos:', error);
+        return [];
     }
 }
 
-export async function getArchivosPersonales(accessToken: string) : Promise<archivos.Archivo[]> {
-    const response = await apiRequest({method: 'GET', endpoint: '/archivos/personales', token: accessToken});
+export async function getArchivosPersonales(accessToken: string): Promise<archivos.Archivo[]> {
+    const response = await apiRequest({ method: 'GET', endpoint: '/archivos/personales', token: accessToken });
 
     if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
@@ -260,8 +260,8 @@ export async function getArchivosPersonales(accessToken: string) : Promise<archi
     return archivosFormateados;
 }
 
-export async function getUrlCargaArchivo(accessToken: string, data:archivos.PedirUrlCargaRequest ) : Promise<archivos.PedirUrlCargaResponse> {
-    const response = await apiRequest({method: 'POST', endpoint: '/archivos/upload', token: accessToken, body: data});
+export async function getUrlCargaArchivo(accessToken: string, data: archivos.PedirUrlCargaRequest): Promise<archivos.PedirUrlCargaResponse> {
+    const response = await apiRequest({ method: 'POST', endpoint: '/archivos/upload', token: accessToken, body: data });
 
     if (!response.ok) {
         let errorDetails = '';
@@ -279,8 +279,8 @@ export async function getUrlCargaArchivo(accessToken: string, data:archivos.Pedi
     return { uploadUrl, ruta_r2, fileName };
 }
 
-export async function uploadArchivoR2(uploadUrl: string, fileUri: string, mimeType: string) : Promise<void> {
-    try {        
+export async function uploadArchivoR2(uploadUrl: string, fileUri: string, mimeType: string): Promise<void> {
+    try {
         const archivoBlob = await uriToBlob(fileUri);
 
         const response = await fetch(uploadUrl, {
@@ -297,7 +297,7 @@ export async function uploadArchivoR2(uploadUrl: string, fileUri: string, mimeTy
             console.error('Error en R2:', { status: response.status, statusText: response.statusText, body: errorText });
             try { const errData = JSON.parse(errorText); throw new Error(errData.message || errData.error || errorText); } catch (e) { if (e instanceof Error && e.message !== errorText) throw e; throw new Error(errorText || response.statusText); }
         }
-        
+
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         if (fileUri.startsWith('blob:')) {
@@ -323,29 +323,29 @@ export async function uploadArchivoR2(uploadUrl: string, fileUri: string, mimeTy
     }
 }
 
-export async function confirmarUploadArchivo(accessToken: string, archivoData: archivos.UploadArchivoPayload) : Promise<archivos.Archivo> {
-    const response = await apiRequest({method: 'POST', endpoint: '/archivos/metadata', token: accessToken, body: archivoData});
+export async function confirmarUploadArchivo(accessToken: string, archivoData: archivos.UploadArchivoPayload): Promise<archivos.Archivo> {
+    const response = await apiRequest({ method: 'POST', endpoint: '/archivos/metadata', token: accessToken, body: archivoData });
 
     if (!response.ok) {
-            const body = await parseBody(response);
-            throw buildApiError(response.status, response.statusText || `Error ${response.status}`, body);
+        const body = await parseBody(response);
+        throw buildApiError(response.status, response.statusText || `Error ${response.status}`, body);
     }
 
     const body = await parseBody(response);
     const data: ArchivoDTO = body?.archivo || body?.resource || body?.data || body;
     const archivoConfirmado = mapArchivoDTOToArchivo(data);
     return archivoConfirmado;
-}   
+}
 
 export async function uploadArchivo(
     accessToken: string,
     archivo: archivos.MobileFile,
     archivoData: archivos.UploadArchivoPayload
-) : Promise<ApiOperationResult<archivos.Archivo>> {
+): Promise<ApiOperationResult<archivos.Archivo>> {
     try {
         // Get proper MIME type from file name and provided type
         const contentType = getMimeType(archivo.name, archivo.type);
-        
+
         // 1. Pedir URL de carga
         const urlCargaResponse = await getUrlCargaArchivo(accessToken, {
             fileName: archivoData.nombre,
@@ -353,7 +353,7 @@ export async function uploadArchivo(
         });
         const uploadUrl = urlCargaResponse.uploadUrl;
         const rutaR2 = urlCargaResponse.ruta_r2;
-    
+
         // 2. Subir archivo a R2
         await uploadArchivoR2(uploadUrl, archivo.uri, contentType);
 
@@ -371,23 +371,23 @@ export async function uploadArchivo(
             usuarios_compartidos: archivoData.usuarios_compartidos || [],
         };
 
-                const metadataResponse = await apiRequest({ method: 'POST', endpoint: '/archivos/metadata', token: accessToken, body: payloadConfirmacion });
+        const metadataResponse = await apiRequest({ method: 'POST', endpoint: '/archivos/metadata', token: accessToken, body: payloadConfirmacion });
 
-                if (!metadataResponse.ok) {
-                    const body = await parseBody(metadataResponse);
-                    throw buildApiError(metadataResponse.status, metadataResponse.statusText, body);
-                }
+        if (!metadataResponse.ok) {
+            const body = await parseBody(metadataResponse);
+            throw buildApiError(metadataResponse.status, metadataResponse.statusText, body);
+        }
 
-                const body = await parseBody(metadataResponse);
-                const dto: ArchivoDTO = body?.archivo || body?.resource || body?.data || body;
+        const body = await parseBody(metadataResponse);
+        const dto: ArchivoDTO = body?.archivo || body?.resource || body?.data || body;
 
-                return {
-                    status: metadataResponse.status === 207 ? 'partial_success' : 'success',
-                    statusCode: metadataResponse.status,
-                    data: mapArchivoDTOToArchivo(dto),
-                    message: body?.message,
-                    warnings: parseWarnings(body),
-                };
+        return {
+            status: metadataResponse.status === 207 ? 'partial_success' : 'success',
+            statusCode: metadataResponse.status,
+            data: mapArchivoDTOToArchivo(dto),
+            message: body?.message,
+            warnings: parseWarnings(body),
+        };
     } catch (error) {
         console.error('Error subiendo el archivo:', error);
         throw error;
@@ -398,28 +398,28 @@ export async function updateArchivo(
     accessToken: string,
     idArchivo: number,
     archivoData: archivos.UpdateArchivoPayload
-) : Promise<ApiOperationResult<archivos.Archivo>> {
-    const response = await apiRequest({method: 'PUT', endpoint: `/archivos/${idArchivo}`, token: accessToken, body: archivoData});
+): Promise<ApiOperationResult<archivos.Archivo>> {
+    const response = await apiRequest({ method: 'PUT', endpoint: `/archivos/${idArchivo}`, token: accessToken, body: archivoData });
 
     if (!response.ok) {
-                const errData = await parseBody(response);
-                throw buildApiError(response.status, response.statusText, errData);
+        const errData = await parseBody(response);
+        throw buildApiError(response.status, response.statusText, errData);
     }
 
-        const body = await parseBody(response);
-        const data: ArchivoDTO = body?.archivo || body?.resource || body?.data || body;
-        const archivoFormateado = mapArchivoDTOToArchivo(data);
-        return {
-            status: response.status === 207 ? 'partial_success' : 'success',
-            statusCode: response.status,
-            data: archivoFormateado,
-            message: body?.message,
-            warnings: parseWarnings(body),
-        };
+    const body = await parseBody(response);
+    const data: ArchivoDTO = body?.archivo || body?.resource || body?.data || body;
+    const archivoFormateado = mapArchivoDTOToArchivo(data);
+    return {
+        status: response.status === 207 ? 'partial_success' : 'success',
+        statusCode: response.status,
+        data: archivoFormateado,
+        message: body?.message,
+        warnings: parseWarnings(body),
+    };
 }
 
-export async function deleteArchivo(accessToken: string, idArchivo: number) : Promise<void> {
-    const response = await apiRequest({method: 'DELETE', endpoint: `/archivos/${idArchivo}`, token: accessToken});
+export async function deleteArchivo(accessToken: string, idArchivo: number): Promise<void> {
+    const response = await apiRequest({ method: 'DELETE', endpoint: `/archivos/${idArchivo}`, token: accessToken });
 
     if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
@@ -427,8 +427,8 @@ export async function deleteArchivo(accessToken: string, idArchivo: number) : Pr
     }
 }
 
-export async function getArchivoUrlFirmada(accessToken: string, idArchivo: number) : Promise<string> {
-    const response = await apiRequest({method: 'GET', endpoint: `/archivos/${idArchivo}/url`, token: accessToken});
+export async function getArchivoUrlFirmada(accessToken: string, idArchivo: number): Promise<string> {
+    const response = await apiRequest({ method: 'GET', endpoint: `/archivos/${idArchivo}/url`, token: accessToken });
 
     if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
@@ -447,27 +447,27 @@ export async function moverArchivo(
     const response = await apiRequest({ method: 'POST', endpoint: `/archivos/${idArchivo}/mover`, token: accessToken, body: data });
 
     if (!response.ok) {
-                const errData = await parseBody(response);
+        const errData = await parseBody(response);
         if (response.status === 403) {
-                        throw buildApiError(response.status, 'No tenes permisos para mover este archivo', errData);
+            throw buildApiError(response.status, 'No tenes permisos para mover este archivo', errData);
         }
         if (response.status === 404) {
-                        throw buildApiError(response.status, 'Archivo o carpeta destino no encontrado', errData);
-                }
-                if (response.status === 400) {
-                        throw buildApiError(response.status, 'Revisa el destino seleccionado e intenta nuevamente', errData);
+            throw buildApiError(response.status, 'Archivo o carpeta destino no encontrado', errData);
         }
-                throw buildApiError(response.status, response.statusText, errData);
+        if (response.status === 400) {
+            throw buildApiError(response.status, 'Revisa el destino seleccionado e intenta nuevamente', errData);
+        }
+        throw buildApiError(response.status, response.statusText, errData);
     }
 
-        const body = await parseBody(response);
-        const moved: ArchivoDTO = body?.archivo || body?.resource || body?.data || body;
-        return {
-            status: response.status === 207 ? 'partial_success' : 'success',
-            statusCode: response.status,
-            data: mapArchivoDTOToArchivo(moved),
-            message: body?.message,
-            warnings: parseWarnings(body),
+    const body = await parseBody(response);
+    const moved: ArchivoDTO = body?.archivo || body?.resource || body?.data || body;
+    return {
+        status: response.status === 207 ? 'partial_success' : 'success',
+        statusCode: response.status,
+        data: mapArchivoDTOToArchivo(moved),
+        message: body?.message,
+        warnings: parseWarnings(body),
     };
 }
 
@@ -484,4 +484,39 @@ export async function getArchivoPermisos(accessToken: string, idArchivo: number)
 
     const body = await parseBody(response);
     return normalizeResourcePermisos(body);
+}
+
+export async function getArchivoViewers(
+    accessToken: string,
+    idArchivo: number
+): Promise<archivos.ArchivoViewerResponse[]> {
+    const response = await apiRequest({
+        method: 'POST',
+        endpoint: '/archivos/viewers',
+        token: accessToken,
+        body: { archivo_id: idArchivo },
+    });
+
+    if (!response.ok) {
+        const errData = await parseBody(response);
+        throw buildApiError(response.status, response.statusText, errData);
+    }
+
+    const body = await parseBody(response);
+    const rawItems = Array.isArray(body)
+        ? body
+        : Array.isArray(body?.data)
+            ? body.data
+            : Array.isArray(body?.items)
+                ? body.items
+                : [];
+
+    return rawItems
+        .filter((item: any) => Number.isInteger(item?.user_context_id))
+        .map((item: any) => ({
+            user_context_id: item.user_context_id,
+            nombre: typeof item.nombre === 'string' ? item.nombre : '',
+            apellido: typeof item.apellido === 'string' ? item.apellido : '',
+            visto_en: new Date(item.visto_en),
+        }));
 }

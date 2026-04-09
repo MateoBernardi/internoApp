@@ -6,18 +6,18 @@ import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { confirmAction } from '@/shared/ui/confirmAction';
 import { showGlobalToast } from '@/shared/ui/toast';
-import * as FileSystem from 'expo-file-system/legacy';
+import * as FileSystem from 'expo-file-system';
 import * as Linking from 'expo-linking';
-import * as Sharing from 'expo-sharing';
 import React, { useEffect, useState } from 'react';
-import { Alert, StyleSheet, View } from 'react-native';
+import { Alert, Platform, StyleSheet, View } from 'react-native';
+import { ArchivoViewersModal } from '../components/ArchivoViewersModal';
 import { DocumentoItem } from '../components/DocumentoItem';
 import { DocumentOptionAction, DocumentOptionsModal } from '../components/DocumentOptionsModal';
 import { EditArchivoModal } from '../components/EditArchivoModal';
 import { FolderPickerModal } from '../components/FolderPickerModal';
 import { Archivo } from '../models/Archivo';
 import { formatPartialWarnings } from '../utils/partialWarnings';
-import { useArchivos, useCarpetas, useDeleteArchivo, useGetArchivoUrlFirmada, useMoverArchivo, useSearchArchivos } from '../viewmodels/useArchivos';
+import { useArchivos, useArchivoViewers, useCarpetas, useDeleteArchivo, useGetArchivoUrlFirmada, useMoverArchivo, useSearchArchivos } from '../viewmodels/useArchivos';
 
 const colors = Colors['light'];
 
@@ -34,10 +34,16 @@ export default function DocumentosEmpresa({ query = '', selectedFolderId, listHe
   const [fileToOpen, setFileToOpen] = useState<Archivo | null>(null);
   const [fileToMove, setFileToMove] = useState<Archivo | null>(null);
   const [fileForOptions, setFileForOptions] = useState<Archivo | null>(null);
+  const [fileForViewers, setFileForViewers] = useState<Archivo | null>(null);
   const deleteMutation = useDeleteArchivo();
   const moverArchivoMutation = useMoverArchivo();
   const [isDownloading, setIsDownloading] = useState(false);
   const { getArchivoUrlFirmada } = useGetArchivoUrlFirmada();
+  const {
+    data: archivoViewers = [],
+    isLoading: loadingViewers,
+    error: viewersError,
+  } = useArchivoViewers(fileForViewers?.id);
 
   const { data: allFiles, isLoading: loadingAll, isPending: pendingAll, error: errorAll, refetch: refetchAll } = useArchivos();
   const { data: searchResults, isLoading: loadingSearch, isPending: pendingSearch } = useSearchArchivos(query);
@@ -71,31 +77,56 @@ export default function DocumentosEmpresa({ query = '', selectedFolderId, listHe
   }, [fileToOpen, getArchivoUrlFirmada]);
 
   const handleDownloadFile = async (file: Archivo) => {
-      if (isDownloading) return;
-      setIsDownloading(true);
-      try {
-          const url = await getArchivoUrlFirmada(file.id);
-          
-          const filename = file.nombre;
-          const fileUri = FileSystem.documentDirectory + filename;
-          
-          const downloadRes = await FileSystem.downloadAsync(url, fileUri);
-          
-          if (downloadRes.status === 200) {
-              if (await Sharing.isAvailableAsync()) {
-                  await Sharing.shareAsync(downloadRes.uri);
-              } else {
-                  Alert.alert("Descarga completa", `Archivo guardado en: ${downloadRes.uri}`);
-              }
-          } else {
-              throw new Error("Download failed");
-          }
-      } catch (e) {
-          console.error(e);
-          Alert.alert("Error", "No se pudo descargar el archivo");
-      } finally {
-          setIsDownloading(false);
+    if (isDownloading) return;
+    setIsDownloading(true);
+
+    try {
+      const url = await getArchivoUrlFirmada(file.id);
+
+      if (Platform.OS === 'web') {
+        // --- LÓGICA PARA WEB ---
+        // 1. Descargamos el archivo como Blob para forzar la descarga en el navegador
+        const response = await fetch(url);
+        const blob = await response.blob();
+
+        // 2. Creamos una URL temporal para el Blob
+        const blobUrl = window.URL.createObjectURL(blob);
+
+        // 3. Creamos un elemento <a> invisible y simulamos un clic
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = file.nombre; // Forzamos el nombre del archivo
+        document.body.appendChild(link);
+        link.click();
+
+        // 4. Limpiamos el DOM y la memoria
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(blobUrl);
+      } else {
+        // --- LÓGICA PARA NATIVE (iOS / Android) ---
+        // Tu código original se mantiene intacto aquí
+        const destinationDir = new FileSystem.Directory(FileSystem.Paths.cache, 'Italo-Argentina');
+        const destinationFile = new FileSystem.File(destinationDir, file.nombre);
+
+        await destinationDir.create({ idempotent: true, intermediates: true });
+        const output = await FileSystem.File.downloadFileAsync(url, destinationFile, { idempotent: true });
+
+        if (output) {
+          Alert.alert("Descarga completa", `Archivo guardado en: ${output.uri}`);
+        } else {
+          throw new Error("Download failed");
+        }
       }
+    } catch (e) {
+      console.error(e);
+      if (Platform.OS === 'web') {
+        window.alert("Error: No se pudo descargar el archivo");
+      } else {
+        Alert.alert("Error", "No se pudo descargar el archivo");
+      }
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   const buildOptions = (file: Archivo): DocumentOptionAction[] => {
@@ -123,6 +154,12 @@ export default function DocumentosEmpresa({ query = '', selectedFolderId, listHe
           icon: 'trash-outline',
           destructive: true,
           onPress: () => confirmDelete(file),
+        },
+        {
+          key: 'show-viewers',
+          label: 'Mostrar quienes abrieron el archivo',
+          icon: 'eye-outline',
+          onPress: () => setFileForViewers(file),
         }
       );
     }
@@ -137,22 +174,23 @@ export default function DocumentosEmpresa({ query = '', selectedFolderId, listHe
     return options;
   };
 
-    const confirmDelete = async (file: Archivo) => {
-      const confirmed = await confirmAction({
+  const confirmDelete = async (file: Archivo) => {
+    const confirmed = await confirmAction({
       title: 'Eliminar Archivo',
       message: `¿Estás seguro de eliminar ${file.nombre}?`,
       confirmText: 'Eliminar',
       cancelText: 'Cancelar',
       destructive: true,
-      });
+    });
 
-      if (!confirmed) return;
-      deleteMutation.mutate(file.id);
+    if (!confirmed) return;
+    deleteMutation.mutate(file.id);
   };
 
   const renderItem = ({ item }: { item: Archivo }) => (
     <DocumentoItem
       archivo={item}
+      currentUserId={user?.user_context_id}
       onPress={() => setFileToOpen(item)}
       onOptions={() => setFileForOptions(item)}
       onDelete={user?.user_context_id === item.creadorId ? () => confirmDelete(item) : undefined}
@@ -176,26 +214,26 @@ export default function DocumentosEmpresa({ query = '', selectedFolderId, listHe
       ) : (
         <OwnFlatList<Archivo>
           data={filteredData || []}
-            renderItem={renderItem}
-            keyExtractor={(item) => item.id.toString()}
-            ListHeaderComponent={listHeader}
-            contentContainerStyle={styles.listContent}
-            ItemSeparatorComponent={renderSeparator}
-            ListEmptyComponent={
-                <View style={styles.center}>
-                <ThemedText>No se encontraron documentos</ThemedText>
-                </View>
-            }
-            onRefresh={refetchAll}
-            refreshing={loadingAll}
+          renderItem={renderItem}
+          keyExtractor={(item) => item.id.toString()}
+          ListHeaderComponent={listHeader}
+          contentContainerStyle={styles.listContent}
+          ItemSeparatorComponent={renderSeparator}
+          ListEmptyComponent={
+            <View style={styles.center}>
+              <ThemedText>No se encontraron documentos</ThemedText>
+            </View>
+          }
+          onRefresh={refetchAll}
+          refreshing={loadingAll}
         />
       )}
 
       {fileToEdit && (
-        <EditArchivoModal 
-            visible={!!fileToEdit} 
-            onClose={() => setFileToEdit(null)} 
-            archivo={fileToEdit} 
+        <EditArchivoModal
+          visible={!!fileToEdit}
+          onClose={() => setFileToEdit(null)}
+          archivo={fileToEdit}
         />
       )}
 
@@ -232,6 +270,15 @@ export default function DocumentosEmpresa({ query = '', selectedFolderId, listHe
             }
           );
         }}
+      />
+
+      <ArchivoViewersModal
+        visible={!!fileForViewers}
+        fileName={fileForViewers?.nombre || ''}
+        viewers={archivoViewers}
+        isLoading={loadingViewers}
+        errorMessage={viewersError instanceof Error ? viewersError.message : null}
+        onClose={() => setFileForViewers(null)}
       />
 
     </ThemedView>

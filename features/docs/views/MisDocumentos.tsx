@@ -5,18 +5,18 @@ import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { showGlobalToast } from '@/shared/ui/toast';
-import * as FileSystem from 'expo-file-system/legacy';
+import * as FileSystem from 'expo-file-system';
 import * as Linking from 'expo-linking';
-import * as Sharing from 'expo-sharing';
 import React, { useEffect, useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
+import { ArchivoViewersModal } from '../components/ArchivoViewersModal';
 import { DocumentoItem } from '../components/DocumentoItem';
 import { DocumentOptionAction, DocumentOptionsModal } from '../components/DocumentOptionsModal';
 import { EditArchivoModal } from '../components/EditArchivoModal';
 import { FolderPickerModal } from '../components/FolderPickerModal';
 import { Archivo } from '../models/Archivo';
 import { formatPartialWarnings } from '../utils/partialWarnings';
-import { useArchivosPersonales, useCarpetas, useDeleteArchivo, useGetArchivoUrlFirmada, useMoverArchivo, useSearchArchivos } from '../viewmodels/useArchivos';
+import { useArchivosPersonales, useArchivoViewers, useCarpetas, useDeleteArchivo, useGetArchivoUrlFirmada, useMoverArchivo, useSearchArchivos } from '../viewmodels/useArchivos';
 
 const colors = Colors['light'];
 
@@ -34,10 +34,16 @@ export default function MisDocumentos({ query = '', selectedFolderId, listHeader
   const [fileToOpen, setFileToOpen] = useState<Archivo | null>(null);
   const [fileToMove, setFileToMove] = useState<Archivo | null>(null);
   const [fileForOptions, setFileForOptions] = useState<Archivo | null>(null);
+  const [fileForViewers, setFileForViewers] = useState<Archivo | null>(null);
   const deleteMutation = useDeleteArchivo();
   const moverArchivoMutation = useMoverArchivo();
   const [isDownloading, setIsDownloading] = useState(false);
   const { getArchivoUrlFirmada } = useGetArchivoUrlFirmada();
+  const {
+    data: archivoViewers = [],
+    isLoading: loadingViewers,
+    error: viewersError,
+  } = useArchivoViewers(fileForViewers?.id);
 
   const { data: files, isLoading, isPending, error, refetch } = useArchivosPersonales();
   const { data: searchResults, isLoading: loadingSearch, isPending: pendingSearch } = useSearchArchivos(query);
@@ -71,31 +77,27 @@ export default function MisDocumentos({ query = '', selectedFolderId, listHeader
   }, [fileToOpen, getArchivoUrlFirmada]);
 
   const handleDownloadFile = async (file: Archivo) => {
-      if (isDownloading) return;
-      setIsDownloading(true);
-      try {
-          const url = await getArchivoUrlFirmada(file.id);
-          
-          const filename = file.nombre;
-          const fileUri = FileSystem.documentDirectory + filename;
-          
-          const downloadRes = await FileSystem.downloadAsync(url, fileUri);
-          
-          if (downloadRes.status === 200) {
-              if (await Sharing.isAvailableAsync()) {
-                  await Sharing.shareAsync(downloadRes.uri);
-              } else {
-                  Alert.alert("Descarga completa", `Archivo guardado en: ${downloadRes.uri}`);
-              }
-          } else {
-              throw new Error("Download failed");
-          }
-      } catch (e) {
-          console.error(e);
-          Alert.alert("Error", "No se pudo descargar el archivo");
-      } finally {
-          setIsDownloading(false);
+    if (isDownloading) return;
+    setIsDownloading(true);
+    try {
+      const url = await getArchivoUrlFirmada(file.id);
+      const destinationDir = new FileSystem.Directory(FileSystem.Paths.document, 'Italo-Argentina');
+      const destinationFile = new FileSystem.File(destinationDir, file.nombre);
+
+      destinationDir.create({ idempotent: true, intermediates: true });
+      const output = await FileSystem.File.downloadFileAsync(url, destinationFile, { idempotent: true });
+
+      if (output) {
+        Alert.alert("Descarga completa", `Archivo guardado en: ${output.uri}`);
+      } else {
+        throw new Error("Download failed");
       }
+    } catch (e) {
+      console.error(e);
+      Alert.alert("Error", "No se pudo descargar el archivo");
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   const buildOptions = (file: Archivo): DocumentOptionAction[] => {
@@ -123,6 +125,12 @@ export default function MisDocumentos({ query = '', selectedFolderId, listHeader
           icon: 'trash-outline',
           destructive: true,
           onPress: () => confirmDelete(file),
+        },
+        {
+          key: 'show-viewers',
+          label: 'Mostrar quienes abrieron el archivo',
+          icon: 'eye-outline',
+          onPress: () => setFileForViewers(file),
         }
       );
     }
@@ -138,23 +146,24 @@ export default function MisDocumentos({ query = '', selectedFolderId, listHeader
   };
 
   const confirmDelete = (file: Archivo) => {
-      Alert.alert(
-          "Eliminar Archivo",
-          `¿Estás seguro de eliminar ${file.nombre}?`,
-          [
-              { text: "Cancelar", style: "cancel" },
-              { 
-                  text: "Eliminar", 
-                  style: "destructive",
-                  onPress: () => deleteMutation.mutate(file.id)
-               }
-          ]
-      );
+    Alert.alert(
+      "Eliminar Archivo",
+      `¿Estás seguro de eliminar ${file.nombre}?`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Eliminar",
+          style: "destructive",
+          onPress: () => deleteMutation.mutate(file.id)
+        }
+      ]
+    );
   };
 
   const renderItem = ({ item }: { item: Archivo }) => (
     <DocumentoItem
       archivo={item}
+      currentUserId={user?.user_context_id}
       onPress={() => setFileToOpen(item)}
       onOptions={() => setFileForOptions(item)}
       onDelete={user?.user_context_id === item.creadorId ? () => confirmDelete(item) : undefined}
@@ -178,26 +187,26 @@ export default function MisDocumentos({ query = '', selectedFolderId, listHeader
       ) : (
         <OwnFlatList<Archivo>
           data={filteredData || []}
-            renderItem={renderItem}
-            keyExtractor={(item) => item.id.toString()}
-            ListHeaderComponent={listHeader}
-            contentContainerStyle={styles.listContent}
-            ItemSeparatorComponent={renderSeparator}
-            ListEmptyComponent={
-                <View style={styles.center}>
-                    <ThemedText>No hay documentos</ThemedText>
-                </View>
-            }
-            onRefresh={refetch}
-            refreshing={isLoading}
+          renderItem={renderItem}
+          keyExtractor={(item) => item.id.toString()}
+          ListHeaderComponent={listHeader}
+          contentContainerStyle={styles.listContent}
+          ItemSeparatorComponent={renderSeparator}
+          ListEmptyComponent={
+            <View style={styles.center}>
+              <ThemedText>No hay documentos</ThemedText>
+            </View>
+          }
+          onRefresh={refetch}
+          refreshing={isLoading}
         />
       )}
 
       {fileToEdit && (
-        <EditArchivoModal 
-            visible={!!fileToEdit} 
-            onClose={() => setFileToEdit(null)} 
-            archivo={fileToEdit} 
+        <EditArchivoModal
+          visible={!!fileToEdit}
+          onClose={() => setFileToEdit(null)}
+          archivo={fileToEdit}
         />
       )}
 
@@ -234,6 +243,15 @@ export default function MisDocumentos({ query = '', selectedFolderId, listHeader
             }
           );
         }}
+      />
+
+      <ArchivoViewersModal
+        visible={!!fileForViewers}
+        fileName={fileForViewers?.nombre || ''}
+        viewers={archivoViewers}
+        isLoading={loadingViewers}
+        errorMessage={viewersError instanceof Error ? viewersError.message : null}
+        onClose={() => setFileForViewers(null)}
       />
 
     </ThemedView>

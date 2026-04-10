@@ -140,6 +140,13 @@ export default function DocumentosEmpresa({ query = '', selectedFolderId, listHe
       },
     ];
 
+    options.push({
+      key: 'move',
+      label: 'Mover',
+      icon: 'folder-open-outline',
+      onPress: () => setFileToMove(file),
+    });
+
     if (isOwner) {
       options.push(
         {
@@ -149,27 +156,20 @@ export default function DocumentosEmpresa({ query = '', selectedFolderId, listHe
           onPress: () => setFileToEdit(file),
         },
         {
+          key: 'show-viewers',
+          label: 'Mostrar quienes abrieron el archivo',
+          icon: 'eye-outline',
+          onPress: () => setFileForViewers(file),
+        },
+        {
           key: 'delete',
           label: 'Eliminar',
           icon: 'trash-outline',
           destructive: true,
           onPress: () => confirmDelete(file),
-        },
-        {
-          key: 'show-viewers',
-          label: 'Mostrar quienes abrieron el archivo',
-          icon: 'eye-outline',
-          onPress: () => setFileForViewers(file),
         }
       );
     }
-
-    options.push({
-      key: 'move',
-      label: 'Mover',
-      icon: 'folder-open-outline',
-      onPress: () => setFileToMove(file),
-    });
 
     return options;
   };

@@ -159,6 +159,10 @@ export default function CrossPlatformDateTimePicker(props: CrossPlatformDateTime
 
     let changed = false;
     let finished = false;
+    let openedAt = 0;
+
+    const inputWithShowPicker = input as HTMLInputElement & { showPicker?: () => void };
+    const supportsShowPicker = typeof inputWithShowPicker.showPicker === 'function';
 
     const emitDismissed = () => {
       if (finished) return;
@@ -196,7 +200,13 @@ export default function CrossPlatformDateTimePicker(props: CrossPlatformDateTime
     };
 
     const handleBlur = () => {
-      // Some browsers do not emit cancel for native pickers; blur is a safe fallback.
+      // Some browsers do not emit cancel for native pickers; blur is a fallback only.
+      // With showPicker, blur can happen immediately on open, so ignore that first blur.
+      const elapsedSinceOpen = Date.now() - openedAt;
+      if (supportsShowPicker && elapsedSinceOpen >= 0 && elapsedSinceOpen < 250) {
+        return;
+      }
+
       if (!changed) {
         window.setTimeout(() => {
           if (!finished) emitDismissed();
@@ -210,10 +220,10 @@ export default function CrossPlatformDateTimePicker(props: CrossPlatformDateTime
     document.body.appendChild(input);
 
     const openPicker = () => {
+      openedAt = Date.now();
       try {
-        const inputWithShowPicker = input as HTMLInputElement & { showPicker?: () => void };
         input.focus();
-        if (typeof inputWithShowPicker.showPicker === 'function') {
+        if (supportsShowPicker) {
           inputWithShowPicker.showPicker();
         } else {
           input.click();

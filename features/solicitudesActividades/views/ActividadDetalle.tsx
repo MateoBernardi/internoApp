@@ -200,21 +200,19 @@ export function ActividadDetalle({ actividadId, rol }: ActividadDetalleProps) {
     );
   }, [actividad, modStartDate, modEndDate, modificarFechas, showEndDateFields]);
 
-  const onDateChange = (event: any, selectedDate?: Date) => {
+  const onDateConfirm = (selectedDate: Date) => {
     const currentTarget = showDatePicker.target;
-    if (Platform.OS === 'android') {
-      setShowDatePicker((prev) => ({ ...prev, show: false }));
-    }
-    if (selectedDate && event.type !== 'dismissed') {
-      if (currentTarget === 'start') {
-        setModStartDate(selectedDate);
-        if (selectedDate > modEndDate) {
-          setModEndDate(new Date(selectedDate.getTime() + 3600000));
-        }
-      } else {
-        setModEndDate(selectedDate);
+
+    if (currentTarget === 'start') {
+      setModStartDate(selectedDate);
+      if (selectedDate > modEndDate) {
+        setModEndDate(new Date(selectedDate.getTime() + 3600000));
       }
+    } else {
+      setModEndDate(selectedDate);
     }
+
+    setShowDatePicker((prev) => ({ ...prev, show: false }));
   };
 
   const showPicker = (mode: 'date' | 'time', target: 'start' | 'end') => {
@@ -377,7 +375,10 @@ export function ActividadDetalle({ actividadId, rol }: ActividadDetalleProps) {
         visible={showModifyModal}
         transparent={false}
         animationType="slide"
-        onRequestClose={() => setShowModifyModal(false)}
+        onRequestClose={() => {
+          setShowDatePicker({ show: false, mode: 'date', target: 'start' });
+          setShowModifyModal(false);
+        }}
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -389,7 +390,10 @@ export function ActividadDetalle({ actividadId, rol }: ActividadDetalleProps) {
                 Modificar actividad
               </ThemedText>
               <TouchableOpacity
-                onPress={() => setShowModifyModal(false)}
+                onPress={() => {
+                  setShowDatePicker({ show: false, mode: 'date', target: 'start' });
+                  setShowModifyModal(false);
+                }}
                 style={styles.modalHeaderActionBtn}
               >
                 <Ionicons name="chevron-down" size={24} color={colors.secondaryText} />
@@ -483,14 +487,16 @@ export function ActividadDetalle({ actividadId, rol }: ActividadDetalleProps) {
 
           {showDatePicker.show && (
             <DateTimePicker
+              key={`${showDatePicker.target}-${showDatePicker.mode}`}
+              visible={showDatePicker.show}
               testID="actividadDateTimePicker"
               value={
                 showDatePicker.target === 'start' ? modStartDate : modEndDate
               }
               mode={showDatePicker.mode}
               is24Hour={true}
-              display="default"
-              onChange={onDateChange}
+              onConfirm={onDateConfirm}
+              onCancel={() => setShowDatePicker({ show: false, mode: 'date', target: 'start' })}
             />
           )}
         </KeyboardAvoidingView>

@@ -111,6 +111,87 @@ body {
     overflow-y: auto;
   }
 }
+
+/* Contenedor general */
+.cp-picker-wrap {
+  width: 100%;
+}
+.cp-picker-wrap .react-datepicker,
+.react-datepicker.cp-picker-calendar {
+  width: 100%;
+  max-width: 340px;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  overflow: hidden;
+  background: transparent !important;
+}
+
+/* Header estilo nativo limpio */
+.cp-picker-wrap .react-datepicker__header,
+.cp-picker-calendar .react-datepicker__header {
+  background: #f6f7fb;
+  border-bottom: 1px solid #e6e8ef;
+  padding-top: 10px;
+}
+.cp-picker-wrap .react-datepicker__current-month,
+.cp-picker-calendar .react-datepicker__current-month {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1a1f36;
+}
+.cp-picker-wrap .react-datepicker__day-name,
+.cp-picker-calendar .react-datepicker__day-name {
+  color: #687087;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Día normal/hover/seleccionado */
+.cp-picker-wrap .react-datepicker__day,
+.cp-picker-calendar .react-datepicker__day {
+  width: 34px;
+  line-height: 34px;
+  margin: 3px;
+  border-radius: 10px;
+  color: #1f2435;
+}
+.cp-picker-wrap .react-datepicker__day:hover,
+.cp-picker-calendar .react-datepicker__day:hover {
+  background: #eef2ff;
+}
+.cp-picker-wrap .react-datepicker__day--selected,
+.cp-picker-wrap .react-datepicker__day--keyboard-selected,
+.cp-picker-calendar .react-datepicker__day--selected,
+.cp-picker-calendar .react-datepicker__day--keyboard-selected {
+  background: #0a66ff;
+  color: #fff;
+  font-weight: 700;
+}
+.cp-picker-wrap .react-datepicker__day--today,
+.cp-picker-calendar .react-datepicker__day--today {
+  border: 1px solid #0a66ff;
+  font-weight: 700;
+}
+
+/* Tiempo */
+.cp-picker-wrap .react-datepicker__time-container,
+.cp-picker-calendar .react-datepicker__time-container {
+  width: 100%;
+  border-left: 0;
+}
+.cp-picker-wrap .react-datepicker__time-list-item,
+.cp-picker-calendar .react-datepicker__time-list-item {
+  height: 34px !important;
+  line-height: 34px !important;
+}
+.cp-picker-wrap .react-datepicker__time-list-item--selected,
+.cp-picker-calendar .react-datepicker__time-list-item--selected {
+  background: #0a66ff !important;
+  color: #fff !important;
+  font-weight: 700;
+}
 `;
 
 const swRegistration = `

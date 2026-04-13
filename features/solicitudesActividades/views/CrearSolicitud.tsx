@@ -158,24 +158,25 @@ export function CrearSolicitud() {
     setShowRoleModal(true);
   }, []);
 
-  const onDateChange = (event: any, selectedDate?: Date) => {
-    if (Platform.OS !== 'ios') {
-      setShowDatePicker(false);
-    }
+  const onDateCancel = useCallback(() => {
+    setShowDatePicker(false);
+    setActiveDateType(null);
+  }, []);
 
-    if (event.type === 'dismissed' || !selectedDate) {
+  const onDateConfirm = useCallback((selectedDate: Date) => {
+    if (!selectedDate) {
       setActiveDateType(null);
       return;
     }
 
-    const currentDate = selectedDate;
     if (activeDateType === 'start') {
-      setFechaInicio(currentDate);
+      setFechaInicio(selectedDate);
     } else {
-      setFechaFin(currentDate);
+      setFechaFin(selectedDate);
     }
+    setShowDatePicker(false);
     setActiveDateType(null);
-  };
+  }, [activeDateType]);
 
   const getPickerValue = useCallback((): Date => {
     if (activeDateType === 'start') return fechaInicio ?? new Date();
@@ -497,12 +498,13 @@ export function CrearSolicitud() {
 
       {showDatePicker && (
         <DateTimePicker
+          visible={showDatePicker}
           testID="dateTimePicker"
           value={getPickerValue()}
           mode={datePickerMode}
           is24Hour={true}
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-          onChange={onDateChange}
+          onConfirm={onDateConfirm}
+          onCancel={onDateCancel}
         />
       )}
 

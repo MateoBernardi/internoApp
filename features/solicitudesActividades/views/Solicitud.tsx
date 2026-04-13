@@ -481,33 +481,25 @@ export function Solicitud() {
     );
   }, [canSubmitModificar, hasDateChanges, solicitudId, solicitud, user, validacion, ejecutarModificar, modStartDate, modEndDate]);
 
-  const onDateChange = (event: any, selectedDate?: Date) => {
+  const onDateCancel = () => {
+    setShowDatePicker(prev => ({ ...prev, show: false }));
+  };
+
+  const onDateConfirm = (selectedDate: Date) => {
     const currentTarget = showDatePicker.target;
-    const eventType = event?.type;
-    const shouldApplySelection = !!selectedDate && eventType !== 'dismissed';
 
-    if (shouldApplySelection) {
-      const normalizedSelectedDate = selectedDate;
-      if (currentTarget === 'start') {
-        setModStartDate(normalizedSelectedDate);
-        // Validar fin
-        if (modEndDate && normalizedSelectedDate > modEndDate) {
-          setModEndDate(new Date(normalizedSelectedDate.getTime() + 3600000));
-        }
-      } else {
-        setModEndDate(normalizedSelectedDate);
+    const normalizedSelectedDate = selectedDate;
+    if (currentTarget === 'start') {
+      setModStartDate(normalizedSelectedDate);
+      // Validar fin
+      if (modEndDate && normalizedSelectedDate > modEndDate) {
+        setModEndDate(new Date(normalizedSelectedDate.getTime() + 3600000));
       }
+    } else {
+      setModEndDate(normalizedSelectedDate);
     }
 
-    // En web y Android cerramos al resolver; en iOS también cerramos en eventos explícitos.
-    if (Platform.OS === 'web' || Platform.OS === 'android') {
-      setShowDatePicker(prev => ({ ...prev, show: false }));
-      return;
-    }
-
-    if (eventType === 'set' || eventType === 'dismissed') {
-      setShowDatePicker(prev => ({ ...prev, show: false }));
-    }
+    setShowDatePicker(prev => ({ ...prev, show: false }));
   };
 
   const showPicker = (mode: 'date' | 'time', target: 'start' | 'end') => {
@@ -552,31 +544,24 @@ export function Solicitud() {
     setShowAddToAgendaModal(true);
   }, [solicitud]);
 
-  const onAgendaDateChange = (event: any, selectedDate?: Date) => {
+  const onAgendaDateCancel = () => {
+    setShowAgendaDatePicker(prev => ({ ...prev, show: false }));
+  };
+
+  const onAgendaDateConfirm = (selectedDate: Date) => {
     const currentTarget = showAgendaDatePicker.target;
-    const eventType = event?.type;
-    const shouldApplySelection = !!selectedDate && eventType !== 'dismissed';
 
-    if (shouldApplySelection) {
-      const normalizedSelectedDate = selectedDate;
-      if (currentTarget === 'start') {
-        setAgendaFechaInicio(normalizedSelectedDate);
-        if (normalizedSelectedDate >= agendaFechaFin) {
-          setAgendaFechaFin(new Date(normalizedSelectedDate.getTime() + 3600000));
-        }
-      } else {
-        setAgendaFechaFin(normalizedSelectedDate);
+    const normalizedSelectedDate = selectedDate;
+    if (currentTarget === 'start') {
+      setAgendaFechaInicio(normalizedSelectedDate);
+      if (normalizedSelectedDate >= agendaFechaFin) {
+        setAgendaFechaFin(new Date(normalizedSelectedDate.getTime() + 3600000));
       }
+    } else {
+      setAgendaFechaFin(normalizedSelectedDate);
     }
 
-    if (Platform.OS === 'web' || Platform.OS === 'android') {
-      setShowAgendaDatePicker(prev => ({ ...prev, show: false }));
-      return;
-    }
-
-    if (eventType === 'set' || eventType === 'dismissed') {
-      setShowAgendaDatePicker(prev => ({ ...prev, show: false }));
-    }
+    setShowAgendaDatePicker(prev => ({ ...prev, show: false }));
   };
 
   const agendaStartDate = useMemo(() => agendaFechaInicio, [agendaFechaInicio]);
@@ -1149,12 +1134,13 @@ export function Solicitud() {
 
           {showDatePicker.show && (
             <DateTimePicker
+              visible={showDatePicker.show}
               testID="dateTimePicker"
               value={modPickerValue}
               mode={showDatePicker.mode}
               is24Hour={true}
-              display="default"
-              onChange={onDateChange}
+              onConfirm={onDateConfirm}
+              onCancel={onDateCancel}
             />
           )}
         </View>
@@ -1271,12 +1257,13 @@ export function Solicitud() {
           </TouchableWithoutFeedback>
           {showAgendaDatePicker.show && (
             <DateTimePicker
+              visible={showAgendaDatePicker.show}
               testID="agendaDateTimePicker"
               value={showAgendaDatePicker.target === 'start' ? agendaFechaInicio : agendaFechaFin}
               mode={showAgendaDatePicker.mode}
               is24Hour={true}
-              display="default"
-              onChange={onAgendaDateChange}
+              onConfirm={onAgendaDateConfirm}
+              onCancel={onAgendaDateCancel}
             />
           )}
         </KeyboardAvoidingView>

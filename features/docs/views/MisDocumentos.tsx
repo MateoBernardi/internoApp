@@ -7,8 +7,9 @@ import { useAuth } from '@/features/auth/context/AuthContext';
 import { showGlobalToast } from '@/shared/ui/toast';
 import * as FileSystem from 'expo-file-system';
 import * as Linking from 'expo-linking';
+import * as Sharing from 'expo-sharing';
 import React, { useEffect, useState } from 'react';
-import { Alert, StyleSheet, View } from 'react-native';
+import { Alert, Platform, StyleSheet, View } from 'react-native';
 import { ArchivoViewersModal } from '../components/ArchivoViewersModal';
 import { DocumentoItem } from '../components/DocumentoItem';
 import { DocumentOptionAction, DocumentOptionsModal } from '../components/DocumentOptionsModal';
@@ -19,6 +20,37 @@ import { formatPartialWarnings } from '../utils/partialWarnings';
 import { useArchivosPersonales, useArchivoViewers, useCarpetas, useDeleteArchivo, useGetArchivoUrlFirmada, useMoverArchivo, useSearchArchivos } from '../viewmodels/useArchivos';
 
 const colors = Colors['light'];
+
+function getMimeTypeFromFileName(fileName: string): string {
+  const extension = fileName.split('.').pop()?.toLowerCase();
+  switch (extension) {
+    case 'pdf':
+      return 'application/pdf';
+    case 'doc':
+      return 'application/msword';
+    case 'docx':
+      return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    case 'xls':
+      return 'application/vnd.ms-excel';
+    case 'xlsx':
+      return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    case 'ppt':
+      return 'application/vnd.ms-powerpoint';
+    case 'pptx':
+      return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+    case 'jpg':
+    case 'jpeg':
+      return 'image/jpeg';
+    case 'png':
+      return 'image/png';
+    case 'gif':
+      return 'image/gif';
+    case 'txt':
+      return 'text/plain';
+    default:
+      return 'application/octet-stream';
+  }
+}
 
 type MisDocumentosProps = {
   query?: string;
@@ -79,22 +111,56 @@ export default function MisDocumentos({ query = '', selectedFolderId, listHeader
   const handleDownloadFile = async (file: Archivo) => {
     if (isDownloading) return;
     setIsDownloading(true);
+
     try {
       const url = await getArchivoUrlFirmada(file.id);
-      const destinationDir = new FileSystem.Directory(FileSystem.Paths.document, 'Italo-Argentina');
-      const destinationFile = new FileSystem.File(destinationDir, file.nombre);
 
-      destinationDir.create({ idempotent: true, intermediates: true });
-      const output = await FileSystem.File.downloadFileAsync(url, destinationFile, { idempotent: true });
+      if (Platform.OS === 'web') {
+        // --- LÓGICA PARA WEB ---
+        // 1. Descargamos el archivo como Blob para forzar la descarga en el navegador
+        const response = await fetch(url);
+        const blob = await response.blob();
 
-      if (output) {
-        Alert.alert("Descarga completa", `Archivo guardado en: ${output.uri}`);
+        // 2. Creamos una URL temporal para el Blob
+        const blobUrl = window.URL.createObjectURL(blob);
+
+        // 3. Creamos un elemento <a> invisible y simulamos un clic
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = file.nombre; // Forzamos el nombre del archivo
+        document.body.appendChild(link);
+        link.click();
+
+        // 4. Limpiamos el DOM y la memoria
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(blobUrl);
       } else {
-        throw new Error("Download failed");
+        // --- LÓGICA PARA NATIVE (iOS / Android) ---
+        const destinationDir = new FileSystem.Directory(FileSystem.Paths.cache, 'Italo-Argentina');
+        const destinationFile = new FileSystem.File(destinationDir, file.nombre);
+        const mimeType = getMimeTypeFromFileName(file.nombre);
+
+        await destinationDir.create({ idempotent: true, intermediates: true });
+        const output = await FileSystem.File.downloadFileAsync(url, destinationFile, { idempotent: true });
+
+        // En lugar de (o además de) la alerta, abrimos el menú de compartir/guardar
+        const canShare = await Sharing.isAvailableAsync();
+        if (canShare) {
+          await Sharing.shareAsync(output.uri, {
+            dialogTitle: 'Guardar o compartir archivo',
+            mimeType,
+          });
+        } else {
+          Alert.alert('Descarga completada', 'El archivo se descargó en almacenamiento temporal de la app.');
+        }
       }
     } catch (e) {
       console.error(e);
-      Alert.alert("Error", "No se pudo descargar el archivo");
+      if (Platform.OS === 'web') {
+        window.alert("Error: No se pudo descargar el archivo");
+      } else {
+        Alert.alert("Error", "No se pudo descargar el archivo");
+      }
     } finally {
       setIsDownloading(false);
     }

@@ -51,6 +51,7 @@ export default function CrearReporte(props?: CrearReporteProps) {
 	const [categoria, setCategoria] = useState<'NEGATIVO' | 'POSITIVO'>('NEGATIVO');
 	const [fechaIncidente, setFechaIncidente] = useState<Date>(new Date());
 	const [showDatePicker, setShowDatePicker] = useState(false);
+	const [showTimePicker, setShowTimePicker] = useState(false);
 
 	// Estado de imágenes pendientes
 	const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
@@ -147,7 +148,7 @@ export default function CrearReporte(props?: CrearReporteProps) {
 				titulo: titulo.trim(),
 				descripcion: descripcion.trim(),
 				categoria,
-				fecha_incidente: fechaIncidente.toISOString().split('T')[0],
+				fecha_incidente: fechaIncidente.toISOString(),
 			});
 
 			// Subir imágenes pendientes una por una
@@ -188,6 +189,26 @@ export default function CrearReporte(props?: CrearReporteProps) {
 			Alert.alert('Error', error?.message || 'Intenta nuevamente');
 		}
 	}, [isFormValid, tokens, crearReporte, usuarioId, titulo, descripcion, categoria, fechaIncidente, pendingImages, router]);
+
+	const handleDateConfirm = useCallback((selectedDate: Date) => {
+		setFechaIncidente((prev) => {
+			const next = new Date(prev);
+			next.setFullYear(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
+			return next;
+		});
+		setShowDatePicker(false);
+		setShowTimePicker(false);
+	}, []);
+
+	const handleTimeConfirm = useCallback((selectedDate: Date) => {
+		setFechaIncidente((prev) => {
+			const next = new Date(prev);
+			next.setHours(selectedDate.getHours(), selectedDate.getMinutes(), 0, 0);
+			return next;
+		});
+		setShowDatePicker(false);
+		setShowTimePicker(false);
+	}, []);
 
 	return (
 		<View style={styles.container}>
@@ -231,7 +252,7 @@ export default function CrearReporte(props?: CrearReporteProps) {
 						textAlignVertical="top"
 					/>
 					{/* Categoría */}
-					<View style={[styles.inputSection, { borderBottomWidth: 0, paddingVertical: 10, alignItems: 'center' }]}> 
+					<View style={[styles.inputSection, { borderBottomWidth: 0, paddingVertical: 10, alignItems: 'center' }]}>
 						<TouchableOpacity
 							style={[styles.chip, categoria === 'NEGATIVO' && { borderColor: colors.error, backgroundColor: 'transparent', borderWidth: 1 }]}
 							onPress={() => setCategoria('NEGATIVO')}
@@ -247,9 +268,20 @@ export default function CrearReporte(props?: CrearReporteProps) {
 					</View>
 					{/* Fecha incidente */}
 					<View style={styles.inputSection}>
-						<TouchableOpacity onPress={() => setShowDatePicker(true)} style={{ flex: 1 }}>
+						<TouchableOpacity onPress={() => {
+							setShowTimePicker(false);
+							setShowDatePicker(true);
+						}} style={{ flex: 1 }}>
 							<ThemedText style={[styles.dateValue, { color: colors.text }]}>
 								{fechaIncidente.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}
+							</ThemedText>
+						</TouchableOpacity>
+						<TouchableOpacity onPress={() => {
+							setShowDatePicker(false);
+							setShowTimePicker(true);
+						}}>
+							<ThemedText style={[styles.dateValue, styles.timeValue, { color: colors.text }]}>
+								{fechaIncidente.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false })}
 							</ThemedText>
 						</TouchableOpacity>
 					</View>
@@ -335,16 +367,28 @@ export default function CrearReporte(props?: CrearReporteProps) {
 				{/* Date Picker */}
 				{showDatePicker && (
 					<DateTimePicker
-						testID="dateTimePicker"
+						visible={showDatePicker}
 						value={fechaIncidente}
 						mode="date"
-						is24Hour={true}
-						display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-						onChange={(event, selectedDate) => {
+						onConfirm={handleDateConfirm}
+						onCancel={() => {
 							setShowDatePicker(false);
-							if (selectedDate && event.type !== 'dismissed') {
-								setFechaIncidente(selectedDate);
-							}
+							setShowTimePicker(false);
+						}}
+					/>
+				)}
+
+				{/* Time Picker */}
+				{showTimePicker && (
+					<DateTimePicker
+						visible={showTimePicker}
+						value={fechaIncidente}
+						mode="time"
+						is24Hour
+						onConfirm={handleTimeConfirm}
+						onCancel={() => {
+							setShowDatePicker(false);
+							setShowTimePicker(false);
 						}}
 					/>
 				)}
@@ -395,6 +439,9 @@ const styles = StyleSheet.create({
 	dateValue: {
 		fontSize: 16,
 		color: colors.lightTint,
+	},
+	timeValue: {
+		fontWeight: '600',
 	},
 	messageInput: {
 		flex: 1,

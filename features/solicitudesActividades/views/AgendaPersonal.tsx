@@ -9,18 +9,18 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-    Alert,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    useWindowDimensions,
-    View,
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  useWindowDimensions,
+  View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AgendaDiaria } from '../components/AgendaDiaria';
@@ -30,10 +30,10 @@ import type { Actividad, CrearActividadResponse, Licencia } from '../models/Acti
 import type { RangoOcupado } from '../models/Solicitud';
 import type { Activity } from '../models/activityTypes';
 import {
-    buildPeriodoVentanaFromMonth,
-    useActividadesPorPeriodo,
-    useCancelarActividad,
-    useCrearActividad,
+  buildPeriodoVentanaFromMonth,
+  useActividadesPorPeriodo,
+  useCancelarActividad,
+  useCrearActividad,
 } from '../viewmodels/useActividades';
 
 const colors = Colors['light'];
@@ -352,18 +352,12 @@ const AgendaPersonal: React.FC = () => {
     setSelectedDate(formatDateKey(nextMonth));
   }, [activeMonth]);
 
-  const onDateChange = (event: any, selectedDate?: Date) => {
-    if (Platform.OS !== 'ios') {
-      setShowDatePicker(false);
-    }
+  const onDateCancel = () => {
+    setShowDatePicker(false);
+    setActiveDateType(null);
+  };
 
-    if (event.type === 'dismissed') {
-      setActiveDateType(null);
-      return;
-    }
-
-    if (!selectedDate) return;
-
+  const onDateConfirm = (selectedDate: Date) => {
     const normalizedSelectedDate = normalizeToMinute(selectedDate);
 
     if (activeDateType === 'startDate') {
@@ -406,6 +400,8 @@ const AgendaPersonal: React.FC = () => {
       setSelectedDate(formatDateKey(picked));
       setActiveDateType(null);
     }
+
+    setShowDatePicker(false);
   };
 
   const startDateTime = useMemo(
@@ -843,22 +839,24 @@ const AgendaPersonal: React.FC = () => {
               {showDatePicker && Platform.OS === 'ios' && (
                 <View style={styles.inlinePickerContainer}>
                   <DateTimePicker
+                    key={`${activeDateType ?? 'none'}-${datePickerMode}`}
+                    visible={showDatePicker}
                     testID="dateTimePicker"
                     value={
                       activeDateType === 'monthJump'
                         ? new Date(selectedDate + 'T00:00:00')
                         : activeDateType === 'startDate'
-                        ? newActivity.startTime
-                        : activeDateType === 'startTime'
-                        ? newActivity.startTime
-                        : activeDateType === 'endDate'
-                        ? new Date(newActivity.endDate + 'T00:00:00')
-                        : newActivity.endTime
+                          ? newActivity.startTime
+                          : activeDateType === 'startTime'
+                            ? newActivity.startTime
+                            : activeDateType === 'endDate'
+                              ? new Date(newActivity.endDate + 'T00:00:00')
+                              : newActivity.endTime
                     }
                     mode={datePickerMode}
                     is24Hour={true}
-                    display="spinner"
-                    onChange={onDateChange}
+                    onConfirm={onDateConfirm}
+                    onCancel={onDateCancel}
                   />
                 </View>
               )}
@@ -905,22 +903,24 @@ const AgendaPersonal: React.FC = () => {
       {/* Date Picker (Android) */}
       {showDatePicker && Platform.OS !== 'ios' && (
         <DateTimePicker
+          key={`${activeDateType ?? 'none'}-${datePickerMode}`}
+          visible={showDatePicker}
           testID="dateTimePicker"
           value={
             activeDateType === 'monthJump'
               ? new Date(selectedDate + 'T00:00:00')
               : activeDateType === 'startDate'
-              ? newActivity.startTime
-              : activeDateType === 'startTime'
-              ? newActivity.startTime
-              : activeDateType === 'endDate'
-              ? new Date(newActivity.endDate + 'T00:00:00')
-              : newActivity.endTime
+                ? newActivity.startTime
+                : activeDateType === 'startTime'
+                  ? newActivity.startTime
+                  : activeDateType === 'endDate'
+                    ? new Date(newActivity.endDate + 'T00:00:00')
+                    : newActivity.endTime
           }
           mode={datePickerMode}
           is24Hour={true}
-          display="default"
-          onChange={onDateChange}
+          onConfirm={onDateConfirm}
+          onCancel={onDateCancel}
         />
       )}
 

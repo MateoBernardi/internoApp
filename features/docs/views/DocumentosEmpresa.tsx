@@ -8,6 +8,7 @@ import { confirmAction } from '@/shared/ui/confirmAction';
 import { showGlobalToast } from '@/shared/ui/toast';
 import * as FileSystem from 'expo-file-system';
 import * as Linking from 'expo-linking';
+import * as Sharing from 'expo-sharing';
 import React, { useEffect, useState } from 'react';
 import { Alert, Platform, StyleSheet, View } from 'react-native';
 import { ArchivoViewersModal } from '../components/ArchivoViewersModal';
@@ -20,6 +21,37 @@ import { formatPartialWarnings } from '../utils/partialWarnings';
 import { useArchivos, useArchivoViewers, useCarpetas, useDeleteArchivo, useGetArchivoUrlFirmada, useMoverArchivo, useSearchArchivos } from '../viewmodels/useArchivos';
 
 const colors = Colors['light'];
+
+function getMimeTypeFromFileName(fileName: string): string {
+  const extension = fileName.split('.').pop()?.toLowerCase();
+  switch (extension) {
+    case 'pdf':
+      return 'application/pdf';
+    case 'doc':
+      return 'application/msword';
+    case 'docx':
+      return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    case 'xls':
+      return 'application/vnd.ms-excel';
+    case 'xlsx':
+      return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    case 'ppt':
+      return 'application/vnd.ms-powerpoint';
+    case 'pptx':
+      return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+    case 'jpg':
+    case 'jpeg':
+      return 'image/jpeg';
+    case 'png':
+      return 'image/png';
+    case 'gif':
+      return 'image/gif';
+    case 'txt':
+      return 'text/plain';
+    default:
+      return 'application/octet-stream';
+  }
+}
 
 type DocumentosEmpresaProps = {
   query?: string;
@@ -104,17 +136,22 @@ export default function DocumentosEmpresa({ query = '', selectedFolderId, listHe
         window.URL.revokeObjectURL(blobUrl);
       } else {
         // --- LÓGICA PARA NATIVE (iOS / Android) ---
-        // Tu código original se mantiene intacto aquí
         const destinationDir = new FileSystem.Directory(FileSystem.Paths.cache, 'Italo-Argentina');
         const destinationFile = new FileSystem.File(destinationDir, file.nombre);
+        const mimeType = getMimeTypeFromFileName(file.nombre);
 
         await destinationDir.create({ idempotent: true, intermediates: true });
         const output = await FileSystem.File.downloadFileAsync(url, destinationFile, { idempotent: true });
 
-        if (output) {
-          Alert.alert("Descarga completa", `Archivo guardado en: ${output.uri}`);
+        // En lugar de (o además de) la alerta, abrimos el menú de compartir/guardar
+        const canShare = await Sharing.isAvailableAsync();
+        if (canShare) {
+          await Sharing.shareAsync(output.uri, {
+            dialogTitle: 'Guardar o compartir archivo',
+            mimeType,
+          });
         } else {
-          throw new Error("Download failed");
+          Alert.alert('Descarga completada', 'El archivo se descargó en almacenamiento temporal de la app.');
         }
       }
     } catch (e) {

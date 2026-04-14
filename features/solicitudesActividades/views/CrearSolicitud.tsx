@@ -158,24 +158,25 @@ export function CrearSolicitud() {
     setShowRoleModal(true);
   }, []);
 
-  const onDateChange = (event: any, selectedDate?: Date) => {
-    if (Platform.OS !== 'ios') {
-      setShowDatePicker(false);
-    }
+  const onDateCancel = useCallback(() => {
+    setShowDatePicker(false);
+    setActiveDateType(null);
+  }, []);
 
-    if (event.type === 'dismissed' || !selectedDate) {
+  const onDateConfirm = useCallback((selectedDate: Date) => {
+    if (!selectedDate) {
       setActiveDateType(null);
       return;
     }
 
-    const currentDate = selectedDate;
     if (activeDateType === 'start') {
-      setFechaInicio(currentDate);
+      setFechaInicio(selectedDate);
     } else {
-      setFechaFin(currentDate);
+      setFechaFin(selectedDate);
     }
+    setShowDatePicker(false);
     setActiveDateType(null);
-  };
+  }, [activeDateType]);
 
   const getPickerValue = useCallback((): Date => {
     if (activeDateType === 'start') return fechaInicio ?? new Date();
@@ -327,40 +328,20 @@ export function CrearSolicitud() {
           nestedScrollEnabled
           showsVerticalScrollIndicator={false}
         >
-          {!isConsejo ? (
-            <View style={styles.inputSection}>
-              <View style={{ flex: 1 }}>
-                <UserSelector
-                  selectedUsers={selectedUsers}
-                  onSelectUsers={setSelectedUsers}
-                  users={users}
-                  roles={rolesForSelector}
-                  isLoadingUsers={isLoadingUsers}
-                  isLoadingRoles={false}
-                  onSearch={setSearchQuery}
-                  onSelectRole={handleRoleSelect}
-                />
-              </View>
+          <View style={styles.inputSection}>
+            <View style={{ flex: 1 }}>
+              <UserSelector
+                selectedUsers={selectedUsers}
+                onSelectUsers={setSelectedUsers}
+                users={users}
+                roles={rolesForSelector}
+                isLoadingUsers={isLoadingUsers}
+                isLoadingRoles={false}
+                onSearch={setSearchQuery}
+                onSelectRole={handleRoleSelect}
+              />
             </View>
-          ) : (
-            <View style={styles.inputSection}>
-              <View style={styles.rolesOnlyRow}>
-                <ThemedText style={styles.rolesOnlyLabel}>Seleccionar por rol</ThemedText>
-                <TouchableOpacity style={styles.rolesOnlyBtn} onPress={() => setShowRoleModal(true)}>
-                  <ThemedText style={styles.rolesOnlyBtnText}>Roles</ThemedText>
-                  <Ionicons name="chevron-down" size={16} color={colors.icon} style={{ marginLeft: 4 }} />
-                </TouchableOpacity>
-              </View>
-              <View style={styles.selectedUsersWrap}>
-                {selectedUsers.map((selected) => (
-                  <TouchableOpacity key={selected.user_context_id} onPress={() => handleToggleUser(selected)} style={styles.selectedUserChip}>
-                    <ThemedText style={styles.selectedUserChipText}>{selected.nombre} {selected.apellido}</ThemedText>
-                    <Ionicons name="close" size={14} color={colors.secondaryText} style={{ marginLeft: 6 }} />
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-          )}
+          </View>
 
           <View style={[styles.inputSection, { borderBottomWidth: 0, paddingVertical: 10, alignItems: 'center' }]}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -497,12 +478,13 @@ export function CrearSolicitud() {
 
       {showDatePicker && (
         <DateTimePicker
+          visible={showDatePicker}
           testID="dateTimePicker"
           value={getPickerValue()}
           mode={datePickerMode}
           is24Hour={true}
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-          onChange={onDateChange}
+          onConfirm={onDateConfirm}
+          onCancel={onDateCancel}
         />
       )}
 

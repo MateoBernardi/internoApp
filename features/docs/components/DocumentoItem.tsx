@@ -5,6 +5,7 @@ import React, { useState } from 'react';
 import { Modal, Pressable, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Archivo } from '../models/Archivo';
+import { isArchivoInAuditWindow } from '../utils/auditWindow';
 
 const formatBytes = (bytes: number, decimals = 2) => {
   if (!+bytes) return '0 Bytes';
@@ -18,37 +19,38 @@ const formatBytes = (bytes: number, decimals = 2) => {
 const getTipoIcon = (nombreArchivo: string): { icon: string; color: string } => {
   const extension = nombreArchivo.split('.').pop()?.toLowerCase() || '';
   const iconMap: Record<string, { icon: string; color: string }> = {
-    'pdf':  { icon: 'document-text', color: '#ef4444' },
-    'doc':  { icon: 'document-text', color: '#2563eb' },
+    'pdf': { icon: 'document-text', color: '#ef4444' },
+    'doc': { icon: 'document-text', color: '#2563eb' },
     'docx': { icon: 'document-text', color: '#2563eb' },
     'word': { icon: 'document-text', color: '#2563eb' },
-    'xls':  { icon: 'document-text', color: '#16a34a' },
+    'xls': { icon: 'document-text', color: '#16a34a' },
     'xlsx': { icon: 'document-text', color: '#16a34a' },
-    'excel':{ icon: 'document-text', color: '#16a34a' },
-    'csv':  { icon: 'document-text', color: '#16a34a' },
-    'jpg':  { icon: 'image', color: '#eab308' },
+    'excel': { icon: 'document-text', color: '#16a34a' },
+    'csv': { icon: 'document-text', color: '#16a34a' },
+    'jpg': { icon: 'image', color: '#eab308' },
     'jpeg': { icon: 'image', color: '#eab308' },
-    'png':  { icon: 'image', color: '#eab308' },
-    'gif':  { icon: 'image', color: '#eab308' },
-    'bmp':  { icon: 'image', color: '#eab308' },
-    'svg':  { icon: 'image', color: '#eab308' },
-    'txt':  { icon: 'document-text', color: '#6b7280' },
-    'mp4':  { icon: 'play-circle', color: '#8b5cf6' },
-    'avi':  { icon: 'play-circle', color: '#8b5cf6' },
-    'mov':  { icon: 'play-circle', color: '#8b5cf6' },
-    'mkv':  { icon: 'play-circle', color: '#8b5cf6' },
-    'mp3':  { icon: 'musical-note', color: '#06b6d4' },
-    'wav':  { icon: 'musical-note', color: '#06b6d4' },
+    'png': { icon: 'image', color: '#eab308' },
+    'gif': { icon: 'image', color: '#eab308' },
+    'bmp': { icon: 'image', color: '#eab308' },
+    'svg': { icon: 'image', color: '#eab308' },
+    'txt': { icon: 'document-text', color: '#6b7280' },
+    'mp4': { icon: 'play-circle', color: '#8b5cf6' },
+    'avi': { icon: 'play-circle', color: '#8b5cf6' },
+    'mov': { icon: 'play-circle', color: '#8b5cf6' },
+    'mkv': { icon: 'play-circle', color: '#8b5cf6' },
+    'mp3': { icon: 'musical-note', color: '#06b6d4' },
+    'wav': { icon: 'musical-note', color: '#06b6d4' },
     'flac': { icon: 'musical-note', color: '#06b6d4' },
-    'zip':  { icon: 'folder', color: '#f97316' },
-    'rar':  { icon: 'folder', color: '#f97316' },
-    '7z':   { icon: 'folder', color: '#f97316' },
+    'zip': { icon: 'folder', color: '#f97316' },
+    'rar': { icon: 'folder', color: '#f97316' },
+    '7z': { icon: 'folder', color: '#f97316' },
   };
   return iconMap[extension] || { icon: 'document-text', color: '#9ca3af' };
 };
 
 interface DocumentoItemProps {
   archivo: Archivo;
+  currentUserId?: number;
   onPress: () => void;
   onOptions: () => void;
   onDelete?: () => void;
@@ -86,9 +88,14 @@ function DescripcionModal({
   );
 }
 
-export function DocumentoItem({ archivo, onPress, onOptions, onDelete }: DocumentoItemProps) {
+export function DocumentoItem({ archivo, currentUserId, onPress, onOptions, onDelete }: DocumentoItemProps) {
   const { icon, color } = getTipoIcon(archivo.nombre);
   const [showDescripcion, setShowDescripcion] = useState(false);
+  const showUnreadBadge =
+    currentUserId !== undefined &&
+    archivo.creadorId !== currentUserId &&
+    !archivo.openedAt &&
+    isArchivoInAuditWindow(archivo.createdAt);
 
   return (
     <>
@@ -110,6 +117,7 @@ export function DocumentoItem({ archivo, onPress, onOptions, onDelete }: Documen
               {formatBytes(archivo.tamaño)} • {new Date(archivo.createdAt).toLocaleDateString()}
             </ThemedText>
           </View>
+          {showUnreadBadge && <View style={styles.unreadDot} />}
         </TouchableOpacity>
 
         {/* Botones fuera del TouchableOpacity — cada uno maneja su propio onPress */}
@@ -190,6 +198,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     marginLeft: 8,
+  },
+  unreadDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginLeft: 8,
+    backgroundColor: '#FF3B30',
   },
   actionButton: {
     padding: 8,

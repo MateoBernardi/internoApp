@@ -1,259 +1,264 @@
-import NativeDateTimePicker from '@react-native-community/datetimepicker';
-import React, { useEffect } from 'react';
-import { Platform } from 'react-native';
+import { ThemedText } from '@/components/themed-text';
+import NativeDateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import { es } from 'date-fns/locale/es'; // ← en v9 el path cambió
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import ReactDatePicker, { registerLocale } from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
+import { Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
 
-type InteractionPoint = { x: number; y: number };
-
-let listenersReady = false;
-let lastInteractionPoint: InteractionPoint | null = null;
-let lastInteractionTimestamp = 0;
-
-function rememberInteractionPoint(x: number, y: number) {
-  lastInteractionPoint = { x, y };
-  lastInteractionTimestamp = Date.now();
-}
-
-function ensureInteractionListeners() {
-  if (listenersReady || typeof document === 'undefined') return;
-
-  const handlePointerDown = (event: any) => {
-    if (typeof event?.clientX === 'number' && typeof event?.clientY === 'number') {
-      rememberInteractionPoint(event.clientX, event.clientY);
-    }
-  };
-
-  const handleClick = (event: any) => {
-    if (typeof event?.clientX === 'number' && typeof event?.clientY === 'number') {
-      rememberInteractionPoint(event.clientX, event.clientY);
-    }
-  };
-
-  document.addEventListener('pointerdown', handlePointerDown, true);
-  document.addEventListener('click', handleClick, true);
-  listenersReady = true;
-}
-
-function getFallbackAnchorPoint(): InteractionPoint {
-  if (typeof document !== 'undefined' && document.activeElement) {
-    const activeElement = document.activeElement as HTMLElement;
-    if (typeof activeElement?.getBoundingClientRect === 'function') {
-      const rect = activeElement.getBoundingClientRect();
-      if (rect.width > 0 && rect.height > 0) {
-        return {
-          x: rect.left + rect.width / 2,
-          y: rect.top + rect.height / 2,
-        };
-      }
-    }
-  }
-
-  if (typeof window !== 'undefined') {
-    return {
-      x: Math.max(window.innerWidth / 2, 0),
-      y: Math.max(window.innerHeight / 2, 0),
-    };
-  }
-
-  return { x: 0, y: 0 };
-}
-
-function getAnchorPoint(): InteractionPoint {
-  const hasRecentInteraction = Date.now() - lastInteractionTimestamp < 1500;
-  return hasRecentInteraction && lastInteractionPoint
-    ? lastInteractionPoint
-    : getFallbackAnchorPoint();
-}
-
-type PickerMode = 'date' | 'time' | 'datetime';
-
-type PickerEvent = {
-  type: 'set' | 'dismissed';
-  nativeEvent?: {
-    timestamp?: number;
-  };
-};
+registerLocale('es', es);
 
 type CrossPlatformDateTimePickerProps = {
+  visible?: boolean;
   value: Date;
-  mode?: PickerMode;
-  display?: string;
+  mode?: 'date' | 'time';
+  minimumDate?: Date;
+  maximumDate?: Date;
+  disabled?: boolean;
   is24Hour?: boolean;
+  display?: React.ComponentProps<typeof NativeDateTimePicker>['display'];
   testID?: string;
-  onChange?: (event: PickerEvent, date?: Date) => void;
+  onConfirm?: (date: Date) => void;
+  onCancel?: () => void;
+  // Backward-compatible signature while consumers are migrated.
+  onChange?: (event: DateTimePickerEvent, date?: Date) => void;
 };
 
-function toDateInputValue(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
-function toTimeInputValue(date: Date): string {
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-  return `${hours}:${minutes}`;
-}
-
-function applyDateToBase(base: Date, value: string): Date | null {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-  if (!match) return null;
-
-  const next = new Date(base);
-  next.setFullYear(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
-  next.setSeconds(0, 0);
-  return next;
-}
-
-function applyTimeToBase(base: Date, value: string): Date | null {
-  const match = /^(\d{2}):(\d{2})$/.exec(value);
-  if (!match) return null;
-
-  const next = new Date(base);
-  next.setHours(Number(match[1]), Number(match[2]), 0, 0);
-  return next;
-}
-
-function normalizeToMinute(date: Date): Date {
-  const normalized = new Date(date);
-  normalized.setSeconds(0, 0);
-  return normalized;
-}
+const timeInMinutes = (d: Date) => d.getHours() * 60 + d.getMinutes();
 
 export default function CrossPlatformDateTimePicker(props: CrossPlatformDateTimePickerProps) {
-  const { value, mode = 'date', onChange, testID, ...nativeProps } = props;
+  const {
+    visible = true,
+    value,
+    onConfirm,
+    onCancel,
+    onChange,
+    mode = 'date',
+    minimumDate,
+    maximumDate,
+    disabled,
+    is24Hour = true,
+    display,
+    testID,
+  } = props;
+
   const isWeb = Platform.OS === 'web';
+  const isIOS = Platform.OS === 'ios';
+  const shouldRender = visible && !disabled;
+  const [draftValue, setDraftValue] = useState(value);
+  const hasEmitted = useRef(false);
+
+  const safeValue = useMemo(() => {
+    return value instanceof Date && !isNaN(value.getTime())
+      ? value
+      : new Date();
+  }, [value]);
 
   useEffect(() => {
-    if (!isWeb || typeof document === 'undefined') {
-      return;
+    setDraftValue(safeValue);
+    if (visible) {
+      hasEmitted.current = false;
+    }
+  }, [visible, safeValue]);
+
+  const emitSet = (nextDate: Date) => {
+    hasEmitted.current = false;
+    const event = {
+      type: 'set',
+      nativeEvent: {
+        timestamp: nextDate.getTime(),
+        utcOffset: 0,
+      },
+    } as DateTimePickerEvent;
+    onChange?.(event, nextDate);
+    onConfirm?.(nextDate);
+  };
+
+  const emitDismiss = () => {
+    hasEmitted.current = false;
+    setDraftValue(safeValue);
+    const event = {
+      type: 'dismissed',
+      nativeEvent: {
+        timestamp: Date.now(),
+        utcOffset: 0,
+      },
+    } as DateTimePickerEvent;
+    onChange?.(event);
+    onCancel?.();
+  };
+
+  const nativeDisplay = useMemo(() => {
+    if (display) return display;
+    if (isIOS) return 'spinner';
+    return 'default';
+  }, [display, isIOS]);
+
+  if (!shouldRender) {
+    return null;
+  }
+
+  // Renderizar la versión nativa (iOS / Android)
+  if (!isWeb) {
+    if (!isIOS) {
+      return (
+        <NativeDateTimePicker
+          value={value}
+          mode={mode}
+          minimumDate={minimumDate}
+          maximumDate={maximumDate}
+          is24Hour={is24Hour}
+          display={nativeDisplay}
+          testID={testID}
+          onChange={(event, selectedDate) => {
+            if (hasEmitted.current) return;
+            if (event.type === 'dismissed' || !selectedDate) {
+              hasEmitted.current = true;
+              emitDismiss();
+              return;
+            }
+            hasEmitted.current = true;
+            emitSet(selectedDate);
+          }}
+        />
+      );
     }
 
-    ensureInteractionListeners();
-
-    const input = document.createElement('input');
-    input.setAttribute('data-testid', testID || 'webDateTimePicker');
-    input.style.position = 'fixed';
-    input.style.opacity = '0.001';
-    input.style.pointerEvents = 'auto';
-    input.style.width = '1px';
-    input.style.height = '1px';
-    input.style.border = '0';
-    input.style.padding = '0';
-    input.style.margin = '0';
-    input.style.zIndex = '2147483647';
-
-    const anchor = getAnchorPoint();
-    const left = typeof window !== 'undefined'
-      ? Math.min(Math.max(anchor.x, 0), Math.max(window.innerWidth - 1, 0))
-      : Math.max(anchor.x, 0);
-    const top = typeof window !== 'undefined'
-      ? Math.min(Math.max(anchor.y, 0), Math.max(window.innerHeight - 1, 0))
-      : Math.max(anchor.y, 0);
-
-    input.style.left = `${left}px`;
-    input.style.top = `${top}px`;
-
-    input.type = mode === 'time' ? 'time' : 'date';
-    input.value = mode === 'time' ? toTimeInputValue(value) : toDateInputValue(value);
-
-    let changed = false;
-    let finished = false;
-
-    const emitDismissed = () => {
-      if (finished) return;
-      finished = true;
-      onChange?.({ type: 'dismissed', nativeEvent: { timestamp: value.getTime() } }, undefined);
-    };
-
-    const handleChange = () => {
-      const nextDate =
-        mode === 'time'
-          ? applyTimeToBase(value, input.value)
-          : applyDateToBase(value, input.value);
-
-      if (!nextDate) {
-        emitDismissed();
-        return;
-      }
-
-      changed = true;
-      finished = true;
-      const normalizedDate = normalizeToMinute(nextDate);
-      onChange?.(
-        {
-          type: 'set',
-          nativeEvent: { timestamp: normalizedDate.getTime() },
-        },
-        normalizedDate
-      );
-    };
-
-    const handleCancel = () => {
-      if (!changed) {
-        emitDismissed();
-      }
-    };
-
-    const handleBlur = () => {
-      // Some browsers do not emit cancel for native pickers; blur is a safe fallback.
-      if (!changed) {
-        window.setTimeout(() => {
-          if (!finished) emitDismissed();
-        }, 0);
-      }
-    };
-
-    input.addEventListener('change', handleChange);
-    input.addEventListener('cancel', handleCancel as EventListener);
-    input.addEventListener('blur', handleBlur as EventListener);
-    document.body.appendChild(input);
-
-    const openPicker = () => {
-      try {
-        const inputWithShowPicker = input as HTMLInputElement & { showPicker?: () => void };
-        input.focus();
-        if (typeof inputWithShowPicker.showPicker === 'function') {
-          inputWithShowPicker.showPicker();
-        } else {
-          input.click();
-        }
-      } catch {
-        input.click();
-      }
-    };
-
-    const openTimer = window.setTimeout(openPicker, 0);
-
-    return () => {
-      window.clearTimeout(openTimer);
-      input.removeEventListener('change', handleChange);
-      input.removeEventListener('cancel', handleCancel as EventListener);
-      input.removeEventListener('blur', handleBlur as EventListener);
-      if (input.parentElement) {
-        input.parentElement.removeChild(input);
-      }
-    };
-  }, [isWeb, mode, onChange, testID, value]);
-
-  if (!isWeb) {
     return (
-      <NativeDateTimePicker
-        value={value}
-        mode={mode}
-        onChange={(event: any, selectedDate?: Date) => {
-          if (!selectedDate) {
-            onChange?.(event, selectedDate);
-            return;
-          }
+      <View style={styles.container}>
+        <NativeDateTimePicker
+          value={draftValue}
+          mode={mode}
+          minimumDate={minimumDate}
+          maximumDate={maximumDate}
+          is24Hour={is24Hour}
+          display={nativeDisplay}
+          testID={testID}
+          onChange={(event, selectedDate) => {
+            if (event.type === 'dismissed') {
+              emitDismiss();
+              return;
+            }
+            if (selectedDate) {
+              setDraftValue(selectedDate);
+            }
+          }}
+        />
 
-          onChange?.(event, normalizeToMinute(selectedDate));
-        }}
-        testID={testID}
-        {...(nativeProps as any)}
-      />
+        <View style={styles.actionsRow}>
+          <TouchableOpacity onPress={emitDismiss}>
+            <ThemedText style={styles.actionText}>Cancelar</ThemedText>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => {
+            if (minimumDate && draftValue < minimumDate) return;
+            if (maximumDate && draftValue > maximumDate) return;
+            emitSet(draftValue);
+          }}>
+            <ThemedText style={[styles.actionText, styles.actionConfirm]}>OK</ThemedText>
+          </TouchableOpacity>
+        </View>
+      </View>
     );
   }
 
-  return null;
+  if (mode === 'time') {
+    return (
+      <View style={styles.webOverlay}>
+        <View style={styles.webContainer}>
+          <ReactDatePicker
+            wrapperClassName="cp-picker-wrap"
+            calendarClassName="cp-picker-calendar"
+            selected={draftValue}
+            onChange={(date: Date | null) => date && setDraftValue(date)}
+            showTimeSelect
+            showTimeSelectOnly
+            timeIntervals={15}
+            timeCaption="Hora"
+            dateFormat="HH:mm"
+            timeFormat="HH:mm"
+            minTime={minimumDate}
+            maxTime={maximumDate}
+            locale="es"
+            inline
+          />
+          <View style={styles.actionsRow}>
+            <TouchableOpacity onPress={emitDismiss}>
+              <ThemedText style={styles.actionText}>Cancelar</ThemedText>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => {
+              if (minimumDate && timeInMinutes(draftValue) < timeInMinutes(minimumDate)) return;
+              if (maximumDate && timeInMinutes(draftValue) > timeInMinutes(maximumDate)) return;
+              emitSet(draftValue);
+            }}>
+              <ThemedText style={[styles.actionText, styles.actionConfirm]}>OK</ThemedText>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
+  // Por defecto, renderiza modo 'date'
+  return (
+    <View style={styles.webOverlay}>
+      <View style={styles.webContainer}>
+        <ReactDatePicker
+          wrapperClassName="cp-picker-wrap"
+          calendarClassName="cp-picker-calendar"
+          selected={draftValue}
+          onChange={(date: Date | null) => date && setDraftValue(date)}
+          minDate={minimumDate}
+          maxDate={maximumDate}
+          locale="es"
+          inline
+        />
+        <View style={styles.actionsRow}>
+          <TouchableOpacity onPress={emitDismiss}>
+            <ThemedText style={styles.actionText}>Cancelar</ThemedText>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => emitSet(draftValue)}>
+            <ThemedText style={[styles.actionText, styles.actionConfirm]}>OK</ThemedText>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    paddingHorizontal: 8,
+    paddingBottom: 8,
+    backgroundColor: 'transparent',
+  },
+  actionsRow: {
+    marginTop: 8,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    columnGap: 16,
+  },
+  actionText: {
+    fontSize: 14,
+  },
+  actionConfirm: {
+    fontWeight: '700',
+  },
+  webContainer: {
+    alignSelf: 'center',
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#d9dce3',
+    borderRadius: 14,
+    padding: 10,
+    gap: 8,
+    width: 340,
+    maxWidth: '92%',
+  },
+  webOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 999,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+  },
+});

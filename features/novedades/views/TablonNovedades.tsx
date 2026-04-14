@@ -11,7 +11,7 @@ import type { Novedad } from '../models/Novedades';
 import { useNovedad } from '../viewmodels/useNovedad';
 
 // Roles que tienen permiso para crear, editar y eliminar novedades
-const supervisorRoles = ['gerencia', 'personasRelaciones', 'encargado', 'presidencia'];
+const supervisorRoles = ['gerencia', 'personasRelaciones', 'encargado', 'presidencia', 'sistemas'];
 
 interface NovedadView extends Novedad {
   categoria: string;
@@ -200,10 +200,10 @@ export default function TablonNovedades({ refreshTrigger, enabled = true }: Tabl
           prev.map((n) =>
             n.id === selectedNovedad.id
               ? {
-                  ...result.data!,
-                  categoria: getTipoString(result.data!.id_etiqueta || 1),
-                  fecha: formatFecha(result.data!.createdAt),
-                }
+                ...result.data!,
+                categoria: getTipoString(result.data!.id_etiqueta || 1),
+                fecha: formatFecha(result.data!.createdAt),
+              }
               : n
           )
         );

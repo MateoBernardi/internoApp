@@ -65,37 +65,37 @@ function RootNavigator() {
     [router]
   );
   const handleNotificationOpen = useCallback((rawPayload: unknown) => {
-      const payload = (rawPayload ?? {}) as Record<string, unknown>;
-      const dynamicUrl = payload.url ?? payload.link ?? payload.path ?? payload.deepLink;
+    const payload = (rawPayload ?? {}) as Record<string, unknown>;
+    const dynamicUrl = payload.url ?? payload.link ?? payload.path ?? payload.deepLink;
 
-      if (navigateFromNotificationUrl(dynamicUrl)) {
-        return;
-      }
+    if (navigateFromNotificationUrl(dynamicUrl)) {
+      return;
+    }
 
-      const eventType = String(payload.event ?? payload.type ?? '').toLowerCase();
-      const solicitudId = Number(payload.solicitud_id ?? payload.solicitudId ?? payload.request_id ?? payload.requestId);
-      const actividadId = Number(payload.actividad_id ?? payload.actividadId);
+    const eventType = String(payload.event ?? payload.type ?? '').toLowerCase();
+    const solicitudId = Number(payload.solicitud_id ?? payload.solicitudId ?? payload.request_id ?? payload.requestId);
+    const actividadId = Number(payload.actividad_id ?? payload.actividadId);
 
-      if (eventType !== 'estado_actualizado' && eventType !== 'status_changed') {
-        return;
-      }
+    if (eventType !== 'estado_actualizado' && eventType !== 'status_changed') {
+      return;
+    }
 
-      if (Number.isFinite(actividadId) && actividadId > 0) {
-        router.push({
-          pathname: '/(extras)/actividad-detalle' as any,
-          params: { id: actividadId.toString(), actividadId: actividadId.toString() },
-        });
-        return;
-      }
+    if (Number.isFinite(actividadId) && actividadId > 0) {
+      router.push({
+        pathname: '/(extras)/actividad-detalle' as any,
+        params: { id: actividadId.toString(), actividadId: actividadId.toString() },
+      });
+      return;
+    }
 
-      if (Number.isFinite(solicitudId) && solicitudId > 0) {
-        const esCreador = Boolean(payload.es_creador ?? payload.is_creator ?? payload.creator);
-        router.push({
-          pathname: '/(extras)/solicitud' as any,
-          params: { id: solicitudId.toString(), type: esCreador ? 'enviada' : 'recibida' },
-        });
-      }
-    },
+    if (Number.isFinite(solicitudId) && solicitudId > 0) {
+      const esCreador = Boolean(payload.es_creador ?? payload.is_creator ?? payload.creator);
+      router.push({
+        pathname: '/(extras)/solicitud' as any,
+        params: { id: solicitudId.toString(), type: esCreador ? 'enviada' : 'recibida' },
+      });
+    }
+  },
     [navigateFromNotificationUrl, router]
   );
   // Obtiene el push token, registra el dispositivo y sincroniza cache de queries por eventos push.

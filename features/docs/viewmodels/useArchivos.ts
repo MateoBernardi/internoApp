@@ -14,6 +14,7 @@ export const ARCHIVOS_KEYS = {
     search: (query: string) => [...ARCHIVOS_KEYS.all, 'search', query] as const,
     detail: (id: number) => [...ARCHIVOS_KEYS.all, 'detail', id] as const,
     url: (id: number) => [...ARCHIVOS_KEYS.all, 'url', id] as const,
+    viewers: (id: number) => [...ARCHIVOS_KEYS.all, 'viewers', id] as const,
     carpetaPermisos: (id: number) => [...ARCHIVOS_KEYS.all, 'carpeta', id, 'permisos'] as const,
     archivoPermisos: (id: number) => [...ARCHIVOS_KEYS.all, 'archivo', id, 'permisos'] as const,
     carpetas: (view: CarpetaView = 'tree', includeSinCarpeta = true) =>
@@ -22,13 +23,13 @@ export const ARCHIVOS_KEYS = {
 
 export function useArchivos() {
     const { tokens } = useAuth();
-    
+
     return useQuery({
         queryKey: ARCHIVOS_KEYS.lists(),
         queryFn: async () => {
-             const token = tokens?.accessToken;
-             if (!token) throw new Error("No authentification token found");
-             return archivosApi.fetchArchivos(token);
+            const token = tokens?.accessToken;
+            if (!token) throw new Error("No authentification token found");
+            return archivosApi.fetchArchivos(token);
         },
         enabled: !!tokens?.accessToken
     });
@@ -43,7 +44,7 @@ export function useSearchArchivos(query: string) {
             if (!query || query.trim().length === 0) return [];
             const token = tokens?.accessToken;
             if (!token) throw new Error("No authentification token found");
-            
+
             const trimmedQuery = query.trim();
             const promises = [
                 archivosApi.searchArchivosByNombre(token, trimmedQuery).catch((err) => {
@@ -57,17 +58,17 @@ export function useSearchArchivos(query: string) {
                     })
                     : Promise.resolve([] as Archivo[])
             ];
-            
+
             const [resultadosNombre, resultadosPersona] = await Promise.all(promises);
             const resultadosCombinados = [...resultadosNombre, ...resultadosPersona];
-            
+
             const resultadosUnicos = resultadosCombinados.reduce((acc: Archivo[], actual) => {
                 if (!acc.find(item => item.id === actual.id)) {
                     acc.push(actual);
                 }
                 return acc;
             }, []);
-            
+
             return resultadosUnicos;
         },
         enabled: query.trim().length > 0 && !!tokens?.accessToken
@@ -80,9 +81,9 @@ export function useArchivosPersonales() {
     return useQuery({
         queryKey: ARCHIVOS_KEYS.personales(),
         queryFn: async () => {
-             const token = tokens?.accessToken;
-             if (!token) throw new Error("No authentification token found");
-             return archivosApi.getArchivosPersonales(token);
+            const token = tokens?.accessToken;
+            if (!token) throw new Error("No authentification token found");
+            return archivosApi.getArchivosPersonales(token);
         },
         enabled: !!tokens?.accessToken
     });
@@ -91,12 +92,12 @@ export function useArchivosPersonales() {
 export function useArchivosUsuario(idUsuario: number) {
     const { tokens } = useAuth();
 
-     return useQuery({
+    return useQuery({
         queryKey: ARCHIVOS_KEYS.usuario(idUsuario),
         queryFn: async () => {
-             const token = tokens?.accessToken;
-             if (!token) throw new Error("No authentification token found");
-             return archivosApi.getArchivosByIdUsuario(token, idUsuario);
+            const token = tokens?.accessToken;
+            if (!token) throw new Error("No authentification token found");
+            return archivosApi.getArchivosByIdUsuario(token, idUsuario);
         },
         enabled: !!idUsuario && !!tokens?.accessToken
     });
@@ -105,7 +106,7 @@ export function useArchivosUsuario(idUsuario: number) {
 export function useUpdateArchivo() {
     const { tokens } = useAuth();
     const queryClient = useQueryClient();
-    
+
     return useMutation({
         mutationFn: async ({ id, data }: { id: number; data: UpdateArchivoPayload }) => {
             const token = tokens?.accessToken;
@@ -113,7 +114,7 @@ export function useUpdateArchivo() {
             return archivosApi.updateArchivo(token, id, data);
         },
         onSuccess: () => {
-             queryClient.invalidateQueries({ queryKey: ARCHIVOS_KEYS.all });
+            queryClient.invalidateQueries({ queryKey: ARCHIVOS_KEYS.all });
         }
     });
 }
@@ -121,7 +122,7 @@ export function useUpdateArchivo() {
 export function useDeleteArchivo() {
     const { tokens } = useAuth();
     const queryClient = useQueryClient();
-    
+
     return useMutation({
         mutationFn: async (id: number) => {
             const token = tokens?.accessToken;
@@ -137,14 +138,14 @@ export function useDeleteArchivo() {
 export function useUploadArchivo() {
     const { tokens } = useAuth();
     const queryClient = useQueryClient();
-    
+
     return useMutation({
         mutationFn: async ({ archivo, data }: { archivo: MobileFile; data: UploadArchivoPayload }) => {
-             const token = tokens?.accessToken;
-             if (!token) throw new Error("No authentification token found");
-             return archivosApi.uploadArchivo(token, archivo, data);
+            const token = tokens?.accessToken;
+            if (!token) throw new Error("No authentification token found");
+            return archivosApi.uploadArchivo(token, archivo, data);
         },
-         onSuccess: () => {
+        onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ARCHIVOS_KEYS.all });
         }
     });
@@ -230,14 +231,14 @@ export function useMoverArchivo() {
 
 export function useArchivoUrl(id?: number) {
     const { tokens } = useAuth();
-    
+
     return useQuery({
         queryKey: id ? ARCHIVOS_KEYS.url(id) : ['url', 'null'],
-         queryFn: async () => {
+        queryFn: async () => {
             if (!id) return null;
-             const token = tokens?.accessToken;
-             if (!token) throw new Error("No authentification token found");
-             return archivosApi.getArchivoUrlFirmada(token, id);
+            const token = tokens?.accessToken;
+            if (!token) throw new Error("No authentification token found");
+            return archivosApi.getArchivoUrlFirmada(token, id);
         },
         enabled: !!id && !!tokens?.accessToken,
         staleTime: 1000 * 60 * 5, // URL signed might be valid for some time, e.g. 5 minutes
@@ -254,7 +255,22 @@ export function useGetArchivoUrlFirmada() {
     };
 
     return { getArchivoUrlFirmada };
-}   
+}
+
+export function useArchivoViewers(idArchivo?: number | null) {
+    const { tokens } = useAuth();
+
+    return useQuery({
+        queryKey: idArchivo ? ARCHIVOS_KEYS.viewers(idArchivo) : ['archivos', 'viewers', 'null'],
+        queryFn: async () => {
+            if (!idArchivo) return [];
+            const token = tokens?.accessToken;
+            if (!token) throw new Error('No authentification token found');
+            return archivosApi.getArchivoViewers(token, idArchivo);
+        },
+        enabled: !!idArchivo && !!tokens?.accessToken,
+    });
+}
 
 export function useCarpetaPermisos(id?: number) {
     const { tokens } = useAuth();
@@ -315,4 +331,3 @@ export function useRemoveCarpetaPermisos() {
         },
     });
 }
- 

@@ -77,7 +77,7 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
     [isConsejo]
   );
   const rolesForSelectorWithAll = useMemo(
-    () => [{ label: 'Todos', value: '*' }, ...rolesForSelector],
+    () => [{ label: 'Seleccionar todos', value: '*' }, ...rolesForSelector],
     [rolesForSelector]
   );
 

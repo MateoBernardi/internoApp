@@ -148,22 +148,18 @@ export function CrearSolicitudesLicencias() {
     }, [tipoLicenciaId, dateErrorMessage, effectiveMode, cantidadDias, horas, selectedTipo, saldoDisponible, isPending, isAdjuntando]);
 
     // --- Handlers Fecha ---
-    const onDateChange = useCallback((event: any, selectedDate?: Date) => {
-        if (Platform.OS !== 'ios') setShowDatePicker(false);
-        if (event.type === 'dismissed') return;
-        if (selectedDate) {
-            setFechaInicio(normalizeToMinute(selectedDate));
-        }
+    const onDateConfirm = useCallback((selectedDate: Date) => {
+        setFechaInicio(normalizeToMinute(selectedDate));
+        setShowDatePicker(false);
+        setShowTimePicker(false);
     }, []);
 
-    const onTimeChange = useCallback((event: any, selectedTime?: Date) => {
-        if (Platform.OS !== 'ios') setShowTimePicker(false);
-        if (event.type === 'dismissed') return;
-        if (selectedTime) {
-            const updated = new Date(fechaInicio ?? new Date());
-            updated.setHours(selectedTime.getHours(), selectedTime.getMinutes(), 0, 0);
-            setFechaInicio(normalizeToMinute(updated));
-        }
+    const onTimeConfirm = useCallback((selectedTime: Date) => {
+        const updated = new Date(fechaInicio ?? new Date());
+        updated.setHours(selectedTime.getHours(), selectedTime.getMinutes(), 0, 0);
+        setFechaInicio(normalizeToMinute(updated));
+        setShowDatePicker(false);
+        setShowTimePicker(false);
     }, [fechaInicio]);
 
     // --- Handlers Stepper ---
@@ -358,7 +354,10 @@ export function CrearSolicitudesLicencias() {
                             <ThemedText style={styles.sectionLabel}>Fecha de Inicio</ThemedText>
                         </View>
 
-                        <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.datePickerRow}>
+                        <TouchableOpacity onPress={() => {
+                            setShowTimePicker(false);
+                            setShowDatePicker(true);
+                        }} style={styles.datePickerRow}>
                             <ThemedText style={styles.dateLabel}>Día</ThemedText>
                             <ThemedText style={styles.dateValue}>
                                 {fechaInicio
@@ -367,7 +366,10 @@ export function CrearSolicitudesLicencias() {
                             </ThemedText>
                         </TouchableOpacity>
 
-                        <TouchableOpacity onPress={() => setShowTimePicker(true)} style={styles.datePickerRow}>
+                        <TouchableOpacity onPress={() => {
+                            setShowDatePicker(false);
+                            setShowTimePicker(true);
+                        }} style={styles.datePickerRow}>
                             <ThemedText style={styles.dateLabel}>Hora</ThemedText>
                             <ThemedText style={styles.dateValue}>
                                 {fechaInicio
@@ -591,20 +593,28 @@ export function CrearSolicitudesLicencias() {
 
                 {showDatePicker && (
                     <DateTimePicker
+                        visible={showDatePicker}
                         value={fechaInicio ?? normalizeToMinute(new Date())}
                         mode="date"
-                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                        onChange={onDateChange}
+                        onConfirm={onDateConfirm}
+                        onCancel={() => {
+                            setShowDatePicker(false);
+                            setShowTimePicker(false);
+                        }}
                     />
                 )}
 
                 {showTimePicker && (
                     <DateTimePicker
+                        visible={showTimePicker}
                         value={fechaInicio ?? normalizeToMinute(new Date())}
                         mode="time"
                         is24Hour={true}
-                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                        onChange={onTimeChange}
+                        onConfirm={onTimeConfirm}
+                        onCancel={() => {
+                            setShowDatePicker(false);
+                            setShowTimePicker(false);
+                        }}
                     />
                 )}
 

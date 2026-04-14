@@ -237,9 +237,7 @@ export function Solicitud() {
   useEffect(() => {
     if (!solicitud) return;
 
-    const shouldMarkSeen =
-      (type === 'recibida' && ['SENT', 'MODIFIED_BY_HOST', 'ACCEPTED_BY_HOST'].includes(solicitud.estado))
-      || (type === 'enviada' && solicitud.estado === 'MODIFIED');
+    const shouldMarkSeen = (type === 'recibida' && ['SENT', 'MODIFIED_BY_HOST', 'ACCEPTED_BY_HOST'].includes(solicitud.estado));
 
     if (!shouldMarkSeen) {
       seenAutoMarkKeyRef.current = null;
@@ -483,26 +481,25 @@ export function Solicitud() {
     );
   }, [canSubmitModificar, hasDateChanges, solicitudId, solicitud, user, validacion, ejecutarModificar, modStartDate, modEndDate]);
 
-  const onDateChange = (event: any, selectedDate?: Date) => {
+  const onDateCancel = () => {
+    setShowDatePicker(prev => ({ ...prev, show: false }));
+  };
+
+  const onDateConfirm = (selectedDate: Date) => {
     const currentTarget = showDatePicker.target;
-    setShowDatePicker(prev => ({ ...prev, show: Platform.OS === 'ios' })); // En Android se cierra
 
-    if (selectedDate && event.type !== 'dismissed') {
-      const normalizedSelectedDate = selectedDate;
-      if (currentTarget === 'start') {
-        setModStartDate(normalizedSelectedDate);
-        // Validar fin
-        if (modEndDate && normalizedSelectedDate > modEndDate) {
-          setModEndDate(new Date(normalizedSelectedDate.getTime() + 3600000));
-        }
-      } else {
-        setModEndDate(normalizedSelectedDate);
+    const normalizedSelectedDate = selectedDate;
+    if (currentTarget === 'start') {
+      setModStartDate(normalizedSelectedDate);
+      // Validar fin
+      if (modEndDate && normalizedSelectedDate > modEndDate) {
+        setModEndDate(new Date(normalizedSelectedDate.getTime() + 3600000));
       }
+    } else {
+      setModEndDate(normalizedSelectedDate);
     }
 
-    if (Platform.OS === 'android') {
-      setShowDatePicker(prev => ({ ...prev, show: false }));
-    }
+    setShowDatePicker(prev => ({ ...prev, show: false }));
   };
 
   const showPicker = (mode: 'date' | 'time', target: 'start' | 'end') => {
@@ -547,22 +544,24 @@ export function Solicitud() {
     setShowAddToAgendaModal(true);
   }, [solicitud]);
 
-  const onAgendaDateChange = (event: any, selectedDate?: Date) => {
+  const onAgendaDateCancel = () => {
+    setShowAgendaDatePicker(prev => ({ ...prev, show: false }));
+  };
+
+  const onAgendaDateConfirm = (selectedDate: Date) => {
     const currentTarget = showAgendaDatePicker.target;
-    if (Platform.OS === 'android') {
-      setShowAgendaDatePicker(prev => ({ ...prev, show: false }));
-    }
-    if (selectedDate && event.type !== 'dismissed') {
-      const normalizedSelectedDate = selectedDate;
-      if (currentTarget === 'start') {
-        setAgendaFechaInicio(normalizedSelectedDate);
-        if (normalizedSelectedDate >= agendaFechaFin) {
-          setAgendaFechaFin(new Date(normalizedSelectedDate.getTime() + 3600000));
-        }
-      } else {
-        setAgendaFechaFin(normalizedSelectedDate);
+
+    const normalizedSelectedDate = selectedDate;
+    if (currentTarget === 'start') {
+      setAgendaFechaInicio(normalizedSelectedDate);
+      if (normalizedSelectedDate >= agendaFechaFin) {
+        setAgendaFechaFin(new Date(normalizedSelectedDate.getTime() + 3600000));
       }
+    } else {
+      setAgendaFechaFin(normalizedSelectedDate);
     }
+
+    setShowAgendaDatePicker(prev => ({ ...prev, show: false }));
   };
 
   const agendaStartDate = useMemo(() => agendaFechaInicio, [agendaFechaInicio]);
@@ -907,7 +906,7 @@ export function Solicitud() {
           <View style={styles.minimizedModifyDraftContainer}>
             <TouchableOpacity style={styles.minimizedModifyDraftMain} onPress={restoreModifyModal}>
               <Ionicons name="chevron-up" size={18} color={colors.lightTint} />
-              <ThemedText style={styles.minimizedModifyDraftText}>Borrador de modificación</ThemedText>
+              <ThemedText style={styles.minimizedModifyDraftText}>Editar</ThemedText>
             </TouchableOpacity>
             <TouchableOpacity style={styles.minimizedModifyDraftClose} onPress={resetModifyDraft}>
               <Ionicons name="close" size={16} color={colors.secondaryText} />
@@ -982,7 +981,7 @@ export function Solicitud() {
 
         {/* Menu Button */}
         {canOpenMenu && (
-          <AppFab icon={menuOpen ? 'close' : 'ellipsis-horizontal'} floating={false} backgroundColor={colors.icon} onPress={() => setMenuOpen(!menuOpen)} />
+          <AppFab icon="ellipsis-horizontal" floating={false} backgroundColor={colors.icon} onPress={() => setMenuOpen(!menuOpen)} />
         )}
       </View>
 
@@ -1079,7 +1078,10 @@ export function Solicitud() {
             <View style={styles.dateSection}>
               <ThemedText style={styles.label}>Nueva Fecha Inicio</ThemedText>
               <View style={styles.row}>
-                <TouchableOpacity onPress={() => showPicker('date', 'start')} style={styles.dateBtn}>
+                <TouchableOpacity
+                  onPress={() => showPicker('date', 'start')}
+                  style={styles.dateBtn}
+                >
                   <ThemedText>{modStartDate ? formatDateDDMMYYYY(modStartDate) : 'Día'}</ThemedText>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => showPicker('time', 'start')} style={styles.dateBtn}>
@@ -1089,7 +1091,10 @@ export function Solicitud() {
 
               <ThemedText style={styles.label}>Nueva Fecha Fin</ThemedText>
               <View style={styles.row}>
-                <TouchableOpacity onPress={() => showPicker('date', 'end')} style={styles.dateBtn}>
+                <TouchableOpacity
+                  onPress={() => showPicker('date', 'end')}
+                  style={styles.dateBtn}
+                >
                   <ThemedText>{modEndDate ? formatDateDDMMYYYY(modEndDate) : 'Día'}</ThemedText>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => showPicker('time', 'end')} style={styles.dateBtn}>
@@ -1129,12 +1134,13 @@ export function Solicitud() {
 
           {showDatePicker.show && (
             <DateTimePicker
+              visible={showDatePicker.show}
               testID="dateTimePicker"
               value={modPickerValue}
               mode={showDatePicker.mode}
               is24Hour={true}
-              display="default"
-              onChange={onDateChange}
+              onConfirm={onDateConfirm}
+              onCancel={onDateCancel}
             />
           )}
         </View>
@@ -1200,7 +1206,10 @@ export function Solicitud() {
 
                   <ThemedText style={styles.label}>Fecha de inicio</ThemedText>
                   <View style={styles.row}>
-                    <TouchableOpacity onPress={() => setShowAgendaDatePicker({ show: true, mode: 'date', target: 'start' })} style={styles.dateBtn}>
+                    <TouchableOpacity
+                      onPress={() => setShowAgendaDatePicker({ show: true, mode: 'date', target: 'start' })}
+                      style={styles.dateBtn}
+                    >
                       <ThemedText>{formatDateDDMMYYYY(agendaFechaInicio)}</ThemedText>
                     </TouchableOpacity>
                     <TouchableOpacity onPress={() => setShowAgendaDatePicker({ show: true, mode: 'time', target: 'start' })} style={styles.dateBtn}>
@@ -1210,7 +1219,10 @@ export function Solicitud() {
 
                   <ThemedText style={styles.label}>Fecha de fin</ThemedText>
                   <View style={styles.row}>
-                    <TouchableOpacity onPress={() => setShowAgendaDatePicker({ show: true, mode: 'date', target: 'end' })} style={styles.dateBtn}>
+                    <TouchableOpacity
+                      onPress={() => setShowAgendaDatePicker({ show: true, mode: 'date', target: 'end' })}
+                      style={styles.dateBtn}
+                    >
                       <ThemedText>{formatDateDDMMYYYY(agendaFechaFin)}</ThemedText>
                     </TouchableOpacity>
                     <TouchableOpacity onPress={() => setShowAgendaDatePicker({ show: true, mode: 'time', target: 'end' })} style={styles.dateBtn}>
@@ -1245,12 +1257,13 @@ export function Solicitud() {
           </TouchableWithoutFeedback>
           {showAgendaDatePicker.show && (
             <DateTimePicker
+              visible={showAgendaDatePicker.show}
               testID="agendaDateTimePicker"
               value={showAgendaDatePicker.target === 'start' ? agendaFechaInicio : agendaFechaFin}
               mode={showAgendaDatePicker.mode}
               is24Hour={true}
-              display="default"
-              onChange={onAgendaDateChange}
+              onConfirm={onAgendaDateConfirm}
+              onCancel={onAgendaDateCancel}
             />
           )}
         </KeyboardAvoidingView>
@@ -1500,32 +1513,32 @@ const styles = StyleSheet.create({
   },
   minimizedModifyDraftContainer: {
     position: 'absolute',
-    right: 8,
-    bottom: 72,
+    right: 80,
+    bottom: 10,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#ffffff',
     borderWidth: 1,
     borderColor: colors.neutralBorder,
-    borderRadius: UI.radius.md,
-    paddingLeft: UI.spacing.sm,
-    paddingRight: UI.spacing.xs,
-    paddingVertical: UI.spacing.xs,
-    shadowColor: UI.shadow.color,
-    shadowOffset: UI.shadow.offset,
-    shadowOpacity: UI.shadow.opacity,
-    shadowRadius: UI.shadow.radius,
-    elevation: UI.shadow.elevation,
+    borderRadius: 12,
+    paddingLeft: 10,
+    paddingRight: 6,
+    paddingVertical: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
   },
   minimizedModifyDraftMain: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingRight: UI.spacing.xs,
+    paddingRight: 6,
   },
   minimizedModifyDraftText: {
     marginLeft: 6,
     color: colors.text,
-    fontSize: UI.fontSize.sm,
+    fontSize: 12,
     fontWeight: '600',
   },
   minimizedModifyDraftClose: {

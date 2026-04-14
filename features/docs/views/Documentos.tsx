@@ -3,19 +3,21 @@ import { ThemedView } from '@/components/themed-view';
 import { CreateButton } from '@/components/ui/CreateButton';
 import { SearchBar } from '@/components/ui/SearchBar';
 import { Colors } from '@/constants/theme';
+import { useAuth } from '@/features/auth/context/AuthContext';
 import { confirmAction } from '@/shared/ui/confirmAction';
 import { showGlobalToast } from '@/shared/ui/toast';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Modal, Platform, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, BackHandler, KeyboardAvoidingView, Modal, Platform, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CrearDocumento } from '../components/CrearDocumento';
 import { DocumentOptionAction, DocumentOptionsModal } from '../components/DocumentOptionsModal';
 import { EditCarpetaModal } from '../components/EditCarpetaModal';
 import { Carpeta, UpdateCarpetaPayload } from '../models/Carpeta';
+import { isArchivoInAuditWindow } from '../utils/auditWindow';
 import { formatPartialWarnings } from '../utils/partialWarnings';
-import { useCarpetas, useCreateCarpeta, useDeleteCarpeta, useSearchArchivos, useUpdateCarpeta } from '../viewmodels/useArchivos';
+import { useArchivos, useArchivosPersonales, useCarpetas, useCreateCarpeta, useDeleteCarpeta, useSearchArchivos, useUpdateCarpeta } from '../viewmodels/useArchivos';
 import DocumentosEmpresa from './DocumentosEmpresa';
 import MisDocumentos from './MisDocumentos';
 
@@ -24,10 +26,14 @@ const colors = Colors['light'];
 type TabType = 'empresa' | 'mios';
 
 export default function Documentos() {
+  const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const canCreate = true;
   const canSeeMisDocumentos = true;
+  const currentUserId = user?.user_context_id;
   const { data: carpetasData } = useCarpetas('list', true);
+  const { data: empresaFiles = [] } = useArchivos();
+  const { data: personalFiles = [] } = useArchivosPersonales();
   const createCarpeta = useCreateCarpeta();
   const updateCarpeta = useUpdateCarpeta();
   const deleteCarpeta = useDeleteCarpeta();
@@ -44,6 +50,30 @@ export default function Documentos() {
   const [folderEditPartialWarning, setFolderEditPartialWarning] = useState<string | null>(null);
   const [folderDeleteConflictMessage, setFolderDeleteConflictMessage] = useState<string | null>(null);
   const [fabMenuVisible, setFabMenuVisible] = useState(false);
+
+  const navigateToFolder = (
+    nextFolderId: number | null,
+    options: { syncHistory?: boolean; replaceHistory?: boolean } = {}
+  ) => {
+    const { syncHistory = true, replaceHistory = false } = options;
+    setCurrentFolderId(nextFolderId);
+
+    if (Platform.OS !== 'web' || !syncHistory || typeof window === 'undefined') {
+      return;
+    }
+
+    const currentState = (window.history.state && typeof window.history.state === 'object')
+      ? window.history.state
+      : {};
+    const nextState = { ...currentState, docsFolderNavigation: true, folderId: nextFolderId };
+
+    if (replaceHistory) {
+      window.history.replaceState(nextState, '');
+      return;
+    }
+
+    window.history.pushState(nextState, '');
+  };
 
   useEffect(() => {
     if (!canSeeMisDocumentos && tab === 'mios') {
@@ -65,6 +95,76 @@ export default function Documentos() {
     }
     return map;
   }, [folders]);
+
+  const activeFiles = useMemo(
+    () => (tab === 'mios' ? personalFiles : empresaFiles),
+    [empresaFiles, personalFiles, tab]
+  );
+
+  const foldersWithUnreadFiles = useMemo(() => {
+    const unreadFolders = new Set<number>();
+    if (!currentUserId) return unreadFolders;
+
+    for (const file of activeFiles) {
+      const fileFolderId = file.id_carpeta ?? null;
+      const isUnread = !file.openedAt;
+      if (!fileFolderId || !isUnread || file.creadorId === currentUserId || !isArchivoInAuditWindow(file.createdAt)) {
+        continue;
+      }
+
+      let cursor: number | null = fileFolderId;
+      while (cursor !== null) {
+        unreadFolders.add(cursor);
+        cursor = foldersById.get(cursor)?.id_carpeta_padre ?? null;
+      }
+    }
+
+    return unreadFolders;
+  }, [activeFiles, currentUserId, foldersById]);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') {
+      return;
+    }
+
+    const state = (window.history.state && typeof window.history.state === 'object')
+      ? window.history.state
+      : {};
+
+    if (!state.docsFolderNavigation) {
+      window.history.replaceState({ ...state, docsFolderNavigation: true, folderId: null }, '');
+    }
+
+    const onPopState = (event: PopStateEvent) => {
+      const nextState = (event.state && typeof event.state === 'object') ? event.state : null;
+
+      if (nextState?.docsFolderNavigation) {
+        const folderId = Number.isInteger(nextState.folderId) ? nextState.folderId : null;
+        setCurrentFolderId(folderId);
+      }
+    };
+
+    window.addEventListener('popstate', onPopState);
+
+    return () => {
+      window.removeEventListener('popstate', onPopState);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (currentFolderId === null || Platform.OS === 'web') {
+      return;
+    }
+
+    const onHardwareBackPress = () => {
+      const parentId = foldersById.get(currentFolderId)?.id_carpeta_padre ?? null;
+      setCurrentFolderId(parentId);
+      return true;
+    };
+
+    const subscription = BackHandler.addEventListener('hardwareBackPress', onHardwareBackPress);
+    return () => subscription.remove();
+  }, [currentFolderId, foldersById]);
 
   const childFolders = useMemo(
     () => folders.filter((folder) => (folder.id_carpeta_padre ?? null) === currentFolderId),
@@ -90,13 +190,13 @@ export default function Documentos() {
   const folderHeader = !isSearchingWithResults ? (
     <View style={styles.folderSection}>
       <View style={styles.breadcrumbRow}>
-        <TouchableOpacity style={styles.homeButton} onPress={() => setCurrentFolderId(null)}>
+        <TouchableOpacity style={styles.homeButton} onPress={() => navigateToFolder(null)}>
           <Ionicons name="home-outline" size={14} color={colors.tint} />
         </TouchableOpacity>
         {breadcrumbs.map((item) => (
           <View key={item.id} style={styles.breadcrumbItem}>
             <Ionicons name="chevron-forward" size={14} color={colors.secondaryText} />
-            <TouchableOpacity onPress={() => item.id !== null && setCurrentFolderId(item.id)}>
+            <TouchableOpacity onPress={() => item.id !== null && navigateToFolder(item.id)}>
               <ThemedText numberOfLines={1} style={styles.breadcrumbText}>{item.nombre}</ThemedText>
             </TouchableOpacity>
           </View>
@@ -108,12 +208,13 @@ export default function Documentos() {
           <View key={folder.id} style={styles.folderRowItem}>
             <TouchableOpacity
               style={styles.folderRowMain}
-              onPress={() => folder.id !== null && setCurrentFolderId(folder.id)}
+              onPress={() => folder.id !== null && navigateToFolder(folder.id)}
               onLongPress={() => openFolderOptions(folder)}
             >
               <View style={styles.folderRowLeft}>
                 <Ionicons name="folder-outline" size={18} color={colors.tint} />
                 <ThemedText style={styles.folderRowText}>{folder.nombre}</ThemedText>
+                {folder.id !== null && foldersWithUnreadFiles.has(folder.id) && <View style={styles.unreadDot} />}
               </View>
               <Ionicons name="chevron-forward" size={16} color={colors.secondaryText} />
             </TouchableOpacity>
@@ -178,7 +279,7 @@ export default function Documentos() {
     deleteCarpeta.mutate(folder.id as number, {
       onSuccess: () => {
         if (currentFolderId === folder.id) {
-          setCurrentFolderId(folder.id_carpeta_padre ?? null);
+          navigateToFolder(folder.id_carpeta_padre ?? null, { replaceHistory: true });
         }
         Alert.alert('Carpeta eliminada', 'Se elimino la carpeta y su contenido asociado');
       },
@@ -565,6 +666,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     flex: 1,
+  },
+  unreadDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#FF3B30',
   },
   folderOptionsButton: {
     width: 34,

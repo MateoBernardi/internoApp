@@ -39,10 +39,10 @@ export const CrearEncuesta: React.FC<CrearEncuestaProps> = ({ onEncuestaCreada, 
 
   const { mutate: crearEncuesta, isPending } = useCreateEncuestaCompleta();
 
-  const onDateChange = (event: any, selectedDate?: Date) => {
-    if (Platform.OS !== 'ios') setShowDatePicker(false);
-    if (event.type === 'dismissed') return;
-    if (selectedDate) setFechaFin(selectedDate);
+  const onDateCancel = () => setShowDatePicker(false);
+  const onDateConfirm = (selectedDate: Date) => {
+    setFechaFin(selectedDate);
+    setShowDatePicker(false);
   };
 
   const agregarPregunta = (pregunta: Pregunta) => {
@@ -165,10 +165,11 @@ export const CrearEncuesta: React.FC<CrearEncuestaProps> = ({ onEncuestaCreada, 
 
           {showDatePicker && (
             <DateTimePicker
+              visible={showDatePicker}
               value={fechaFin || new Date()}
               mode="date"
-              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              onChange={onDateChange}
+              onConfirm={onDateConfirm}
+              onCancel={onDateCancel}
             />
           )}
 

@@ -836,31 +836,6 @@ const AgendaPersonal: React.FC = () => {
                 )}
               </View>
 
-              {showDatePicker && Platform.OS === 'ios' && (
-                <View style={styles.inlinePickerContainer}>
-                  <DateTimePicker
-                    key={`${activeDateType ?? 'none'}-${datePickerMode}`}
-                    visible={showDatePicker}
-                    testID="dateTimePicker"
-                    value={
-                      activeDateType === 'monthJump'
-                        ? new Date(selectedDate + 'T00:00:00')
-                        : activeDateType === 'startDate'
-                          ? newActivity.startTime
-                          : activeDateType === 'startTime'
-                            ? newActivity.startTime
-                            : activeDateType === 'endDate'
-                              ? new Date(newActivity.endDate + 'T00:00:00')
-                              : newActivity.endTime
-                    }
-                    mode={datePickerMode}
-                    is24Hour={true}
-                    onConfirm={onDateConfirm}
-                    onCancel={onDateCancel}
-                  />
-                </View>
-              )}
-
               {/* Título */}
               <View style={styles.fieldContainer}>
                 <Text style={styles.fieldLabel}>Título</Text>
@@ -897,11 +872,34 @@ const AgendaPersonal: React.FC = () => {
               style={styles.modalSubmitFab}
             />
           </View>
+
+          {showDatePicker && Platform.OS !== 'android' && (
+            <DateTimePicker
+              key={`${activeDateType ?? 'none'}-${datePickerMode}`}
+              visible={showDatePicker}
+              testID="dateTimePicker"
+              value={
+                activeDateType === 'monthJump'
+                  ? new Date(selectedDate + 'T00:00:00')
+                  : activeDateType === 'startDate'
+                    ? newActivity.startTime
+                    : activeDateType === 'startTime'
+                      ? newActivity.startTime
+                      : activeDateType === 'endDate'
+                        ? new Date(newActivity.endDate + 'T00:00:00')
+                        : newActivity.endTime
+              }
+              mode={datePickerMode}
+              is24Hour={true}
+              onConfirm={onDateConfirm}
+              onCancel={onDateCancel}
+            />
+          )}
         </KeyboardAvoidingView>
       </Modal>
 
       {/* Date Picker (Android) */}
-      {showDatePicker && Platform.OS !== 'ios' && (
+      {showDatePicker && Platform.OS === 'android' && (
         <DateTimePicker
           key={`${activeDateType ?? 'none'}-${datePickerMode}`}
           visible={showDatePicker}
@@ -1173,9 +1171,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#e0e0e0',
     paddingBottom: 12,
-    marginBottom: 12,
-  },
-  inlinePickerContainer: {
     marginBottom: 12,
   },
   dateRow: {

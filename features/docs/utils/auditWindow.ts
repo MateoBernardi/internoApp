@@ -1,4 +1,4 @@
-const ARCHIVO_OPEN_AUDIT_START = new Date(2026, 3, 9, 0, 0, 0, 0);
+const ARCHIVO_OPEN_AUDIT_START = new Date(2026, 3, 14, 0, 0, 0, 0);
 
 export function isArchivoInAuditWindow(createdAt: Date | string): boolean {
     const date = createdAt instanceof Date ? createdAt : new Date(createdAt);

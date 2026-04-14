@@ -54,7 +54,7 @@ export function EditCarpetaModal({
     [isConsejo]
   );
   const rolesForSelectorWithAll = useMemo(
-    () => [{ label: 'Todos', value: '*' }, ...rolesForSelector],
+    () => [{ label: 'Seleccionar todos', value: '*' }, ...rolesForSelector],
     [rolesForSelector]
   );
   const availableRoleValues = useMemo(

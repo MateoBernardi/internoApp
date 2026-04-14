@@ -69,7 +69,7 @@ export function CrearDocumento({ visible, onClose, initialFile, initialFolderId 
     [isConsejo]
   );
   const rolesForSelectorWithAll = useMemo(
-    () => [{ label: 'Todos', value: '*' }, ...rolesForSelector],
+    () => [{ label: 'Seleccionar todos', value: '*' }, ...rolesForSelector],
     [rolesForSelector]
   );
 

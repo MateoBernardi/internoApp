@@ -328,40 +328,20 @@ export function CrearSolicitud() {
           nestedScrollEnabled
           showsVerticalScrollIndicator={false}
         >
-          {!isConsejo ? (
-            <View style={styles.inputSection}>
-              <View style={{ flex: 1 }}>
-                <UserSelector
-                  selectedUsers={selectedUsers}
-                  onSelectUsers={setSelectedUsers}
-                  users={users}
-                  roles={rolesForSelector}
-                  isLoadingUsers={isLoadingUsers}
-                  isLoadingRoles={false}
-                  onSearch={setSearchQuery}
-                  onSelectRole={handleRoleSelect}
-                />
-              </View>
+          <View style={styles.inputSection}>
+            <View style={{ flex: 1 }}>
+              <UserSelector
+                selectedUsers={selectedUsers}
+                onSelectUsers={setSelectedUsers}
+                users={users}
+                roles={rolesForSelector}
+                isLoadingUsers={isLoadingUsers}
+                isLoadingRoles={false}
+                onSearch={setSearchQuery}
+                onSelectRole={handleRoleSelect}
+              />
             </View>
-          ) : (
-            <View style={styles.inputSection}>
-              <View style={styles.rolesOnlyRow}>
-                <ThemedText style={styles.rolesOnlyLabel}>Seleccionar por rol</ThemedText>
-                <TouchableOpacity style={styles.rolesOnlyBtn} onPress={() => setShowRoleModal(true)}>
-                  <ThemedText style={styles.rolesOnlyBtnText}>Roles</ThemedText>
-                  <Ionicons name="chevron-down" size={16} color={colors.icon} style={{ marginLeft: 4 }} />
-                </TouchableOpacity>
-              </View>
-              <View style={styles.selectedUsersWrap}>
-                {selectedUsers.map((selected) => (
-                  <TouchableOpacity key={selected.user_context_id} onPress={() => handleToggleUser(selected)} style={styles.selectedUserChip}>
-                    <ThemedText style={styles.selectedUserChipText}>{selected.nombre} {selected.apellido}</ThemedText>
-                    <Ionicons name="close" size={14} color={colors.secondaryText} style={{ marginLeft: 6 }} />
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-          )}
+          </View>
 
           <View style={[styles.inputSection, { borderBottomWidth: 0, paddingVertical: 10, alignItems: 'center' }]}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>

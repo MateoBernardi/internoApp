@@ -49,10 +49,11 @@ export default function TabLayout() {
   }, [shouldRedirectUnknownRole, signOut]);
 
   const isRolePending = !user?.rol_nombre;
+  const hasUserContext = Boolean(user?.user_context_id);
   const isEmployeeUser = isRolePending || isEmployee();
   const isEncargado = !isRolePending && hasRole('encargado');
-  const hideExplore = isEmployeeUser || isEncargado;
-  const hideAdmin = isEmployeeUser;
+  const hideExplore = !hasUserContext || isEmployeeUser || isEncargado;
+  const hideAdmin = !hasUserContext || isEmployeeUser;
   const hasSolicitudesTab = !hideExplore;
   const hasAdminTab = !hideAdmin;
   const hasSessionContext = isAuthenticated && !requiresAssociation && !!user?.user_context_id;

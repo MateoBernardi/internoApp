@@ -23,7 +23,6 @@ const PERSONAL_ROLES: UserRole[] = [
   'empleado-insumos',
   'empleado-mayorista',
   'empleado-super',
-  'estudio-contable',
 ];
 
 const CONTABLE_ROLES: UserRole[] = ['contable', 'sistemas'];

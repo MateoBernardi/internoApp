@@ -343,7 +343,8 @@ export function SolicitudLicencia() {
 
           <View style={styles.dateRow}>
             <ThemedText style={styles.dateValue}>
-              {fechaInicio.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}
+              {fechaInicio ? `${fechaInicio.toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })}\n` : ''}
+              {fechaFin ? `${fechaFin.toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })}` : ''}
             </ThemedText>
           </View>
 

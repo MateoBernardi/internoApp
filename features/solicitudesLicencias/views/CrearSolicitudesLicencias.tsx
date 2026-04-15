@@ -40,16 +40,6 @@ function normalizeToMinute(date: Date): Date {
 /** Modo de cantidad: días u horas */
 type CantidadMode = 'dias' | 'horas';
 
-/** Formatea la fecha como YYYY-MM-DD para el backend */
-function formatDate(date: Date): string {
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    const d = String(date.getDate()).padStart(2, '0');
-    const hh = String(date.getHours()).padStart(2, '0');
-    const mm = String(date.getMinutes()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
-}
-
 /** Texto legible para la cantidad de días seleccionada */
 function formatDiasLabel(wholeDays: number, halfDay: boolean): string {
     const total = wholeDays + (halfDay ? 0.5 : 0);
@@ -213,7 +203,7 @@ export function CrearSolicitudesLicencias() {
 
         const payload: CreateSolicitudDTO = {
             tipo_licencia_id: tipoLicenciaId!,
-            fecha_inicio: formatDate(fechaInicio),
+            fecha_inicio: fechaInicio.toISOString(),
             observacion: observacion.trim() || undefined,
         };
 

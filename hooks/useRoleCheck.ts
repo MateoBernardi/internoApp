@@ -9,6 +9,7 @@ type UserRole =
   | 'empleado-insumos'
   | 'empleado-mayorista'
   | 'empleado-super'
+  | 'empleado-transporte'
   | 'gerencia'
   | 'personasRelaciones'
   | 'consejo'
@@ -23,6 +24,7 @@ const PERSONAL_ROLES: UserRole[] = [
   'empleado-insumos',
   'empleado-mayorista',
   'empleado-super',
+  'empleado-transporte',
 ];
 
 const CONTABLE_ROLES: UserRole[] = ['contable', 'sistemas'];
@@ -39,6 +41,7 @@ export const ALL_ROLES: UserRole[] = [
   'empleado-mayorista',
   'empleado-super',
   'empleado-limpieza',
+  'empleado-transporte',
   'gerencia',
   'personasRelaciones',
   'consejo',

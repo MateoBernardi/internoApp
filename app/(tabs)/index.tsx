@@ -7,10 +7,9 @@ import { useGetEncuestas } from '@/features/encuestas/viewmodels/useEncuestas';
 import { KanbanBoard } from '@/features/kanban/views/KanbanBoard';
 import TablonNovedades from '@/features/novedades/views/TablonNovedades';
 import {
-    useInvitaciones,
-    useSolicitudesCreadas,
+  useInvitaciones,
+  useSolicitudesCreadas,
 } from '@/features/solicitudesActividades/viewmodels/useSolicitudes';
-import SolicitudesView from '@/features/solicitudesActividades/views/Solicitudes';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { useQueryClient } from '@tanstack/react-query';
 import React, { useCallback, useState } from 'react';
@@ -24,9 +23,8 @@ export default function HomeScreen() {
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const canSeeSolicitudes = isEmployeeOrEncargado();
   const isUserContextReady = Boolean(user?.user_context_id);
-  const shouldEnableHomeQueries = canSeeSolicitudes && isUserContextReady;
+  const shouldEnableHomeQueries = isUserContextReady;
   const containerPaddingTop = Platform.OS === 'web' ? 0 : '10%';
 
   const { isLoading: isLoadingEncuestas } = useGetEncuestas(shouldEnableHomeQueries);
@@ -53,20 +51,16 @@ export default function HomeScreen() {
         <ScreenSkeleton rows={6} />
       ) : (
         <>
-      {/* Sección superior: novedades y encuestas */}
-      <View style={styles.topSection}>
-        <TablonNovedades refreshTrigger={refreshTrigger} enabled={isUserContextReady} />
-        <EncuestasPendientes enabled={shouldEnableHomeQueries} />
-      </View>
+          {/* Sección superior: novedades y encuestas */}
+          <View style={styles.topSection}>
+            <TablonNovedades refreshTrigger={refreshTrigger} enabled={isUserContextReady} />
+            <EncuestasPendientes enabled={shouldEnableHomeQueries} />
+          </View>
 
-      {/* Sección principal: solicitudes o kanban (fuera del ScrollView para que el FAB flote) */}
-      <View style={styles.mainSection}>
-        {canSeeSolicitudes ? (
-          <SolicitudesView onRefresh={handleRefresh} refreshing={refreshing} />
-        ) : (
-          <KanbanBoard />
-        )}
-      </View>
+          {/* Sección principal: solicitudes o kanban (fuera del ScrollView para que el FAB flote) */}
+          <View style={styles.mainSection}>
+            <KanbanBoard />
+          </View>
         </>
       )}
     </ThemedView>

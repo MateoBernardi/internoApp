@@ -52,7 +52,7 @@ export default function TabLayout() {
   const hasUserContext = Boolean(user?.user_context_id);
   const isEmployeeUser = isRolePending || isEmployee();
   const isEncargado = !isRolePending && hasRole('encargado');
-  const hideExplore = !hasUserContext || isEmployeeUser || isEncargado;
+  const hideExplore = !hasUserContext;
   const hideAdmin = !hasUserContext || isEmployeeUser;
   const hasSolicitudesTab = !hideExplore;
   const hasAdminTab = !hideAdmin;

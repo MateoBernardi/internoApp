@@ -5,7 +5,7 @@ import { Colors, UI } from '@/constants/theme';
 import { AppFab } from '@/shared/ui/AppFab';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -18,7 +18,6 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import { ValidacionFechasModal } from '../components/ValidacionFechasModal';
 import type { ModificarActividadFechasResponse } from '../models/Actividad';
 import type { RangoOcupado } from '../models/Solicitud';
 import {
@@ -26,6 +25,7 @@ import {
   useCancelarActividad,
   useModificarActividadFechas,
 } from '../viewmodels/useActividades';
+import { ValidacionFechasModal } from './ValidacionFechasModal';
 
 const colors = Colors['light'];
 
@@ -395,133 +395,128 @@ export function ActividadDetalle({ actividadId: actividadIdProp, rol: rolProp, v
 
             <Modal
               visible={showModifyModal}
-              transparent={false}
+              transparent={true}
               animationType="slide"
               onRequestClose={() => {
                 setShowDatePicker({ show: false, mode: 'date', target: 'start' });
                 setShowModifyModal(false);
               }}
             >
-              <KeyboardAvoidingView
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                style={styles.modalKavWrapper}
-              >
-                <View style={styles.modalScreen}>
-                  <View style={styles.modalHeaderFullScreen}>
-                    <ThemedText type="subtitle" style={styles.modalTitleFullScreen}>
-                      Modificar actividad
-                    </ThemedText>
-                    <TouchableOpacity
-                      onPress={() => {
-                        setShowDatePicker({ show: false, mode: 'date', target: 'start' });
-                        setShowModifyModal(false);
-                      }}
-                      style={styles.modalHeaderActionBtn}
-                    >
-                      <Ionicons name="chevron-down" size={24} color={colors.secondaryText} />
-                    </TouchableOpacity>
-                  </View>
-
-                  <ScrollView
-                    style={styles.content}
-                    contentContainerStyle={styles.modalScrollContent}
-                    keyboardShouldPersistTaps="handled"
-                    showsVerticalScrollIndicator={false}
+              <View style={styles.modalScreen}>
+                <View style={styles.modalHeaderFullScreen}>
+                  <ThemedText type="subtitle" style={styles.modalTitleFullScreen}>
+                    Modificar actividad
+                  </ThemedText>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setShowDatePicker({ show: false, mode: 'date', target: 'start' });
+                      setShowModifyModal(false);
+                    }}
+                    style={styles.modalHeaderActionBtn}
                   >
-                    <View style={styles.modalSection}>
-                      <ThemedText style={styles.modalLabel}>Nueva Fecha Inicio</ThemedText>
-                      <View style={styles.row}>
-                        <TouchableOpacity
-                          onPress={() => showPicker('date', 'start')}
-                          style={styles.dateBtn}
-                        >
-                          <ThemedText>{modStartDate.toLocaleDateString('es-AR')}</ThemedText>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          onPress={() => showPicker('time', 'start')}
-                          style={styles.dateBtn}
-                        >
-                          <ThemedText>
-                            {modStartDate.toLocaleTimeString('es-ES', {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
-                          </ThemedText>
-                        </TouchableOpacity>
-                      </View>
-
-                      <TouchableOpacity
-                        style={styles.endDateCollapsible}
-                        onPress={() => setShowEndDateFields((prev) => !prev)}
-                      >
-                        <ThemedText style={styles.endDateCollapsibleText}>
-                          {showEndDateFields ? 'Quitar fecha de fin' : 'Agregar fecha de fin'}
-                        </ThemedText>
-                        <Ionicons
-                          name={showEndDateFields ? 'chevron-up' : 'chevron-down'}
-                          size={16}
-                          color={colors.secondaryText}
-                        />
-                      </TouchableOpacity>
-
-                      {showEndDateFields && (
-                        <>
-                          <ThemedText style={styles.modalLabel}>Nueva Fecha Fin</ThemedText>
-                          <View style={styles.row}>
-                            <TouchableOpacity
-                              onPress={() => showPicker('date', 'end')}
-                              style={styles.dateBtn}
-                            >
-                              <ThemedText>{modEndDate.toLocaleDateString('es-AR')}</ThemedText>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                              onPress={() => showPicker('time', 'end')}
-                              style={styles.dateBtn}
-                            >
-                              <ThemedText>
-                                {modEndDate.toLocaleTimeString('es-ES', {
-                                  hour: '2-digit',
-                                  minute: '2-digit',
-                                })}
-                              </ThemedText>
-                            </TouchableOpacity>
-                          </View>
-                        </>
-                      )}
-
-                      {showEndDateFields && modStartDate >= modEndDate && (
-                        <ThemedText style={{ color: colors.error, fontSize: 12, marginBottom: 8 }}>
-                          La fecha de fin debe ser posterior a la de inicio
-                        </ThemedText>
-                      )}
-                    </View>
-                  </ScrollView>
-
-                  <AppFab
-                    icon="checkmark"
-                    floating={false}
-                    onPress={confirmModificar}
-                    isLoading={isModifying}
-                    disabled={showEndDateFields && modStartDate >= modEndDate}
-                    style={styles.modalSubmitFab}
-                  />
+                    <Ionicons name="chevron-down" size={24} color={colors.secondaryText} />
+                  </TouchableOpacity>
                 </View>
 
-                {showDatePicker.show && (
-                  <DateTimePicker
-                    key={`${showDatePicker.target}-${showDatePicker.mode}`}
-                    visible={showDatePicker.show}
-                    testID="actividadDateTimePicker"
-                    value={
-                      showDatePicker.target === 'start' ? modStartDate : modEndDate
-                    }
-                    mode={showDatePicker.mode}
-                    is24Hour={true}
-                    onConfirm={onDateConfirm}
-                    onCancel={() => setShowDatePicker({ show: false, mode: 'date', target: 'start' })}
-                  />
-                )}
-              </KeyboardAvoidingView>
+                <ScrollView
+                  style={styles.content}
+                  contentContainerStyle={styles.modalScrollContent}
+                  keyboardShouldPersistTaps="handled"
+                  showsVerticalScrollIndicator={false}
+                >
+                  <View style={styles.modalSection}>
+                    <ThemedText style={styles.modalLabel}>Nueva Fecha Inicio</ThemedText>
+                    <View style={styles.row}>
+                      <TouchableOpacity
+                        onPress={() => showPicker('date', 'start')}
+                        style={styles.dateBtn}
+                      >
+                        <ThemedText>{modStartDate.toLocaleDateString('es-AR')}</ThemedText>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => showPicker('time', 'start')}
+                        style={styles.dateBtn}
+                      >
+                        <ThemedText>
+                          {modStartDate.toLocaleTimeString('es-ES', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </ThemedText>
+                      </TouchableOpacity>
+                    </View>
+
+                    <TouchableOpacity
+                      style={styles.endDateCollapsible}
+                      onPress={() => setShowEndDateFields((prev) => !prev)}
+                    >
+                      <ThemedText style={styles.endDateCollapsibleText}>
+                        {showEndDateFields ? 'Quitar fecha de fin' : 'Agregar fecha de fin'}
+                      </ThemedText>
+                      <Ionicons
+                        name={showEndDateFields ? 'chevron-up' : 'chevron-down'}
+                        size={16}
+                        color={colors.secondaryText}
+                      />
+                    </TouchableOpacity>
+
+                    {showEndDateFields && (
+                      <>
+                        <ThemedText style={styles.modalLabel}>Nueva Fecha Fin</ThemedText>
+                        <View style={styles.row}>
+                          <TouchableOpacity
+                            onPress={() => showPicker('date', 'end')}
+                            style={styles.dateBtn}
+                          >
+                            <ThemedText>{modEndDate.toLocaleDateString('es-AR')}</ThemedText>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            onPress={() => showPicker('time', 'end')}
+                            style={styles.dateBtn}
+                          >
+                            <ThemedText>
+                              {modEndDate.toLocaleTimeString('es-ES', {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </ThemedText>
+                          </TouchableOpacity>
+                        </View>
+                      </>
+                    )}
+
+                    {showEndDateFields && modStartDate >= modEndDate && (
+                      <ThemedText style={{ color: colors.error, fontSize: 12, marginBottom: 8 }}>
+                        La fecha de fin debe ser posterior a la de inicio
+                      </ThemedText>
+                    )}
+                  </View>
+                </ScrollView>
+
+                <AppFab
+                  icon="checkmark"
+                  floating={false}
+                  onPress={confirmModificar}
+                  isLoading={isModifying}
+                  disabled={showEndDateFields && modStartDate >= modEndDate}
+                  style={styles.modalSubmitFab}
+                />
+              </View>
+
+              {showDatePicker.show && (
+                <DateTimePicker
+                  key={`${showDatePicker.target}-${showDatePicker.mode}`}
+                  visible={showDatePicker.show}
+                  testID="actividadDateTimePicker"
+                  value={
+                    showDatePicker.target === 'start' ? modStartDate : modEndDate
+                  }
+                  mode={showDatePicker.mode}
+                  is24Hour={true}
+                  onConfirm={onDateConfirm}
+                  onCancel={() => setShowDatePicker({ show: false, mode: 'date', target: 'start' })}
+                />
+              )}
             </Modal>
 
             <OperacionPendienteModal visible={isModifying || isCancelling} />

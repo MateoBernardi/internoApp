@@ -8,11 +8,16 @@ export interface Bitacora {
     usuario_nombre: string;
 }
 
+export interface Invitado {
+    user_id: number;
+    rol: 'ASSIGNEE' | 'VISUALIZER';
+}
+
 export interface Objetivo {
     id: number;
     titulo: string;
     descripcion: string;
-    estado: 'PENDIENTE' | 'PRIORIDAD' | 'PROGRESO' | 'REALIZADO';
+    estado: typeof ESTADOS[number];
     rank_position: string; // Lexorank string
     created_by: number;
     created_by_username?: string;
@@ -20,18 +25,23 @@ export interface Objetivo {
     created_at: string;
     updated_at: string;
     bitacora: Bitacora[];
+    invitados?: Invitado[];
 }
 
-export interface CreateObjetivoDTO {
+export interface CreateObjetivo {
     titulo: string;
     descripcion: string;
-    estado: string;
+    estado: typeof ESTADOS[number];
+    invitados?: Invitado[];
 }
 
-export interface UpdateObjetivoDTO {
+export interface UpdateObjetivo {
     titulo?: string;
     descripcion?: string;
-    estado?: 'PENDIENTE' | 'PRIORIDAD' | 'PROGRESO' | 'REALIZADO';
+    estado?: typeof ESTADOS[number];
     rank_position?: string;
     observacion?: string;
+    invitados?: Invitado[];
 }
+
+export const ESTADOS = ['PENDIENTE', 'PRIORIDAD', 'PROGRESO', 'REALIZADO'] as const;

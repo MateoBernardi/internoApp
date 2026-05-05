@@ -1,6 +1,6 @@
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { CreateObjetivoDTO, Objetivo, UpdateObjetivoDTO } from '../models/Objetivo';
+import type { CreateObjetivo, Objetivo, UpdateObjetivo } from '../models/Objetivo';
 import {
     createObjetivo,
     deleteObjetivo,
@@ -15,7 +15,7 @@ const OBJETIVOS_QUERY_KEY = ['objetivos'];
  */
 export function useObjetivos() {
     const { tokens } = useAuth();
-    
+
     return useQuery({
         queryKey: OBJETIVOS_QUERY_KEY,
         queryFn: async () => {
@@ -38,7 +38,7 @@ export function useCreateObjetivo() {
     const { tokens } = useAuth();
 
     return useMutation({
-        mutationFn: async (data: CreateObjetivoDTO) => {
+        mutationFn: async (data: CreateObjetivo) => {
             const token = tokens?.accessToken;
             if (!token) {
                 throw new Error('No hay token de acceso');
@@ -62,7 +62,7 @@ export function useUpdateObjetivo() {
     const { tokens } = useAuth();
 
     return useMutation({
-        mutationFn: async ({ id, data }: { id: number; data: UpdateObjetivoDTO }) => {
+        mutationFn: async ({ id, data }: { id: number; data: UpdateObjetivo }) => {
             const token = tokens?.accessToken;
             if (!token) {
                 throw new Error('No hay token de acceso');
@@ -79,13 +79,13 @@ export function useUpdateObjetivo() {
             // Actualización optimista: actualizar el objetivo localmente
             queryClient.setQueryData<Objetivo[]>(OBJETIVOS_QUERY_KEY, (old) => {
                 if (!old) return old;
-                
+
                 return old.map((obj) => {
                     if (obj.id !== id) return obj;
-                    
+
                     // Crear la versión optimista del objetivo actualizado
                     const updatedObj = { ...obj, ...data };
-                    
+
                     // Si hay cambio de estado y observación, agregar entrada a bitácora optimista
                     if (data.estado && data.estado !== obj.estado && data.observacion) {
                         const newBitacoraEntry = {
@@ -99,7 +99,7 @@ export function useUpdateObjetivo() {
                         };
                         updatedObj.bitacora = [newBitacoraEntry, ...(obj.bitacora || [])];
                     }
-                    
+
                     return updatedObj;
                 });
             });

@@ -1,8 +1,8 @@
 import { apiRequest } from "@/shared/apiRequest";
-import type { CreateObjetivoDTO, Objetivo, UpdateObjetivoDTO } from "../models/Objetivo";
+import type { CreateObjetivo, Objetivo, UpdateObjetivo } from "../models/Objetivo";
 
 export async function fetchObjetivos(accessToken: string): Promise<Objetivo[]> {
-    const response = await apiRequest({method: 'GET', endpoint: '/kanban', token: accessToken});
+    const response = await apiRequest({ method: 'GET', endpoint: '/kanban', token: accessToken });
 
     if (!response.ok) {
         const data = await response.json().catch(() => ({}));
@@ -15,9 +15,9 @@ export async function fetchObjetivos(accessToken: string): Promise<Objetivo[]> {
 
 export async function createObjetivo(
     accessToken: string,
-    data: CreateObjetivoDTO
+    data: CreateObjetivo
 ): Promise<Objetivo> {
-    const response = await apiRequest({method: 'POST', endpoint: '/kanban', token: accessToken, body: data});
+    const response = await apiRequest({ method: 'POST', endpoint: '/kanban', token: accessToken, body: data });
 
     if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
@@ -30,9 +30,9 @@ export async function createObjetivo(
 export async function updateObjetivo(
     accessToken: string,
     objetivoId: number,
-    data: UpdateObjetivoDTO
+    data: UpdateObjetivo
 ): Promise<Objetivo> {
-    const response = await apiRequest({method: 'PUT', endpoint: `/kanban/${objetivoId}`, token: accessToken, body: data});
+    const response = await apiRequest({ method: 'PUT', endpoint: `/kanban/${objetivoId}`, token: accessToken, body: data });
 
     if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
@@ -46,7 +46,7 @@ export async function deleteObjetivo(
     accessToken: string,
     objetivoId: number
 ): Promise<void> {
-    const response = await apiRequest({method: 'DELETE', endpoint: `/kanban/${objetivoId}`, token: accessToken});
+    const response = await apiRequest({ method: 'DELETE', endpoint: `/kanban/${objetivoId}`, token: accessToken });
 
     if (!response.ok) {
         const errData = await response.json().catch(() => ({}));

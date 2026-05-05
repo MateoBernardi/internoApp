@@ -6,11 +6,11 @@ import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
   Modal,
   Platform,
   ScrollView,
   StyleSheet,
+  Text,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -167,33 +167,20 @@ export function CrearDocumento({ visible, onClose, initialFiles, initialFolderId
   const progressLabel = `Subidos ${uploadedCount} de ${totalFiles}`;
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={handleCancel}>
-      {/*
-        Estructura:
-          <View> (raíz, flex:1)
-            <Header> (fijo arriba, con insets.top)
-            <KeyboardAvoidingView> (ocupa el espacio restante entre header y botón)
-              <ScrollView> (contenido scrolleable)
-            <View botón fijo> (fijo abajo, con insets.bottom)
+    <Modal
+      visible={visible}
+      animationType="slide"
+      onRequestClose={handleCancel}
+    >
+      <View style={styles.overlay}>
+        <View style={styles.container}>
+          {/* Header fijo con safe-area top */}
+          <View style={[styles.header, { paddingTop: insets.top || 12 }]}>
+            <TouchableOpacity onPress={handleCancel} style={styles.iconButton}>
+              <Ionicons name="close" size={24} color={colors.icon} />
+            </TouchableOpacity>
+          </View>
 
-        Así el teclado empuja solo el scroll, nunca el botón.
-      */}
-      <View style={styles.container}>
-        {/* Header fijo con safe-area top */}
-        <View style={[styles.header, { paddingTop: insets.top || 12 }]}>
-          <TouchableOpacity onPress={handleCancel} style={styles.iconButton}>
-            <Ionicons name="close" size={24} color={colors.icon} />
-          </TouchableOpacity>
-          <ThemedText style={styles.headerTitle}>Subir Archivo</ThemedText>
-          <View style={{ width: 40 }} />
-        </View>
-
-        {/* KAV solo envuelve el scroll — el botón queda fuera */}
-        <KeyboardAvoidingView
-          style={styles.flex}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={0}
-        >
           <ScrollView
             style={styles.content}
             contentContainerStyle={[styles.contentContainer, { paddingBottom: bottomBarHeight + 8 }]}
@@ -207,35 +194,38 @@ export function CrearDocumento({ visible, onClose, initialFiles, initialFolderId
             {/* File Info */}
             {initialFiles && initialFiles[0] && (
               <View style={styles.fileInfoSection}>
-                <Ionicons name="document-text" size={32} color={colors.tint} />
                 <View style={styles.fileInfoText}>
+                  <Text style={styles.label}>Archivos enlazados</Text>
+                </View>
+                <View style={styles.fileInfoText}>
+                  <Ionicons name="document-text" size={32} color={colors.tint} />
                   <ThemedText type="defaultSemiBold" numberOfLines={2}>{fileTitle}</ThemedText>
                   <ThemedText style={{ color: colors.secondaryText, fontSize: 12 }}>{fileType}</ThemedText>
                 </View>
               </View>
             )}
           </ScrollView>
-        </KeyboardAvoidingView>
 
-        {/* Botón fijo fuera del KAV — nunca se mueve con el teclado */}
-        <View style={[styles.uploadButtonContainer, { paddingBottom: (insets.bottom || 0) + BUTTON_MARGIN }]}>
-          <TouchableOpacity
-            style={[styles.uploadButton, { backgroundColor: !isFormValid || isUploading ? colors.icon : colors.lightTint }]}
-            onPress={handleCrearDocumento}
-            disabled={!isFormValid || isUploading}
-          >
-            {isUploading ? (
-              <>
-                <ActivityIndicator size="small" color={colors.componentBackground} />
-                <ThemedText style={styles.uploadButtonText}>{progressLabel}</ThemedText>
-              </>
-            ) : (
-              <>
-                <Ionicons name="cloud-upload" size={20} color={colors.componentBackground} />
-                <ThemedText style={styles.uploadButtonText}>{uploadLabel}</ThemedText>
-              </>
-            )}
-          </TouchableOpacity>
+          {/* Botón fijo fuera del KAV — nunca se mueve con el teclado */}
+          <View style={[styles.uploadButtonContainer, { paddingBottom: (insets.bottom || 0) + BUTTON_MARGIN }]}>
+            <TouchableOpacity
+              style={[styles.uploadButton, { backgroundColor: !isFormValid || isUploading ? colors.icon : colors.lightTint }]}
+              onPress={handleCrearDocumento}
+              disabled={!isFormValid || isUploading}
+            >
+              {isUploading ? (
+                <>
+                  <ActivityIndicator size="small" color={colors.componentBackground} />
+                  <ThemedText style={styles.uploadButtonText}>{progressLabel}</ThemedText>
+                </>
+              ) : (
+                <>
+                  <Ionicons name="cloud-upload" size={20} color={colors.componentBackground} />
+                  <ThemedText style={styles.uploadButtonText}>{uploadLabel}</ThemedText>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     </Modal>
@@ -245,26 +235,31 @@ export function CrearDocumento({ visible, onClose, initialFiles, initialFolderId
 const BUTTON_MARGIN = 16;
 
 const styles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)' // Sombra de fondo
+  },
   container: {
     flex: 1,
-    backgroundColor: colors.componentBackground,
-  },
-  flex: {
-    flex: 1,
+    marginTop: '5%', // Empuja el modal hacia abajo
+    backgroundColor: Colors['light'].componentBackground,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    overflow: 'hidden',
   },
   header: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomColor: Colors['light'].icon,
     flexDirection: 'row',
+    justifyContent: 'flex-end',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: '4%',
-    paddingBottom: 12,
-    backgroundColor: colors.componentBackground,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.icon,
   },
   iconButton: {
-    padding: 8,
-    borderRadius: 8,
+    padding: 6,
+    borderRadius: 16,
+    backgroundColor: '#f3f4f6',
+    marginLeft: 8,
   },
   headerTitle: {
     fontSize: 18,
@@ -278,23 +273,21 @@ const styles = StyleSheet.create({
     paddingTop: 12,
   },
   fileInfoSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.componentBackground,
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 20,
+    marginTop: 12,
+    gap: 10,
   },
   fileInfoText: {
-    marginLeft: 12,
-    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
   },
   uploadButtonContainer: {
     backgroundColor: colors.componentBackground,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.icon,
     paddingHorizontal: '4%',
-    paddingTop: 24,
+    paddingTop: 10,
   },
   uploadButton: {
     flexDirection: 'row',
@@ -308,5 +301,11 @@ const styles = StyleSheet.create({
     color: colors.componentBackground,
     fontWeight: '600',
     fontSize: 16,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1a1a1a',
+    marginBottom: 8,
   },
 });

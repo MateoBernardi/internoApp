@@ -7,6 +7,7 @@ interface AgendaDiariaProps {
   activities: Activity[];
   onDeleteActivity: (id: string) => void;
   onPressActivity?: (activity: Activity) => void;
+  dateKey?: string;
 }
 
 type ActivityHourSegment = {
@@ -52,11 +53,22 @@ const parseLocalDate = (dateStr: string): Date => {
   return new Date(normalized);
 };
 
-export const AgendaDiaria: React.FC<AgendaDiariaProps> = ({ activities, onDeleteActivity, onPressActivity }) => {
+export const AgendaDiaria: React.FC<AgendaDiariaProps> = ({ activities, onDeleteActivity, onPressActivity, dateKey }) => {
   const hours = React.useMemo(
     () => Array.from({ length: 24 }, (_, hour) => `${String(hour).padStart(2, '0')}:00`),
     []
   );
+
+  const headerLabel = React.useMemo(() => {
+    const baseKey = dateKey ?? activities[0]?.date;
+    if (!baseKey) return '';
+    const date = new Date(`${baseKey}T00:00:00`);
+    if (Number.isNaN(date.getTime())) return '';
+
+    const weekday = date.toLocaleDateString('es-ES', { weekday: 'short' }).replace('.', '').toLowerCase();
+    const dayMonth = date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }).replace('.', '').toLowerCase();
+    return `${weekday}, ${dayMonth}`;
+  }, [activities, dateKey]);
 
   const sorted = [...activities].sort((a, b) =>
     (a.time || '23:59').localeCompare(b.time || '23:59')
@@ -135,6 +147,13 @@ export const AgendaDiaria: React.FC<AgendaDiariaProps> = ({ activities, onDelete
     <FlatList
       data={hours}
       keyExtractor={(item) => item}
+      ListHeaderComponent={
+        headerLabel ? (
+          <View style={styles.dayHeader}>
+            <Text style={styles.dayHeaderText}>{headerLabel}</Text>
+          </View>
+        ) : null
+      }
       renderItem={({ item: hour }) => {
         const hourActivities = activitiesByHour.get(hour) ?? [];
 
@@ -250,6 +269,16 @@ export const AgendaDiaria: React.FC<AgendaDiariaProps> = ({ activities, onDelete
 };
 
 const styles = StyleSheet.create({
+  dayHeader: {
+    paddingHorizontal: 12,
+    paddingTop: 8,
+    paddingBottom: 12,
+  },
+  dayHeaderText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#111827',
+  },
   listContent: {
     paddingBottom: 16,
   },

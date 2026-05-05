@@ -11,7 +11,7 @@ import { adminRoles, allRoles } from '@/shared/users/roles';
 import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -27,8 +27,6 @@ import {
   View,
 } from 'react-native';
 import { UserSelector } from '../../../components/UserSelector';
-import { RoleUserSelectionModal } from '../components/RoleUserSelectionModal';
-import { ValidacionFechasModal } from '../components/ValidacionFechasModal';
 import { EstadoInvitacionDB, estadoInvitacionMapping, RangoOcupado, ReenviarSolicitudRequest, UpdateSolicitudResponse } from '../models/Solicitud';
 import { useCrearActividad } from '../viewmodels/useActividades';
 import {
@@ -39,6 +37,8 @@ import {
   useSolicitudBitacora,
   useSolicitudesCreadas
 } from '../viewmodels/useSolicitudes';
+import { RoleUserSelectionModal } from './RoleUserSelectionModal';
+import { ValidacionFechasModal } from './ValidacionFechasModal';
 
 const colors = Colors['light'];
 
@@ -731,6 +731,9 @@ export function Solicitud({ solicitudId: solicitudIdProp, type: typeProp, visibl
   const fechaInicioPasada = hasDates ? fechaInicio < new Date() : false;
   const isExpiredState = solicitud?.estado === 'EXPIRED';
   const isSentState = solicitud?.estado === 'SENT';
+  const isFinalState = solicitud?.estado
+    ? ['ACTIVIDAD_CREADA', 'EXPIRED', 'ACCEPTED', 'REJECTED'].includes(solicitud.estado)
+    : false;
   const isAceptarModificacionesFlow = resolvedType === 'enviada' && solicitud?.estado === 'MODIFIED';
   const puedeCompartirEnviada = resolvedType === 'enviada' && !isExpiredState && !esActividadCreada;
   const puedeCancelarEnviada = resolvedType === 'enviada' && !!solicitud && CANCELABLE_ENVIADA_STATES.includes(solicitud.estado);
@@ -772,6 +775,10 @@ export function Solicitud({ solicitudId: solicitudIdProp, type: typeProp, visibl
     ];
   }, [bitacoraVisible, solicitud]);
 
+  const mensajesOrdenados = useMemo(() => {
+    return [...mensajes].reverse();
+  }, [mensajes]);
+
   const isLoadingSolicitud = !solicitud && !enviadas && !recibidas;
 
   return (
@@ -798,8 +805,8 @@ export function Solicitud({ solicitudId: solicitudIdProp, type: typeProp, visibl
                 contentContainerStyle={styles.contentContainer}
                 showsVerticalScrollIndicator={false}
               >
-                <View style={styles.sectionCard}>
-                  <ThemedText style={styles.sectionLabel}>{resolvedType === 'enviada' ? 'Para' : 'De'}</ThemedText>
+                <View style={styles.contentBlock}>
+                  <ThemedText style={styles.label}>{resolvedType === 'enviada' ? 'Para' : 'De'}</ThemedText>
                   <ThemedText style={styles.sectionValue}>
                     {resolvedType === 'enviada'
                       ? paraEnviada
@@ -807,8 +814,8 @@ export function Solicitud({ solicitudId: solicitudIdProp, type: typeProp, visibl
                   </ThemedText>
                 </View>
 
-                <View style={styles.sectionCard}>
-                  <ThemedText style={styles.sectionLabel}>Titulo</ThemedText>
+                <View style={styles.contentBlock}>
+                  <ThemedText style={styles.label}>Titulo</ThemedText>
                   <ThemedText style={styles.sectionValue}>{solicitud?.titulo}</ThemedText>
                   <View style={styles.badgeRow}>
                     <View style={styles.chip}>
@@ -819,12 +826,10 @@ export function Solicitud({ solicitudId: solicitudIdProp, type: typeProp, visibl
                   </View>
                 </View>
 
-                <View style={styles.sectionCard}>
-                  <View style={styles.sectionHeaderRow}>
-                    <View style={styles.sectionTitleRow}>
-                      <Ionicons name="time-outline" size={18} color={colors.lightTint} />
-                      <Text style={styles.sectionTitleText}>Fecha</Text>
-                    </View>
+                <View style={styles.contentBlock}>
+                  <View style={styles.sectionTitleRow}>
+                    <Ionicons name="time-outline" size={18} color={colors.lightTint} />
+                    <ThemedText style={[styles.label, styles.labelInline]}>Fecha</ThemedText>
                   </View>
 
                   {hasDates ? (
@@ -852,12 +857,16 @@ export function Solicitud({ solicitudId: solicitudIdProp, type: typeProp, visibl
                   )}
                 </View>
 
-                <View style={styles.sectionCard}>
+                <View style={styles.contentBlock}>
                   <View style={styles.sectionHeaderRow}>
-                    <Text style={styles.sectionLabel}>Archivos enlazados</Text>
-                    <TouchableOpacity style={styles.actionButton} onPress={() => { }}>
+                    <ThemedText style={styles.label}>Archivos enlazados</ThemedText>
+                    <TouchableOpacity
+                      style={[styles.actionButton, isFinalState && styles.actionButtonDisabled]}
+                      onPress={() => { }}
+                      disabled={isFinalState}
+                    >
                       <Ionicons name="add" size={16} color={Colors.light.tint} />
-                      <Text style={styles.actionButtonText}>Agregar archivos</Text>
+                      <Text style={[styles.actionButtonText, isFinalState && styles.actionButtonTextDisabled]}>Agregar archivos</Text>
                     </TouchableOpacity>
                   </View>
 
@@ -889,9 +898,9 @@ export function Solicitud({ solicitudId: solicitudIdProp, type: typeProp, visibl
                   </View>
                 )}
 
-                <View style={styles.sectionCard}>
+                <View style={styles.messagesCard}>
                   <View style={styles.sectionHeaderRow}>
-                    <Text style={styles.sectionLabel}>Mensajes</Text>
+                    <ThemedText style={styles.label}>Mensajes</ThemedText>
                     <TouchableOpacity onPress={() => setShowFullBitacora(prev => !prev)}>
                       <Text style={styles.sectionActionText}>
                         {showFullBitacora ? 'Ocultar información completa' : 'Mostrar información completa'}
@@ -903,8 +912,8 @@ export function Solicitud({ solicitudId: solicitudIdProp, type: typeProp, visibl
                     {isLoadingBitacora ? (
                       <ActivityIndicator size="small" color={colors.lightTint} style={{ marginTop: 20 }} />
                     ) : (
-                      mensajes.length > 0 ? (
-                        mensajes.map((b: any) => {
+                      mensajesOrdenados.length > 0 ? (
+                        mensajesOrdenados.map((b: any) => {
                           const isOwnEntry = b.usuario_id !== null && b.usuario_id === user?.user_context_id;
                           const isDescripcionEntry = b.id === 'descripcion';
                           const estadoKey = typeof b.estado === 'string' && b.estado in estadoInvitacionMapping
@@ -1054,163 +1063,179 @@ export function Solicitud({ solicitudId: solicitudIdProp, type: typeProp, visibl
             </View>
 
             {/* Modal Aceptar */}
-            <Modal visible={showAcceptModal} transparent animationType="fade">
-              <TouchableWithoutFeedback onPress={closeAcceptModal}>
-                <View style={styles.modalOverlay}>
-                  <TouchableWithoutFeedback onPress={e => e.stopPropagation()}>
-                    <View style={styles.modalContent}>
-                      <ThemedText type="subtitle" style={{ marginBottom: 16 }}>{isAceptarModificacionesFlow ? 'Aceptar Modificaciones' : 'Aceptar Solicitud'}</ThemedText>
-                      <ThemedText style={{ marginBottom: 8 }}>{isAceptarModificacionesFlow ? '¿Confirmas que deseas aceptar las modificaciones propuestas?' : '¿Confirmas que deseas aceptar esta solicitud?'}</ThemedText>
-                      <ThemedText style={styles.modalInputLabel}>Observación (opcional)</ThemedText>
-                      <TextInput
-                        style={styles.modalTextInput}
-                        placeholder="Podés agregar una observación"
-                        value={acceptObservation}
-                        onChangeText={setAcceptObservation}
-                        multiline
-                      />
-                      <View style={styles.modalActions}>
-                        <TouchableOpacity onPress={closeAcceptModal} style={styles.modalBtnCancel}>
-                          <ThemedText style={{ color: colors.error }}>Cancelar</ThemedText>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          onPress={isAceptarModificacionesFlow ? confirmAceptarModificaciones : confirmAceptar}
-                          style={styles.modalBtnConfirm}
-                          disabled={isUpdatingEstado}
-                        >
-                          {isUpdatingEstado
-                            ? <ActivityIndicator color={colors.background} />
-                            : <ThemedText style={{ color: colors.background }}>Aceptar</ThemedText>
-                          }
-                        </TouchableOpacity>
+            <Modal visible={showAcceptModal} transparent={true} animationType="fade">
+              <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                style={styles.keyboardContainer}
+              >
+                <TouchableWithoutFeedback onPress={closeAcceptModal}>
+                  <View style={styles.modalOverlay}>
+                    <TouchableWithoutFeedback onPress={e => e.stopPropagation()}>
+                      <View style={styles.modalContent}>
+                        <ThemedText type="subtitle" style={{ marginBottom: 16 }}>{isAceptarModificacionesFlow ? 'Aceptar Modificaciones' : 'Aceptar Solicitud'}</ThemedText>
+                        <ThemedText style={{ marginBottom: 8 }}>{isAceptarModificacionesFlow ? '¿Confirmas que deseas aceptar las modificaciones propuestas?' : '¿Confirmas que deseas aceptar esta solicitud?'}</ThemedText>
+                        <ThemedText style={styles.modalInputLabel}>Observación (opcional)</ThemedText>
+                        <TextInput
+                          style={styles.modalTextInput}
+                          placeholder="Podés agregar una observación"
+                          value={acceptObservation}
+                          onChangeText={setAcceptObservation}
+                          multiline
+                        />
+                        <View style={styles.modalActions}>
+                          <TouchableOpacity onPress={closeAcceptModal} style={styles.modalBtnCancel}>
+                            <ThemedText style={{ color: colors.error }}>Cancelar</ThemedText>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            onPress={isAceptarModificacionesFlow ? confirmAceptarModificaciones : confirmAceptar}
+                            style={styles.modalBtnConfirm}
+                            disabled={isUpdatingEstado}
+                          >
+                            {isUpdatingEstado
+                              ? <ActivityIndicator color={colors.background} />
+                              : <ThemedText style={{ color: colors.background }}>Aceptar</ThemedText>
+                            }
+                          </TouchableOpacity>
+                        </View>
                       </View>
-                    </View>
-                  </TouchableWithoutFeedback>
-                </View>
-              </TouchableWithoutFeedback>
+                    </TouchableWithoutFeedback>
+                  </View>
+                </TouchableWithoutFeedback>
+              </KeyboardAvoidingView>
             </Modal>
 
             {/* Modal Rechazar */}
-            <Modal visible={showRejectModal} transparent animationType="fade">
-              <TouchableWithoutFeedback onPress={closeRejectModal}>
-                <View style={styles.modalOverlay}>
-                  <TouchableWithoutFeedback onPress={e => e.stopPropagation()}>
-                    <View style={styles.modalContent}>
-                      <ThemedText type="subtitle" style={{ marginBottom: 16 }}>Rechazar solicitud</ThemedText>
-                      <ThemedText style={{ marginBottom: 8 }}>¿Deseas rechazar esta solicitud?</ThemedText>
-                      <ThemedText style={styles.modalInputLabel}>Observación (opcional)</ThemedText>
-                      <TextInput
-                        style={styles.modalTextInput}
-                        placeholder="Podés agregar un motivo"
-                        value={rejectObservation}
-                        onChangeText={setRejectObservation}
-                        multiline
-                      />
-                      <View style={styles.modalActions}>
-                        <TouchableOpacity onPress={closeRejectModal} style={styles.modalBtnCancel}>
-                          <ThemedText style={{ color: colors.error }}>Cancelar</ThemedText>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          onPress={confirmRechazar}
-                          style={[styles.modalBtnConfirm, { backgroundColor: colors.error }]}
-                          disabled={isUpdatingEstado}
-                        >
-                          {isUpdatingEstado
-                            ? <ActivityIndicator color={colors.background} />
-                            : <ThemedText style={{ color: colors.background }}>Rechazar</ThemedText>
-                          }
-                        </TouchableOpacity>
+            <Modal visible={showRejectModal} transparent={true} animationType="fade">
+              <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                style={styles.keyboardContainer}
+              >
+                <TouchableWithoutFeedback onPress={closeRejectModal}>
+
+                  <View style={styles.modalOverlay}>
+                    <TouchableWithoutFeedback onPress={e => e.stopPropagation()}>
+                      <View style={styles.modalContent}>
+                        <ThemedText type="subtitle" style={{ marginBottom: 16 }}>Rechazar solicitud</ThemedText>
+                        <ThemedText style={{ marginBottom: 8 }}>¿Deseas rechazar esta solicitud?</ThemedText>
+                        <ThemedText style={styles.modalInputLabel}>Observación (opcional)</ThemedText>
+                        <TextInput
+                          style={styles.modalTextInput}
+                          placeholder="Podés agregar un motivo"
+                          value={rejectObservation}
+                          onChangeText={setRejectObservation}
+                          multiline
+                        />
+                        <View style={styles.modalActions}>
+                          <TouchableOpacity onPress={closeRejectModal} style={styles.modalBtnCancel}>
+                            <ThemedText style={{ color: colors.error }}>Cancelar</ThemedText>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            onPress={confirmRechazar}
+                            style={[styles.modalBtnConfirm, { backgroundColor: colors.error }]}
+                            disabled={isUpdatingEstado}
+                          >
+                            {isUpdatingEstado
+                              ? <ActivityIndicator color={colors.background} />
+                              : <ThemedText style={{ color: colors.background }}>Rechazar</ThemedText>
+                            }
+                          </TouchableOpacity>
+                        </View>
                       </View>
-                    </View>
-                  </TouchableWithoutFeedback>
-                </View>
-              </TouchableWithoutFeedback>
+                    </TouchableWithoutFeedback>
+                  </View>
+                </TouchableWithoutFeedback>
+              </KeyboardAvoidingView>
             </Modal>
 
             {/* Modal Modificar */}
-            <Modal visible={showModifyModal} transparent={false} animationType="slide" onRequestClose={minimizeModifyModal}>
-              <View style={styles.fullScreenContainer}>
-                <View style={styles.modifyModalHeader}>
-                  <ThemedText style={styles.modifyModalTitle}>Modificar solicitud</ThemedText>
-                  <View style={styles.modifyModalHeaderActions}>
-                    <TouchableOpacity onPress={minimizeModifyModal} style={styles.modifyModalHeaderBtn}>
-                      <Ionicons name="chevron-down" size={24} color={colors.secondaryText} />
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={resetModifyDraft} style={styles.modifyModalHeaderBtn}>
-                      <Ionicons name="close" size={22} color={colors.secondaryText} />
+            <Modal visible={showModifyModal} transparent={true} animationType="slide" onRequestClose={minimizeModifyModal}>
+              <View style={styles.modifyModalOverlay}>
+                <View style={styles.fullScreenContainer}>
+                  <View style={styles.modifyModalHeader}>
+                    <View style={styles.modifyModalHeaderActions}>
+                      <TouchableOpacity onPress={minimizeModifyModal} style={styles.modifyModalHeaderBtn}>
+                        <Ionicons name="chevron-down" size={24} color={colors.secondaryText} />
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={resetModifyDraft} style={styles.modifyModalHeaderBtn}>
+                        <Ionicons name="close" size={22} color={colors.secondaryText} />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+                    <View style={styles.dateSection}>
+                      <ThemedText style={styles.label}>Nueva Fecha Inicio</ThemedText>
+                      <View style={styles.row}>
+                        <TouchableOpacity
+                          onPress={() => showPicker('date', 'start')}
+                          style={styles.dateBtn}
+                        >
+                          <ThemedText>{modStartDate ? formatDateDDMMYYYY(modStartDate) : 'Día'}</ThemedText>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => showPicker('time', 'start')} style={styles.dateBtn}>
+                          <ThemedText>{modStartDate ? formatTimeHHMM(modStartDate) : 'Hora'}</ThemedText>
+                        </TouchableOpacity>
+                      </View>
+
+                      <ThemedText style={styles.label}>Nueva Fecha Fin</ThemedText>
+                      <View style={styles.row}>
+                        <TouchableOpacity
+                          onPress={() => showPicker('date', 'end')}
+                          style={styles.dateBtn}
+                        >
+                          <ThemedText>{modEndDate ? formatDateDDMMYYYY(modEndDate) : 'Día'}</ThemedText>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => showPicker('time', 'end')} style={styles.dateBtn}>
+                          <ThemedText>{modEndDate ? formatTimeHHMM(modEndDate) : 'Hora'}</ThemedText>
+                        </TouchableOpacity>
+                      </View>
+
+                      <ThemedText style={styles.label}>Observación</ThemedText>
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Respuesta"
+                        value={modObservation}
+                        onChangeText={setModObservation}
+                        multiline
+                      />
+
+                      {modDateErrorMessage && (
+                        <ThemedText style={{ color: colors.error, fontSize: 12, marginTop: 8 }}>
+                          {modDateErrorMessage}
+                        </ThemedText>
+                      )}
+
+                      {!hasDateChanges && (
+                        <ThemedText style={{ color: colors.secondaryText, fontSize: 12, marginTop: 8 }}>
+                          Podés enviar solo una observación sin cambiar fechas.
+                        </ThemedText>
+                      )}
+                    </View>
+                  </ScrollView>
+
+                  <View style={[styles.uploadButtonContainer]}>
+                    <TouchableOpacity
+                      onPress={handleModificarPress}
+                      style={[styles.uploadButton, { backgroundColor: Colors['light'].componentBackground }]}
+                    >
+                      <Ionicons name="cloud-upload" size={20} color={Colors['light'].lightTint} />
+                      <ThemedText style={styles.uploadButtonText}>{'Crear'}</ThemedText>
+
                     </TouchableOpacity>
                   </View>
-                </View>
 
-                <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-                  <View style={styles.dateSection}>
-                    <ThemedText style={styles.label}>Nueva Fecha Inicio</ThemedText>
-                    <View style={styles.row}>
-                      <TouchableOpacity
-                        onPress={() => showPicker('date', 'start')}
-                        style={styles.dateBtn}
-                      >
-                        <ThemedText>{modStartDate ? formatDateDDMMYYYY(modStartDate) : 'Día'}</ThemedText>
-                      </TouchableOpacity>
-                      <TouchableOpacity onPress={() => showPicker('time', 'start')} style={styles.dateBtn}>
-                        <ThemedText>{modStartDate ? formatTimeHHMM(modStartDate) : 'Hora'}</ThemedText>
-                      </TouchableOpacity>
-                    </View>
-
-                    <ThemedText style={styles.label}>Nueva Fecha Fin</ThemedText>
-                    <View style={styles.row}>
-                      <TouchableOpacity
-                        onPress={() => showPicker('date', 'end')}
-                        style={styles.dateBtn}
-                      >
-                        <ThemedText>{modEndDate ? formatDateDDMMYYYY(modEndDate) : 'Día'}</ThemedText>
-                      </TouchableOpacity>
-                      <TouchableOpacity onPress={() => showPicker('time', 'end')} style={styles.dateBtn}>
-                        <ThemedText>{modEndDate ? formatTimeHHMM(modEndDate) : 'Hora'}</ThemedText>
-                      </TouchableOpacity>
-                    </View>
-
-                    <ThemedText style={styles.label}>Observación</ThemedText>
-                    <TextInput
-                      style={styles.input}
-                      placeholder="Respuesta"
-                      value={modObservation}
-                      onChangeText={setModObservation}
-                      multiline
+                  {showDatePicker.show && (
+                    <DateTimePicker
+                      visible={showDatePicker.show}
+                      testID="dateTimePicker"
+                      value={modPickerValue}
+                      mode={showDatePicker.mode}
+                      is24Hour={true}
+                      onConfirm={onDateConfirm}
+                      onCancel={onDateCancel}
                     />
-
-                    {modDateErrorMessage && (
-                      <ThemedText style={{ color: colors.error, fontSize: 12, marginTop: 8 }}>
-                        {modDateErrorMessage}
-                      </ThemedText>
-                    )}
-
-                    {!hasDateChanges && (
-                      <ThemedText style={{ color: colors.secondaryText, fontSize: 12, marginTop: 8 }}>
-                        Podés enviar solo una observación sin cambiar fechas.
-                      </ThemedText>
-                    )}
-                  </View>
-                </ScrollView>
-
-                <AppFab
-                  icon="checkmark"
-                  onPress={confirmModificar}
-                  disabled={!canSubmitModificar}
-                  isLoading={isUpdatingEstado}
-                />
-
-                {showDatePicker.show && (
-                  <DateTimePicker
-                    visible={showDatePicker.show}
-                    testID="dateTimePicker"
-                    value={modPickerValue}
-                    mode={showDatePicker.mode}
-                    is24Hour={true}
-                    onConfirm={onDateConfirm}
-                    onCancel={onDateCancel}
-                  />
-                )}
+                  )}
+                </View>
               </View>
             </Modal>
 
@@ -1370,8 +1395,8 @@ export function Solicitud({ solicitudId: solicitudIdProp, type: typeProp, visibl
             <OperacionPendienteModal visible={isMutating} />
           </View>
         </KeyboardAvoidingView>
-      </View>
-    </Modal>
+      </View >
+    </Modal >
   );
 }
 
@@ -1382,7 +1407,7 @@ const styles = StyleSheet.create({
   },
   keyboardContainer: {
     flex: 1,
-    justifyContent: 'flex-end',
+    width: '100%',
   },
   container: {
     flex: 1,
@@ -1416,9 +1441,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 120,
-    gap: 12,
+    gap: 14,
   },
-  sectionCard: {
+  contentBlock: {
+    gap: 6,
+  },
+  messagesCard: {
     backgroundColor: colors.background,
     borderRadius: 12,
     padding: 14,
@@ -1430,10 +1458,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
   },
-  sectionTitleText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.secondaryText,
+  labelInline: {
+    marginBottom: 0,
   },
   badgeRow: {
     marginTop: 8,
@@ -1448,8 +1474,13 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   fullScreenContainer: {
+    // Quita el flex: 1, o usa un alto fijo/porcentaje
     flex: 1,
-    backgroundColor: colors.componentBackground,
+    marginTop: '5%', // Empuja el modal hacia abajo
+    backgroundColor: Colors['light'].componentBackground,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    overflow: 'hidden',
   },
   dateSection: {
     padding: 16,
@@ -1491,7 +1522,8 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 12,
-    color: colors.secondaryText,
+    fontWeight: '600',
+    color: '#6b7280',
     marginBottom: 4,
   },
   valueText: {
@@ -1752,12 +1784,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 16,
   },
+  modifyModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)' // Sombra de fondo
+  },
   modifyModalHeader: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomColor: Colors['light'].icon,
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     alignItems: 'center',
-    paddingHorizontal: UI.header.horizontalPadding,
-    paddingVertical: UI.header.verticalPadding,
   },
   modifyModalTitle: {
     fontSize: UI.fontSize.xxl,
@@ -1767,9 +1804,12 @@ const styles = StyleSheet.create({
   modifyModalHeaderActions: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginLeft: 12,
   },
   modifyModalHeaderBtn: {
-    padding: 4,
+    padding: 6,
+    borderRadius: 16,
+    backgroundColor: '#f3f4f6',
     marginLeft: 8,
   },
   dateBtn: {
@@ -1802,22 +1842,20 @@ const styles = StyleSheet.create({
     borderColor: Colors.light.tint,
     backgroundColor: Colors.light.tint + '12',
   },
+  actionButtonDisabled: {
+    opacity: 0.5,
+  },
   actionButtonText: {
     fontSize: 12,
     fontWeight: '700',
     color: Colors.light.tint,
   },
+  actionButtonTextDisabled: {
+    color: '#9ca3af',
+  },
   section: {
     marginTop: 12,
     gap: 10,
-  },
-  sectionLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#6b7280',
-    textTransform: 'uppercase',
-    marginBottom: 6,
-    letterSpacing: 0.4,
   },
   sectionValue: {
     fontSize: 16,
@@ -1851,5 +1889,25 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6b7280',
     marginTop: 2,
+  },
+  uploadButtonContainer: {
+    backgroundColor: Colors['light'].componentBackground,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: Colors['light'].icon,
+    paddingHorizontal: '4%',
+    paddingTop: 10,
+  },
+  uploadButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 8,
+    gap: 8,
+  },
+  uploadButtonText: {
+    color: Colors['light'].lightTint,
+    fontWeight: '600',
+    fontSize: 16,
   },
 });

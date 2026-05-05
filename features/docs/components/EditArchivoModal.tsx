@@ -1,5 +1,4 @@
 import { ThemedText } from '@/components/themed-text';
-import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
 import { UserSelector } from '@/components/UserSelector';
 import { Colors } from '@/constants/theme';
 import { RoleUserSelectionModal } from '@/features/solicitudesActividades/components/RoleUserSelectionModal';
@@ -382,29 +381,25 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
   }, [nombre, descripcion, archivo.nombre, archivo.titulo, usuariosCompartidos, onClose, resetForm]);
 
   return (
-    <>
-      <Modal visible={visible} animationType="slide" onRequestClose={handleCancel}>
-        {/*
-        Misma estructura que CrearDocumento:
-          <View> raíz
-            <Header> con insets.top
-            <KeyboardAvoidingView> solo el scroll
-            <Botón fijo> con insets.bottom
-      */}
-        <View style={styles.container}>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent={true}
+      onRequestClose={handleCancel}
+    >
+      <View style={styles.overlay}>
+        <View style={styles.modalContainer}>
           {/* Header con safe-area top */}
-          <View style={[styles.header, { paddingTop: insets.top || 12 }]}>
+          <View style={styles.header}>
             <TouchableOpacity onPress={handleCancel} style={styles.iconButton}>
               <Ionicons name="close" size={24} color={colors.icon} />
             </TouchableOpacity>
-            <ThemedText style={styles.headerTitle}>Editar Archivo</ThemedText>
-            <View style={{ width: 40 }} />
           </View>
 
           {/* KAV solo envuelve el scroll */}
           <KeyboardAvoidingView
-            style={styles.flex}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.modalKeyboardAvoiding}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             keyboardVerticalOffset={0}
           >
             <ScrollView
@@ -648,37 +643,42 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
             </TouchableOpacity>
           </View>
         </View>
-      </Modal>
-      <OperacionPendienteModal visible={isUpdating} />
-    </>
+      </View>
+    </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  overlay: {
     flex: 1,
-    backgroundColor: colors.componentBackground,
+    backgroundColor: 'rgba(0,0,0,0.5)' // Sombra de fondo
   },
-  flex: {
+  modalContainer: {
+    // Quita el flex: 1, o usa un alto fijo/porcentaje
     flex: 1,
+    marginTop: '5%', // Empuja el modal hacia abajo
+    backgroundColor: Colors['light'].componentBackground,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    overflow: 'hidden',
+  },
+  modalKeyboardAvoiding: {
+    flex: 1,
+    width: '100%',
   },
   header: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomColor: Colors['light'].icon,
     flexDirection: 'row',
+    justifyContent: 'flex-end',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: '4%',
-    paddingBottom: 12,
-    backgroundColor: colors.componentBackground,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.icon,
   },
   iconButton: {
-    padding: 8,
-    borderRadius: 8,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    padding: 6,
+    borderRadius: 16,
+    backgroundColor: '#f3f4f6',
+    marginLeft: 8,
   },
   content: {
     flex: 1,

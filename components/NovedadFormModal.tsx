@@ -1,3 +1,4 @@
+import { Colors } from '@/constants/theme';
 import type { Novedad } from '@/features/novedades/models/Novedades';
 import { AppFab } from '@/shared/ui/AppFab';
 import { Ionicons } from '@expo/vector-icons';
@@ -105,7 +106,7 @@ export function NovedadFormModal({
       onHide.remove();
     };
   }, []);
-  
+
   useEffect(() => {
     if (!visible) return;
 
@@ -167,43 +168,41 @@ export function NovedadFormModal({
   return (
     <Modal
       visible={visible}
-      transparent={false}
+      transparent={true}
       animationType="slide"
       onRequestClose={mode === 'create' && onMinimize ? handleMinimize : onClose}
     >
-      <KeyboardAvoidingView
-        style={styles.modalKeyboardAvoiding}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={0}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.headerTitle}>
-              {mode === 'create' ? 'Crear Novedad' : 'Editar Novedad'}
-            </Text>
-            <View style={styles.modalHeaderActions}>
-              {mode === 'create' && (
-                <TouchableOpacity onPress={handleMinimize} style={styles.headerIconButton} disabled={loading}>
-                  <Ionicons name="chevron-down" size={24} color="#6b7280" />
+      <View style={styles.overlay}>
+        <KeyboardAvoidingView
+          style={styles.modalKeyboardAvoiding}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={0}
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <View style={styles.modalHeaderActions}>
+                {mode === 'create' && (
+                  <TouchableOpacity onPress={handleMinimize} style={styles.headerIconButton} disabled={loading}>
+                    <Ionicons name="chevron-down" size={24} color="#6b7280" />
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity onPress={onClose} style={styles.headerIconButton} disabled={loading}>
+                  <Ionicons name="close" size={22} color="#6b7280" />
                 </TouchableOpacity>
-              )}
-              <TouchableOpacity onPress={onClose} style={styles.headerIconButton} disabled={loading}>
-                <Ionicons name="close" size={22} color="#6b7280" />
-              </TouchableOpacity>
+              </View>
             </View>
-          </View>
 
-          <ScrollView
-            style={styles.formScroll}
-            contentContainerStyle={[
-              styles.scrollContent,
-              { paddingBottom: 88 + keyboardHeight },
-            ]}
-            keyboardShouldPersistTaps={isKeyboardOpen ? 'handled' : 'never'}
-            keyboardDismissMode={isKeyboardOpen ? 'none' : (Platform.OS === 'ios' ? 'interactive' : 'on-drag')}
-            nestedScrollEnabled
-            showsVerticalScrollIndicator={false}
-          >
+            <ScrollView
+              style={styles.formScroll}
+              contentContainerStyle={[
+                styles.scrollContent,
+                { paddingBottom: 88 + keyboardHeight },
+              ]}
+              keyboardShouldPersistTaps={isKeyboardOpen ? 'handled' : 'never'}
+              keyboardDismissMode={isKeyboardOpen ? 'none' : (Platform.OS === 'ios' ? 'interactive' : 'on-drag')}
+              nestedScrollEnabled
+              showsVerticalScrollIndicator={false}
+            >
 
               {/* Título */}
               <View style={styles.fieldContainer}>
@@ -272,47 +271,59 @@ export function NovedadFormModal({
                 />
               </View>
 
-          </ScrollView>
+            </ScrollView>
 
-          <AppFab
-            icon="checkmark"
-            floating={false}
-            onPress={handleSubmit}
-            disabled={!titulo.trim() || loading}
-            isLoading={loading}
-            style={styles.modalSubmitFab}
-          />
-        </View>
-      </KeyboardAvoidingView>
+            <AppFab
+              icon="checkmark"
+              floating={false}
+              onPress={handleSubmit}
+              disabled={!titulo.trim() || loading}
+              isLoading={loading}
+              style={styles.modalSubmitFab}
+            />
+          </View>
+        </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)' // Sombra de fondo
+  },
   modalKeyboardAvoiding: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    width: '100%',
   },
   modalContainer: {
+    // Quita el flex: 1, o usa un alto fijo/porcentaje
     flex: 1,
-    backgroundColor: 'white',
+    marginTop: '5%', // Empuja el modal hacia abajo
+    backgroundColor: Colors['light'].componentBackground,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    overflow: 'hidden',
   },
   modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e5e7eb',
+    borderBottomColor: Colors['light'].icon,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
   },
   modalHeaderActions: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginLeft: 12,
   },
   headerIconButton: {
-    padding: 8,
-    marginLeft: 4,
+    padding: 6,
+    borderRadius: 16,
+    backgroundColor: '#f3f4f6',
+    marginLeft: 8,
   },
   formScroll: {
     flex: 1,

@@ -2,14 +2,16 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { CreateButton } from '@/components/ui/CreateButton';
 import { Colors } from '@/constants/theme';
-import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import { useLocalSearchParams } from 'expo-router';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   StyleSheet,
   TouchableOpacity,
   View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { CrearSolicitud } from '../components/CrearSolicitud';
+import { Solicitud } from '../components/Solicitud';
 import { SolicitudesEnviadas } from '../components/SolicitudesEnviadas';
 import { SolicitudesRecibidas } from '../components/SolicitudesRecibidas';
 
@@ -23,21 +25,48 @@ interface SolicitudesViewProps {
 }
 
 export default function SolicitudesView({ onRefresh, refreshing }: SolicitudesViewProps = {}) {
-  const router = useRouter();
+  const { solicitudId: solicitudIdParam, type: typeParam } = useLocalSearchParams<{ solicitudId?: string; type?: string }>();
   const insets = useSafeAreaInsets();
 
   const [activeTab, setActiveTab] = useState<TabType>('recibidas');
+  const [selectedSolicitudId, setSelectedSolicitudId] = useState<number | null>(null);
+  const [selectedType, setSelectedType] = useState<TabType>('recibidas');
+  const [showCrearSolicitud, setShowCrearSolicitud] = useState(false);
+  const handledParamRef = useRef<string | null>(null);
 
-  const handleCreatePress = () => {
-    router.push('/(extras)/crear-solicitud');
-  };
+  const handleCreatePress = useCallback(() => {
+    setShowCrearSolicitud(true);
+  }, []);
+
+  const handleCloseCrearSolicitud = useCallback(() => {
+    setShowCrearSolicitud(false);
+  }, []);
+
+  const handleOpenSolicitud = useCallback((solicitudId: number, type: TabType) => {
+    setSelectedType(type);
+    setSelectedSolicitudId(solicitudId);
+  }, []);
+
+  const handleCloseSolicitud = useCallback(() => {
+    setSelectedSolicitudId(null);
+  }, []);
+
+  useEffect(() => {
+    if (!solicitudIdParam) return;
+    const key = `${solicitudIdParam}:${typeParam ?? ''}`;
+    if (handledParamRef.current === key) return;
+    const parsedId = Number(solicitudIdParam);
+    if (!Number.isFinite(parsedId) || parsedId <= 0) return;
+
+    setSelectedType(typeParam === 'enviada' ? 'enviadas' : 'recibidas');
+    setSelectedSolicitudId(parsedId);
+    handledParamRef.current = key;
+  }, [solicitudIdParam, typeParam]);
 
   return (
     <ThemedView style={styles.container}>
       {/* Header con tabs */}
-      <View
-        style={styles.header}
-      >
+      <View style={styles.header}>
         <View style={styles.headerContent}>
           {/* Tabs */}
           <View style={styles.tabs}>
@@ -60,25 +89,25 @@ export default function SolicitudesView({ onRefresh, refreshing }: SolicitudesVi
                 Recibidas
               </ThemedText>
             </TouchableOpacity>
-              <TouchableOpacity
+            <TouchableOpacity
+              style={[
+                styles.tab,
+                activeTab === 'enviadas' && styles.tabActive,
+              ]}
+              onPress={() => setActiveTab('enviadas')}
+            >
+              <ThemedText
                 style={[
-                  styles.tab,
-                  activeTab === 'enviadas' && styles.tabActive,
+                  styles.tabText,
+                  activeTab === 'enviadas' && {
+                    color: colors.tint,
+                    fontWeight: 'bold',
+                  },
                 ]}
-                onPress={() => setActiveTab('enviadas')}
               >
-                <ThemedText
-                  style={[
-                    styles.tabText,
-                    activeTab === 'enviadas' && {
-                      color: colors.tint,
-                      fontWeight: 'bold',
-                    },
-                  ]}
-                >
-                  Enviadas
-                </ThemedText>
-              </TouchableOpacity>
+                Enviadas
+              </ThemedText>
+            </TouchableOpacity>
           </View>
         </View>
       </View>
@@ -86,20 +115,44 @@ export default function SolicitudesView({ onRefresh, refreshing }: SolicitudesVi
       {/* Contenido */}
       <View style={styles.content}>
         {activeTab === 'enviadas' ? (
-          <SolicitudesEnviadas onRefresh={onRefresh} refreshing={refreshing} />
+          <SolicitudesEnviadas
+            onRefresh={onRefresh}
+            refreshing={refreshing}
+            onOpenSolicitud={(id) => handleOpenSolicitud(id, 'enviadas')}
+          />
         ) : (
-          <SolicitudesRecibidas onRefresh={onRefresh} refreshing={refreshing} />
+          <SolicitudesRecibidas
+            onRefresh={onRefresh}
+            refreshing={refreshing}
+            onOpenSolicitud={(id) => handleOpenSolicitud(id, 'recibidas')}
+          />
         )}
       </View>
 
-      {/* Botón flotante */}     
+      {/* Botón flotante */}
       <View style={[styles.floatingButtonContainer, { bottom: insets.bottom + 8, right: 36 }]}>
-          <CreateButton
-            onPress={handleCreatePress}
-            size={56}
-            accessibilityLabel="Crear nueva solicitud"
-          />
-        </View>
+        <CreateButton
+          onPress={handleCreatePress}
+          size={56}
+          accessibilityLabel="Crear nueva solicitud"
+        />
+      </View>
+
+      {/* Modal detalle de solicitud */}
+      {selectedSolicitudId !== null && (
+        <Solicitud
+          visible
+          solicitudId={selectedSolicitudId}
+          type={selectedType === 'enviadas' ? 'enviada' : 'recibida'}
+          onClose={handleCloseSolicitud}
+        />
+      )}
+
+      {/* Modal crear solicitud */}
+      <CrearSolicitud
+        visible={showCrearSolicitud}
+        onClose={handleCloseCrearSolicitud}
+      />
     </ThemedView>
   );
 }
@@ -115,13 +168,6 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: colors.componentBackground,
-  },
-  title: {
-    marginBottom: 12,
-  },
-  titleText: {
-    fontSize: 28,
-    fontWeight: 'bold',
   },
   tabs: {
     flexDirection: 'row',

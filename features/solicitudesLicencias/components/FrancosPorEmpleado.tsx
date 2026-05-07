@@ -1,16 +1,16 @@
 import { ThemedText } from '@/components/themed-text';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { Colors } from '@/constants/theme';
-import { useRouter } from 'expo-router';
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
-    StyleSheet,
-    TouchableOpacity,
-    View
+  StyleSheet,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { EstadoSolicitud, SolicitudLicencia } from '../models/SolicitudLicencia';
 import { formatCantidadLicencia } from '../utils/formatCantidad';
 import { useGetSolicitudesLicencias } from '../viewmodels/useSolicitudes';
+import { SolicitudLicencia as SolicitudLicenciaModal } from './SolicitudLicencia';
 
 const estadoMapping: Record<EstadoSolicitud, string> = {
   'PENDIENTE': 'Pendiente',
@@ -40,20 +40,24 @@ interface FrancosPorEmpleadoProps {
 const colors = Colors['light'];
 
 export function FrancosPorEmpleado({ usuarioId }: FrancosPorEmpleadoProps) {
-  const router = useRouter();
   const francos = useGetSolicitudesLicencias({ usuario_id: usuarioId, tipo_licencia_id: 2 });
   const diasEspeciales = useGetSolicitudesLicencias({ usuario_id: usuarioId, tipo_licencia_id: 4 });
+  const [selectedSolicitudId, setSelectedSolicitudId] = useState<number | null>(null);
+  const [detalleVisible, setDetalleVisible] = useState(false);
 
   const isLoading = francos.isLoading || diasEspeciales.isLoading;
   const error = francos.error || diasEspeciales.error;
-  const data = [ ...(francos.data ?? []), ...(diasEspeciales.data ?? []) ];
+  const data = [...(francos.data ?? []), ...(diasEspeciales.data ?? [])];
 
   const handleOpenSolicitud = useCallback((solicitudId: number) => {
-    router.push({
-      pathname: '/(extras)/solicitud-licencia' as any,
-      params: { id: solicitudId.toString(), type: 'recibida' },
-    });
-  }, [router]);
+    setSelectedSolicitudId(solicitudId);
+    setDetalleVisible(true);
+  }, []);
+
+  const handleCloseDetalle = useCallback(() => {
+    setDetalleVisible(false);
+    setSelectedSolicitudId(null);
+  }, []);
 
   const Separator = useCallback(() => (
     <View style={[styles.separator, { backgroundColor: colors.icon }]} />
@@ -98,6 +102,14 @@ export function FrancosPorEmpleado({ usuarioId }: FrancosPorEmpleadoProps) {
           );
         })}
       </View>
+      {selectedSolicitudId !== null && (
+        <SolicitudLicenciaModal
+          visible={detalleVisible}
+          onClose={handleCloseDetalle}
+          solicitudId={selectedSolicitudId}
+          type="recibida"
+        />
+      )}
     </View>
   );
 }

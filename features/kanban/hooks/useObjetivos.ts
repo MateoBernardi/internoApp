@@ -5,7 +5,7 @@ import {
     createObjetivo,
     deleteObjetivo,
     fetchObjetivos,
-    updateObjetivo,
+    updateObjetivo
 } from '../services/kanbanApi';
 
 const OBJETIVOS_QUERY_KEY = ['objetivos'];
@@ -43,6 +43,7 @@ export function useCreateObjetivo() {
             if (!token) {
                 throw new Error('No hay token de acceso');
             }
+            console.log('Creando objetivo con data:', data);
             return createObjetivo(token, data);
         },
         onSuccess: (newObjetivo) => {

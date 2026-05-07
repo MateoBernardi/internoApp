@@ -1,6 +1,5 @@
 import { Colors } from '@/constants/theme';
 import type { Novedad } from '@/features/novedades/models/Novedades';
-import { AppFab } from '@/shared/ui/AppFab';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
@@ -16,6 +15,7 @@ import {
   View,
 } from 'react-native';
 import { Dropdown } from 'react-native-element-dropdown';
+import { ThemedText } from './themed-text';
 
 interface NovedadFormModalProps {
   visible: boolean;
@@ -273,14 +273,16 @@ export function NovedadFormModal({
 
             </ScrollView>
 
-            <AppFab
-              icon="checkmark"
-              floating={false}
-              onPress={handleSubmit}
-              disabled={!titulo.trim() || loading}
-              isLoading={loading}
-              style={styles.modalSubmitFab}
-            />
+            <View style={[styles.uploadButtonContainer]}>
+              <TouchableOpacity
+                onPress={handleSubmit}
+                style={[styles.uploadButton, { backgroundColor: Colors['light'].componentBackground }]}
+              >
+                <Ionicons name="cloud-upload" size={20} color={Colors['light'].lightTint} />
+                <ThemedText style={styles.uploadButtonText}>{'Crear'}</ThemedText>
+
+              </TouchableOpacity>
+            </View>
           </View>
         </KeyboardAvoidingView>
       </View>
@@ -381,5 +383,25 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-end',
     marginRight: 20,
     marginBottom: 20,
+  },
+  uploadButtonContainer: {
+    backgroundColor: Colors['light'].componentBackground,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: Colors['light'].icon,
+    paddingHorizontal: '4%',
+    paddingTop: 10,
+  },
+  uploadButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 8,
+    gap: 8,
+  },
+  uploadButtonText: {
+    color: Colors['light'].lightTint,
+    fontWeight: '600',
+    fontSize: 16,
   },
 });

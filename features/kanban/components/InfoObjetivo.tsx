@@ -1,11 +1,26 @@
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
+import { Archivo, ArchivoUso } from '@/features/docs/models/Archivo';
+import { useUploadArchivo } from '@/features/docs/viewmodels/useArchivos';
+import { ApiOperationResult } from '@/shared/types/apiStatus';
 import { UserSummary } from '@/shared/users/User';
 import { adminRoles, allRoles } from '@/shared/users/roles';
 import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
 import { Ionicons } from '@expo/vector-icons';
+import * as DocumentPicker from 'expo-document-picker';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+    ActivityIndicator,
+    Alert,
+    Linking,
+    Modal,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from 'react-native';
 import { UserSelector } from '../../../components/UserSelector';
 import { RoleUserSelectionModal } from '../../solicitudesActividades/components/RoleUserSelectionModal';
 import { useUpdateObjetivo } from '../hooks/useObjetivos';
@@ -17,6 +32,13 @@ interface InfoObjetivoProps {
     onClose: () => void;
 }
 
+interface PendingFile {
+    name: string;
+    uri: string;
+    type: string;
+    size?: number;
+}
+
 const ROLE_LABELS: Record<Invitado['rol'], string> = {
     ASSIGNEE: 'Assignee',
     VISUALIZER: 'Visualizer',
@@ -25,6 +47,13 @@ const ROLE_LABELS: Record<Invitado['rol'], string> = {
 export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) {
     const { user } = useAuth();
     const updateMutation = useUpdateObjetivo();
+    const { mutateAsync: uploadArchivo } = useUploadArchivo();
+    const [localObjetivo, setLocalObjetivo] = useState<Objetivo | null>(null);
+    const [editingTitulo, setEditingTitulo] = useState(false);
+    const [editingDescripcion, setEditingDescripcion] = useState(false);
+    const [tituloValue, setTituloValue] = useState('');
+    const [descripcionValue, setDescripcionValue] = useState('');
+    const [savingInline, setSavingInline] = useState(false);
     const [invitedUsers, setInvitedUsers] = useState<Invitado[]>([]);
     const [selectedUsers, setSelectedUsers] = useState<UserSummary[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
@@ -32,6 +61,8 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
     const [activeRole, setActiveRole] = useState('');
     const [showSelector, setShowSelector] = useState(false);
     const [pickerRole, setPickerRole] = useState<Invitado['rol']>('VISUALIZER');
+    const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
+    const [isUploadingFile, setIsUploadingFile] = useState(false);
 
     const { data: searchResults, isLoading: isSearchingUsers } = useSearchUsers(searchQuery);
     const { data: roleUsersData, isLoading: isLoadingRole } = useGetUserByRole(activeRole);
@@ -52,8 +83,17 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
 
     useEffect(() => {
         if (!visible || !objetivo) return;
-        const baseInvited = objetivo.invitados ?? [];
+        setLocalObjetivo(objetivo);
+    }, [visible, objetivo]);
+
+    const currentObjetivo = localObjetivo ?? objetivo;
+
+    useEffect(() => {
+        if (!visible || !currentObjetivo) return;
+        const baseInvited = currentObjetivo.invitados ?? [];
         setInvitedUsers(baseInvited);
+        setTituloValue(currentObjetivo.titulo || '');
+        setDescripcionValue(currentObjetivo.descripcion || '');
 
         setSelectedUsers((prev) => {
             const byId = new Map(prev.map((u) => [u.user_context_id, u]));
@@ -61,9 +101,9 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
                 byId.get(inv.user_id) ?? makePlaceholderUser(inv.user_id)
             );
         });
-    }, [visible, objetivo]);
+    }, [visible, currentObjetivo?.id]);
 
-    if (!objetivo) return null;
+    if (!currentObjetivo) return null;
 
     const getDisplayName = (userId: number) => {
         const matched = selectedUsers.find((u) => u.user_context_id === userId);
@@ -71,6 +111,37 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
             return `${matched.nombre} ${matched.apellido}`.trim();
         }
         return `Usuario #${userId}`;
+    };
+
+    const applyUpdate = async (
+        data: Partial<Objetivo>,
+        updatePayload: Parameters<typeof updateMutation.mutateAsync>[0]['data']
+    ) => {
+        if (!currentObjetivo) return;
+        const previous = localObjetivo;
+        if (data && Object.keys(data).length > 0) {
+            setLocalObjetivo((prev) => (prev ? { ...prev, ...data } : prev));
+        }
+
+        try {
+            const updated = await updateMutation.mutateAsync({
+                id: currentObjetivo.id,
+                data: updatePayload,
+            });
+            setLocalObjetivo((prev) => {
+                if (!prev) return updated;
+                if (!updated.archivos && prev.archivos) {
+                    return { ...updated, archivos: prev.archivos };
+                }
+                return updated;
+            });
+        } catch (error) {
+            if (previous) setLocalObjetivo(previous);
+            Alert.alert(
+                'Error',
+                error instanceof Error ? error.message : 'Intenta nuevamente'
+            );
+        }
     };
 
     const persistInvitados = async (nextInvited: Invitado[]) => {
@@ -81,18 +152,7 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
                 byId.get(inv.user_id) ?? makePlaceholderUser(inv.user_id)
             );
         });
-
-        try {
-            await updateMutation.mutateAsync({
-                id: objetivo.id,
-                data: { invitados: nextInvited },
-            });
-        } catch (error) {
-            Alert.alert(
-                'Error',
-                error instanceof Error ? error.message : 'Intenta nuevamente'
-            );
-        }
+        await applyUpdate({ invitados: nextInvited }, { invitados: nextInvited });
     };
 
     const handleSelectUsers = (usersToSelect: UserSummary[]) => {
@@ -134,11 +194,10 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
     };
 
     const handleAddInvitado = () => {
-        if (showSelector && pickerRole === 'VISUALIZER') {
+        if (showSelector) {
             setShowSelector(false);
             return;
         }
-        setPickerRole('VISUALIZER');
         setShowSelector(true);
     };
 
@@ -151,7 +210,10 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
                     ? { ...inv, rol: 'ASSIGNEE' }
                     : inv
             );
-            void persistInvitados(nextInvited);
+            Alert.alert('Asignarme', 'Quieres asignarte a ti mismo?', [
+                { text: 'Cancelar', style: 'cancel' },
+                { text: 'Asignar', onPress: () => void persistInvitados(nextInvited) },
+            ]);
             return;
         }
 
@@ -165,21 +227,192 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
             }
             return [...prev, makePlaceholderUser(user.user_context_id)];
         });
-        void persistInvitados(nextInvited);
-    };
-
-    const handleAssignOther = () => {
-        if (showSelector && pickerRole === 'ASSIGNEE') {
-            setShowSelector(false);
-            return;
-        }
-        setPickerRole('ASSIGNEE');
-        setShowSelector(true);
+        Alert.alert('Asignarme', 'Quieres asignarte a ti mismo?', [
+            { text: 'Cancelar', style: 'cancel' },
+            { text: 'Asignar', onPress: () => void persistInvitados(nextInvited) },
+        ]);
     };
 
     const handleSelectRole = (role: string) => {
         setActiveRole(role);
         setShowRoleModal(true);
+    };
+
+    const handleStartEditTitulo = () => {
+        setTituloValue(currentObjetivo.titulo || '');
+        setEditingTitulo(true);
+    };
+
+    const handleStartEditDescripcion = () => {
+        setDescripcionValue(currentObjetivo.descripcion || '');
+        setEditingDescripcion(true);
+    };
+
+    const handleSaveTitulo = async () => {
+        if (!tituloValue.trim()) return;
+        setSavingInline(true);
+        await applyUpdate(
+            { titulo: tituloValue },
+            { titulo: tituloValue, descripcion: currentObjetivo.descripcion || '' }
+        );
+        setSavingInline(false);
+        setEditingTitulo(false);
+    };
+
+    const handleSaveDescripcion = async () => {
+        setSavingInline(true);
+        await applyUpdate(
+            { descripcion: descripcionValue },
+            { titulo: currentObjetivo.titulo, descripcion: descripcionValue }
+        );
+        setSavingInline(false);
+        setEditingDescripcion(false);
+    };
+
+    const handleToggleInvitadoRole = (userId: number, nextRole: Invitado['rol']) => {
+        const nextInvited = invitedUsers.map((inv) =>
+            inv.user_id === userId ? { ...inv, rol: nextRole } : inv
+        );
+        void persistInvitados(nextInvited);
+    };
+
+    const handlePromoteToAssignee = (userId: number) => {
+        Alert.alert('Asignar', 'Asignar a este participante?', [
+            { text: 'Cancelar', style: 'cancel' },
+            {
+                text: 'Asignar',
+                onPress: () => handleToggleInvitadoRole(userId, 'ASSIGNEE'),
+            },
+        ]);
+    };
+
+    const handleMoveToVisualizer = (userId: number) => {
+        Alert.alert('Mover', 'Mover a visualizador?', [
+            { text: 'Cancelar', style: 'cancel' },
+            {
+                text: 'Mover',
+                onPress: () => handleToggleInvitadoRole(userId, 'VISUALIZER'),
+            },
+        ]);
+    };
+
+    const isSuccess = <T,>(r: ApiOperationResult<T>): r is ApiOperationResult<T> & { data: T } =>
+        r.status === 'success' && r.data !== undefined;
+
+    const handleSeleccionarArchivo = async () => {
+        try {
+            const result = await DocumentPicker.getDocumentAsync({
+                multiple: true,
+                type: '*/*',
+                copyToCacheDirectory: true,
+            });
+
+            if (result.canceled || !result.assets || result.assets.length === 0) return;
+
+            const nuevosArchivos: PendingFile[] = result.assets.map((asset) => ({
+                name: asset.name,
+                uri: asset.uri,
+                type: asset.mimeType ?? 'application/octet-stream',
+                size: asset.size,
+            }));
+
+            setPendingFiles((prevFiles) => [...prevFiles, ...nuevosArchivos]);
+
+            setIsUploadingFile(true);
+
+            try {
+                const response = await uploadArchivo({
+                    item: nuevosArchivos.map((file) => ({
+                        archivo: {
+                            uri: file.uri,
+                            name: file.name,
+                            type: file.type,
+                            size: file.size,
+                        },
+                        archivoData: {
+                            nombre: file.name,
+                            tamaño: file.size,
+                            tipo: file.type,
+                            uso: ArchivoUso.TAREA,
+                        },
+                    })),
+                });
+
+                const resultados = response?.exitosos ?? [];
+                const fallidos = response?.fallidos ?? [];
+                const validos = resultados.filter(isSuccess);
+                const nuevosIds = validos.map((r) => r.data.id);
+                const nuevosArchivosData = validos.map((r) => r.data) as Archivo[];
+
+                if (validos.length === 0) {
+                    Alert.alert(
+                        'Error de archivos',
+                        'No se pudo subir ningun archivo. Se continuara sin adjuntos.'
+                    );
+                }
+
+                if (fallidos.length > 0) {
+                    Alert.alert(
+                        'Archivos parciales',
+                        `Se subieron ${validos.length} de ${nuevosArchivos.length}`
+                    );
+                }
+
+                if (nuevosIds.length > 0 && currentObjetivo) {
+                    const existingIds = (currentObjetivo.archivos ?? []).map((archivo) => archivo.id);
+                    const mergedIds = Array.from(new Set([...existingIds, ...nuevosIds]));
+                    setLocalObjetivo((prev) => {
+                        if (!prev) return prev;
+                        const mergedArchivos = [...(prev.archivos ?? []), ...nuevosArchivosData];
+                        return { ...prev, archivos: mergedArchivos };
+                    });
+                    await applyUpdate({}, { archivosIds: mergedIds });
+                }
+            } catch {
+                Alert.alert(
+                    'Error de archivos',
+                    'No se pudieron subir los archivos. Se continuara sin adjuntos.'
+                );
+            } finally {
+                setIsUploadingFile(false);
+                setPendingFiles((prevFiles) =>
+                    prevFiles.filter(
+                        (file) => !nuevosArchivos.some((nuevo) => nuevo.uri === file.uri)
+                    )
+                );
+            }
+        } catch (err) {
+            console.error('Error seleccionando documento', err);
+            Alert.alert('Error', 'No se pudo seleccionar el documento. Intenta nuevamente.');
+        }
+    };
+
+    const handleOpenArchivo = (url?: string) => {
+        if (!url) return;
+        Linking.openURL(url).catch(() => {
+            Alert.alert('Error', 'No se pudo abrir el archivo');
+        });
+    };
+
+    const handleRemoveArchivo = (archivoId: number) => {
+        if (!currentObjetivo) return;
+        Alert.alert('Eliminar archivo', 'Quieres quitar este archivo?', [
+            { text: 'Cancelar', style: 'cancel' },
+            {
+                text: 'Eliminar',
+                style: 'destructive',
+                onPress: () => {
+                    const nextArchivos = (currentObjetivo.archivos ?? []).filter(
+                        (archivo) => archivo.id !== archivoId
+                    );
+                    const nextIds = nextArchivos.map((archivo) => archivo.id);
+                    void applyUpdate(
+                        { archivos: nextArchivos },
+                        { archivosIds: nextIds }
+                    );
+                },
+            },
+        ]);
     };
 
     return (
@@ -200,19 +433,86 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
                     <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
                         <View style={styles.section}>
                             <Text style={styles.label}>Titulo</Text>
-                            <Text style={styles.sectionValue}>{objetivo.titulo}</Text>
+                            {editingTitulo ? (
+                                <View style={styles.inlineEditRow}>
+                                    <TextInput
+                                        style={styles.inlineInput}
+                                        value={tituloValue}
+                                        onChangeText={setTituloValue}
+                                        autoFocus
+                                        multiline
+                                    />
+                                    <View style={styles.inlineEditActions}>
+                                        <TouchableOpacity
+                                            style={styles.cancelBtn}
+                                            onPress={() => setEditingTitulo(false)}
+                                        >
+                                            <Text style={styles.cancelBtnText}>✕</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity
+                                            style={styles.saveBtn}
+                                            onPress={handleSaveTitulo}
+                                            disabled={savingInline}
+                                        >
+                                            <Text style={styles.saveBtnText}>✓</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
+                            ) : (
+                                <TouchableOpacity onPress={handleStartEditTitulo} activeOpacity={0.6}>
+                                    <View style={styles.inlineValueRow}>
+                                        <Text style={styles.sectionValue}>{currentObjetivo.titulo}</Text>
+                                        <Text style={styles.editHint}>✎</Text>
+                                    </View>
+                                </TouchableOpacity>
+                            )}
                         </View>
 
                         <View style={styles.section}>
                             <Text style={styles.label}>Descripcion</Text>
-                            <Text style={styles.sectionValueMuted}>
-                                {objetivo.descripcion || 'Sin descripcion'}
-                            </Text>
+                            {editingDescripcion ? (
+                                <View style={styles.inlineEditRow}>
+                                    <TextInput
+                                        style={[styles.inlineInput, styles.inlineInputMulti]}
+                                        value={descripcionValue}
+                                        onChangeText={setDescripcionValue}
+                                        autoFocus
+                                        multiline
+                                        numberOfLines={4}
+                                        placeholder="Sin descripcion..."
+                                        placeholderTextColor="#bbb"
+                                    />
+                                    <View style={styles.inlineEditActions}>
+                                        <TouchableOpacity
+                                            style={styles.cancelBtn}
+                                            onPress={() => setEditingDescripcion(false)}
+                                        >
+                                            <Text style={styles.cancelBtnText}>✕</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity
+                                            style={styles.saveBtn}
+                                            onPress={handleSaveDescripcion}
+                                            disabled={savingInline}
+                                        >
+                                            <Text style={styles.saveBtnText}>✓</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
+                            ) : (
+                                <TouchableOpacity onPress={handleStartEditDescripcion} activeOpacity={0.6}>
+                                    <View style={styles.inlineValueRow}>
+                                        <Text style={currentObjetivo.descripcion ? styles.sectionValueMuted : styles.descriptionEmpty}>
+                                            {currentObjetivo.descripcion || 'Sin descripcion'}
+                                        </Text>
+                                        <Text style={styles.editHint}>✎</Text>
+                                    </View>
+                                </TouchableOpacity>
+                            )}
                         </View>
 
                         <View style={styles.section}>
-                            <View style={[styles.statusBadge, { backgroundColor: getStateColor(objetivo.estado) }]}>
-                                <Text style={styles.statusText}>{objetivo.estado}</Text>
+                            <View style={[styles.statusBadge, { backgroundColor: getStateColor(currentObjetivo.estado) }]}>
+                                <Text style={styles.statusText}>{currentObjetivo.estado}</Text>
                             </View>
                         </View>
 
@@ -221,12 +521,44 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
                         <View style={styles.inviteSection}>
                             <View style={styles.sectionHeaderRow}>
                                 <Text style={styles.label}>Participantes</Text>
+                                <View style={styles.roleToggleRow}>
+                                    <TouchableOpacity
+                                        style={[
+                                            styles.roleToggleButton,
+                                            pickerRole === 'VISUALIZER' && styles.roleToggleButtonActive,
+                                        ]}
+                                        onPress={() => setPickerRole('VISUALIZER')}
+                                    >
+                                        <Text
+                                            style={[
+                                                styles.roleToggleText,
+                                                pickerRole === 'VISUALIZER' && styles.roleToggleTextActive,
+                                            ]}
+                                        >
+                                            Visualizador
+                                        </Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={[
+                                            styles.roleToggleButton,
+                                            pickerRole === 'ASSIGNEE' && styles.roleToggleButtonActive,
+                                        ]}
+                                        onPress={() => setPickerRole('ASSIGNEE')}
+                                    >
+                                        <Text
+                                            style={[
+                                                styles.roleToggleText,
+                                                pickerRole === 'ASSIGNEE' && styles.roleToggleTextActive,
+                                            ]}
+                                        >
+                                            Asignado
+                                        </Text>
+                                    </TouchableOpacity>
+                                </View>
                                 <TouchableOpacity style={styles.actionButton} onPress={handleAddInvitado}>
                                     <Ionicons name="add" size={16} color={Colors.light.tint} />
                                     <Text style={styles.actionButtonText}>
-                                        {showSelector && pickerRole === 'VISUALIZER'
-                                            ? 'Cerrar buscador'
-                                            : 'Agregar participantes'}
+                                        {showSelector ? 'Cerrar buscador' : 'Agregar participantes'}
                                     </Text>
                                 </TouchableOpacity>
                             </View>
@@ -257,6 +589,12 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
                                                 <Text style={styles.inviteMeta}>{ROLE_LABELS[inv.rol]}</Text>
                                             </View>
                                             <View style={styles.inviteRowActions}>
+                                                <TouchableOpacity
+                                                    style={styles.roleAction}
+                                                    onPress={() => handlePromoteToAssignee(inv.user_id)}
+                                                >
+                                                    <Text style={styles.roleActionText}>Asignar</Text>
+                                                </TouchableOpacity>
                                                 <View style={styles.roleBadge}>
                                                     <Text style={styles.roleBadgeText}>{ROLE_LABELS[inv.rol]}</Text>
                                                 </View>
@@ -290,6 +628,12 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
                                                 <Text style={styles.inviteMeta}>{ROLE_LABELS[inv.rol]}</Text>
                                             </View>
                                             <View style={styles.inviteRowActions}>
+                                                <TouchableOpacity
+                                                    style={styles.roleAction}
+                                                    onPress={() => handleMoveToVisualizer(inv.user_id)}
+                                                >
+                                                    <Text style={styles.roleActionText}>Visualizar</Text>
+                                                </TouchableOpacity>
                                                 <View style={styles.roleBadge}>
                                                     <Text style={styles.roleBadgeText}>{ROLE_LABELS[inv.rol]}</Text>
                                                 </View>
@@ -307,31 +651,47 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
                         <View style={styles.section}>
                             <View style={styles.sectionHeaderRow}>
                                 <Text style={styles.label}>Archivos enlazados</Text>
-                                <TouchableOpacity style={styles.actionButton} onPress={() => { }}>
+                                <TouchableOpacity style={styles.actionButton} onPress={handleSeleccionarArchivo}>
                                     <Ionicons name="add" size={16} color={Colors.light.tint} />
-                                    <Text style={styles.actionButtonText}>Agregar archivos</Text>
+                                    <Text style={styles.actionButtonText}>
+                                        {isUploadingFile ? 'Subiendo...' : 'Agregar archivos'}
+                                    </Text>
                                 </TouchableOpacity>
                             </View>
-
-                            {/* TODO: renderizar lista de archivos enlazados */}
                             <View style={styles.inviteList}>
-                                {/* TODO: item de archivo con boton abrir */}
-                                <View style={styles.inviteRow}>
-                                    <View>
-                                        <Text style={styles.inviteName}>Archivo-ejemplo.pdf</Text>
-                                        <Text style={styles.inviteMeta}>Documento</Text>
-                                    </View>
-                                    <View style={styles.inviteRowActions}>
-                                        {/* TODO: abrir archivo */}
-                                        <TouchableOpacity onPress={() => { }}>
-                                            <Ionicons name="open-outline" size={20} color={Colors.light.tint} />
-                                        </TouchableOpacity>
-                                        {/* TODO: eliminar archivo */}
-                                        <TouchableOpacity onPress={() => { }}>
-                                            <Ionicons name="trash-outline" size={20} color="#9ca3af" />
-                                        </TouchableOpacity>
-                                    </View>
-                                </View>
+                                {((currentObjetivo.archivos ?? []).length === 0 && pendingFiles.length === 0) ? (
+                                    <Text style={styles.sectionValueMuted}>Sin archivos enlazados</Text>
+                                ) : (
+                                    <>
+                                        {(currentObjetivo.archivos ?? []).map((archivo) => (
+                                            <View key={archivo.id} style={styles.inviteRow}>
+                                                <View>
+                                                    <Text style={styles.inviteName}>{archivo.nombre}</Text>
+                                                    <Text style={styles.inviteMeta}>{archivo.tipo}</Text>
+                                                </View>
+                                                <View style={styles.inviteRowActions}>
+                                                    <TouchableOpacity onPress={() => handleOpenArchivo(archivo.url)}>
+                                                        <Ionicons name="open-outline" size={20} color={Colors.light.tint} />
+                                                    </TouchableOpacity>
+                                                    <TouchableOpacity onPress={() => handleRemoveArchivo(archivo.id)}>
+                                                        <Ionicons name="trash-outline" size={20} color="#9ca3af" />
+                                                    </TouchableOpacity>
+                                                </View>
+                                            </View>
+                                        ))}
+                                        {pendingFiles.map((archivo, index) => (
+                                            <View key={`${archivo.uri}-${index}`} style={styles.inviteRow}>
+                                                <View>
+                                                    <Text style={styles.inviteName}>{archivo.name}</Text>
+                                                    <Text style={styles.inviteMeta}>Subiendo...</Text>
+                                                </View>
+                                                <View style={styles.inviteRowActions}>
+                                                    <ActivityIndicator size="small" color={Colors.light.tint} />
+                                                </View>
+                                            </View>
+                                        ))}
+                                    </>
+                                )}
                             </View>
                         </View>
                     </ScrollView>
@@ -460,6 +820,11 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#6b7280',
     },
+    descriptionEmpty: {
+        fontSize: 14,
+        color: '#9ca3af',
+        fontStyle: 'italic',
+    },
     statusBadge: {
         alignSelf: 'flex-start',
         paddingHorizontal: 12,
@@ -471,11 +836,101 @@ const styles = StyleSheet.create({
         fontSize: 11,
         fontWeight: '700',
     },
+    inlineValueRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: 8,
+    },
+    inlineEditRow: {
+        gap: 8,
+    },
+    inlineInput: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#111827',
+        borderWidth: 1.5,
+        borderColor: Colors.light.tint,
+        borderRadius: 8,
+        paddingHorizontal: 10,
+        paddingVertical: 8,
+        backgroundColor: Colors.light.tint + '10',
+        letterSpacing: -0.2,
+    },
+    inlineInputMulti: {
+        minHeight: 100,
+        textAlignVertical: 'top',
+        fontSize: 14,
+        fontWeight: '500',
+    },
+    inlineEditActions: {
+        flexDirection: 'row',
+        gap: 8,
+        alignItems: 'center',
+        justifyContent: 'flex-end',
+    },
+    cancelBtn: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: '#e5e7eb',
+        backgroundColor: '#fff',
+    },
+    cancelBtnText: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: '#9ca3af',
+    },
+    saveBtn: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: Colors.light.tint,
+    },
+    saveBtnText: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: '#fff',
+    },
+    editHint: {
+        fontSize: 12,
+        color: '#9ca3af',
+        marginTop: 2,
+    },
     sectionHeaderRow: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
         gap: 12,
+    },
+    roleToggleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    roleToggleButton: {
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 999,
+        borderWidth: 1,
+        borderColor: '#e5e7eb',
+        backgroundColor: '#fff',
+    },
+    roleToggleButtonActive: {
+        borderColor: Colors.light.tint,
+        backgroundColor: Colors.light.tint + '12',
+    },
+    roleToggleText: {
+        fontSize: 11,
+        fontWeight: '600',
+        color: '#6b7280',
+    },
+    roleToggleTextActive: {
+        color: Colors.light.tint,
     },
     actionButton: {
         flexDirection: 'row',
@@ -552,6 +1007,19 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
+    },
+    roleAction: {
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 999,
+        borderWidth: 1,
+        borderColor: '#e5e7eb',
+        backgroundColor: '#fff',
+    },
+    roleActionText: {
+        fontSize: 10,
+        fontWeight: '700',
+        color: '#374151',
     },
     inviteName: {
         fontSize: 14,

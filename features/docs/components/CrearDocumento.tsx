@@ -195,7 +195,7 @@ export function CrearDocumento({ visible, onClose, initialFiles, initialFolderId
             {initialFiles && initialFiles[0] && (
               <View style={styles.fileInfoSection}>
                 <View style={styles.fileInfoText}>
-                  <Text style={styles.label}>Archivos enlazados</Text>
+                  <Text style={styles.label}>Archivos seleccionados</Text>
                 </View>
                 <View style={styles.fileInfoText}>
                   <Ionicons name="document-text" size={32} color={colors.tint} />

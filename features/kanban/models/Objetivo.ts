@@ -1,3 +1,5 @@
+import { Archivo } from "@/features/docs/models/Archivo";
+
 export interface Bitacora {
     id: number;
     estado_anterior: string;
@@ -10,6 +12,8 @@ export interface Bitacora {
 
 export interface Invitado {
     user_id: number;
+    invitado_nombre?: string;
+    invitado_apellido?: string;
     rol: 'ASSIGNEE' | 'VISUALIZER';
 }
 
@@ -26,6 +30,7 @@ export interface Objetivo {
     updated_at: string;
     bitacora: Bitacora[];
     invitados?: Invitado[];
+    archivos?: Archivo[];
 }
 
 export interface CreateObjetivo {
@@ -33,6 +38,7 @@ export interface CreateObjetivo {
     descripcion: string;
     estado: typeof ESTADOS[number];
     invitados?: Invitado[];
+    archivosIds?: number[];
 }
 
 export interface UpdateObjetivo {
@@ -42,6 +48,7 @@ export interface UpdateObjetivo {
     rank_position?: string;
     observacion?: string;
     invitados?: Invitado[];
+    archivosIds?: number[];
 }
 
 export const ESTADOS = ['PENDIENTE', 'PRIORIDAD', 'PROGRESO', 'REALIZADO'] as const;

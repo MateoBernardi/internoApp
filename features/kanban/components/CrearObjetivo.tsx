@@ -5,10 +5,14 @@
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
+import { ArchivoUso } from '@/features/docs/models/Archivo';
+import { useUploadArchivo } from '@/features/docs/viewmodels/useArchivos';
+import { ApiOperationResult } from '@/shared/types/apiStatus';
 import { UserSummary } from '@/shared/users/User';
 import { adminRoles, allRoles } from '@/shared/users/roles';
 import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
 import { Ionicons } from '@expo/vector-icons';
+import * as DocumentPicker from 'expo-document-picker';
 import React, { useEffect, useState } from 'react';
 import {
     Alert,
@@ -67,6 +71,9 @@ export function FormObjetivoModal({
     const [keyboardHeight, setKeyboardHeight] = useState(0);
     const createMutation = useCreateObjetivo();
     const updateMutation = useUpdateObjetivo();
+    const [pickedFiles, setPickedFiles] = useState<any[]>([]);
+    const [isUploadingFile, setIsUploadingFile] = useState(false);
+    const { mutateAsync: uploadArchivo } = useUploadArchivo();
 
     const { data: searchResults, isLoading: isSearchingUsers } = useSearchUsers(searchQuery);
     const { data: roleUsersData, isLoading: isLoadingRole } = useGetUserByRole(activeRole);
@@ -174,6 +181,29 @@ export function FormObjetivoModal({
         });
     };
 
+    const handleSeleccionarArchivo = async () => {
+        try {
+            const result = await DocumentPicker.getDocumentAsync({
+                multiple: true,
+                type: '*/*',
+                copyToCacheDirectory: true
+            });
+            if (!result.canceled && result.assets && result.assets.length > 0) {
+                const nuevosArchivos = result.assets.map((asset) => ({
+                    name: asset.name,
+                    uri: asset.uri,
+                    type: asset.mimeType ?? 'application/octet-stream',
+                    size: asset.size,
+                }));
+
+                setPickedFiles(prevFiles => [...prevFiles, ...nuevosArchivos]);
+            }
+        } catch (err) {
+            console.error("Error seleccionando documento", err);
+            Alert.alert("Error", "No se pudo seleccionar el documento. Intenta nuevamente.");
+        }
+    };
+
     useEffect(() => {
         const onShow = Keyboard.addListener('keyboardDidShow', (event) => {
             setKeyboardHeight(event.endCoordinates.height);
@@ -231,40 +261,6 @@ export function FormObjetivoModal({
         syncCreateDraft({ invitados: buildInvitadosPayload() });
     }, [selectedUsers, rolesByUserId]);
 
-    const handleSubmit = async () => {
-        if (!titulo.trim()) {
-            Alert.alert('Error', 'El título es requerido');
-            return;
-        }
-
-        const invitados = selectedUsers.length > 0 ? buildInvitadosPayload() : undefined;
-
-        try {
-            if (isEditing) {
-                await updateMutation.mutateAsync({
-                    id: objetivo.id,
-                    data: { titulo, descripcion, estado, invitados },
-                });
-            } else {
-                await createMutation.mutateAsync({
-                    titulo,
-                    descripcion,
-                    estado,
-                    invitados,
-                } as CreateObjetivo);
-            }
-
-            Alert.alert('Éxito', isEditing ? 'Objetivo actualizado' : 'Objetivo creado');
-            handleClose();
-            onSuccess?.();
-        } catch (error) {
-            Alert.alert(
-                'Error',
-                error instanceof Error ? error.message : 'Intenta nuevamente'
-            );
-        }
-    };
-
     const handleClose = () => {
         if (!isEditing) {
             setTitulo('');
@@ -274,8 +270,106 @@ export function FormObjetivoModal({
             setRolesByUserId({});
             setSearchQuery('');
             setActiveRole('');
+            setPickedFiles([]);
+            // Limpiar archivos procesados si es necesario
         }
         onClose();
+    };
+
+    const isSuccess = <T,>(r: ApiOperationResult<T>): r is ApiOperationResult<T> & { data: T } =>
+        r.status === 'success' && r.data !== undefined;
+
+    const handleSubmit = async () => {
+        if (!titulo.trim()) {
+            Alert.alert('Error', 'El título es requerido');
+            return;
+        }
+
+        const invitados = selectedUsers.length > 0 ? buildInvitadosPayload() : undefined;
+
+        try {
+            let archivosIds: number[] = [];
+
+            // 1. Subida de archivos (si hay)
+            if (pickedFiles.length > 0) {
+                setIsUploadingFile(true);
+
+                try {
+                    const response = await uploadArchivo({
+                        item: pickedFiles.map((file) => ({
+                            archivo: {
+                                uri: file.uri,
+                                name: file.name,
+                                type: file.type,
+                                size: file.size,
+                            },
+                            archivoData: {
+                                nombre: file.name,
+                                tamaño: file.size,
+                                tipo: file.type,
+                                uso: ArchivoUso.TAREA,
+                            },
+                        })),
+                    });
+
+                    const resultados = response?.exitosos ?? [];
+                    const fallidos = response?.fallidos ?? [];
+
+                    const validos = resultados.filter(isSuccess);
+
+                    archivosIds = validos.map((r) => r.data.id);
+
+                    // ⚠️ Ninguno subido
+                    if (validos.length === 0) {
+                        Alert.alert(
+                            'Error de archivos',
+                            'No se pudo subir ningún archivo. Se continuará sin adjuntos.'
+                        );
+                    }
+
+                    // ⚠️ Parcial
+                    if (fallidos.length > 0) {
+                        Alert.alert(
+                            'Archivos parciales',
+                            `Se subieron ${validos.length} de ${pickedFiles.length}`
+                        );
+                    }
+
+                } catch {
+                    Alert.alert(
+                        'Error de archivos',
+                        'No se pudieron subir los archivos. Se continuará sin adjuntos.'
+                    );
+                } finally {
+                    setIsUploadingFile(false);
+                }
+            }
+
+            // 3. Crear objetivo (SIEMPRE se intenta)
+            const payload: CreateObjetivo = {
+                titulo,
+                descripcion,
+                estado,
+                invitados,
+                archivosIds,
+            };
+
+            await createMutation.mutateAsync(payload);
+
+            Alert.alert(
+                'Éxito',
+                'Objetivo creado'
+            )
+            handleClose();
+            onSuccess?.();
+
+        }
+        catch (error) {
+            Alert.alert(
+                'Error',
+                error instanceof Error ? error.message : 'Intenta nuevamente'
+            );
+        }
     };
 
     const handleMinimize = () => {
@@ -441,7 +535,11 @@ export function FormObjetivoModal({
                             <View style={styles.section}>
                                 <View style={styles.sectionHeaderRow}>
                                     <Text style={styles.label}>Archivos enlazados</Text>
-                                    <TouchableOpacity style={styles.actionButton} onPress={() => { }}>
+                                    <TouchableOpacity style={styles.actionButton}
+                                        onPress={() => {
+                                            handleSeleccionarArchivo();
+                                        }}
+                                    >
                                         <Ionicons name="add" size={16} color={Colors.light.tint} />
                                         <Text style={styles.actionButtonText}>Agregar archivos</Text>
                                     </TouchableOpacity>
@@ -450,21 +548,36 @@ export function FormObjetivoModal({
                                 {/* TODO: renderizar lista de archivos enlazados */}
                                 <View style={styles.inviteList}>
                                     {/* TODO: item de archivo con boton abrir */}
-                                    <View style={styles.inviteRow}>
-                                        <View>
-                                            <Text style={styles.inviteName}>Archivo-ejemplo.pdf</Text>
-                                            <Text style={styles.inviteMeta}>Documento</Text>
-                                        </View>
-                                        <View style={styles.inviteRowActions}>
-                                            {/* TODO: abrir archivo */}
-                                            <TouchableOpacity onPress={() => { }}>
-                                                <Ionicons name="open-outline" size={20} color={Colors.light.tint} />
-                                            </TouchableOpacity>
-                                            {/* TODO: eliminar archivo */}
-                                            <TouchableOpacity onPress={() => { }}>
-                                                <Ionicons name="trash-outline" size={20} color="#9ca3af" />
-                                            </TouchableOpacity>
-                                        </View>
+                                    <View style={{ width: '100%', flexDirection: 'column', gap: 8 }}>
+                                        {pickedFiles && pickedFiles.length > 0 ? (
+                                            pickedFiles.map((file, index) => (
+                                                <View
+                                                    key={index}
+                                                    style={{
+                                                        flexDirection: 'row',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'space-between',
+                                                        width: '100%',
+                                                    }}
+                                                >
+                                                    <Text style={styles.inviteName}>{file.name}</Text>
+
+                                                    <View style={{ flexDirection: 'row', gap: 10 }}>
+                                                        <TouchableOpacity
+                                                            onPress={() =>
+                                                                setPickedFiles((prev) =>
+                                                                    prev.filter((_, i) => i !== index)
+                                                                )
+                                                            }
+                                                        >
+                                                            <Ionicons name="trash-outline" size={20} color="#9ca3af" />
+                                                        </TouchableOpacity>
+                                                    </View>
+                                                </View>
+                                            ))
+                                        ) : (
+                                            <Text style={styles.inviteName}>Ningún archivo seleccionado</Text>
+                                        )}
                                     </View>
                                 </View>
                             </View>

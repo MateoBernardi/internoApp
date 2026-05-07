@@ -2,6 +2,7 @@ export enum ArchivoUso {
   EMPRESA = 'EMPRESA',
   LICENCIA = 'LICENCIA',
   MAYORISTA = 'MAYORISTA',
+  TAREA = 'TAREA',
   WEB = 'WEB',
 }
 

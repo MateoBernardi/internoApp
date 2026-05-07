@@ -10,6 +10,7 @@ export async function fetchObjetivos(accessToken: string): Promise<Objetivo[]> {
     }
 
     const data: Objetivo[] = await response.json();
+    console.log('Objetivos obtenidos:', data);
     return data;
 }
 
@@ -33,6 +34,21 @@ export async function updateObjetivo(
     data: UpdateObjetivo
 ): Promise<Objetivo> {
     const response = await apiRequest({ method: 'PUT', endpoint: `/kanban/${objetivoId}`, token: accessToken, body: data });
+
+    if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.message || errData.error || response.statusText);
+    }
+
+    return response.json();
+}
+
+export async function editObjetivo(
+    accessToken: string,
+    objetivoId: number,
+    data: UpdateObjetivo
+): Promise<Objetivo> {
+    const response = await apiRequest({ method: 'PATCH', endpoint: `/kanban/${objetivoId}`, token: accessToken, body: data });
 
     if (!response.ok) {
         const errData = await response.json().catch(() => ({}));

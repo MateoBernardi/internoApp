@@ -2,9 +2,12 @@ import { useAuth } from '@/features/auth/context/AuthContext';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { CreateObjetivo, Objetivo, UpdateObjetivo } from '../models/Objetivo';
 import {
+    archivoObjetivo,
     createObjetivo,
     deleteObjetivo,
+    editObjetivo,
     fetchObjetivos,
+    invitadosObjetivo,
     updateObjetivo
 } from '../services/kanbanApi';
 
@@ -121,6 +124,96 @@ export function useUpdateObjetivo() {
             if (context?.previousData) {
                 queryClient.setQueryData(OBJETIVOS_QUERY_KEY, context.previousData);
             }
+        },
+    });
+}
+
+// useEditObjetivo: mutación para título o descripción
+export function useEditObjetivo() {
+    const queryClient = useQueryClient();
+    const { tokens } = useAuth();
+
+    return useMutation({
+        mutationFn: async ({
+            id,
+            field,
+            data,
+        }: {
+            id: number;
+            field: 'titulo' | 'descripcion';
+            data: Record<string, any>;
+        }) => {
+            const token = tokens?.accessToken;
+            if (!token) throw new Error('No hay token de acceso');
+            return editObjetivo(token, id, field, data);
+        },
+        onSuccess: (updatedObjetivo) => {
+            queryClient.setQueryData<Objetivo[]>(OBJETIVOS_QUERY_KEY, (old) =>
+                old?.map((obj) => (obj.id === updatedObjetivo.id ? updatedObjetivo : obj))
+            );
+        },
+        onError: () => {
+            queryClient.invalidateQueries({ queryKey: OBJETIVOS_QUERY_KEY });
+        },
+    });
+}
+
+// useArchivoObjetivo: mutación para archivos
+export function useArchivoObjetivo() {
+    const queryClient = useQueryClient();
+    const { tokens } = useAuth();
+
+    return useMutation({
+        mutationFn: async ({
+            id,
+            action,
+            archivosIds,
+        }: {
+            id: number;
+            action: 'add' | 'remove';
+            archivosIds: number[];
+        }) => {
+            const token = tokens?.accessToken;
+            if (!token) throw new Error('No hay token de acceso');
+            return archivoObjetivo(token, id, action, archivosIds);
+        },
+        onSuccess: (updatedObjetivo) => {
+            queryClient.setQueryData<Objetivo[]>(OBJETIVOS_QUERY_KEY, (old) =>
+                old?.map((obj) => (obj.id === updatedObjetivo.id ? updatedObjetivo : obj))
+            );
+        },
+        onError: () => {
+            queryClient.invalidateQueries({ queryKey: OBJETIVOS_QUERY_KEY });
+        },
+    });
+}
+
+// useInvitadosObjetivo: mutación para invitados
+export function useInvitadosObjetivo() {
+    const queryClient = useQueryClient();
+    const { tokens } = useAuth();
+
+    return useMutation({
+        mutationFn: async ({
+            id,
+            action,
+            invitados,
+        }: {
+            id: number;
+            action: 'add' | 'remove';
+            invitados: number[];
+        }) => {
+            const token = tokens?.accessToken;
+            if (!token) throw new Error('No hay token de acceso');
+            return invitadosObjetivo(token, id, action, invitados);
+        },
+        onSuccess: (updatedObjetivo) => {
+            queryClient.setQueryData<Objetivo[]>(OBJETIVOS_QUERY_KEY, (old) =>
+                old?.map((obj) => (obj.id === updatedObjetivo.id ? updatedObjetivo : obj))
+            );
+        },
+        onError: () => {
+            queryClient.invalidateQueries({ queryKey: OBJETIVOS_QUERY_KEY });
         },
     });
 }

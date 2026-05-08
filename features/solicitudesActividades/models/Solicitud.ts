@@ -1,6 +1,6 @@
 // Estado de invitación (valores según el backend)
 export type EstadoInvitacionDB = 'SENT' | 'SEEN' | 'MODIFIED' | 'MODIFIED_BY_HOST' | 'ACCEPTED_BY_HOST' | 'ACCEPTED' | 'REJECTED' | 'ACTIVIDAD_CREADA' | 'EXPIRED';
-export type EstadoInvitacionUI = 'Pendiente' | 'Visto' | 'Modificado' | 'Modificado por creador' |'Aceptado por creador' | 'Aceptado' | 'Rechazado' | 'Actividad creada' | 'Expirada';
+export type EstadoInvitacionUI = 'Pendiente' | 'Visto' | 'Modificado' | 'Modificado por creador' | 'Aceptado por creador' | 'Aceptado' | 'Rechazado' | 'Actividad creada' | 'Expirada';
 
 // Mapeo de estados de DB a UI
 export const estadoInvitacionMapping: Record<EstadoInvitacionDB, EstadoInvitacionUI> = {
@@ -45,7 +45,7 @@ export interface Solicitud {
   apellido: string; // Opcional: apellido del creador de la solicitud
 }
 
-export interface SolicitudEnviada{
+export interface SolicitudEnviada {
   solicitud_id: number;
   titulo: string;
   descripcion: string;
@@ -88,6 +88,7 @@ export interface CrearSolicitudRequest {
   tipo_actividad: TipoActividadDB;
   invitados: number[]; // Array de IDs de usuario_entidad
   crear_de_todos_modos?: number;
+  archivosIds?: number[]; // Array de IDs de archivos adjuntos (opcional)
 }
 
 export interface RangoOcupado {

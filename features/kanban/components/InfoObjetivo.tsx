@@ -19,11 +19,11 @@ import {
     Text,
     TextInput,
     TouchableOpacity,
-    View,
+    View
 } from 'react-native';
 import { UserSelector } from '../../../components/UserSelector';
 import { RoleUserSelectionModal } from '../../solicitudesActividades/components/RoleUserSelectionModal';
-import { useUpdateObjetivo } from '../hooks/useObjetivos';
+import { useArchivoObjetivo, useEditObjetivo, useInvitadosObjetivo } from '../hooks/useObjetivos';
 import type { Invitado, Objetivo } from '../models/Objetivo';
 
 interface InfoObjetivoProps {
@@ -46,14 +46,8 @@ const ROLE_LABELS: Record<Invitado['rol'], string> = {
 
 export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) {
     const { user } = useAuth();
-    const updateMutation = useUpdateObjetivo();
     const { mutateAsync: uploadArchivo } = useUploadArchivo();
     const [localObjetivo, setLocalObjetivo] = useState<Objetivo | null>(null);
-    const [editingTitulo, setEditingTitulo] = useState(false);
-    const [editingDescripcion, setEditingDescripcion] = useState(false);
-    const [tituloValue, setTituloValue] = useState('');
-    const [descripcionValue, setDescripcionValue] = useState('');
-    const [savingInline, setSavingInline] = useState(false);
     const [invitedUsers, setInvitedUsers] = useState<Invitado[]>([]);
     const [selectedUsers, setSelectedUsers] = useState<UserSummary[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
@@ -63,9 +57,13 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
     const [pickerRole, setPickerRole] = useState<Invitado['rol']>('VISUALIZER');
     const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
     const [isUploadingFile, setIsUploadingFile] = useState(false);
-
+    const [isEditing, setIsEditing] = useState(false);
     const { data: searchResults, isLoading: isSearchingUsers } = useSearchUsers(searchQuery);
     const { data: roleUsersData, isLoading: isLoadingRole } = useGetUserByRole(activeRole);
+
+    const editMutation = useEditObjetivo();
+    const archivoMutation = useArchivoObjetivo();
+    const invitadosMutation = useInvitadosObjetivo();
 
     const users = searchResults || [];
     const isLoadingUsers = isSearchingUsers || isLoadingRole;
@@ -87,72 +85,45 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
     }, [visible, objetivo]);
 
     const currentObjetivo = localObjetivo ?? objetivo;
-
-    useEffect(() => {
-        if (!visible || !currentObjetivo) return;
-        const baseInvited = currentObjetivo.invitados ?? [];
-        setInvitedUsers(baseInvited);
-        setTituloValue(currentObjetivo.titulo || '');
-        setDescripcionValue(currentObjetivo.descripcion || '');
-
-        setSelectedUsers((prev) => {
-            const byId = new Map(prev.map((u) => [u.user_context_id, u]));
-            return baseInvited.map((inv) =>
-                byId.get(inv.user_id) ?? makePlaceholderUser(inv.user_id)
-            );
-        });
-    }, [visible, currentObjetivo?.id]);
-
     if (!currentObjetivo) return null;
+
+    // ─── Helpers ────────────────────────────────────────────────────────────────
+
+    const helpers = {
+        editarTitulo: (titulo: string) =>
+            editMutation.mutateAsync({ id: currentObjetivo.id, field: 'titulo', data: { titulo } }),
+
+        editarDescripcion: (descripcion: string) =>
+            editMutation.mutateAsync({ id: currentObjetivo.id, field: 'descripcion', data: { descripcion } }),
+
+        agregarArchivos: (archivosIds: number[]) =>
+            archivoMutation.mutateAsync({ id: currentObjetivo.id, action: 'add', archivosIds }),
+
+        quitarArchivo: (archivosIds: number[]) =>
+            archivoMutation.mutateAsync({ id: currentObjetivo.id, action: 'remove', archivosIds }),
+
+        agregarInvitados: (invitados: number[]) =>
+            invitadosMutation.mutateAsync({ id: currentObjetivo.id, action: 'add', invitados }),
+
+        quitarInvitado: (invitados: number[]) =>
+            invitadosMutation.mutateAsync({ id: currentObjetivo.id, action: 'remove', invitados }),
+    };
+
+    // ─── Invitados ───────────────────────────────────────────────────────────────
 
     const getDisplayName = (userId: number) => {
         const matched = selectedUsers.find((u) => u.user_context_id === userId);
-        if (matched) {
-            return `${matched.nombre} ${matched.apellido}`.trim();
-        }
+        if (matched) return `${matched.nombre} ${matched.apellido}`.trim();
         return `Usuario #${userId}`;
-    };
-
-    const applyUpdate = async (
-        data: Partial<Objetivo>,
-        updatePayload: Parameters<typeof updateMutation.mutateAsync>[0]['data']
-    ) => {
-        if (!currentObjetivo) return;
-        const previous = localObjetivo;
-        if (data && Object.keys(data).length > 0) {
-            setLocalObjetivo((prev) => (prev ? { ...prev, ...data } : prev));
-        }
-
-        try {
-            const updated = await updateMutation.mutateAsync({
-                id: currentObjetivo.id,
-                data: updatePayload,
-            });
-            setLocalObjetivo((prev) => {
-                if (!prev) return updated;
-                if (!updated.archivos && prev.archivos) {
-                    return { ...updated, archivos: prev.archivos };
-                }
-                return updated;
-            });
-        } catch (error) {
-            if (previous) setLocalObjetivo(previous);
-            Alert.alert(
-                'Error',
-                error instanceof Error ? error.message : 'Intenta nuevamente'
-            );
-        }
     };
 
     const persistInvitados = async (nextInvited: Invitado[]) => {
         setInvitedUsers(nextInvited);
         setSelectedUsers((prev) => {
             const byId = new Map(prev.map((u) => [u.user_context_id, u]));
-            return nextInvited.map((inv) =>
-                byId.get(inv.user_id) ?? makePlaceholderUser(inv.user_id)
-            );
+            return nextInvited.map((inv) => byId.get(inv.user_id) ?? makePlaceholderUser(inv.user_id));
         });
-        await applyUpdate({ invitados: nextInvited }, { invitados: nextInvited });
+        await helpers.agregarInvitados(nextInvited.map((inv) => inv.user_id));
     };
 
     const handleSelectUsers = (usersToSelect: UserSummary[]) => {
@@ -169,64 +140,46 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
         const exists = invitedUsers.some((inv) => inv.user_id === selectedUser.user_context_id);
         const nextInvited: Invitado[] = exists
             ? invitedUsers.filter((inv) => inv.user_id !== selectedUser.user_context_id)
-            : [
-                ...invitedUsers,
-                {
-                    user_id: selectedUser.user_context_id,
-                    rol: pickerRole,
-                },
-            ];
+            : [...invitedUsers, { user_id: selectedUser.user_context_id, rol: pickerRole }];
 
         if (!exists) {
-            setSelectedUsers((prev) => {
-                if (prev.some((u) => u.user_context_id === selectedUser.user_context_id)) return prev;
-                return [...prev, selectedUser];
-            });
+            setSelectedUsers((prev) =>
+                prev.some((u) => u.user_context_id === selectedUser.user_context_id)
+                    ? prev
+                    : [...prev, selectedUser]
+            );
         }
 
         void persistInvitados(nextInvited);
     };
 
     const handleRemoveInvitado = (userId: number) => {
+        const removed = invitedUsers.filter((inv) => inv.user_id === userId);
         const nextInvited = invitedUsers.filter((inv) => inv.user_id !== userId);
         setSelectedUsers((prev) => prev.filter((u) => u.user_context_id !== userId));
-        void persistInvitados(nextInvited);
+        setInvitedUsers(nextInvited);
+        void helpers.quitarInvitado(removed.map((inv) => inv.user_id));
     };
 
-    const handleAddInvitado = () => {
-        if (showSelector) {
-            setShowSelector(false);
-            return;
-        }
-        setShowSelector(true);
-    };
+    const handleAddInvitado = () => setShowSelector((prev) => !prev);
 
     const handleAssignMe = () => {
         if (!user?.user_context_id) return;
         const exists = invitedUsers.some((inv) => inv.user_id === user.user_context_id);
-        if (exists) {
-            const nextInvited: Invitado[] = invitedUsers.map((inv) =>
-                inv.user_id === user.user_context_id
-                    ? { ...inv, rol: 'ASSIGNEE' }
-                    : inv
+        const nextInvited: Invitado[] = exists
+            ? invitedUsers.map((inv) =>
+                inv.user_id === user.user_context_id ? { ...inv, rol: 'ASSIGNEE' } : inv
+            )
+            : [...invitedUsers, { user_id: user.user_context_id, rol: 'ASSIGNEE' }];
+
+        if (!exists) {
+            setSelectedUsers((prev) =>
+                prev.some((u) => u.user_context_id === user.user_context_id)
+                    ? prev
+                    : [...prev, makePlaceholderUser(user.user_context_id)]
             );
-            Alert.alert('Asignarme', 'Quieres asignarte a ti mismo?', [
-                { text: 'Cancelar', style: 'cancel' },
-                { text: 'Asignar', onPress: () => void persistInvitados(nextInvited) },
-            ]);
-            return;
         }
 
-        const nextInvited: Invitado[] = [
-            ...invitedUsers,
-            { user_id: user.user_context_id, rol: 'ASSIGNEE' },
-        ];
-        setSelectedUsers((prev) => {
-            if (prev.some((u) => u.user_context_id === user.user_context_id)) {
-                return prev;
-            }
-            return [...prev, makePlaceholderUser(user.user_context_id)];
-        });
         Alert.alert('Asignarme', 'Quieres asignarte a ti mismo?', [
             { text: 'Cancelar', style: 'cancel' },
             { text: 'Asignar', onPress: () => void persistInvitados(nextInvited) },
@@ -236,37 +189,6 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
     const handleSelectRole = (role: string) => {
         setActiveRole(role);
         setShowRoleModal(true);
-    };
-
-    const handleStartEditTitulo = () => {
-        setTituloValue(currentObjetivo.titulo || '');
-        setEditingTitulo(true);
-    };
-
-    const handleStartEditDescripcion = () => {
-        setDescripcionValue(currentObjetivo.descripcion || '');
-        setEditingDescripcion(true);
-    };
-
-    const handleSaveTitulo = async () => {
-        if (!tituloValue.trim()) return;
-        setSavingInline(true);
-        await applyUpdate(
-            { titulo: tituloValue },
-            { titulo: tituloValue, descripcion: currentObjetivo.descripcion || '' }
-        );
-        setSavingInline(false);
-        setEditingTitulo(false);
-    };
-
-    const handleSaveDescripcion = async () => {
-        setSavingInline(true);
-        await applyUpdate(
-            { descripcion: descripcionValue },
-            { titulo: currentObjetivo.titulo, descripcion: descripcionValue }
-        );
-        setSavingInline(false);
-        setEditingDescripcion(false);
     };
 
     const handleToggleInvitadoRole = (userId: number, nextRole: Invitado['rol']) => {
@@ -279,22 +201,18 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
     const handlePromoteToAssignee = (userId: number) => {
         Alert.alert('Asignar', 'Asignar a este participante?', [
             { text: 'Cancelar', style: 'cancel' },
-            {
-                text: 'Asignar',
-                onPress: () => handleToggleInvitadoRole(userId, 'ASSIGNEE'),
-            },
+            { text: 'Asignar', onPress: () => handleToggleInvitadoRole(userId, 'ASSIGNEE') },
         ]);
     };
 
     const handleMoveToVisualizer = (userId: number) => {
         Alert.alert('Mover', 'Mover a visualizador?', [
             { text: 'Cancelar', style: 'cancel' },
-            {
-                text: 'Mover',
-                onPress: () => handleToggleInvitadoRole(userId, 'VISUALIZER'),
-            },
+            { text: 'Mover', onPress: () => handleToggleInvitadoRole(userId, 'VISUALIZER') },
         ]);
     };
+
+    // ─── Archivos ────────────────────────────────────────────────────────────────
 
     const isSuccess = <T,>(r: ApiOperationResult<T>): r is ApiOperationResult<T> & { data: T } =>
         r.status === 'success' && r.data !== undefined;
@@ -316,25 +234,14 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
                 size: asset.size,
             }));
 
-            setPendingFiles((prevFiles) => [...prevFiles, ...nuevosArchivos]);
-
+            setPendingFiles((prev) => [...prev, ...nuevosArchivos]);
             setIsUploadingFile(true);
 
             try {
                 const response = await uploadArchivo({
                     item: nuevosArchivos.map((file) => ({
-                        archivo: {
-                            uri: file.uri,
-                            name: file.name,
-                            type: file.type,
-                            size: file.size,
-                        },
-                        archivoData: {
-                            nombre: file.name,
-                            tamaño: file.size,
-                            tipo: file.type,
-                            uso: ArchivoUso.TAREA,
-                        },
+                        archivo: { uri: file.uri, name: file.name, type: file.type, size: file.size },
+                        archivoData: { nombre: file.name, tamaño: file.size, tipo: file.type, uso: ArchivoUso.TAREA },
                     })),
                 });
 
@@ -345,40 +252,24 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
                 const nuevosArchivosData = validos.map((r) => r.data) as Archivo[];
 
                 if (validos.length === 0) {
-                    Alert.alert(
-                        'Error de archivos',
-                        'No se pudo subir ningun archivo. Se continuara sin adjuntos.'
-                    );
+                    Alert.alert('Error de archivos', 'No se pudo subir ningun archivo.');
+                } else if (fallidos.length > 0) {
+                    Alert.alert('Archivos parciales', `Se subieron ${validos.length} de ${nuevosArchivos.length}`);
                 }
 
-                if (fallidos.length > 0) {
-                    Alert.alert(
-                        'Archivos parciales',
-                        `Se subieron ${validos.length} de ${nuevosArchivos.length}`
-                    );
-                }
-
-                if (nuevosIds.length > 0 && currentObjetivo) {
-                    const existingIds = (currentObjetivo.archivos ?? []).map((archivo) => archivo.id);
-                    const mergedIds = Array.from(new Set([...existingIds, ...nuevosIds]));
+                if (nuevosIds.length > 0) {
                     setLocalObjetivo((prev) => {
                         if (!prev) return prev;
-                        const mergedArchivos = [...(prev.archivos ?? []), ...nuevosArchivosData];
-                        return { ...prev, archivos: mergedArchivos };
+                        return { ...prev, archivos: [...(prev.archivos ?? []), ...nuevosArchivosData] };
                     });
-                    await applyUpdate({}, { archivosIds: mergedIds });
+                    await helpers.agregarArchivos(nuevosIds);
                 }
             } catch {
-                Alert.alert(
-                    'Error de archivos',
-                    'No se pudieron subir los archivos. Se continuara sin adjuntos.'
-                );
+                Alert.alert('Error de archivos', 'No se pudieron subir los archivos.');
             } finally {
                 setIsUploadingFile(false);
-                setPendingFiles((prevFiles) =>
-                    prevFiles.filter(
-                        (file) => !nuevosArchivos.some((nuevo) => nuevo.uri === file.uri)
-                    )
+                setPendingFiles((prev) =>
+                    prev.filter((file) => !nuevosArchivos.some((nuevo) => nuevo.uri === file.uri))
                 );
             }
         } catch (err) {
@@ -389,9 +280,7 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
 
     const handleOpenArchivo = (url?: string) => {
         if (!url) return;
-        Linking.openURL(url).catch(() => {
-            Alert.alert('Error', 'No se pudo abrir el archivo');
-        });
+        Linking.openURL(url).catch(() => Alert.alert('Error', 'No se pudo abrir el archivo'));
     };
 
     const handleRemoveArchivo = (archivoId: number) => {
@@ -402,14 +291,11 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
                 text: 'Eliminar',
                 style: 'destructive',
                 onPress: () => {
-                    const nextArchivos = (currentObjetivo.archivos ?? []).filter(
-                        (archivo) => archivo.id !== archivoId
-                    );
-                    const nextIds = nextArchivos.map((archivo) => archivo.id);
-                    void applyUpdate(
-                        { archivos: nextArchivos },
-                        { archivosIds: nextIds }
-                    );
+                    setLocalObjetivo((prev) => {
+                        if (!prev) return prev;
+                        return { ...prev, archivos: (prev.archivos ?? []).filter((a) => a.id !== archivoId) };
+                    });
+                    void helpers.quitarArchivo([archivoId]);
                 },
             },
         ]);
@@ -432,36 +318,45 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
 
                     <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
                         <View style={styles.section}>
-                            <Text style={styles.label}>Titulo</Text>
-                            {editingTitulo ? (
+                            {isEditing ? (
                                 <View style={styles.inlineEditRow}>
                                     <TextInput
+                                        value={currentObjetivo.titulo}
+                                        onChangeText={(text) =>
+                                            setLocalObjetivo((prev) =>
+                                                prev ? { ...prev, titulo: text } : prev
+                                            )
+                                        }
                                         style={styles.inlineInput}
-                                        value={tituloValue}
-                                        onChangeText={setTituloValue}
                                         autoFocus
-                                        multiline
                                     />
                                     <View style={styles.inlineEditActions}>
                                         <TouchableOpacity
                                             style={styles.cancelBtn}
-                                            onPress={() => setEditingTitulo(false)}
+                                            onPress={() => {
+                                                setIsEditing(false);
+                                                setLocalObjetivo(objetivo ?? null);
+                                            }}
                                         >
-                                            <Text style={styles.cancelBtnText}>✕</Text>
+                                            <Text style={styles.cancelBtnText}>X</Text>
                                         </TouchableOpacity>
                                         <TouchableOpacity
                                             style={styles.saveBtn}
-                                            onPress={handleSaveTitulo}
-                                            disabled={savingInline}
+                                            onPress={() => {
+                                                setIsEditing(false);
+                                                void helpers.editarTitulo(currentObjetivo.titulo);
+                                            }}
                                         >
                                             <Text style={styles.saveBtnText}>✓</Text>
                                         </TouchableOpacity>
                                     </View>
                                 </View>
                             ) : (
-                                <TouchableOpacity onPress={handleStartEditTitulo} activeOpacity={0.6}>
+                                <TouchableOpacity onPress={() => setIsEditing(true)} activeOpacity={0.6}>
                                     <View style={styles.inlineValueRow}>
-                                        <Text style={styles.sectionValue}>{currentObjetivo.titulo}</Text>
+                                        <Text style={currentObjetivo.descripcion ? styles.sectionValueMuted : styles.descriptionEmpty}>
+                                            {currentObjetivo.descripcion || 'Sin descripcion'}
+                                        </Text>
                                         <Text style={styles.editHint}>✎</Text>
                                     </View>
                                 </TouchableOpacity>
@@ -469,37 +364,41 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
                         </View>
 
                         <View style={styles.section}>
-                            <Text style={styles.label}>Descripcion</Text>
-                            {editingDescripcion ? (
+                            {isEditing ? (
                                 <View style={styles.inlineEditRow}>
                                     <TextInput
-                                        style={[styles.inlineInput, styles.inlineInputMulti]}
-                                        value={descripcionValue}
-                                        onChangeText={setDescripcionValue}
+                                        value={currentObjetivo.descripcion}
+                                        onChangeText={(text) =>
+                                            setLocalObjetivo((prev) =>
+                                                prev ? { ...prev, descripcion: text } : prev
+                                            )
+                                        }
+                                        style={styles.inlineInput}
                                         autoFocus
-                                        multiline
-                                        numberOfLines={4}
-                                        placeholder="Sin descripcion..."
-                                        placeholderTextColor="#bbb"
                                     />
                                     <View style={styles.inlineEditActions}>
                                         <TouchableOpacity
                                             style={styles.cancelBtn}
-                                            onPress={() => setEditingDescripcion(false)}
+                                            onPress={() => {
+                                                setIsEditing(false);
+                                                setLocalObjetivo(objetivo ?? null);
+                                            }}
                                         >
-                                            <Text style={styles.cancelBtnText}>✕</Text>
+                                            <Text style={styles.cancelBtnText}>X</Text>
                                         </TouchableOpacity>
                                         <TouchableOpacity
                                             style={styles.saveBtn}
-                                            onPress={handleSaveDescripcion}
-                                            disabled={savingInline}
+                                            onPress={() => {
+                                                setIsEditing(false);
+                                                void helpers.editarDescripcion(currentObjetivo.descripcion);
+                                            }}
                                         >
                                             <Text style={styles.saveBtnText}>✓</Text>
                                         </TouchableOpacity>
                                     </View>
                                 </View>
                             ) : (
-                                <TouchableOpacity onPress={handleStartEditDescripcion} activeOpacity={0.6}>
+                                <TouchableOpacity onPress={() => setIsEditing(true)} activeOpacity={0.6}>
                                     <View style={styles.inlineValueRow}>
                                         <Text style={currentObjetivo.descripcion ? styles.sectionValueMuted : styles.descriptionEmpty}>
                                             {currentObjetivo.descripcion || 'Sin descripcion'}
@@ -516,45 +415,9 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
                             </View>
                         </View>
 
-
-
                         <View style={styles.inviteSection}>
                             <View style={styles.sectionHeaderRow}>
                                 <Text style={styles.label}>Participantes</Text>
-                                <View style={styles.roleToggleRow}>
-                                    <TouchableOpacity
-                                        style={[
-                                            styles.roleToggleButton,
-                                            pickerRole === 'VISUALIZER' && styles.roleToggleButtonActive,
-                                        ]}
-                                        onPress={() => setPickerRole('VISUALIZER')}
-                                    >
-                                        <Text
-                                            style={[
-                                                styles.roleToggleText,
-                                                pickerRole === 'VISUALIZER' && styles.roleToggleTextActive,
-                                            ]}
-                                        >
-                                            Visualizador
-                                        </Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity
-                                        style={[
-                                            styles.roleToggleButton,
-                                            pickerRole === 'ASSIGNEE' && styles.roleToggleButtonActive,
-                                        ]}
-                                        onPress={() => setPickerRole('ASSIGNEE')}
-                                    >
-                                        <Text
-                                            style={[
-                                                styles.roleToggleText,
-                                                pickerRole === 'ASSIGNEE' && styles.roleToggleTextActive,
-                                            ]}
-                                        >
-                                            Asignado
-                                        </Text>
-                                    </TouchableOpacity>
-                                </View>
                                 <TouchableOpacity style={styles.actionButton} onPress={handleAddInvitado}>
                                     <Ionicons name="add" size={16} color={Colors.light.tint} />
                                     <Text style={styles.actionButtonText}>
@@ -581,6 +444,7 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
                             {visualizers.length === 0 ? (
                                 <Text style={styles.sectionValueMuted}>Sin participantes</Text>
                             ) : (
+                                // Acá hay que agregar el botón de togglear rol entre visualizador y assignee, y el botón de eliminar participante
                                 <View style={styles.inviteList}>
                                     {visualizers.map((inv) => (
                                         <View key={inv.user_id} style={styles.inviteRow}>
@@ -593,7 +457,7 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
                                                     style={styles.roleAction}
                                                     onPress={() => handlePromoteToAssignee(inv.user_id)}
                                                 >
-                                                    <Text style={styles.roleActionText}>Asignar</Text>
+                                                    <Text style={styles.roleActionText}>→ Assignee</Text>
                                                 </TouchableOpacity>
                                                 <View style={styles.roleBadge}>
                                                     <Text style={styles.roleBadgeText}>{ROLE_LABELS[inv.rol]}</Text>
@@ -632,7 +496,7 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
                                                     style={styles.roleAction}
                                                     onPress={() => handleMoveToVisualizer(inv.user_id)}
                                                 >
-                                                    <Text style={styles.roleActionText}>Visualizar</Text>
+                                                    <Text style={styles.roleActionText}>→ Visualizer</Text>
                                                 </TouchableOpacity>
                                                 <View style={styles.roleBadge}>
                                                     <Text style={styles.roleBadgeText}>{ROLE_LABELS[inv.rol]}</Text>
@@ -714,8 +578,8 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
                         }
                     />
                 </View>
-            </View>
-        </Modal>
+            </View >
+        </Modal >
     );
 }
 

@@ -3,12 +3,17 @@ import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
 import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
 import { Colors, UI } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
+import { ArchivoUso } from '@/features/docs/models/Archivo';
+import { useUploadArchivo } from '@/features/docs/viewmodels/useArchivos';
+import { ApiOperationResult } from '@/shared/types/apiStatus';
 import { UserSummary } from '@/shared/users/User';
 import { adminRoles, allRoles } from '@/shared/users/roles';
 import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
 import { Ionicons } from '@expo/vector-icons';
+import * as DocumentPicker from 'expo-document-picker';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Keyboard,
   KeyboardAvoidingView,
@@ -107,6 +112,10 @@ export function CrearSolicitud({ visible, onClose }: CrearSolicitudProps) {
   const users = searchResults || [];
   const isLoadingUsers = isSearchingUsers || isLoadingRole;
   const isConsejo = (user?.rol_nombre ?? '').toLowerCase() === 'consejo';
+
+  const [pickedFiles, setPickedFiles] = useState<any[]>([]);
+  const [isUploadingFile, setIsUploadingFile] = useState(false);
+  const { mutateAsync: uploadArchivo } = useUploadArchivo();
 
   const rolesForSelector = useMemo(
     () => (isConsejo ? adminRoles : allRoles),
@@ -301,7 +310,7 @@ export function CrearSolicitud({ visible, onClose }: CrearSolicitudProps) {
     setBackendRangosOcupados([]);
   }, [pendingPayload, ejecutarCreacion]);
 
-  const handleCrearSolicitud = useCallback(() => {
+  const handleCrearSolicitud = useCallback(async () => {
     if (!isFormValid) {
       Alert.alert('Formulario incompleto', 'Por favor completa todos los campos');
       return;
@@ -316,17 +325,73 @@ export function CrearSolicitud({ visible, onClose }: CrearSolicitudProps) {
       end = toEndOfDay(end);
     }
 
+    let archivosIds: number[] = [];
+
+    if (pickedFiles.length > 0) {
+      setIsUploadingFile(true);
+      try {
+        const response = await uploadArchivo({
+          item: pickedFiles.map((file) => ({
+            archivo: { uri: file.uri, name: file.name, type: file.type, size: file.size },
+            archivoData: { nombre: file.name, tamaño: file.size, tipo: file.type, uso: ArchivoUso.TAREA },
+          })),
+        });
+
+        const validos = (response?.exitosos ?? []).filter(isSuccess);
+        const fallidos = response?.fallidos ?? [];
+        archivosIds = validos.map((r) => r.data.id);
+
+        if (validos.length === 0) {
+          Alert.alert('Error de archivos', 'No se pudo subir ningún archivo. Se continuará sin adjuntos.');
+        } else if (fallidos.length > 0) {
+          Alert.alert('Archivos parciales', `Se subieron ${validos.length} de ${pickedFiles.length}`);
+        }
+      } catch {
+        Alert.alert('Error de archivos', 'No se pudieron subir los archivos. Se continuará sin adjuntos.');
+      } finally {
+        setIsUploadingFile(false);
+      }
+    }
+
     const payload: CrearSolicitudRequest = {
       titulo: titulo.trim(),
       descripcion: descripcion.trim(),
       tipo_actividad: tipoActividad,
       invitados: selectedUsers.map((u) => u.user_context_id),
       crear_de_todos_modos: 0,
+      archivosIds,
       ...(hasDates ? { fecha_inicio: start, fecha_fin: end } : {}),
     };
 
     ejecutarCreacion(payload);
   }, [isFormValid, hasDates, fechaInicio, fechaFin, allDay, tipoActividad, selectedUsers, titulo, descripcion, ejecutarCreacion]);
+
+  const handleSeleccionarArchivo = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        multiple: true,
+        type: '*/*',
+        copyToCacheDirectory: true,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const nuevosArchivos = result.assets.map((asset) => ({
+          name: asset.name,
+          uri: asset.uri,
+          type: asset.mimeType ?? 'application/octet-stream',
+          size: asset.size,
+        }));
+        setPickedFiles((prev) => [...prev, ...nuevosArchivos]);
+      }
+    } catch (err) {
+      console.error('Error seleccionando documento', err);
+      Alert.alert('Error', 'No se pudo seleccionar el documento. Intenta nuevamente.');
+    }
+  };
+
+  const isSuccess = <T,>(r: ApiOperationResult<T>): r is ApiOperationResult<T> & { data: T } =>
+    r.status === 'success' && r.data !== undefined;
+
+
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
@@ -488,24 +553,38 @@ export function CrearSolicitud({ visible, onClose }: CrearSolicitudProps) {
                   </TouchableOpacity>
                 </View>
 
-                {/* TODO: renderizar lista de archivos enlazados */}
-                <View style={styles.inviteList}>
-                  {/* TODO: item de archivo con boton abrir */}
-                  <View style={styles.inviteRow}>
-                    <View>
-                      <Text style={styles.inviteName}>Archivo-ejemplo.pdf</Text>
-                      <Text style={styles.inviteMeta}>Documento</Text>
-                    </View>
-                    <View style={styles.inviteRowActions}>
-                      {/* TODO: abrir archivo */}
-                      <TouchableOpacity onPress={() => { }}>
-                        <Ionicons name="open-outline" size={20} color={Colors.light.tint} />
-                      </TouchableOpacity>
-                      {/* TODO: eliminar archivo */}
-                      <TouchableOpacity onPress={() => { }}>
-                        <Ionicons name="trash-outline" size={20} color="#9ca3af" />
-                      </TouchableOpacity>
-                    </View>
+                <View style={styles.section}>
+                  <View style={styles.sectionHeaderRow}>
+                    <Text style={styles.sectionLabel}>Archivos enlazados</Text>
+                    <TouchableOpacity style={styles.actionButton} onPress={handleSeleccionarArchivo}>
+                      <Ionicons name="add" size={16} color={Colors.light.tint} />
+                      <Text style={styles.actionButtonText}>
+                        {isUploadingFile ? 'Subiendo...' : 'Agregar archivos'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                  <View style={styles.inviteList}>
+                    {pickedFiles.length === 0 ? (
+                      <Text style={styles.inviteMeta}>Ningún archivo seleccionado</Text>
+                    ) : (
+                      pickedFiles.map((file, index) => (
+                        <View key={index} style={styles.inviteRow}>
+                          <View>
+                            <Text style={styles.inviteName}>{file.name}</Text>
+                            <Text style={styles.inviteMeta}>{file.type}</Text>
+                          </View>
+                          <View style={styles.inviteRowActions}>
+                            {isUploadingFile ? (
+                              <ActivityIndicator size="small" color={Colors.light.tint} />
+                            ) : (
+                              <TouchableOpacity onPress={() => setPickedFiles((prev) => prev.filter((_, i) => i !== index))}>
+                                <Ionicons name="trash-outline" size={20} color="#9ca3af" />
+                              </TouchableOpacity>
+                            )}
+                          </View>
+                        </View>
+                      ))
+                    )}
                   </View>
                 </View>
               </View>

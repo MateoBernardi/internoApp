@@ -1,81 +1,25 @@
-// ============================================
-// Modal para ver detalles y bitácora
-// ============================================
-
 import { Colors } from "@/constants/theme";
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from "react";
-import { Alert, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import React from "react";
+import { Alert, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Objetivo } from "../models/Objetivo";
-
 
 interface DetailModalProps {
     visible: boolean;
     objetivo?: Objetivo;
     onClose: () => void;
-    onMove?: (objetivo: Objetivo) => void;
     onDelete?: (id: number) => void;
-    onSaveInline?: (id: number, data: { titulo: string; descripcion: string }) => Promise<void>;
     onInfo?: (objetivo: Objetivo) => void;
     currentUserId?: number;
-    canManage?: boolean;
 }
 
-export function DetailModal({ visible, objetivo, onClose, onMove, onDelete, onSaveInline, onInfo, currentUserId, canManage = true }: DetailModalProps) {
-    const [editingTitulo, setEditingTitulo] = useState(false);
-    const [editingDescripcion, setEditingDescripcion] = useState(false);
-    const [tituloValue, setTituloValue] = useState('');
-    const [descripcionValue, setDescripcionValue] = useState('');
-    const [saving, setSaving] = useState(false);
-
+export function DetailModal({ visible, objetivo, onClose, onDelete, onInfo, currentUserId }: DetailModalProps) {
     if (!objetivo) return null;
 
     const isOwner = currentUserId === objetivo.created_by;
 
-    const startEditTitulo = () => {
-        setTituloValue(objetivo.titulo);
-        setEditingTitulo(true);
-    };
-
-    const startEditDescripcion = () => {
-        setDescripcionValue(objetivo.descripcion || '');
-        setEditingDescripcion(true);
-    };
-
-    const handleSaveTitulo = async () => {
-        if (!tituloValue.trim()) return;
-        setSaving(true);
-        try {
-            await onSaveInline?.(objetivo.id, { titulo: tituloValue, descripcion: objetivo.descripcion || '' });
-            objetivo.titulo = tituloValue;
-        } catch (e) {
-            Alert.alert('Error', 'No se pudo guardar');
-        } finally {
-            setSaving(false);
-            setEditingTitulo(false);
-        }
-    };
-
-    const handleSaveDescripcion = async () => {
-        setSaving(true);
-        try {
-            await onSaveInline?.(objetivo.id, { titulo: objetivo.titulo, descripcion: descripcionValue });
-            objetivo.descripcion = descripcionValue;
-        } catch (e) {
-            Alert.alert('Error', 'No se pudo guardar');
-        } finally {
-            setSaving(false);
-            setEditingDescripcion(false);
-        }
-    };
-
     return (
-        <Modal
-            visible={visible}
-            animationType="slide"
-            transparent={true}
-            onRequestClose={onClose}
-        >
+        <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
             <View style={styles.overlay}>
                 <View style={styles.modalContainer}>
                     <View style={styles.infoBtnFloatingContainer}>
@@ -83,7 +27,7 @@ export function DetailModal({ visible, objetivo, onClose, onMove, onDelete, onSa
                             <Text style={styles.infoBtnText}>ⓘ</Text>
                         </TouchableOpacity>
                     </View>
-                    {/* Header */}
+
                     <View style={styles.modalHeader}>
                         <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
                             <Ionicons name="chevron-down" size={24} color="#999" />
@@ -91,8 +35,6 @@ export function DetailModal({ visible, objetivo, onClose, onMove, onDelete, onSa
                     </View>
 
                     <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 8 }}>
-
-                        {/* Creador + fecha */}
                         <Text style={styles.metaAuthor}>
                             {objetivo.created_by_username}
                             <Text style={styles.metaDate}>
@@ -103,82 +45,20 @@ export function DetailModal({ visible, objetivo, onClose, onMove, onDelete, onSa
                             </Text>
                         </Text>
 
-                        {/* Título editable */}
-                        <View style={[styles.inlineEditBlock, { marginTop: 4 }]}>
-                            {editingTitulo ? (
-                                <View style={styles.inlineEditRow}>
-                                    <TextInput
-                                        style={styles.inlineInput}
-                                        value={tituloValue}
-                                        onChangeText={setTituloValue}
-                                        autoFocus
-                                        multiline
-                                    />
-                                    <View style={styles.inlineEditActions}>
-                                        <TouchableOpacity style={styles.cancelBtn} onPress={() => setEditingTitulo(false)}>
-                                            <Text style={styles.cancelBtnText}>✕</Text>
-                                        </TouchableOpacity>
-                                        <TouchableOpacity style={styles.saveBtn} onPress={handleSaveTitulo} disabled={saving}>
-                                            <Text style={styles.saveBtnText}>✓</Text>
-                                        </TouchableOpacity>
-                                    </View>
-                                </View>
-                            ) : (
-                                <TouchableOpacity onPress={isOwner ? startEditTitulo : undefined} activeOpacity={isOwner ? 0.6 : 1}>
-                                    <View style={styles.inlineValueRow}>
-                                        <Text style={styles.detailTitle}>{objetivo.titulo}</Text>
-                                        {isOwner && <Text style={styles.editHint}>✎</Text>}
-                                    </View>
-                                </TouchableOpacity>
-                            )}
-                        </View>
+                        <Text style={[styles.detailTitle, { marginTop: 4 }]}>{objetivo.titulo}</Text>
 
-                        {/* Estado badge */}
                         <View style={[styles.estatoBadge, { backgroundColor: getStateColor(objetivo.estado) }]}>
                             <Text style={styles.estatoText}>{objetivo.estado}</Text>
                         </View>
 
-                        {/* Descripción editable */}
-                        <View style={[styles.inlineEditBlock, { marginTop: 14 }]}>
-                            {editingDescripcion ? (
-                                <View style={styles.inlineEditRow}>
-                                    <TextInput
-                                        style={[styles.inlineInput, styles.inlineInputMulti]}
-                                        value={descripcionValue}
-                                        onChangeText={setDescripcionValue}
-                                        autoFocus
-                                        multiline
-                                        numberOfLines={4}
-                                        placeholder="Sin descripción..."
-                                        placeholderTextColor="#bbb"
-                                    />
-                                    <View style={styles.inlineEditActions}>
-                                        <TouchableOpacity style={styles.cancelBtn} onPress={() => setEditingDescripcion(false)}>
-                                            <Text style={styles.cancelBtnText}>✕</Text>
-                                        </TouchableOpacity>
-                                        <TouchableOpacity style={styles.saveBtn} onPress={handleSaveDescripcion} disabled={saving}>
-                                            <Text style={styles.saveBtnText}>✓</Text>
-                                        </TouchableOpacity>
-                                    </View>
-                                </View>
-                            ) : (
-                                <TouchableOpacity onPress={isOwner ? startEditDescripcion : undefined} activeOpacity={isOwner ? 0.6 : 1}>
-                                    <View style={styles.inlineValueRow}>
-                                        <Text style={objetivo.descripcion ? styles.description : styles.descriptionEmpty}>
-                                            {objetivo.descripcion || (isOwner ? 'Agregar descripción...' : '—')}
-                                        </Text>
-                                        {isOwner && <Text style={styles.editHint}>✎</Text>}
-                                    </View>
-                                </TouchableOpacity>
-                            )}
-                        </View>
+                        <Text style={[objetivo.descripcion ? styles.description : styles.descriptionEmpty, { marginTop: 14 }]}>
+                            {objetivo.descripcion || '—'}
+                        </Text>
 
-                        {/* Separador */}
                         {objetivo.bitacora && objetivo.bitacora.length > 0 && (
                             <View style={styles.divider} />
                         )}
 
-                        {/* Bitácora — línea de tiempo */}
                         {objetivo.bitacora && objetivo.bitacora.length > 0 && (
                             <View style={styles.timeline}>
                                 {objetivo.bitacora.map((entry, idx) => {
@@ -187,7 +67,6 @@ export function DetailModal({ visible, objetivo, onClose, onMove, onDelete, onSa
 
                                     return (
                                         <View key={idx} style={styles.timelineRow}>
-                                            {/* Dot + línea */}
                                             <View style={styles.timelineLeft}>
                                                 <View style={styles.timelineDot}>
                                                     <Text style={styles.timelineDotIcon}>{icon}</Text>
@@ -195,7 +74,6 @@ export function DetailModal({ visible, objetivo, onClose, onMove, onDelete, onSa
                                                 {!isLast && <View style={styles.timelineLine} />}
                                             </View>
 
-                                            {/* Contenido */}
                                             <View style={[styles.timelineContent, isLast && { marginBottom: 0 }]}>
                                                 <View style={styles.timelineHeader}>
                                                     <Text style={styles.timelineUser}>{entry.usuario_nombre}</Text>
@@ -226,36 +104,22 @@ export function DetailModal({ visible, objetivo, onClose, onMove, onDelete, onSa
                         )}
                     </ScrollView>
 
-                    {/* Botones de acción */}
                     <View style={styles.modalFooter}>
                         <TouchableOpacity
-                            style={[
-                                styles.button,
-                                styles.buttonDanger,
-                                !isOwner && styles.buttonDisabled,
-                            ]}
+                            style={[styles.button, styles.buttonDanger, !isOwner && styles.buttonDisabled]}
                             onPress={() => {
                                 Alert.alert(
                                     'Eliminar',
                                     '¿Estás seguro de que deseas eliminar este objetivo?',
                                     [
                                         { text: 'Cancelar', style: 'cancel' },
-                                        {
-                                            text: 'Eliminar',
-                                            style: 'destructive',
-                                            onPress: () => {
-                                                onDelete?.(objetivo.id);
-                                                onClose();
-                                            },
-                                        },
+                                        { text: 'Eliminar', style: 'destructive', onPress: () => { onDelete?.(objetivo.id); onClose(); } },
                                     ]
                                 );
                             }}
                             disabled={!isOwner}
                         >
-                            <Text style={[styles.buttonDangerText, !isOwner && styles.buttonDisabledText]}>
-                                Eliminar
-                            </Text>
+                            <Text style={[styles.buttonDangerText, !isOwner && styles.buttonDisabledText]}>Eliminar</Text>
                         </TouchableOpacity>
                     </View>
                 </View>

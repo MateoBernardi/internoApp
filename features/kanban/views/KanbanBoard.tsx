@@ -171,8 +171,17 @@ export function KanbanBoard() {
     const [createDraft, setCreateDraft] = useState<CreateObjetivo>(DEFAULT_CREATE_DRAFT);
     const [moveDraft, setMoveDraft] = useState<MoveDraft>(DEFAULT_MOVE_DRAFT);
 
-    const [selectedObjetivo, setSelectedObjetivo] = useState<Objetivo | undefined>();
-    const [editingObjetivo, setEditingObjetivo] = useState<Objetivo | undefined>();
+    const [selectedObjetivoId, setSelectedObjetivoId] = useState<number | undefined>();
+    const selectedObjetivo = useMemo(
+        () => objetivos.find(o => o.id === selectedObjetivoId),
+        [objetivos, selectedObjetivoId]
+    );
+
+    const [editingObjetivoId, setEditingObjetivoId] = useState<number | undefined>();
+    const editingObjetivo = useMemo(
+        () => objetivos.find(o => o.id === editingObjetivoId),
+        [objetivos, editingObjetivoId]
+    );
 
     // Estado para tracking de operaciones optimistas
     const [optimisticObjetivoId, setOptimisticObjetivoId] = useState<number | null>(null);
@@ -189,12 +198,12 @@ export function KanbanBoard() {
     }, [objetivos]);
 
     const handleShowDetail = useCallback((objetivo: Objetivo) => {
-        setSelectedObjetivo(objetivo);
+        setSelectedObjetivoId(objetivo.id);
         setDetailModalVisible(true);
     }, []);
 
     const handleShowInfo = useCallback((objetivo: Objetivo) => {
-        setSelectedObjetivo(objetivo);
+        setSelectedObjetivoId(objetivo.id);
         setDetailModalVisible(false);
         setInfoModalVisible(true);
     }, []);
@@ -224,7 +233,7 @@ export function KanbanBoard() {
         setFormModalVisible(false);
         setFormModalMinimized(false);
         setResumeCreateDraft(false);
-        setEditingObjetivo(undefined);
+        setEditingObjetivoId(undefined);
         setCreateDraft(DEFAULT_CREATE_DRAFT);
         setResetCreateDraftSignal((prev) => prev + 1);
     }, []);
@@ -233,13 +242,13 @@ export function KanbanBoard() {
         setFormModalVisible(false);
         setFormModalMinimized(false);
         setResumeCreateDraft(false);
-        setEditingObjetivo(undefined);
+        setEditingObjetivoId(undefined);
         setCreateDraft(DEFAULT_CREATE_DRAFT);
         setResetCreateDraftSignal((prev) => prev + 1);
     }, []);
 
     const handleOpenEdit = useCallback((objetivo: Objetivo) => {
-        setEditingObjetivo(objetivo);
+        setEditingObjetivoId(objetivo.id);
         setResumeCreateDraft(false);
         setFormModalMinimized(false);
         setFormModalVisible(true);
@@ -275,10 +284,8 @@ export function KanbanBoard() {
     }, []);
 
     const handleOpenMove = useCallback((objetivo: Objetivo) => {
-        setSelectedObjetivo(objetivo);
-        if (!moveModalMinimized) {
-            setMoveDraft(DEFAULT_MOVE_DRAFT);
-        }
+        setSelectedObjetivoId(objetivo.id);
+        if (!moveModalMinimized) setMoveDraft(DEFAULT_MOVE_DRAFT);
         setMoveModalMinimized(false);
         setResumeMoveDraft(false);
         setMoveModalVisible(true);
@@ -422,7 +429,7 @@ export function KanbanBoard() {
                 resetDraftSignal={resetCreateDraftSignal}
                 onSuccess={() => {
                     setFormModalVisible(false);
-                    setEditingObjetivo(undefined);
+                    setEditingObjetivoId(undefined);
                     setFormModalMinimized(false);
                     setResumeCreateDraft(false);
                     setCreateDraft(DEFAULT_CREATE_DRAFT);

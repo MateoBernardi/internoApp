@@ -1,7 +1,7 @@
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { Archivo, ArchivoUso } from '@/features/docs/models/Archivo';
-import { useUploadArchivo } from '@/features/docs/viewmodels/useArchivos';
+import { useGetArchivoUrlFirmada, useUploadArchivo } from '@/features/docs/viewmodels/useArchivos';
 import { ApiOperationResult } from '@/shared/types/apiStatus';
 import { UserSummary } from '@/shared/users/User';
 import { adminRoles, allRoles } from '@/shared/users/roles';
@@ -40,8 +40,8 @@ interface PendingFile {
 }
 
 const ROLE_LABELS: Record<Invitado['rol'], string> = {
-    ASSIGNEE: 'Assignee',
-    VISUALIZER: 'Visualizer',
+    ASSIGNEE: 'Asignado',
+    VISUALIZER: 'Participante',
 };
 
 export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) {
@@ -57,13 +57,15 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
     const [pickerRole, setPickerRole] = useState<Invitado['rol']>('VISUALIZER');
     const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
     const [isUploadingFile, setIsUploadingFile] = useState(false);
-    const [isEditing, setIsEditing] = useState(false);
+    const [isEditingTitle, setIsEditingTitle] = useState(false);
+    const [isEditingDescription, setIsEditingDescription] = useState(false);
     const { data: searchResults, isLoading: isSearchingUsers } = useSearchUsers(searchQuery);
     const { data: roleUsersData, isLoading: isLoadingRole } = useGetUserByRole(activeRole);
 
     const editMutation = useEditObjetivo();
     const archivoMutation = useArchivoObjetivo();
     const invitadosMutation = useInvitadosObjetivo();
+    const { getArchivoUrlFirmada } = useGetArchivoUrlFirmada();
 
     const users = searchResults || [];
     const isLoadingUsers = isSearchingUsers || isLoadingRole;
@@ -79,10 +81,42 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
         [invitedUsers]
     );
 
+    // Limpieza al cerrar
+    useEffect(() => {
+        if (visible) return;
+        setLocalObjetivo(null);
+        setInvitedUsers([]);
+        setSelectedUsers([]);
+        setSearchQuery('');
+        setShowSelector(false);
+        setPendingFiles([]);
+        setIsEditingTitle(false);
+        setIsEditingDescription(false);
+        setShowRoleModal(false);
+        setActiveRole('');
+    }, [visible]);
+
+    // Inicialización y sincronización con cache
     useEffect(() => {
         if (!visible || !objetivo) return;
+
         setLocalObjetivo(objetivo);
-    }, [visible, objetivo]);
+        setInvitedUsers(objetivo.invitados ?? []);
+        setSelectedUsers(
+            (objetivo.invitados ?? []).map(inv =>
+                inv.invitado_nombre
+                    ? {
+                        user_context_id: inv.user_id,
+                        username: '',
+                        nombre: inv.invitado_nombre,
+                        apellido: inv.invitado_apellido ?? '',
+                        email: '',
+                        role: [],
+                    }
+                    : makePlaceholderUser(inv.user_id)
+            )
+        );
+    }, [visible]);
 
     const currentObjetivo = localObjetivo ?? objetivo;
     if (!currentObjetivo) return null;
@@ -90,11 +124,9 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
     // ─── Helpers ────────────────────────────────────────────────────────────────
 
     const helpers = {
-        editarTitulo: (titulo: string) =>
-            editMutation.mutateAsync({ id: currentObjetivo.id, field: 'titulo', data: { titulo } }),
+        editarTitulo: (titulo: string) => { editMutation.mutateAsync({ id: currentObjetivo.id, field: 'titulo', data: titulo }) },
 
-        editarDescripcion: (descripcion: string) =>
-            editMutation.mutateAsync({ id: currentObjetivo.id, field: 'descripcion', data: { descripcion } }),
+        editarDescripcion: (descripcion: string) => { editMutation.mutateAsync({ id: currentObjetivo.id, field: 'descripcion', data: descripcion }) },
 
         agregarArchivos: (archivosIds: number[]) =>
             archivoMutation.mutateAsync({ id: currentObjetivo.id, action: 'add', archivosIds }),
@@ -102,16 +134,19 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
         quitarArchivo: (archivosIds: number[]) =>
             archivoMutation.mutateAsync({ id: currentObjetivo.id, action: 'remove', archivosIds }),
 
-        agregarInvitados: (invitados: number[]) =>
+        // ✅ Ahora recibe y manda Invitado[] completo
+        sincronizarInvitados: (invitados: Invitado[]) =>
             invitadosMutation.mutateAsync({ id: currentObjetivo.id, action: 'add', invitados }),
 
-        quitarInvitado: (invitados: number[]) =>
+        quitarInvitado: (invitados: Invitado[]) =>
             invitadosMutation.mutateAsync({ id: currentObjetivo.id, action: 'remove', invitados }),
     };
 
     // ─── Invitados ───────────────────────────────────────────────────────────────
 
     const getDisplayName = (userId: number) => {
+        const inv = invitedUsers.find((i) => i.user_id === userId);
+        if (inv?.invitado_nombre) return `${inv.invitado_nombre} ${inv.invitado_apellido ?? ''}`.trim();
         const matched = selectedUsers.find((u) => u.user_context_id === userId);
         if (matched) return `${matched.nombre} ${matched.apellido}`.trim();
         return `Usuario #${userId}`;
@@ -123,17 +158,33 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
             const byId = new Map(prev.map((u) => [u.user_context_id, u]));
             return nextInvited.map((inv) => byId.get(inv.user_id) ?? makePlaceholderUser(inv.user_id));
         });
-        await helpers.agregarInvitados(nextInvited.map((inv) => inv.user_id));
+        // ✅ Manda Invitado[] completo, el hook ya sabe qué hacer
+        await helpers.sincronizarInvitados(nextInvited);
     };
 
     const handleSelectUsers = (usersToSelect: UserSummary[]) => {
         const existingRoles = new Map(invitedUsers.map((inv) => [inv.user_id, inv.rol]));
-        const nextInvited: Invitado[] = usersToSelect.map((u) => ({
-            user_id: u.user_context_id,
-            rol: (existingRoles.get(u.user_context_id) ?? pickerRole) as Invitado['rol'],
-        }));
-        setSelectedUsers(usersToSelect);
+
+        // Mergear nuevos con los que ya estaban
+        const incomingIds = new Set(usersToSelect.map(u => u.user_context_id));
+        const nextInvited: Invitado[] = [
+            // Mantener los que ya estaban y no están en la nueva selección
+            ...invitedUsers.filter(inv => !incomingIds.has(inv.user_id)),
+            // Agregar/actualizar los nuevos
+            ...usersToSelect.map((u) => ({
+                user_id: u.user_context_id,
+                rol: (existingRoles.get(u.user_context_id) ?? pickerRole) as Invitado['rol'],
+            })),
+        ];
+
+        // Mergear selectedUsers también
+        setSelectedUsers(prev => mergeUsers(prev, usersToSelect));
         void persistInvitados(nextInvited);
+    };
+
+    const handleSelectRole = (role: string) => {
+        setActiveRole(role);
+        setShowRoleModal(true);
     };
 
     const handleToggleUser = (selectedUser: UserSummary) => {
@@ -142,11 +193,16 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
             ? invitedUsers.filter((inv) => inv.user_id !== selectedUser.user_context_id)
             : [...invitedUsers, { user_id: selectedUser.user_context_id, rol: pickerRole }];
 
+        // Solo agregar a selectedUsers si es nuevo, nunca reemplazar
         if (!exists) {
             setSelectedUsers((prev) =>
                 prev.some((u) => u.user_context_id === selectedUser.user_context_id)
                     ? prev
                     : [...prev, selectedUser]
+            );
+        } else {
+            setSelectedUsers((prev) =>
+                prev.filter((u) => u.user_context_id !== selectedUser.user_context_id)
             );
         }
 
@@ -154,62 +210,23 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
     };
 
     const handleRemoveInvitado = (userId: number) => {
-        const removed = invitedUsers.filter((inv) => inv.user_id === userId);
+        const toRemove = invitedUsers.filter((inv) => inv.user_id === userId); // Invitado[]
         const nextInvited = invitedUsers.filter((inv) => inv.user_id !== userId);
+
         setSelectedUsers((prev) => prev.filter((u) => u.user_context_id !== userId));
         setInvitedUsers(nextInvited);
-        void helpers.quitarInvitado(removed.map((inv) => inv.user_id));
+
+        // ✅ Manda Invitado[], no number[]
+        void helpers.quitarInvitado(toRemove);
     };
 
     const handleAddInvitado = () => setShowSelector((prev) => !prev);
-
-    const handleAssignMe = () => {
-        if (!user?.user_context_id) return;
-        const exists = invitedUsers.some((inv) => inv.user_id === user.user_context_id);
-        const nextInvited: Invitado[] = exists
-            ? invitedUsers.map((inv) =>
-                inv.user_id === user.user_context_id ? { ...inv, rol: 'ASSIGNEE' } : inv
-            )
-            : [...invitedUsers, { user_id: user.user_context_id, rol: 'ASSIGNEE' }];
-
-        if (!exists) {
-            setSelectedUsers((prev) =>
-                prev.some((u) => u.user_context_id === user.user_context_id)
-                    ? prev
-                    : [...prev, makePlaceholderUser(user.user_context_id)]
-            );
-        }
-
-        Alert.alert('Asignarme', 'Quieres asignarte a ti mismo?', [
-            { text: 'Cancelar', style: 'cancel' },
-            { text: 'Asignar', onPress: () => void persistInvitados(nextInvited) },
-        ]);
-    };
-
-    const handleSelectRole = (role: string) => {
-        setActiveRole(role);
-        setShowRoleModal(true);
-    };
 
     const handleToggleInvitadoRole = (userId: number, nextRole: Invitado['rol']) => {
         const nextInvited = invitedUsers.map((inv) =>
             inv.user_id === userId ? { ...inv, rol: nextRole } : inv
         );
         void persistInvitados(nextInvited);
-    };
-
-    const handlePromoteToAssignee = (userId: number) => {
-        Alert.alert('Asignar', 'Asignar a este participante?', [
-            { text: 'Cancelar', style: 'cancel' },
-            { text: 'Asignar', onPress: () => handleToggleInvitadoRole(userId, 'ASSIGNEE') },
-        ]);
-    };
-
-    const handleMoveToVisualizer = (userId: number) => {
-        Alert.alert('Mover', 'Mover a visualizador?', [
-            { text: 'Cancelar', style: 'cancel' },
-            { text: 'Mover', onPress: () => handleToggleInvitadoRole(userId, 'VISUALIZER') },
-        ]);
     };
 
     // ─── Archivos ────────────────────────────────────────────────────────────────
@@ -278,9 +295,13 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
         }
     };
 
-    const handleOpenArchivo = (url?: string) => {
-        if (!url) return;
-        Linking.openURL(url).catch(() => Alert.alert('Error', 'No se pudo abrir el archivo'));
+    const handleOpenArchivo = async (archivoId: number) => {
+        try {
+            const url = await getArchivoUrlFirmada(archivoId);
+            Linking.openURL(url).catch(() => Alert.alert('Error', 'No se pudo abrir el archivo'));
+        } catch {
+            Alert.alert('Error', 'No se pudo obtener el enlace del archivo');
+        }
     };
 
     const handleRemoveArchivo = (archivoId: number) => {
@@ -301,24 +322,29 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
         ]);
     };
 
+    // Reemplazá el onRequestClose y el botón de cerrar
+    const handleClose = () => {
+        onClose();
+    };
+
     return (
         <Modal
             visible={visible}
             animationType="slide"
             transparent={true}
-            onRequestClose={onClose}
+            onRequestClose={handleClose}
         >
             <View style={styles.overlay}>
                 <View style={styles.container}>
                     <View style={styles.header}>
-                        <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                        <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
                             <Ionicons name="chevron-down" size={24} color="#6b7280" />
                         </TouchableOpacity>
                     </View>
 
                     <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
                         <View style={styles.section}>
-                            {isEditing ? (
+                            {isEditingTitle ? (
                                 <View style={styles.inlineEditRow}>
                                     <TextInput
                                         value={currentObjetivo.titulo}
@@ -334,7 +360,7 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
                                         <TouchableOpacity
                                             style={styles.cancelBtn}
                                             onPress={() => {
-                                                setIsEditing(false);
+                                                setIsEditingTitle(false);
                                                 setLocalObjetivo(objetivo ?? null);
                                             }}
                                         >
@@ -343,8 +369,8 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
                                         <TouchableOpacity
                                             style={styles.saveBtn}
                                             onPress={() => {
-                                                setIsEditing(false);
-                                                void helpers.editarTitulo(currentObjetivo.titulo);
+                                                setIsEditingTitle(false);
+                                                void helpers.editarTitulo(localObjetivo!.titulo);
                                             }}
                                         >
                                             <Text style={styles.saveBtnText}>✓</Text>
@@ -352,10 +378,10 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
                                     </View>
                                 </View>
                             ) : (
-                                <TouchableOpacity onPress={() => setIsEditing(true)} activeOpacity={0.6}>
+                                <TouchableOpacity onPress={() => setIsEditingTitle(true)} activeOpacity={0.6}>
                                     <View style={styles.inlineValueRow}>
-                                        <Text style={currentObjetivo.descripcion ? styles.sectionValueMuted : styles.descriptionEmpty}>
-                                            {currentObjetivo.descripcion || 'Sin descripcion'}
+                                        <Text style={currentObjetivo.titulo ? styles.sectionValue : styles.descriptionEmpty}>
+                                            {currentObjetivo.titulo || 'Sin titulo'}
                                         </Text>
                                         <Text style={styles.editHint}>✎</Text>
                                     </View>
@@ -364,7 +390,7 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
                         </View>
 
                         <View style={styles.section}>
-                            {isEditing ? (
+                            {isEditingDescription ? (
                                 <View style={styles.inlineEditRow}>
                                     <TextInput
                                         value={currentObjetivo.descripcion}
@@ -380,7 +406,7 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
                                         <TouchableOpacity
                                             style={styles.cancelBtn}
                                             onPress={() => {
-                                                setIsEditing(false);
+                                                setIsEditingDescription(false);
                                                 setLocalObjetivo(objetivo ?? null);
                                             }}
                                         >
@@ -389,8 +415,8 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
                                         <TouchableOpacity
                                             style={styles.saveBtn}
                                             onPress={() => {
-                                                setIsEditing(false);
-                                                void helpers.editarDescripcion(currentObjetivo.descripcion);
+                                                setIsEditingDescription(false);
+                                                void helpers.editarDescripcion(localObjetivo!.descripcion);
                                             }}
                                         >
                                             <Text style={styles.saveBtnText}>✓</Text>
@@ -398,7 +424,7 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
                                     </View>
                                 </View>
                             ) : (
-                                <TouchableOpacity onPress={() => setIsEditing(true)} activeOpacity={0.6}>
+                                <TouchableOpacity onPress={() => setIsEditingDescription(true)} activeOpacity={0.6}>
                                     <View style={styles.inlineValueRow}>
                                         <Text style={currentObjetivo.descripcion ? styles.sectionValueMuted : styles.descriptionEmpty}>
                                             {currentObjetivo.descripcion || 'Sin descripcion'}
@@ -417,13 +443,13 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
 
                         <View style={styles.inviteSection}>
                             <View style={styles.sectionHeaderRow}>
-                                <Text style={styles.label}>Participantes</Text>
-                                <TouchableOpacity style={styles.actionButton} onPress={handleAddInvitado}>
-                                    <Ionicons name="add" size={16} color={Colors.light.tint} />
-                                    <Text style={styles.actionButtonText}>
-                                        {showSelector ? 'Cerrar buscador' : 'Agregar participantes'}
-                                    </Text>
-                                </TouchableOpacity>
+                                <Text style={styles.label}>Equipo</Text>
+                                <View style={styles.headerActions}>
+                                    <TouchableOpacity style={styles.actionButton} onPress={handleAddInvitado}>
+                                        <Ionicons name="add" size={16} color={Colors.light.tint} />
+                                        <Text style={styles.actionButtonText}>Agregar</Text>
+                                    </TouchableOpacity>
+                                </View>
                             </View>
 
                             {showSelector && (
@@ -441,75 +467,49 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
                                     />
                                 </View>
                             )}
-                            {visualizers.length === 0 ? (
+
+                            {invitedUsers.length === 0 ? (
                                 <Text style={styles.sectionValueMuted}>Sin participantes</Text>
                             ) : (
-                                // Acá hay que agregar el botón de togglear rol entre visualizador y assignee, y el botón de eliminar participante
-                                <View style={styles.inviteList}>
-                                    {visualizers.map((inv) => (
-                                        <View key={inv.user_id} style={styles.inviteRow}>
-                                            <View>
-                                                <Text style={styles.inviteName}>{getDisplayName(inv.user_id)}</Text>
-                                                <Text style={styles.inviteMeta}>{ROLE_LABELS[inv.rol]}</Text>
-                                            </View>
-                                            <View style={styles.inviteRowActions}>
-                                                <TouchableOpacity
-                                                    style={styles.roleAction}
-                                                    onPress={() => handlePromoteToAssignee(inv.user_id)}
-                                                >
-                                                    <Text style={styles.roleActionText}>→ Assignee</Text>
-                                                </TouchableOpacity>
-                                                <View style={styles.roleBadge}>
-                                                    <Text style={styles.roleBadgeText}>{ROLE_LABELS[inv.rol]}</Text>
-                                                </View>
-                                                <TouchableOpacity onPress={() => handleRemoveInvitado(inv.user_id)}>
-                                                    <Ionicons name="close-circle" size={20} color="#9ca3af" />
-                                                </TouchableOpacity>
+                                invitedUsers.map((inv) => (
+                                    <View key={inv.user_id} style={styles.inviteRow}>
+                                        {/* Avatar inicial */}
+                                        <View style={styles.avatar}>
+                                            <Text style={styles.avatarText}>
+                                                {getDisplayName(inv.user_id).charAt(0).toUpperCase()}
+                                            </Text>
+                                        </View>
+                                        <View style={styles.inviteInfo}>
+                                            <Text style={styles.inviteName}>{getDisplayName(inv.user_id)}</Text>
+                                            {/* Rol como toggle tipo pill, no como texto suelto */}
+                                            <View style={styles.roleToggleRow}>
+                                                {(['ASSIGNEE', 'VISUALIZER'] as Invitado['rol'][]).map((r) => (
+                                                    <TouchableOpacity
+                                                        key={r}
+                                                        style={[
+                                                            styles.rolePill,
+                                                            inv.rol === r && styles.rolePillActive,
+                                                        ]}
+                                                        onPress={() => {
+                                                            if (inv.rol !== r) handleToggleInvitadoRole(inv.user_id, r);
+                                                        }}
+                                                    >
+                                                        <Text style={[
+                                                            styles.rolePillText,
+                                                            inv.rol === r && styles.rolePillTextActive,
+                                                        ]}>
+                                                            {ROLE_LABELS[r]}
+                                                        </Text>
+                                                    </TouchableOpacity>
+                                                ))}
                                             </View>
                                         </View>
-                                    ))}
-                                </View>
+                                        <TouchableOpacity onPress={() => handleRemoveInvitado(inv.user_id)}>
+                                            <Ionicons name="close-circle" size={20} color="#9ca3af" />
+                                        </TouchableOpacity>
+                                    </View>
+                                ))
                             )}
-                        </View>
-
-                        <View style={styles.inviteSection}>
-                            <View style={styles.inviteHeaderRow}>
-                                <Text style={styles.inviteTitle}>Asignados</Text>
-                                <View style={styles.inviteActions}>
-                                    <TouchableOpacity style={styles.inlineAction} onPress={handleAssignMe}>
-                                        <Text style={styles.inlineActionText}>Asignarme a mi mismo</Text>
-                                    </TouchableOpacity>
-                                </View>
-                            </View>
-                            {assignees.length === 0 ? (
-                                <Text style={styles.sectionValueMuted}>No se ha asignado a nadie</Text>
-                            ) : (
-                                <View style={styles.inviteList}>
-                                    {assignees.map((inv) => (
-                                        <View key={inv.user_id} style={styles.inviteRow}>
-                                            <View>
-                                                <Text style={styles.inviteName}>{getDisplayName(inv.user_id)}</Text>
-                                                <Text style={styles.inviteMeta}>{ROLE_LABELS[inv.rol]}</Text>
-                                            </View>
-                                            <View style={styles.inviteRowActions}>
-                                                <TouchableOpacity
-                                                    style={styles.roleAction}
-                                                    onPress={() => handleMoveToVisualizer(inv.user_id)}
-                                                >
-                                                    <Text style={styles.roleActionText}>→ Visualizer</Text>
-                                                </TouchableOpacity>
-                                                <View style={styles.roleBadge}>
-                                                    <Text style={styles.roleBadgeText}>{ROLE_LABELS[inv.rol]}</Text>
-                                                </View>
-                                                <TouchableOpacity onPress={() => handleRemoveInvitado(inv.user_id)}>
-                                                    <Ionicons name="close-circle" size={20} color="#9ca3af" />
-                                                </TouchableOpacity>
-                                            </View>
-                                        </View>
-                                    ))}
-                                </View>
-                            )}
-
                         </View>
 
                         <View style={styles.section}>
@@ -534,7 +534,7 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
                                                     <Text style={styles.inviteMeta}>{archivo.tipo}</Text>
                                                 </View>
                                                 <View style={styles.inviteRowActions}>
-                                                    <TouchableOpacity onPress={() => handleOpenArchivo(archivo.url)}>
+                                                    <TouchableOpacity onPress={() => handleOpenArchivo(archivo.id)}>
                                                         <Ionicons name="open-outline" size={20} color={Colors.light.tint} />
                                                     </TouchableOpacity>
                                                     <TouchableOpacity onPress={() => handleRemoveArchivo(archivo.id)}>
@@ -905,5 +905,49 @@ const styles = StyleSheet.create({
         fontSize: 11,
         fontWeight: '700',
         color: '#fff',
+    },
+
+    // Agregar estos:
+    headerActions: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    avatar: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: Colors.light.tint + '22',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    avatarText: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: Colors.light.tint,
+    },
+    inviteInfo: {
+        flex: 1,
+        gap: 4,
+    },
+    rolePill: {
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: 999,
+        borderWidth: 1,
+        borderColor: '#e5e7eb',
+        backgroundColor: '#f9fafb',
+    },
+    rolePillActive: {
+        borderColor: Colors.light.tint,
+        backgroundColor: Colors.light.tint + '15',
+    },
+    rolePillText: {
+        fontSize: 10,
+        fontWeight: '600',
+        color: '#6b7280',
+    },
+    rolePillTextActive: {
+        color: Colors.light.tint,
     },
 });

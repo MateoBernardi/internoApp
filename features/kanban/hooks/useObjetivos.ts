@@ -1,6 +1,6 @@
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { CreateObjetivo, Objetivo, UpdateObjetivo } from '../models/Objetivo';
+import type { CreateObjetivo, Invitado, Objetivo, UpdateObjetivo } from '../models/Objetivo';
 import {
     archivoObjetivo,
     createObjetivo,
@@ -100,6 +100,9 @@ export function useUpdateObjetivo() {
                             created_at: new Date().toISOString(),
                             usuario_id: 0, // Se rellena en el servidor
                             usuario_nombre: 'Tú',
+                            appointment: null,
+                            assignee_id: null,
+                            assignee_nombre: null,
                         };
                         updatedObj.bitacora = [newBitacoraEntry, ...(obj.bitacora || [])];
                     }
@@ -110,12 +113,7 @@ export function useUpdateObjetivo() {
 
             return { previousData };
         },
-        onSuccess: (updatedObjetivo) => {
-            // Opción A: Reemplazo manual 
-            queryClient.setQueryData<Objetivo[]>(OBJETIVOS_QUERY_KEY, (old) => {
-                return old?.map((obj) => (obj.id === updatedObjetivo.id ? updatedObjetivo : obj));
-            });
-
+        onSuccess: () => {
             // Opción B: Invalidador de la query para refetch
             queryClient.invalidateQueries({ queryKey: OBJETIVOS_QUERY_KEY });
         },
@@ -141,16 +139,14 @@ export function useEditObjetivo() {
         }: {
             id: number;
             field: 'titulo' | 'descripcion';
-            data: Record<string, any>;
+            data: string;
         }) => {
             const token = tokens?.accessToken;
             if (!token) throw new Error('No hay token de acceso');
             return editObjetivo(token, id, field, data);
         },
-        onSuccess: (updatedObjetivo) => {
-            queryClient.setQueryData<Objetivo[]>(OBJETIVOS_QUERY_KEY, (old) =>
-                old?.map((obj) => (obj.id === updatedObjetivo.id ? updatedObjetivo : obj))
-            );
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: OBJETIVOS_QUERY_KEY });
         },
         onError: () => {
             queryClient.invalidateQueries({ queryKey: OBJETIVOS_QUERY_KEY });
@@ -177,10 +173,8 @@ export function useArchivoObjetivo() {
             if (!token) throw new Error('No hay token de acceso');
             return archivoObjetivo(token, id, action, archivosIds);
         },
-        onSuccess: (updatedObjetivo) => {
-            queryClient.setQueryData<Objetivo[]>(OBJETIVOS_QUERY_KEY, (old) =>
-                old?.map((obj) => (obj.id === updatedObjetivo.id ? updatedObjetivo : obj))
-            );
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: OBJETIVOS_QUERY_KEY });
         },
         onError: () => {
             queryClient.invalidateQueries({ queryKey: OBJETIVOS_QUERY_KEY });
@@ -201,16 +195,14 @@ export function useInvitadosObjetivo() {
         }: {
             id: number;
             action: 'add' | 'remove';
-            invitados: number[];
+            invitados: Invitado[];
         }) => {
             const token = tokens?.accessToken;
             if (!token) throw new Error('No hay token de acceso');
             return invitadosObjetivo(token, id, action, invitados);
         },
-        onSuccess: (updatedObjetivo) => {
-            queryClient.setQueryData<Objetivo[]>(OBJETIVOS_QUERY_KEY, (old) =>
-                old?.map((obj) => (obj.id === updatedObjetivo.id ? updatedObjetivo : obj))
-            );
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: OBJETIVOS_QUERY_KEY });
         },
         onError: () => {
             queryClient.invalidateQueries({ queryKey: OBJETIVOS_QUERY_KEY });

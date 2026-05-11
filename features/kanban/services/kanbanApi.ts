@@ -1,5 +1,5 @@
 import { apiRequest } from "@/shared/apiRequest";
-import type { CreateObjetivo, Objetivo, UpdateObjetivo } from "../models/Objetivo";
+import type { CreateObjetivo, Invitado, Objetivo, UpdateObjetivo } from "../models/Objetivo";
 
 export async function fetchObjetivos(accessToken: string): Promise<Objetivo[]> {
     const response = await apiRequest({ method: 'GET', endpoint: '/kanban', token: accessToken });
@@ -48,13 +48,17 @@ export async function editObjetivo(
     accessToken: string,
     id: number,
     field: 'titulo' | 'descripcion',
-    data: Record<string, any>
+    data: string
 ): Promise<Objetivo> {
+    console.log(`Editando objetivo ${id}, campo: ${field}, nuevo valor: ${data}`);
+
     const response = await apiRequest({
         method: 'PATCH',
-        endpoint: `/kanban/${id}?edit=${field}`,
+        endpoint: `/kanban/${id}?field=${field}`,
         token: accessToken,
-        body: data,
+        body: {
+            [field]: data
+        },
     });
 
     if (!response.ok) {
@@ -74,7 +78,7 @@ export async function archivoObjetivo(
 ): Promise<Objetivo> {
     const response = await apiRequest({
         method: 'PATCH',
-        endpoint: `/kanban/${id}?accion=archivo&action=${action}`,
+        endpoint: `/kanban/${id}/archivos?action=${action}`,
         token: accessToken,
         body: { archivosIds },
     });
@@ -92,11 +96,11 @@ export async function invitadosObjetivo(
     accessToken: string,
     id: number,
     action: 'add' | 'remove',
-    invitados: number[]
+    invitados: Invitado[]
 ): Promise<Objetivo> {
     const response = await apiRequest({
         method: 'PATCH',
-        endpoint: `/kanban/${id}?accion=invitados&action=${action}`,
+        endpoint: `/kanban/${id}/invitados?action=${action}`,
         token: accessToken,
         body: { invitados },
     });

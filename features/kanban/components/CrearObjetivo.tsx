@@ -1,7 +1,3 @@
-// ============================================
-// Modal para crear/editar objetivo
-// ============================================
-
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
@@ -350,8 +346,8 @@ export function FormObjetivoModal({
                 titulo,
                 descripcion,
                 estado,
-                invitados,
-                archivosIds,
+                ...(invitados && invitados.length > 0 ? { invitados } : {}),
+                ...(archivosIds.length > 0 ? { archivosIds } : {}),
             };
 
             await createMutation.mutateAsync(payload);

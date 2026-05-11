@@ -2,7 +2,7 @@ import { Colors } from "@/constants/theme";
 import { Ionicons } from '@expo/vector-icons';
 import React from "react";
 import { Alert, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { Objetivo } from "../models/Objetivo";
+import { Bitacora, Objetivo } from "../models/Objetivo";
 
 interface DetailModalProps {
     visible: boolean;
@@ -10,6 +10,7 @@ interface DetailModalProps {
     onClose: () => void;
     onDelete?: (id: number) => void;
     onInfo?: (objetivo: Objetivo) => void;
+    onMove?: (objetivo: Objetivo) => void;
     currentUserId?: number;
 }
 
@@ -63,20 +64,21 @@ export function DetailModal({ visible, objetivo, onClose, onDelete, onInfo, curr
                             <View style={styles.timeline}>
                                 {objetivo.bitacora.map((entry, idx) => {
                                     const isLast = idx === objetivo.bitacora.length - 1;
-                                    const icon = getEntryIcon(entry);
 
                                     return (
                                         <View key={idx} style={styles.timelineRow}>
                                             <View style={styles.timelineLeft}>
                                                 <View style={styles.timelineDot}>
-                                                    <Text style={styles.timelineDotIcon}>{icon}</Text>
+                                                    {getEntryIcon(entry)}
                                                 </View>
                                                 {!isLast && <View style={styles.timelineLine} />}
                                             </View>
 
                                             <View style={[styles.timelineContent, isLast && { marginBottom: 0 }]}>
                                                 <View style={styles.timelineHeader}>
-                                                    <Text style={styles.timelineUser}>{entry.usuario_nombre}</Text>
+                                                    <Text style={styles.timelineUser}>
+                                                        {entry.usuario_nombre ?? 'Sistema'}
+                                                    </Text>
                                                     <Text style={styles.timelineDate}>
                                                         {new Date(entry.created_at).toLocaleDateString('es-ES', {
                                                             day: '2-digit', month: 'short',
@@ -84,15 +86,35 @@ export function DetailModal({ visible, objetivo, onClose, onDelete, onInfo, curr
                                                         })}
                                                     </Text>
                                                 </View>
-                                                <View style={styles.timelineChange}>
-                                                    <View style={[styles.estadoBubble, { backgroundColor: getStateColor(entry.estado_anterior) + '22', borderColor: getStateColor(entry.estado_anterior) + '55' }]}>
-                                                        <Text style={[styles.estadoBubbleText, { color: getStateColor(entry.estado_anterior) }]}>{entry.estado_anterior}</Text>
+
+                                                {/* Cambio de estado */}
+                                                {entry.estado_nuevo ? (
+                                                    <View style={styles.timelineChange}>
+                                                        <View style={[styles.estadoBubble, {
+                                                            backgroundColor: getStateColor(entry.estado_anterior) + '22',
+                                                            borderColor: getStateColor(entry.estado_anterior) + '55',
+                                                        }]}>
+                                                            <Text style={[styles.estadoBubbleText, { color: getStateColor(entry.estado_anterior) }]}>
+                                                                {entry.estado_anterior}
+                                                            </Text>
+                                                        </View>
+                                                        <Text style={styles.arrow}>→</Text>
+                                                        <View style={[styles.estadoBubble, {
+                                                            backgroundColor: getStateColor(entry.estado_nuevo) + '22',
+                                                            borderColor: getStateColor(entry.estado_nuevo) + '55',
+                                                        }]}>
+                                                            <Text style={[styles.estadoBubbleText, { color: getStateColor(entry.estado_nuevo) }]}>
+                                                                {entry.estado_nuevo}
+                                                            </Text>
+                                                        </View>
                                                     </View>
-                                                    <Text style={styles.arrow}>→</Text>
-                                                    <View style={[styles.estadoBubble, { backgroundColor: getStateColor(entry.estado_nuevo) + '22', borderColor: getStateColor(entry.estado_nuevo) + '55' }]}>
-                                                        <Text style={[styles.estadoBubbleText, { color: getStateColor(entry.estado_nuevo) }]}>{entry.estado_nuevo}</Text>
-                                                    </View>
-                                                </View>
+                                                ) : entry.appointment ? (
+                                                    /* Asignación o descarga */
+                                                    <Text style={styles.assignmentText}>
+                                                        {getAssignmentLabel(entry)}
+                                                    </Text>
+                                                ) : null}
+
                                                 {entry.observacion ? (
                                                     <Text style={styles.observacionText}>{entry.observacion}</Text>
                                                 ) : null}
@@ -113,19 +135,60 @@ export function DetailModal({ visible, objetivo, onClose, onDelete, onInfo, curr
                                     '¿Estás seguro de que deseas eliminar este objetivo?',
                                     [
                                         { text: 'Cancelar', style: 'cancel' },
-                                        { text: 'Eliminar', style: 'destructive', onPress: () => { onDelete?.(objetivo.id); onClose(); } },
+                                        {
+                                            text: 'Eliminar',
+                                            style: 'destructive',
+                                            onPress: () => { onDelete?.(objetivo.id); onClose(); },
+                                        },
                                     ]
                                 );
                             }}
                             disabled={!isOwner}
                         >
-                            <Text style={[styles.buttonDangerText, !isOwner && styles.buttonDisabledText]}>Eliminar</Text>
+                            <Text style={[styles.buttonDangerText, !isOwner && styles.buttonDisabledText]}>
+                                Eliminar
+                            </Text>
                         </TouchableOpacity>
                     </View>
                 </View>
             </View>
         </Modal>
     );
+}
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+function getAssignmentLabel(entry: Bitacora): string {
+    const actor = entry.usuario_nombre ?? 'Alguien';
+    const asignee = entry.assignee_nombre ?? 'usuario desconocido';
+    const esSelfAction = entry.usuario_id === entry.assignee_id;
+
+    if (entry.appointment === 'ASSIGN') {
+        return esSelfAction
+            ? `${actor} se asignó a sí mismo esta tarea`
+            : `${actor} le asignó esta tarea a ${asignee}`;
+    }
+
+    if (entry.appointment === 'DISCHARGE') {
+        return esSelfAction
+            ? `${actor} se quitó la asignación`
+            : `${actor} quitó la asignación de ${asignee}`;
+    }
+
+    return '';
+}
+
+function getEntryIcon(entry: Bitacora): React.ReactNode {
+    if (entry.estado_nuevo) {
+        return <Ionicons name="git-commit-outline" size={11} color="#1e3a8a" />;
+    }
+    if (entry.appointment === 'ASSIGN') {
+        return <Ionicons name="person-add-outline" size={11} color="#1e3a8a" />;
+    }
+    if (entry.appointment === 'DISCHARGE') {
+        return <Ionicons name="person-remove-outline" size={11} color="#1e3a8a" />;
+    }
+    return <Ionicons name="settings-outline" size={11} color="#1e3a8a" />;
 }
 
 function getStateColor(estado: string): string {
@@ -138,29 +201,16 @@ function getStateColor(estado: string): string {
     }
 }
 
-function getEntryIcon(entry: any): string {
-    if (entry.observacion && !entry.estado_nuevo) return '💬';
-    const nuevo = entry.estado_nuevo;
-    switch (nuevo) {
-        case 'REALIZADO': return '✓';
-        case 'PROGRESO': return '▶';
-        case 'PRIORIDAD': return '!';
-        case 'PENDIENTE': return '○';
-        default: return '•';
-    }
-}
+// ─── Styles ─────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-    // ============================================
-    // Modal
-    // ============================================
     overlay: {
         flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.5)' // Sombra de fondo
+        backgroundColor: 'rgba(0,0,0,0.5)',
     },
     modalContainer: {
         flex: 1,
-        marginTop: '5%', // Empuja el modal hacia abajo
+        marginTop: '5%',
         backgroundColor: Colors['light'].componentBackground,
         borderTopLeftRadius: 16,
         borderTopRightRadius: 16,
@@ -222,10 +272,6 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
         paddingTop: 18,
     },
-
-    // ============================================
-    // Meta
-    // ============================================
     metaAuthor: {
         fontSize: 12,
         fontWeight: '600',
@@ -236,10 +282,6 @@ const styles = StyleSheet.create({
         fontWeight: '400',
         color: '#9ca3af',
     },
-
-    // ============================================
-    // Inline Edit
-    // ============================================
     inlineEditBlock: {
         marginBottom: 2,
     },
@@ -302,10 +344,6 @@ const styles = StyleSheet.create({
         color: '#d1d5db',
         marginTop: 4,
     },
-
-    // ============================================
-    // Detail Info
-    // ============================================
     detailTitle: {
         flex: 1,
         fontSize: 20,
@@ -331,10 +369,6 @@ const styles = StyleSheet.create({
         backgroundColor: Colors['light'].background,
         marginVertical: 20,
     },
-
-    // ============================================
-    // Estado Badge
-    // ============================================
     estatoBadge: {
         paddingHorizontal: 10,
         paddingVertical: 4,
@@ -348,10 +382,6 @@ const styles = StyleSheet.create({
         color: '#fff',
         letterSpacing: 0.3,
     },
-
-    // ============================================
-    // Timeline
-    // ============================================
     timeline: {
         paddingLeft: 4,
         paddingBottom: 8,
@@ -370,7 +400,7 @@ const styles = StyleSheet.create({
         borderRadius: 13,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: 'rgba(30, 58, 138, 0.12)', // azul oscuro transparente
+        backgroundColor: 'rgba(30, 58, 138, 0.12)',
         borderWidth: 1,
         borderColor: '#1e3a8a',
     },
@@ -426,16 +456,18 @@ const styles = StyleSheet.create({
         fontSize: 12,
         color: '#9ca3af',
     },
+    assignmentText: {
+        fontSize: 12,
+        color: '#374151',
+        fontWeight: '500',
+        lineHeight: 18,
+    },
     observacionText: {
         fontSize: 12,
         color: '#6b7280',
         lineHeight: 18,
         marginTop: 2,
     },
-
-    // ============================================
-    // Footer + Buttons
-    // ============================================
     modalFooter: {
         flexDirection: 'row',
         paddingHorizontal: 16,

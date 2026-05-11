@@ -4,10 +4,13 @@ export interface Bitacora {
     id: number;
     estado_anterior: string;
     estado_nuevo: string;
-    observacion: string;
-    created_at: string; // ISO Date
-    usuario_id: number;
-    usuario_nombre: string;
+    observacion: string | null;
+    created_at: string;
+    appointment: 'ASSIGN' | 'DISCHARGE' | null;
+    usuario_id: number | null;
+    usuario_nombre: string | null;
+    assignee_id: number | null;
+    assignee_nombre: string | null;
 }
 
 export interface Invitado {

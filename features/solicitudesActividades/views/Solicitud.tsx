@@ -3,6 +3,7 @@ import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
 import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
 import { Colors, UI } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
+import { useGetArchivoUrlFirmada } from '@/features/docs/viewmodels/useArchivos';
 import { useValidacionFechas } from '@/features/solicitudesActividades/viewmodels/useValidacionFechas';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { AppFab } from '@/shared/ui/AppFab';
@@ -16,15 +17,17 @@ import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
+  Linking,
   Modal,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   TouchableWithoutFeedback,
-  View,
+  View
 } from 'react-native';
 import { UserSelector } from '../../../components/UserSelector';
 import { RoleUserSelectionModal } from '../components/RoleUserSelectionModal';
@@ -95,6 +98,7 @@ export function Solicitud({ solicitudId: solicitudIdProp, type: typeProp, visibl
   const { mutate: reenviarSolicitud, isPending: isSharing } = useReenviarSolicitud();
   const { mutate: crearActividad, isPending: isCreatingActividad } = useCrearActividad();
   const validacion = useValidacionFechas();
+  const { getArchivoUrlFirmada } = useGetArchivoUrlFirmada();
 
   const { data: enviadas } = useSolicitudesCreadas();
   const { data: recibidas } = useInvitaciones();
@@ -725,6 +729,15 @@ export function Solicitud({ solicitudId: solicitudIdProp, type: typeProp, visibl
     setShowRoleModal(true);
   }, []);
 
+  const handleOpenArchivo = useCallback(async (archivoId: number) => {
+    try {
+      const url = await getArchivoUrlFirmada(archivoId);
+      Linking.openURL(url).catch(() => Alert.alert('Error', 'No se pudo abrir el archivo'));
+    } catch {
+      Alert.alert('Error', 'No se pudo obtener el enlace del archivo');
+    }
+  }, [getArchivoUrlFirmada]);
+
   const hasDates = !!(solicitud?.fecha_inicio && solicitud?.fecha_fin);
   const fechaInicio = solicitud?.fecha_inicio ? new Date(solicitud.fecha_inicio) : new Date();
   const fechaFin = solicitud?.fecha_fin ? new Date(solicitud.fecha_fin) : new Date();
@@ -767,6 +780,7 @@ export function Solicitud({ solicitudId: solicitudIdProp, type: typeProp, visibl
         estado: 'MESSAGE',
         fecha_inicio_nueva: null,
         fecha_fin_nueva: null,
+        archivos: solicitud.archivos ?? [],
       },
       ...bitacoraVisible,
     ];
@@ -813,7 +827,7 @@ export function Solicitud({ solicitudId: solicitudIdProp, type: typeProp, visibl
                   <View style={styles.badgeRow}>
                     <View style={styles.chip}>
                       <ThemedText style={styles.chipText}>
-                        {solicitud?.tipo_actividad === 'MANDATO' ? 'Actividad' : 'Reunión'}
+                        {solicitud?.tipo_actividad}
                       </ThemedText>
                     </View>
                   </View>
@@ -852,33 +866,6 @@ export function Solicitud({ solicitudId: solicitudIdProp, type: typeProp, visibl
                   )}
                 </View>
 
-                <View style={styles.sectionCard}>
-                  <View style={styles.sectionHeaderRow}>
-                    <Text style={styles.sectionLabel}>Archivos enlazados</Text>
-                    <TouchableOpacity style={styles.actionButton} onPress={() => { }}>
-                      <Ionicons name="add" size={16} color={Colors.light.tint} />
-                      <Text style={styles.actionButtonText}>Agregar archivos</Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  <View style={styles.inviteList}>
-                    <View style={styles.inviteRow}>
-                      <View>
-                        <Text style={styles.inviteName}>Archivo-ejemplo.pdf</Text>
-                        <Text style={styles.inviteMeta}>Documento</Text>
-                      </View>
-                      <View style={styles.inviteRowActions}>
-                        <TouchableOpacity onPress={() => { }}>
-                          <Ionicons name="open-outline" size={20} color={Colors.light.tint} />
-                        </TouchableOpacity>
-                        <TouchableOpacity onPress={() => { }}>
-                          <Ionicons name="trash-outline" size={20} color="#9ca3af" />
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  </View>
-                </View>
-
                 {isExpiredState && (
                   <View style={styles.expiredBanner}>
                     <Ionicons name="alert-circle-outline" size={20} color="#5F6368" style={{ marginRight: 8 }} />
@@ -913,6 +900,7 @@ export function Solicitud({ solicitudId: solicitudIdProp, type: typeProp, visibl
                           const hideActionTitle = isDescripcionEntry || (MODIFIED_STATES.includes(b.estado)
                             && b.estado !== 'ACCEPTED'
                             && b.estado !== 'ACCEPTED_BY_HOST');
+                          const archivos = Array.isArray(b.archivos) ? b.archivos : [];
 
                           return (
                             <View
@@ -936,6 +924,34 @@ export function Solicitud({ solicitudId: solicitudIdProp, type: typeProp, visibl
                                   {b.observacion && (
                                     <View style={styles.bitacoraBubble}>
                                       <ThemedText style={styles.bitacoraText}>{b.observacion}</ThemedText>
+                                    </View>
+                                  )}
+                                  {archivos.length > 0 && (
+                                    <View style={styles.messageAttachments}>
+                                      {archivos.map((archivo: any) => (
+                                        <Pressable
+                                          key={`archivo-${archivo.id}`}
+                                          style={({ pressed }) => [
+                                            styles.messageAttachmentRow,
+                                            pressed && { opacity: 0.6 },
+                                          ]}
+                                          onPress={() => handleOpenArchivo(archivo.id)}
+                                          android_ripple={{ color: '#00000010' }}
+                                        >
+                                          <Ionicons
+                                            name="document-outline"
+                                            size={16}
+                                            color={colors.secondaryText}
+                                          />
+
+                                          <ThemedText
+                                            style={[styles.messageAttachmentName, styles.linkText]}
+                                            numberOfLines={1}
+                                          >
+                                            {archivo.nombre}
+                                          </ThemedText>
+                                        </Pressable>
+                                      ))}
                                     </View>
                                   )}
                                   {b.fecha_inicio_nueva && (
@@ -1619,6 +1635,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.text,
   },
+  messageAttachments: {
+    marginTop: 8,
+    gap: 6,
+  },
+  messageAttachmentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  messageAttachmentName: {
+    flex: 1,
+    fontSize: 13,
+    color: colors.text,
+  },
   changeBubble: {
     marginTop: 6,
     backgroundColor: colors.background,
@@ -1851,5 +1881,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6b7280',
     marginTop: 2,
+  },
+  linkText: {
+    color: '#2563eb',
+    textDecorationLine: 'underline',
   },
 });

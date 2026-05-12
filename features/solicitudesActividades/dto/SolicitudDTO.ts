@@ -1,3 +1,4 @@
+import type { ArchivoDTO } from '@/features/docs/dto/ArchivoDTO';
 import type { EstadoInvitacionDB, TipoActividadDB } from '../models/Solicitud';
 
 export type BackendDate = string | Date;
@@ -20,6 +21,7 @@ export interface SolicitudDTO {
   invitados: number[];
   estado?: EstadoInvitacionDB | string;
   crear_de_todos_modos: number;
+  archivosIds?: number[];
 }
 
 export interface CreateSolicitudResult {
@@ -42,10 +44,12 @@ export interface SolicitudInfoDTO {
   nombre_creador: string;
   apellido_creador: string;
   created_by: number;
+  id_usuario_invitado?: number;
   invitado_nombre: string;
   invitado_apellido: string;
-  tipo_actividad: TipoActividadDB;
+  tipo_actividad: TipoActividadDB | string;
   estado: EstadoInvitacionDB | string;
+  archivos: ArchivoDTO[];
 }
 
 export interface SolicitudBitacoraDTO {
@@ -53,10 +57,11 @@ export interface SolicitudBitacoraDTO {
   solicitud_id?: number;
   fecha_inicio_nueva?: BackendDate | null;
   fecha_fin_nueva?: BackendDate | null;
-  observacion?: string | null;
+  observacion?: string;
   created_at?: BackendDate;
   usuario_id?: number;
   usuario_nombre?: string;
   usuario_apellido?: string;
+  archivos?: ArchivoDTO[];
   estado: EstadoInvitacionDB | string;
 }

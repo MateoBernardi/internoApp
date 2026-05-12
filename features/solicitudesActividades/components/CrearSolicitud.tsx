@@ -1,3 +1,4 @@
+import { AlertModal, type AlertModalAction } from '@/components/AlertModal';
 import { ThemedText } from '@/components/themed-text';
 import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
 import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
@@ -11,10 +12,9 @@ import { adminRoles, allRoles } from '@/shared/users/roles';
 import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
+import type * as ImagePickerTypes from 'expo-image-picker';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
   Keyboard,
   KeyboardAvoidingView,
   Modal,
@@ -22,7 +22,6 @@ import {
   ScrollView,
   StyleSheet,
   Switch,
-  Text,
   TextInput,
   TouchableOpacity,
   View,
@@ -34,6 +33,13 @@ import { RoleUserSelectionModal } from './RoleUserSelectionModal';
 import { ValidacionFechasModal } from './ValidacionFechasModal';
 
 const colors = Colors['light'];
+
+let ImagePicker: typeof ImagePickerTypes | null = null;
+try {
+  ImagePicker = require('expo-image-picker');
+} catch {
+  console.warn('expo-image-picker native module not available. Image picking will be disabled.');
+}
 
 function formatDateDDMMYYYY(date: Date): string {
   const day = String(date.getDate()).padStart(2, '0');
@@ -90,7 +96,7 @@ export function CrearSolicitud({ visible, onClose }: CrearSolicitudProps) {
   const [fechaInicio, setFechaInicio] = useState<Date | null>(null);
   const [fechaFin, setFechaFin] = useState<Date | null>(null);
   const [allDay, setAllDay] = useState(false);
-  const [tipoActividad, setTipoActividad] = useState<'REUNION' | 'MANDATO'>('MANDATO');
+  const [tipoActividad, setTipoActividad] = useState<'REUNION' | 'MANDATO' | 'CHAT'>('MANDATO');
   const [includeDates, setIncludeDates] = useState(false);
   const [showRoleModal, setShowRoleModal] = useState(false);
   const [activeRole, setActiveRole] = useState('');
@@ -116,6 +122,31 @@ export function CrearSolicitud({ visible, onClose }: CrearSolicitudProps) {
   const [pickedFiles, setPickedFiles] = useState<any[]>([]);
   const [isUploadingFile, setIsUploadingFile] = useState(false);
   const { mutateAsync: uploadArchivo } = useUploadArchivo();
+  const [alertModal, setAlertModal] = useState<{
+    visible: boolean;
+    title: string;
+    message?: string;
+    actions: AlertModalAction[];
+  }>({ visible: false, title: '', message: undefined, actions: [] });
+
+  const showModal = useCallback((title: string, message?: string, actions?: AlertModalAction[]) => {
+    const normalizedActions: AlertModalAction[] = actions && actions.length > 0
+      ? actions
+      : [{ key: 'ok', label: 'Aceptar', onPress: () => { }, variant: 'primary' }];
+
+    setAlertModal({
+      visible: true,
+      title,
+      message,
+      actions: normalizedActions.map((action) => ({
+        ...action,
+        onPress: () => {
+          setAlertModal((prev) => ({ ...prev, visible: false }));
+          action.onPress();
+        },
+      })),
+    });
+  }, []);
 
   const rolesForSelector = useMemo(
     () => (isConsejo ? adminRoles : allRoles),
@@ -135,6 +166,7 @@ export function CrearSolicitud({ visible, onClose }: CrearSolicitudProps) {
     setSearchQuery('');
     setBackendRangosOcupados([]);
     setPendingPayload(null);
+    setPickedFiles([]);
     onClose();
   }, [onClose]);
 
@@ -291,14 +323,14 @@ export function CrearSolicitud({ visible, onClose }: CrearSolicitudProps) {
           return;
         }
 
-        Alert.alert('Éxito', 'Solicitud creada correctamente');
+        showModal('Éxito', 'Solicitud creada correctamente');
         handleClose();
       },
       onError: (error: any) => {
-        Alert.alert('Error', error instanceof Error ? error.message : 'Intenta nuevamente');
+        showModal('Error', error instanceof Error ? error.message : 'Intenta nuevamente');
       },
     });
-  }, [crearSolicitud, handleClose]);
+  }, [crearSolicitud, handleClose, showModal]);
 
   const forceCreateSolicitud = useCallback(() => {
     if (!pendingPayload) return;
@@ -310,9 +342,12 @@ export function CrearSolicitud({ visible, onClose }: CrearSolicitudProps) {
     setBackendRangosOcupados([]);
   }, [pendingPayload, ejecutarCreacion]);
 
+  const isSuccess = <T,>(r: ApiOperationResult<T>): r is ApiOperationResult<T> & { data: T } =>
+    r.status === 'success' && r.data !== undefined;
+
   const handleCrearSolicitud = useCallback(async () => {
     if (!isFormValid) {
-      Alert.alert('Formulario incompleto', 'Por favor completa todos los campos');
+      showModal('Formulario incompleto', 'Por favor completa todos los campos');
       return;
     }
 
@@ -337,17 +372,19 @@ export function CrearSolicitud({ visible, onClose }: CrearSolicitudProps) {
           })),
         });
 
-        const validos = (response?.exitosos ?? []).filter(isSuccess);
+        const resultados = (response?.exitosos ?? []);
         const fallidos = response?.fallidos ?? [];
+
+        const validos = resultados.filter(isSuccess);
         archivosIds = validos.map((r) => r.data.id);
 
         if (validos.length === 0) {
-          Alert.alert('Error de archivos', 'No se pudo subir ningún archivo. Se continuará sin adjuntos.');
+          showModal('Error de archivos', 'No se pudo subir ningún archivo. Se continuará sin adjuntos.');
         } else if (fallidos.length > 0) {
-          Alert.alert('Archivos parciales', `Se subieron ${validos.length} de ${pickedFiles.length}`);
+          showModal('Archivos parciales', `Se subieron ${validos.length} de ${pickedFiles.length}`);
         }
       } catch {
-        Alert.alert('Error de archivos', 'No se pudieron subir los archivos. Se continuará sin adjuntos.');
+        showModal('Error de archivos', 'No se pudieron subir los archivos. Se continuará sin adjuntos.');
       } finally {
         setIsUploadingFile(false);
       }
@@ -359,12 +396,46 @@ export function CrearSolicitud({ visible, onClose }: CrearSolicitudProps) {
       tipo_actividad: tipoActividad,
       invitados: selectedUsers.map((u) => u.user_context_id),
       crear_de_todos_modos: 0,
-      archivosIds,
+      ...(archivosIds.length > 0 ? { archivosIds } : {}),
       ...(hasDates ? { fecha_inicio: start, fecha_fin: end } : {}),
     };
 
     ejecutarCreacion(payload);
-  }, [isFormValid, hasDates, fechaInicio, fechaFin, allDay, tipoActividad, selectedUsers, titulo, descripcion, ejecutarCreacion]);
+  }, [isFormValid, hasDates, fechaInicio, fechaFin, allDay, tipoActividad, selectedUsers, titulo, descripcion, ejecutarCreacion, showModal, pickedFiles]);
+
+  const addImageAsset = useCallback((asset: ImagePickerTypes.ImagePickerAsset) => {
+    const ext = asset.uri.split('.').pop() ?? 'jpg';
+    const name = asset.fileName ?? `foto_${Date.now()}.${ext}`;
+    const type = asset.mimeType ?? `image/${ext}`;
+    setPickedFiles((prev) => [
+      ...prev,
+      {
+        name,
+        uri: asset.uri,
+        type,
+        size: asset.fileSize,
+      },
+    ]);
+  }, []);
+
+  const handleTakePhoto = useCallback(async () => {
+    if (!ImagePicker) {
+      showModal('No disponible', 'La cámara no está disponible.');
+      return;
+    }
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      showModal('Permiso denegado', 'Se necesita acceso a la cámara para tomar fotos.');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: 'images',
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets.length > 0) {
+      addImageAsset(result.assets[0]);
+    }
+  }, [addImageAsset, showModal]);
 
   const handleSeleccionarArchivo = async () => {
     try {
@@ -384,14 +455,30 @@ export function CrearSolicitud({ visible, onClose }: CrearSolicitudProps) {
       }
     } catch (err) {
       console.error('Error seleccionando documento', err);
-      Alert.alert('Error', 'No se pudo seleccionar el documento. Intenta nuevamente.');
+      showModal('Error', 'No se pudo seleccionar el documento. Intenta nuevamente.');
     }
   };
 
-  const isSuccess = <T,>(r: ApiOperationResult<T>): r is ApiOperationResult<T> & { data: T } =>
-    r.status === 'success' && r.data !== undefined;
-
-
+  const handleAgregarAdjunto = useCallback(() => {
+    showModal('Adjuntar archivo', 'Elegí una opción', [
+      {
+        key: 'file',
+        label: 'Seleccionar archivo',
+        onPress: handleSeleccionarArchivo,
+      },
+      {
+        key: 'camera',
+        label: 'Crear imagen',
+        onPress: handleTakePhoto,
+      },
+      {
+        key: 'cancel',
+        label: 'Cancelar',
+        onPress: () => { },
+        variant: 'neutral',
+      },
+    ]);
+  }, [handleTakePhoto, handleSeleccionarArchivo, showModal]);
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
@@ -444,6 +531,15 @@ export function CrearSolicitud({ visible, onClose }: CrearSolicitudProps) {
                     }}
                   >
                     <ThemedText style={[styles.chipText, tipoActividad === 'MANDATO' ? { color: colors.lightTint, fontWeight: 'bold' } : { color: colors.secondaryText }]}>Actividad</ThemedText>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.chip, tipoActividad === 'CHAT' && { borderColor: colors.lightTint, backgroundColor: 'transparent', borderWidth: 1 }]}
+                    onPress={() => {
+                      setTipoActividad('CHAT');
+                      handleToggleIncludeDates(false);
+                    }}
+                  >
+                    <ThemedText style={[styles.chipText, tipoActividad === 'CHAT' ? { color: colors.lightTint, fontWeight: 'bold' } : { color: colors.secondaryText }]}>Conversación</ThemedText>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.chip, tipoActividad === 'REUNION' && { borderColor: colors.lightTint, backgroundColor: 'transparent', borderWidth: 1 }]}
@@ -534,60 +630,46 @@ export function CrearSolicitud({ visible, onClose }: CrearSolicitudProps) {
                 />
               </View>
 
-              <TextInput
-                style={styles.messageInput}
-                placeholder="Escribí un mensaje descriptivo para el/los invitado/s"
-                placeholderTextColor={colors.secondaryText}
-                value={descripcion}
-                onChangeText={setDescripcion}
-                multiline
-                textAlignVertical="top"
-              />
-
-              <View style={styles.section}>
-                <View style={styles.sectionHeaderRow}>
-                  <Text style={styles.sectionLabel}>Archivos enlazados</Text>
-                  <TouchableOpacity style={styles.actionButton} onPress={() => { }}>
-                    <Ionicons name="add" size={16} color={Colors.light.tint} />
-                    <Text style={styles.actionButtonText}>Agregar archivos</Text>
+              <View style={styles.messageBox}>
+                <TextInput
+                  style={styles.messageInput}
+                  placeholder="Escribí un mensaje descriptivo para el/los usuario/s"
+                  placeholderTextColor={colors.secondaryText}
+                  value={descripcion}
+                  onChangeText={setDescripcion}
+                  multiline
+                  textAlignVertical="top"
+                />
+                <View style={styles.messageFooter}>
+                  <TouchableOpacity
+                    onPress={handleAgregarAdjunto}
+                    style={styles.closeButton}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="add-outline" size={24} color={Colors.light.tint} />
                   </TouchableOpacity>
                 </View>
-
-                <View style={styles.section}>
-                  <View style={styles.sectionHeaderRow}>
-                    <Text style={styles.sectionLabel}>Archivos enlazados</Text>
-                    <TouchableOpacity style={styles.actionButton} onPress={handleSeleccionarArchivo}>
-                      <Ionicons name="add" size={16} color={Colors.light.tint} />
-                      <Text style={styles.actionButtonText}>
-                        {isUploadingFile ? 'Subiendo...' : 'Agregar archivos'}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                  <View style={styles.inviteList}>
-                    {pickedFiles.length === 0 ? (
-                      <Text style={styles.inviteMeta}>Ningún archivo seleccionado</Text>
-                    ) : (
-                      pickedFiles.map((file, index) => (
-                        <View key={index} style={styles.inviteRow}>
-                          <View>
-                            <Text style={styles.inviteName}>{file.name}</Text>
-                            <Text style={styles.inviteMeta}>{file.type}</Text>
-                          </View>
-                          <View style={styles.inviteRowActions}>
-                            {isUploadingFile ? (
-                              <ActivityIndicator size="small" color={Colors.light.tint} />
-                            ) : (
-                              <TouchableOpacity onPress={() => setPickedFiles((prev) => prev.filter((_, i) => i !== index))}>
-                                <Ionicons name="trash-outline" size={20} color="#9ca3af" />
-                              </TouchableOpacity>
-                            )}
-                          </View>
-                        </View>
-                      ))
-                    )}
-                  </View>
-                </View>
               </View>
+
+              {pickedFiles.length > 0 && (
+                <View style={styles.attachmentsList}>
+                  {pickedFiles.map((file, index) => (
+                    <View key={`${file.uri}-${index}`} style={styles.attachmentRow}>
+                      <ThemedText style={styles.attachmentName} numberOfLines={1}>
+                        {file.name}
+                      </ThemedText>
+                      <TouchableOpacity
+                        onPress={() =>
+                          setPickedFiles((prev) => prev.filter((_, i) => i !== index))
+                        }
+                        style={styles.attachmentAction}
+                      >
+                        <Ionicons name="trash-outline" size={20} color={colors.secondaryText} />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+              )}
             </ScrollView>
 
             <View style={[styles.uploadButtonContainer]}>
@@ -620,6 +702,14 @@ export function CrearSolicitud({ visible, onClose }: CrearSolicitudProps) {
               rangosOcupados={backendRangosOcupados}
               onConfirm={forceCreateSolicitud}
               onCancel={closeBackendConflicts}
+            />
+
+            <AlertModal
+              visible={alertModal.visible}
+              title={alertModal.title}
+              message={alertModal.message}
+              actions={alertModal.actions}
+              onClose={() => setAlertModal((prev) => ({ ...prev, visible: false }))}
             />
           </View>
         </KeyboardAvoidingView>
@@ -753,27 +843,52 @@ const styles = StyleSheet.create({
     padding: 16,
     minHeight: 150,
   },
-  sectionHeaderRow: {
+  messageBox: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#f9fafb',
+    overflow: 'hidden',
+  },
+  messageFooter: {
+    paddingHorizontal: 12,
+    paddingBottom: 10,
+    alignItems: 'flex-end',
+  },
+  attachmentsList: {
+    marginHorizontal: 16,
+    marginTop: 8,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#f9fafb',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  attachmentRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 12,
   },
-  actionButton: {
-    flexDirection: 'row',
+  attachmentName: {
+    flex: 1,
+    fontSize: 14,
+    color: colors.text,
+    marginRight: 8,
+  },
+  attachmentAction: {
+    padding: 4,
+  },
+  attachmentButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: Colors.light.tint,
+    justifyContent: 'center',
     backgroundColor: Colors.light.tint + '12',
-  },
-  actionButtonText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: Colors.light.tint,
   },
   uploadButtonContainer: {
     backgroundColor: Colors['light'].componentBackground,
@@ -800,41 +915,5 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingHorizontal: 16,
     paddingBottom: 16,
-  },
-  sectionLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#6b7280',
-    textTransform: 'uppercase',
-    marginBottom: 6,
-    letterSpacing: 0.4,
-  },
-  inviteList: {
-    gap: 10,
-  },
-  inviteRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 12,
-    backgroundColor: '#f9fafb',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-  },
-  inviteRowActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  inviteName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#111827',
-  },
-  inviteMeta: {
-    fontSize: 12,
-    color: '#6b7280',
-    marginTop: 2,
   },
 });

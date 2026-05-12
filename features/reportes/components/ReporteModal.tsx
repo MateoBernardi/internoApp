@@ -1,13 +1,13 @@
+import { AlertModal, type AlertModalAction } from '@/components/AlertModal';
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
 	ActivityIndicator,
-	Alert,
 	KeyboardAvoidingView,
 	Modal,
 	Platform,
@@ -38,6 +38,12 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 	// Estado para controles
 	const [nuevoEstado, setNuevoEstado] = useState<EstadoReporte | null>(null);
 	const [observacion, setObservacion] = useState('');
+	const [alertModal, setAlertModal] = useState<{
+		visible: boolean;
+		title: string;
+		message?: string;
+		actions: AlertModalAction[];
+	}>({ visible: false, title: '', message: undefined, actions: [] });
 
 	// Verificar si el reporte está en un estado final (no editable)
 	const isReporteFinal = reporte.estado === 'ASENTADO' || reporte.estado === 'DESESTIMADO';
@@ -53,27 +59,54 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 	const isCreator = !!(user?.user_context_id && reporte.creador_id && user.user_context_id === reporte.creador_id);
 	const canManageImages = hasSupervisorRole && isCreator;
 
+	const showModal = useCallback((title: string, message?: string, actions?: AlertModalAction[]) => {
+		const normalizedActions = actions && actions.length > 0
+			? actions
+			: [{ key: 'ok', label: 'Aceptar', onPress: () => { }, variant: 'primary' }];
+
+		setAlertModal({
+			visible: true,
+			title,
+			message,
+			actions: normalizedActions.map((action) => ({
+				...action,
+				onPress: () => {
+					setAlertModal((prev) => ({ ...prev, visible: false }));
+					action.onPress();
+				},
+			})),
+		});
+	}, []);
+
 	const handleAccion = () => {
 		if (!nuevoEstado) {
-			Alert.alert('Selecciona un estado');
+			showModal('Selecciona un estado');
 			return;
 		}
 		if ((origen === 'mis' && nuevoEstado === 'DISPUTA' && !observacion.trim()) ||
 			(origen === 'empleado' && !observacion.trim())) {
-			Alert.alert('La observación es obligatoria');
+			showModal('La observación es obligatoria');
 			return;
 		}
 		updateReporte(
 			{ id: reporte.id, data: { estado: nuevoEstado, observacion } },
 			{
 				onSuccess: () => {
-					Alert.alert('Éxito', 'Reporte actualizado');
-					setNuevoEstado(null);
-					setObservacion('');
-					onClose();
+					showModal('Éxito', 'Reporte actualizado', [
+						{
+							key: 'ok',
+							label: 'Aceptar',
+							onPress: () => {
+								setNuevoEstado(null);
+								setObservacion('');
+								onClose();
+							},
+							variant: 'primary',
+						},
+					]);
 				},
 				onError: (error: any) => {
-					Alert.alert('Error', error?.message || 'Intenta nuevamente');
+					showModal('Error', error?.message || 'Intenta nuevamente');
 				},
 			}
 		);
@@ -220,6 +253,14 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 							{renderControles()}
 
 						</ScrollView>
+
+						<AlertModal
+							visible={alertModal.visible}
+							title={alertModal.title}
+							message={alertModal.message}
+							actions={alertModal.actions}
+							onClose={() => setAlertModal((prev) => ({ ...prev, visible: false }))}
+						/>
 					</View>
 				</KeyboardAvoidingView>
 			</View>

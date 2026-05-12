@@ -1,23 +1,30 @@
+import { AlertModal, type AlertModalAction } from '@/components/AlertModal';
 import { ThemedText } from '@/components/themed-text';
 import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
 import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
 import { Colors, UI } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
+import { ArchivoUso } from '@/features/docs/models/Archivo';
+import { useGetArchivoUrlFirmada, useUploadArchivo } from '@/features/docs/viewmodels/useArchivos';
 import { useValidacionFechas } from '@/features/solicitudesActividades/viewmodels/useValidacionFechas';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
-import { AppFab } from '@/shared/ui/AppFab';
+import { ApiOperationResult } from '@/shared/types/apiStatus';
 import { UserSummary } from '@/shared/users/User';
 import { adminRoles, allRoles } from '@/shared/users/roles';
 import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
 import { Ionicons } from '@expo/vector-icons';
+import * as DocumentPicker from 'expo-document-picker';
+import type * as ImagePickerTypes from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
+  Linking,
   Modal,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -27,6 +34,8 @@ import {
   View,
 } from 'react-native';
 import { UserSelector } from '../../../components/UserSelector';
+import { useCreateObjetivo } from '../../kanban/hooks/useObjetivos';
+import type { CreateObjetivo, Invitado } from '../../kanban/models/Objetivo';
 import { EstadoInvitacionDB, estadoInvitacionMapping, RangoOcupado, ReenviarSolicitudRequest, UpdateSolicitudResponse } from '../models/Solicitud';
 import { useCrearActividad } from '../viewmodels/useActividades';
 import {
@@ -41,6 +50,13 @@ import { RoleUserSelectionModal } from './RoleUserSelectionModal';
 import { ValidacionFechasModal } from './ValidacionFechasModal';
 
 const colors = Colors['light'];
+
+let ImagePicker: typeof ImagePickerTypes | null = null;
+try {
+  ImagePicker = require('expo-image-picker');
+} catch {
+  console.warn('expo-image-picker native module not available. Image picking will be disabled.');
+}
 
 const DATE_FORMATTER = new Intl.DateTimeFormat('es-AR', {
   day: '2-digit',
@@ -94,13 +110,15 @@ export function Solicitud({ solicitudId: solicitudIdProp, type: typeProp, visibl
   const { mutate: cancelarSolicitud, isPending: isCancellingSolicitud } = useCancelarSolicitud();
   const { mutate: reenviarSolicitud, isPending: isSharing } = useReenviarSolicitud();
   const { mutate: crearActividad, isPending: isCreatingActividad } = useCrearActividad();
+  const { mutateAsync: crearObjetivo, isPending: isCreatingObjetivo } = useCreateObjetivo();
+  const { mutateAsync: uploadArchivo } = useUploadArchivo();
   const validacion = useValidacionFechas();
 
   const { data: enviadas } = useSolicitudesCreadas();
   const { data: recibidas } = useInvitaciones();
 
-  const isMutating = isUpdatingEstado || isCancellingSolicitud || isSharing || isCreatingActividad;
   const seenAutoMarkKeyRef = useRef<string | null>(null);
+  const messagesScrollRef = useRef<ScrollView | null>(null);
 
   // Estados para modales
   const [showAcceptModal, setShowAcceptModal] = useState(false);
@@ -113,6 +131,37 @@ export function Solicitud({ solicitudId: solicitudIdProp, type: typeProp, visibl
   const [showFullBitacora, setShowFullBitacora] = useState(false);
   const [acceptObservation, setAcceptObservation] = useState('');
   const [rejectObservation, setRejectObservation] = useState('');
+  const [messageDraft, setMessageDraft] = useState('');
+  const [pickedFiles, setPickedFiles] = useState<any[]>([]);
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const [alertModal, setAlertModal] = useState<{
+    visible: boolean;
+    title: string;
+    message?: string;
+    actions: AlertModalAction[];
+  }>({ visible: false, title: '', message: undefined, actions: [] });
+
+  const isMutating = isUpdatingEstado || isCancellingSolicitud || isSharing || isCreatingActividad || isCreatingObjetivo || isSendingMessage;
+
+  const showModal = useCallback((title: string, message?: string, actions?: AlertModalAction[]) => {
+    const normalizedActions: AlertModalAction[] = actions && actions.length > 0
+      ? actions
+      : [{ key: 'ok', label: 'Aceptar', onPress: () => { }, variant: 'primary' }];
+
+    setAlertModal({
+      visible: true,
+      title,
+      message,
+      actions: normalizedActions.map((action) => ({
+        ...action,
+        onPress: () => {
+          setAlertModal((prev) => ({ ...prev, visible: false }));
+          action.onPress();
+        },
+      })),
+    });
+  }, []);
+
 
   // Estados para el modal "Agregar a la agenda"
   const [agendaFechaInicio, setAgendaFechaInicio] = useState<Date>(new Date());
@@ -141,6 +190,7 @@ export function Solicitud({ solicitudId: solicitudIdProp, type: typeProp, visibl
   const [activeRole, setActiveRole] = useState('');
   const [showRoleModal, setShowRoleModal] = useState(false);
   const { data: roleUsersData, isLoading: isLoadingRole } = useGetUserByRole(activeRole);
+  const { getArchivoUrlFirmada } = useGetArchivoUrlFirmada();
 
   const users = searchResults || [];
   const isLoadingUsers = isSearchingUsers || isLoadingRole;
@@ -176,11 +226,40 @@ export function Solicitud({ solicitudId: solicitudIdProp, type: typeProp, visibl
     return recibidas?.find(s => s.solicitud_id === solicitudId);
   }, [resolvedType, solicitudId, enviadas, recibidas]);
 
+  const openCrearActividadModal = useCallback(() => {
+    if (solicitud?.fecha_inicio && solicitud?.fecha_fin) {
+      setAgendaFechaInicio(new Date(solicitud.fecha_inicio));
+      setAgendaFechaFin(new Date(solicitud.fecha_fin));
+    }
+    setShowAddToAgendaModal(true);
+  }, [solicitud]);
+
   // Para REUNION: obtener todos los invitados de esta solicitud (desde enviadas)
   const todosInvitados = useMemo(() => {
     if (!enviadas) return [];
     return enviadas.filter(s => s.solicitud_id === solicitudId);
   }, [enviadas, solicitudId]);
+
+  const participantesTexto = useMemo(() => {
+    const nombres: string[] = [];
+
+    const creador = [solicitud?.nombre_creador, solicitud?.apellido_creador]
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+    if (creador) nombres.push(creador);
+
+    const invitados = todosInvitados
+      .map((inv) => [inv.invitado_nombre, inv.invitado_apellido].filter(Boolean).join(' ').trim())
+      .filter(Boolean);
+
+    const unicos = Array.from(new Set([...nombres, ...invitados]));
+    if (unicos.length === 0) return 'Sin participantes';
+    if (unicos.length <= 3) return unicos.join(', ');
+
+    const visibles = unicos.slice(0, 3).join(', ');
+    return `${visibles} +${unicos.length - 3} personas`;
+  }, [solicitud, todosInvitados]);
 
   const paraEnviada = useMemo(() => {
     const nombres = todosInvitados
@@ -285,46 +364,6 @@ export function Solicitud({ solicitudId: solicitudIdProp, type: typeProp, visibl
     setAcceptObservation('');
   }, []);
 
-  const confirmAceptar = useCallback(() => {
-    // Lógica normal para recibidas
-    actualizarEstado(
-      {
-        solicitud_id: solicitudId,
-        estado: 'ACCEPTED' as EstadoInvitacionDB,
-        observacion: acceptObservation.trim() || null,
-      },
-      {
-        onSuccess: () => {
-          closeAcceptModal();
-          Alert.alert('Éxito', 'Solicitud aceptada');
-          // router.back(); // Opcional: volver atrás o quedarse
-        },
-        onError: (error) => {
-          Alert.alert('Error', error instanceof Error ? error.message : 'Intenta nuevamente');
-        },
-      }
-    );
-  }, [solicitudId, actualizarEstado, acceptObservation, closeAcceptModal]);
-
-  const confirmAceptarModificaciones = useCallback(() => {
-    actualizarEstado(
-      {
-        solicitud_id: solicitudId,
-        estado: 'ACCEPTED_BY_HOST' as EstadoInvitacionDB,
-        observacion: acceptObservation.trim() || null,
-      },
-      {
-        onSuccess: () => {
-          closeAcceptModal();
-          Alert.alert('Éxito', 'Modificaciones aceptadas');
-        },
-        onError: (error) => {
-          Alert.alert('Error', error instanceof Error ? error.message : 'Intenta nuevamente');
-        },
-      }
-    );
-  }, [solicitudId, actualizarEstado, acceptObservation, closeAcceptModal]);
-
   const handleRechazar = useCallback(() => {
     setRejectObservation('');
     setShowRejectModal(true);
@@ -397,6 +436,236 @@ export function Solicitud({ solicitudId: solicitudIdProp, type: typeProp, visibl
 
     restoreModifyModal();
   }, [solicitud, isModifyModalMinimized, restoreModifyModal]);
+
+  const addImageAsset = useCallback((asset: ImagePickerTypes.ImagePickerAsset) => {
+    const ext = asset.uri.split('.').pop() ?? 'jpg';
+    const name = asset.fileName ?? `foto_${Date.now()}.${ext}`;
+    const type = asset.mimeType ?? `image/${ext}`;
+    setPickedFiles((prev) => [
+      ...prev,
+      {
+        name,
+        uri: asset.uri,
+        type,
+        size: asset.fileSize,
+      },
+    ]);
+  }, []);
+
+  const handleTakePhoto = useCallback(async () => {
+    if (!ImagePicker) {
+      showModal('No disponible', 'La cámara no está disponible. Reconstruí la app con el módulo nativo.');
+      return;
+    }
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      showModal('Permiso denegado', 'Se necesita acceso a la cámara para tomar fotos.');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: 'images',
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets.length > 0) {
+      addImageAsset(result.assets[0]);
+    }
+  }, [addImageAsset, showModal]);
+
+  const handleSeleccionarArchivo = useCallback(async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        multiple: true,
+        type: '*/*',
+        copyToCacheDirectory: true,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const nuevosArchivos = result.assets.map((asset) => ({
+          name: asset.name,
+          uri: asset.uri,
+          type: asset.mimeType ?? 'application/octet-stream',
+          size: asset.size,
+        }));
+        setPickedFiles((prev) => [...prev, ...nuevosArchivos]);
+      }
+    } catch (err) {
+      console.error('Error seleccionando documento', err);
+      showModal('Error', 'No se pudo seleccionar el documento. Intenta nuevamente.');
+    }
+  }, [showModal]);
+
+  const handleAgregarAdjunto = useCallback(() => {
+    showModal('Adjuntar archivo', 'Elegí una opción', [
+      {
+        key: 'file',
+        label: 'Archivo',
+        onPress: handleSeleccionarArchivo,
+      },
+      {
+        key: 'camera',
+        label: 'Cámara',
+        onPress: handleTakePhoto,
+      },
+      {
+        key: 'cancel',
+        label: 'Cancelar',
+        onPress: () => { },
+        variant: 'neutral',
+      },
+    ]);
+  }, [handleTakePhoto, handleSeleccionarArchivo, showModal]);
+
+  const isSuccess = <T,>(r: ApiOperationResult<T>): r is ApiOperationResult<T> & { data: T } =>
+    r.status === 'success' && r.data !== undefined;
+
+  const buildObjetivoInvitados = useCallback((): Invitado[] => {
+    const invitados: Invitado[] = [];
+
+    if (user?.user_context_id) {
+      invitados.push({
+        user_id: user.user_context_id,
+        rol: 'ASSIGNEE',
+      });
+    }
+
+    if (solicitud?.created_by && solicitud.created_by !== user?.user_context_id) {
+      invitados.push({
+        user_id: solicitud.created_by,
+        rol: 'VISUALIZER',
+      });
+    }
+
+    return invitados;
+  }, [solicitud, user]);
+
+  const handleCrearObjetivoDesdeSolicitud = useCallback(async () => {
+    if (!solicitud) return;
+
+    let archivosIds: number[] = [];
+
+    if (pickedFiles.length > 0) {
+      try {
+        const response = await uploadArchivo({
+          item: pickedFiles.map((file) => ({
+            archivo: { uri: file.uri, name: file.name, type: file.type, size: file.size },
+            archivoData: { nombre: file.name, tamaño: file.size, tipo: file.type, uso: ArchivoUso.TAREA },
+          })),
+        });
+
+        const validos = (response?.exitosos ?? []).filter(isSuccess);
+        archivosIds = validos.map((r) => r.data.id);
+
+        if (validos.length === 0) {
+          showModal('Error de archivos', 'No se pudo subir ningún archivo. Se continuará sin adjuntos.');
+        } else if ((response?.fallidos ?? []).length > 0) {
+          showModal('Archivos parciales', `Se subieron ${validos.length} de ${pickedFiles.length}`);
+        }
+      } catch {
+        showModal('Error de archivos', 'No se pudieron subir los archivos. Se continuará sin adjuntos.');
+      }
+    }
+
+    const invitados = buildObjetivoInvitados();
+    const payload: CreateObjetivo = {
+      titulo: solicitud.titulo,
+      descripcion: solicitud.descripcion ?? '',
+      estado: 'PENDIENTE',
+      ...(invitados.length > 0 ? { invitados } : {}),
+      ...(archivosIds.length > 0 ? { archivosIds } : {}),
+    };
+
+    try {
+      await crearObjetivo(payload);
+      showModal('Éxito', 'Objetivo creado');
+    } catch (error) {
+      showModal('Error', error instanceof Error ? error.message : 'Intenta nuevamente');
+    }
+  }, [solicitud, pickedFiles, uploadArchivo, buildObjetivoInvitados, crearObjetivo, showModal]);
+
+  const confirmAceptar = useCallback(() => {
+    // Lógica normal para recibidas
+    actualizarEstado(
+      {
+        solicitud_id: solicitudId,
+        estado: 'ACCEPTED' as EstadoInvitacionDB,
+        observacion: acceptObservation.trim() || null,
+      },
+      {
+        onSuccess: () => {
+          closeAcceptModal();
+          if (!solicitud || solicitud.tipo_actividad === 'CHAT') {
+            showModal('Éxito', 'Solicitud aceptada');
+            return;
+          }
+
+          const hasDatesCurrent = !!(solicitud.fecha_inicio && solicitud.fecha_fin);
+
+          if (hasDatesCurrent) {
+            showModal('Solicitud aceptada', '¿Querés crear la actividad ahora?', [
+              {
+                key: 'create-activity',
+                label: 'Crear actividad',
+                variant: 'primary',
+                onPress: () => openCrearActividadModal(),
+              },
+              {
+                key: 'later',
+                label: 'Ahora no',
+                onPress: () => { },
+              },
+            ]);
+            return;
+          }
+
+          if (solicitud.tipo_actividad === 'MANDATO') {
+            showModal('Solicitud aceptada', '¿Querés crear una actividad u objetivo?', [
+              {
+                key: 'create-activity',
+                label: 'Crear actividad',
+                variant: 'primary',
+                onPress: () => openCrearActividadModal(),
+              },
+              {
+                key: 'create-objetivo',
+                label: 'Crear objetivo',
+                onPress: () => handleCrearObjetivoDesdeSolicitud(),
+              },
+              {
+                key: 'later',
+                label: 'Ahora no',
+                onPress: () => { },
+              },
+            ]);
+            return;
+          }
+
+          showModal('Éxito', 'Solicitud aceptada');
+          // router.back(); // Opcional: volver atrás o quedarse
+        },
+        onError: (error) => {
+          Alert.alert('Error', error instanceof Error ? error.message : 'Intenta nuevamente');
+        },
+      }
+    );
+  }, [solicitudId, actualizarEstado, acceptObservation, closeAcceptModal, solicitud, showModal, openCrearActividadModal, handleCrearObjetivoDesdeSolicitud]);
+
+  const confirmAceptarModificaciones = useCallback(() => {
+    actualizarEstado(
+      {
+        solicitud_id: solicitudId,
+        estado: 'ACCEPTED_BY_HOST' as EstadoInvitacionDB,
+        observacion: acceptObservation.trim() || null,
+      },
+      {
+        onSuccess: () => {
+          closeAcceptModal();
+          showModal('Éxito', 'Modificaciones aceptadas');
+        },
+        onError: (error) => {
+          Alert.alert('Error', error instanceof Error ? error.message : 'Intenta nuevamente');
+        },
+      }
+    );
+  }, [solicitudId, actualizarEstado, acceptObservation, closeAcceptModal, showModal]);
 
   const ejecutarModificar = useCallback((crearDeTodosModos: number = 0) => {
     const payload = {
@@ -546,6 +815,15 @@ export function Solicitud({ solicitudId: solicitudIdProp, type: typeProp, visibl
     setShowShareModal(true);
   }, []);
 
+  const handleOpenArchivo = useCallback(async (archivoId: number) => {
+    try {
+      const url = await getArchivoUrlFirmada(archivoId);
+      Linking.openURL(url).catch(() => Alert.alert('Error', 'No se pudo abrir el archivo'));
+    } catch {
+      Alert.alert('Error', 'No se pudo obtener el enlace del archivo');
+    }
+  }, [getArchivoUrlFirmada]);
+
   const handleAgregarAAgenda = useCallback(() => {
     // Prellena fechas desde la solicitud si existen
     if (solicitud?.fecha_inicio && solicitud?.fecha_fin) {
@@ -639,7 +917,7 @@ export function Solicitud({ solicitudId: solicitudIdProp, type: typeProp, visibl
         fechaInicio: agendaStartDate,
         fechaFin: agendaEndDate,
         participantes,
-        tipo_actividad: solicitud.tipo_actividad,
+        tipo_actividad: solicitud.tipo_actividad === 'CHAT' ? undefined : solicitud.tipo_actividad,
         actividadIdExcluir: null,
       },
       () => ejecutarAgregarAAgenda()
@@ -678,7 +956,7 @@ export function Solicitud({ solicitudId: solicitudIdProp, type: typeProp, visibl
           fechaInicio: solicitud!.fecha_inicio!,
           fechaFin: solicitud!.fecha_fin!,
           participantes: selectedUsersToShare.map(u => u.user_context_id),
-          tipo_actividad: solicitud!.tipo_actividad,
+          tipo_actividad: solicitud!.tipo_actividad === 'CHAT' ? undefined : solicitud!.tipo_actividad,
           solicitudIdExcluir: solicitudId,
         },
         () => ejecutarCompartir()
@@ -734,6 +1012,70 @@ export function Solicitud({ solicitudId: solicitudIdProp, type: typeProp, visibl
   const isFinalState = solicitud?.estado
     ? ['ACTIVIDAD_CREADA', 'EXPIRED', 'ACCEPTED', 'REJECTED'].includes(solicitud.estado)
     : false;
+  const canSendMessage = useMemo(() => {
+    if (isFinalState) return false;
+    return messageDraft.trim().length > 0 || pickedFiles.length > 0;
+  }, [isFinalState, messageDraft, pickedFiles]);
+
+  const handleEnviarMensaje = useCallback(async () => {
+    if (!solicitud || !canSendMessage) return;
+
+    setIsSendingMessage(true);
+
+    let archivosIds: number[] = [];
+    if (pickedFiles.length > 0) {
+      try {
+        const response = await uploadArchivo({
+          item: pickedFiles.map((file) => ({
+            archivo: { uri: file.uri, name: file.name, type: file.type, size: file.size },
+            archivoData: { nombre: file.name, tamaño: file.size, tipo: file.type, uso: ArchivoUso.TAREA },
+          })),
+        });
+
+        const validos = (response?.exitosos ?? []).filter(isSuccess);
+        const fallidos = response?.fallidos ?? [];
+        archivosIds = validos.map((r) => r.data.id);
+
+        if (validos.length === 0) {
+          showModal('Error de archivos', 'No se pudo subir ningún archivo. Se continuará sin adjuntos.');
+        } else if (fallidos.length > 0) {
+          showModal('Archivos parciales', `Se subieron ${validos.length} de ${pickedFiles.length}`);
+        }
+      } catch {
+        showModal('Error de archivos', 'No se pudieron subir los archivos. Se continuará sin adjuntos.');
+      }
+    }
+
+    const trimmedMessage = messageDraft.trim();
+    const hasMessage = trimmedMessage.length > 0;
+    const hasArchivos = archivosIds.length > 0;
+
+    if (!hasMessage && !hasArchivos) {
+      setIsSendingMessage(false);
+      return;
+    }
+
+    actualizarEstado(
+      {
+        solicitud_id: solicitud.solicitud_id,
+        // Si la solicitud es enviada, el mensaje lo agrega el host como "MODIFIED_BY_HOST"; si es recibida, el invitado lo agrega como "MODIFIED"
+        estado: 'MODIFIED',
+        observacion: hasMessage ? trimmedMessage : null,
+        ...(hasArchivos ? { archivosIds } : {}),
+      },
+      {
+        onSuccess: () => {
+          setMessageDraft('');
+          setPickedFiles([]);
+          setIsSendingMessage(false);
+        },
+        onError: (error) => {
+          setIsSendingMessage(false);
+          Alert.alert('Error', error instanceof Error ? error.message : 'Intenta nuevamente');
+        },
+      }
+    );
+  }, [solicitud, canSendMessage, pickedFiles, uploadArchivo, isSuccess, messageDraft, actualizarEstado, showModal]);
   const isAceptarModificacionesFlow = resolvedType === 'enviada' && solicitud?.estado === 'MODIFIED';
   const puedeCompartirEnviada = resolvedType === 'enviada' && !isExpiredState && !esActividadCreada;
   const puedeCancelarEnviada = resolvedType === 'enviada' && !!solicitud && CANCELABLE_ENVIADA_STATES.includes(solicitud.estado);
@@ -770,14 +1112,11 @@ export function Solicitud({ solicitudId: solicitudIdProp, type: typeProp, visibl
         estado: 'MESSAGE',
         fecha_inicio_nueva: null,
         fecha_fin_nueva: null,
+        archivos: solicitud.archivos ?? [],
       },
       ...bitacoraVisible,
     ];
   }, [bitacoraVisible, solicitud]);
-
-  const mensajesOrdenados = useMemo(() => {
-    return [...mensajes].reverse();
-  }, [mensajes]);
 
   const isLoadingSolicitud = !solicitud && !enviadas && !recibidas;
 
@@ -785,7 +1124,7 @@ export function Solicitud({ solicitudId: solicitudIdProp, type: typeProp, visibl
     <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={handleClose}>
       <View style={styles.overlay}>
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.keyboardContainer}
         >
           <View style={styles.container}>
@@ -804,14 +1143,11 @@ export function Solicitud({ solicitudId: solicitudIdProp, type: typeProp, visibl
                 style={styles.content}
                 contentContainerStyle={styles.contentContainer}
                 showsVerticalScrollIndicator={false}
+                nestedScrollEnabled
               >
                 <View style={styles.contentBlock}>
-                  <ThemedText style={styles.label}>{resolvedType === 'enviada' ? 'Para' : 'De'}</ThemedText>
-                  <ThemedText style={styles.sectionValue}>
-                    {resolvedType === 'enviada'
-                      ? paraEnviada
-                      : `${solicitud?.nombre_creador || ''} ${solicitud?.apellido_creador || ''}`}
-                  </ThemedText>
+                  <ThemedText style={styles.label}>Participantes</ThemedText>
+                  <ThemedText style={styles.sectionValue}>{participantesTexto}</ThemedText>
                 </View>
 
                 <View style={styles.contentBlock}>
@@ -820,70 +1156,8 @@ export function Solicitud({ solicitudId: solicitudIdProp, type: typeProp, visibl
                   <View style={styles.badgeRow}>
                     <View style={styles.chip}>
                       <ThemedText style={styles.chipText}>
-                        {solicitud?.tipo_actividad === 'MANDATO' ? 'Actividad' : 'Reunión'}
+                        {solicitud?.tipo_actividad}
                       </ThemedText>
-                    </View>
-                  </View>
-                </View>
-
-                <View style={styles.contentBlock}>
-                  <View style={styles.sectionTitleRow}>
-                    <Ionicons name="time-outline" size={18} color={colors.lightTint} />
-                    <ThemedText style={[styles.label, styles.labelInline]}>Fecha</ThemedText>
-                  </View>
-
-                  {hasDates ? (
-                    <View style={styles.dateStack}>
-                      <View style={styles.dateRow}>
-                        <ThemedText style={styles.dateValue}>
-                          {formatDateDDMMYYYY(fechaInicio)}
-                        </ThemedText>
-                        <ThemedText style={styles.timeValue}>
-                          {formatTimeHHMM(fechaInicio)}
-                        </ThemedText>
-                      </View>
-
-                      <View style={styles.dateRow}>
-                        <ThemedText style={styles.dateValue}>
-                          {formatDateDDMMYYYY(fechaFin)}
-                        </ThemedText>
-                        <ThemedText style={styles.timeValue}>
-                          {formatTimeHHMM(fechaFin)}
-                        </ThemedText>
-                      </View>
-                    </View>
-                  ) : (
-                    <ThemedText style={styles.emptyValueText}>Sin fecha definida</ThemedText>
-                  )}
-                </View>
-
-                <View style={styles.contentBlock}>
-                  <View style={styles.sectionHeaderRow}>
-                    <ThemedText style={styles.label}>Archivos enlazados</ThemedText>
-                    <TouchableOpacity
-                      style={[styles.actionButton, isFinalState && styles.actionButtonDisabled]}
-                      onPress={() => { }}
-                      disabled={isFinalState}
-                    >
-                      <Ionicons name="add" size={16} color={Colors.light.tint} />
-                      <Text style={[styles.actionButtonText, isFinalState && styles.actionButtonTextDisabled]}>Agregar archivos</Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  <View style={styles.inviteList}>
-                    <View style={styles.inviteRow}>
-                      <View>
-                        <Text style={styles.inviteName}>Archivo-ejemplo.pdf</Text>
-                        <Text style={styles.inviteMeta}>Documento</Text>
-                      </View>
-                      <View style={styles.inviteRowActions}>
-                        <TouchableOpacity onPress={() => { }}>
-                          <Ionicons name="open-outline" size={20} color={Colors.light.tint} />
-                        </TouchableOpacity>
-                        <TouchableOpacity onPress={() => { }}>
-                          <Ionicons name="trash-outline" size={20} color="#9ca3af" />
-                        </TouchableOpacity>
-                      </View>
                     </View>
                   </View>
                 </View>
@@ -912,61 +1186,106 @@ export function Solicitud({ solicitudId: solicitudIdProp, type: typeProp, visibl
                     {isLoadingBitacora ? (
                       <ActivityIndicator size="small" color={colors.lightTint} style={{ marginTop: 20 }} />
                     ) : (
-                      mensajesOrdenados.length > 0 ? (
-                        mensajesOrdenados.map((b: any) => {
-                          const isOwnEntry = b.usuario_id !== null && b.usuario_id === user?.user_context_id;
-                          const isDescripcionEntry = b.id === 'descripcion';
-                          const estadoKey = typeof b.estado === 'string' && b.estado in estadoInvitacionMapping
-                            ? (b.estado as EstadoInvitacionDB)
-                            : null;
-                          const hideActionTitle = isDescripcionEntry || (MODIFIED_STATES.includes(b.estado)
-                            && b.estado !== 'ACCEPTED'
-                            && b.estado !== 'ACCEPTED_BY_HOST');
+                      mensajes.length > 0 ? (
+                        <ScrollView
+                          ref={messagesScrollRef}
+                          style={styles.messagesList}
+                          contentContainerStyle={styles.messagesListContent}
+                          showsVerticalScrollIndicator={false}
+                          nestedScrollEnabled
+                          onContentSizeChange={() => {
+                            messagesScrollRef.current?.scrollToEnd({ animated: false });
+                          }}
+                          onLayout={() => {
+                            messagesScrollRef.current?.scrollToEnd({ animated: false });
+                          }}
+                        >
+                          {mensajes.map((b: any) => {
+                            const isOwnEntry = b.usuario_id !== null && b.usuario_id === user?.user_context_id;
+                            const isDescripcionEntry = b.id === 'descripcion';
+                            const estadoKey = typeof b.estado === 'string' && b.estado in estadoInvitacionMapping
+                              ? (b.estado as EstadoInvitacionDB)
+                              : null;
+                            const hideActionTitle = isDescripcionEntry || (MODIFIED_STATES.includes(b.estado)
+                              && b.estado !== 'ACCEPTED'
+                              && b.estado !== 'ACCEPTED_BY_HOST');
+                            const fechaInicioMensaje = b.fecha_inicio_nueva
+                              ?? (isDescripcionEntry ? solicitud?.fecha_inicio : null);
+                            const fechaFinMensaje = b.fecha_fin_nueva
+                              ?? (isDescripcionEntry ? solicitud?.fecha_fin : null);
+                            const hasFechaMensaje = !!(fechaInicioMensaje && fechaFinMensaje);
+                            const archivos = Array.isArray(b.archivos) ? b.archivos : [];
 
-                          return (
-                            <View
-                              key={String(b.id)}
-                              style={[
-                                styles.bitacoraItem,
-                                isOwnEntry ? styles.bitacoraItemOwn : styles.bitacoraItemOther,
-                              ]}
-                            >
-                              <View style={styles.bitacoraCard}>
-                                <View style={styles.bitacoraHeader}>
-                                  <ThemedText style={styles.bitacoraUser}>{b.usuario_nombre} {b.usuario_apellido}</ThemedText>
-                                  <ThemedText style={styles.bitacoraDate}>{formatDateDDMMYYYY(new Date(b.created_at))} {formatTimeHHMM(new Date(b.created_at))}</ThemedText>
-                                </View>
-                                <View style={styles.bitacoraBody}>
-                                  {!hideActionTitle && (
-                                    <ThemedText style={styles.bitacoraAction}>
-                                      {estadoKey ? estadoInvitacionMapping[estadoKey] : b.estado}
-                                    </ThemedText>
-                                  )}
-                                  {b.observacion && (
-                                    <View style={styles.bitacoraBubble}>
-                                      <ThemedText style={styles.bitacoraText}>{b.observacion}</ThemedText>
-                                    </View>
-                                  )}
-                                  {b.fecha_inicio_nueva && (
-                                    <View style={styles.changeBubble}>
-                                      <ThemedText style={styles.changeText}>
-                                        Propuso cambio:
+                            return (
+                              <View
+                                key={String(b.id)}
+                                style={[
+                                  styles.bitacoraItem,
+                                  isOwnEntry ? styles.bitacoraItemOwn : styles.bitacoraItemOther,
+                                ]}
+                              >
+                                <View style={styles.bitacoraCard}>
+                                  <View style={styles.bitacoraHeader}>
+                                    <ThemedText style={styles.bitacoraUser}>{b.usuario_nombre} {b.usuario_apellido}</ThemedText>
+                                    <ThemedText style={styles.bitacoraDate}>{formatDateDDMMYYYY(new Date(b.created_at))} {formatTimeHHMM(new Date(b.created_at))}</ThemedText>
+                                  </View>
+                                  <View style={styles.bitacoraBody}>
+                                    {!hideActionTitle && (
+                                      <ThemedText style={styles.bitacoraAction}>
+                                        {estadoKey ? estadoInvitacionMapping[estadoKey] : b.estado}
                                       </ThemedText>
-                                      <ThemedText style={styles.changeText}>
-                                        Inicio: {formatDateDDMMYYYY(new Date(b.fecha_inicio_nueva))} {formatTimeHHMM(new Date(b.fecha_inicio_nueva))}
-                                      </ThemedText>
-                                      {b.fecha_fin_nueva && (
-                                        <ThemedText style={styles.changeText}>
-                                          Fin: {formatDateDDMMYYYY(new Date(b.fecha_fin_nueva))} {formatTimeHHMM(new Date(b.fecha_fin_nueva))}
+                                    )}
+                                    {b.observacion && (
+                                      <View style={styles.bitacoraBubble}>
+                                        <ThemedText style={styles.bitacoraText}>
+                                          {b.observacion}
                                         </ThemedText>
-                                      )}
-                                    </View>
-                                  )}
+                                      </View>
+                                    )}
+                                    {archivos.length > 0 && (
+                                      <View style={styles.messageAttachments}>
+                                        {archivos.map((archivo: any) => (
+                                          <Pressable
+                                            key={`archivo-${archivo.id}`}
+                                            style={styles.messageAttachmentRow}
+                                            onPress={() => handleOpenArchivo(archivo.id)}
+                                            android_ripple={{ color: '#00000010' }}
+                                          >
+                                            <Ionicons
+                                              name="document-outline"
+                                              size={16}
+                                              color={colors.secondaryText}
+                                            />
+
+                                            <ThemedText
+                                              style={[styles.messageAttachmentName, styles.linkText]}
+                                              numberOfLines={1}
+                                            >
+                                              {archivo.nombre}
+                                            </ThemedText>
+                                          </Pressable>
+                                        ))}
+                                      </View>
+                                    )}
+                                    {hasFechaMensaje && (
+                                      <View style={styles.changeBubble}>
+                                        <ThemedText style={styles.changeText}>
+                                          {b.fecha_inicio_nueva ? 'Propuso cambio:' : 'Fechas:'}
+                                        </ThemedText>
+                                        <ThemedText style={styles.changeText}>
+                                          Inicio: {formatDateDDMMYYYY(new Date(fechaInicioMensaje))} {formatTimeHHMM(new Date(fechaInicioMensaje))}
+                                        </ThemedText>
+                                        <ThemedText style={styles.changeText}>
+                                          Fin: {formatDateDDMMYYYY(new Date(fechaFinMensaje))} {formatTimeHHMM(new Date(fechaFinMensaje))}
+                                        </ThemedText>
+                                      </View>
+                                    )}
+                                  </View>
                                 </View>
                               </View>
-                            </View>
-                          );
-                        })
+                            );
+                          })}
+                        </ScrollView>
                       ) : (
                         <ThemedText style={{ color: colors.secondaryText, textAlign: 'center', marginTop: 20 }}>
                           {showFullBitacora ? 'No hay actividad reciente' : 'No hay cambios relevantes'}
@@ -974,93 +1293,108 @@ export function Solicitud({ solicitudId: solicitudIdProp, type: typeProp, visibl
                       )
                     )}
                   </View>
+
+                  <View style={styles.messageComposer}>
+                    <TextInput
+                      style={styles.messageComposerInput}
+                      placeholder="Escribir mensaje"
+                      placeholderTextColor={colors.secondaryText}
+                      value={messageDraft}
+                      onChangeText={setMessageDraft}
+                      multiline
+                      textAlignVertical="top"
+                    />
+                    {pickedFiles.length > 0 && (
+                      <View style={styles.messageComposerAttachments}>
+                        {pickedFiles.map((file, index) => (
+                          <View key={`${file.uri}-${index}`} style={styles.messageComposerAttachmentRow}>
+                            <ThemedText style={styles.messageComposerAttachmentName} numberOfLines={1}>
+                              {file.name}
+                            </ThemedText>
+                            <TouchableOpacity
+                              onPress={() => setPickedFiles((prev) => prev.filter((_, i) => i !== index))}
+                              style={styles.messageComposerAttachmentAction}
+                            >
+                              <Ionicons name="trash-outline" size={18} color={colors.secondaryText} />
+                            </TouchableOpacity>
+                          </View>
+                        ))}
+                      </View>
+                    )}
+                    <View style={styles.messageActionsRow}>
+                      {!isFinalState && (
+                        <>
+                          {solicitud?.tipo_actividad !== 'CHAT' && (
+                            <>
+                              <TouchableOpacity
+                                style={styles.messageActionButton}
+                                onPress={() => {
+                                  setRejectObservation(messageDraft);
+                                  confirmRechazar();
+                                }}
+                              >
+                                <Ionicons name="close" size={20} color={colors.error} />
+                              </TouchableOpacity>
+                              <TouchableOpacity
+                                style={styles.messageActionButton}
+                                onPress={() => {
+                                  setAcceptObservation(messageDraft);
+                                  if (isAceptarModificacionesFlow) {
+                                    confirmAceptarModificaciones();
+                                  } else {
+                                    confirmAceptar();
+                                  }
+                                }}
+                              >
+                                <Ionicons name="checkmark" size={20} color={colors.success} />
+                              </TouchableOpacity>
+                              <TouchableOpacity
+                                style={styles.messageActionButton}
+                                onPress={() => {
+                                  setModObservation(messageDraft);
+                                  handleModificarPress();
+                                }}
+                              >
+                                <Ionicons name="calendar-outline" size={20} color={colors.lightTint} />
+                              </TouchableOpacity>
+                            </>
+                          )}
+                          {puedeCompartirEnviada && (
+                            <TouchableOpacity
+                              style={styles.messageActionButton}
+                              onPress={handleCompartir}
+                            >
+                              <Ionicons name="person-add-outline" size={20} color={colors.lightTint} />
+                            </TouchableOpacity>
+                          )}
+                          <TouchableOpacity
+                            style={styles.messageActionButton}
+                            onPress={handleAgregarAdjunto}
+                          >
+                            <Ionicons name="add-outline" size={20} color={colors.lightTint} />
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[
+                              styles.messageActionButton,
+                              styles.messageActionButtonPrimary,
+                              !canSendMessage && styles.messageActionButtonDisabled,
+                            ]}
+                            onPress={handleEnviarMensaje}
+                            disabled={!canSendMessage || isSendingMessage}
+                          >
+                            {isSendingMessage ? (
+                              <ActivityIndicator size="small" color={colors.background} />
+                            ) : (
+                              <Ionicons name="send" size={20} color={colors.background} />
+                            )}
+                          </TouchableOpacity>
+                        </>
+                      )}
+                    </View>
+                  </View>
                 </View>
               </ScrollView>
             )}
-
-            <View style={styles.fabContainer}>
-              {isModifyModalMinimized && (
-                <View style={styles.minimizedModifyDraftContainer}>
-                  <TouchableOpacity style={styles.minimizedModifyDraftMain} onPress={restoreModifyModal}>
-                    <Ionicons name="chevron-up" size={18} color={colors.lightTint} />
-                    <ThemedText style={styles.minimizedModifyDraftText}>Editar</ThemedText>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.minimizedModifyDraftClose} onPress={resetModifyDraft}>
-                    <Ionicons name="close" size={16} color={colors.secondaryText} />
-                  </TouchableOpacity>
-                </View>
-              )}
-
-              {/* Indicador de actividad creada */}
-              {esActividadCreada && (
-                <View style={[styles.fab, { backgroundColor: colors.activityCreated, marginBottom: 16, width: 'auto', paddingHorizontal: 16, borderRadius: 28, flexDirection: 'row', gap: 6 }]}>
-                  <Ionicons name="checkmark-done" size={20} color={colors.background} />
-                  <ThemedText style={{ color: colors.background, fontSize: 13, fontWeight: '600' }}>Actividad creada</ThemedText>
-                </View>
-              )}
-
-              {isExpiredState && (
-                <View style={[styles.fab, styles.expiredFabIndicator]}>
-                  <Ionicons name="time-outline" size={20} color={colors.background} />
-                  <ThemedText style={styles.expiredFabText}>Expirada</ThemedText>
-                </View>
-              )}
-
-              {/* Secondary Actions (Revealed via Menu) */}
-              {menuOpen && canOpenMenu && (
-                <>
-                  {/* Opciones para Recibidas */}
-                  {resolvedType === 'recibida' && solicitud?.estado !== 'ACCEPTED' && solicitud?.estado !== 'REJECTED' && !fechaInicioPasada && (
-                    <>
-                      <AppFab icon="close" floating={false} backgroundColor={colors.error} onPress={handleRechazar} style={{ marginBottom: 16 }} />
-                      <AppFab icon="create-outline" floating={false} backgroundColor={colors.lightTint} onPress={handleModificarPress} style={{ marginBottom: 16 }} />
-                    </>
-                  )}
-
-                  {/* Opciones para Enviadas */}
-                  {resolvedType === 'enviada' && solicitud?.estado !== 'ACCEPTED' && solicitud?.estado !== 'REJECTED' && solicitud?.estado !== 'ACCEPTED_BY_HOST' && (!fechaInicioPasada || isSentState) && (
-                    <>
-                      {compartirEnMenuEnviadaVista && puedeCompartirEnviada && (
-                        <AppFab icon="share-social-outline" floating={false} backgroundColor={colors.icon} onPress={handleCompartir} style={{ marginBottom: 16 }} />
-                      )}
-                      <AppFab icon="create-outline" floating={false} backgroundColor={colors.lightTint} onPress={handleModificarPress} style={{ marginBottom: 16 }} />
-                    </>
-                  )}
-
-                  {puedeCancelarEnviada && (
-                    <AppFab
-                      icon="trash-outline"
-                      floating={false}
-                      backgroundColor={colors.error}
-                      onPress={handleCancelarSolicitud}
-                      style={{ marginBottom: 16 }}
-                    />
-                  )}
-                </>
-              )}
-
-              {/* Agregar a la agenda (REUNION: solo creador/enviada; MANDATO: invitado/recibida aceptada) */}
-              {!isExpiredState && !fechaInicioPasada && puedeAgregarAAgenda && (
-                <AppFab icon="calendar-outline" floating={false} backgroundColor={colors.success} onPress={handleAgregarAAgenda} style={{ marginBottom: 16 }} />
-              )}
-
-              {/* Main Action: Accept */}
-              {!esActividadCreada && !isExpiredState && !fechaInicioPasada && (
-                (resolvedType === 'recibida' && solicitud?.estado !== 'ACCEPTED' && solicitud?.estado !== 'REJECTED' && solicitud?.estado !== 'MODIFIED')
-                || (resolvedType === 'enviada' && solicitud?.estado === 'MODIFIED')
-              ) && (
-                  <AppFab icon="checkmark" floating={false} backgroundColor={colors.success} onPress={handleAceptarPress} style={{ marginBottom: 16 }} />
-                )}
-
-              {puedeCompartirEnviada && !compartirEnMenuEnviadaVista && (
-                <AppFab icon="share-social-outline" floating={false} backgroundColor={colors.icon} onPress={handleCompartir} style={{ marginBottom: 16 }} />
-              )}
-
-              {/* Menu Button */}
-              {canOpenMenu && (
-                <AppFab icon="ellipsis-horizontal" floating={false} backgroundColor={colors.icon} onPress={() => setMenuOpen(!menuOpen)} />
-              )}
-            </View>
 
             {/* Modal Aceptar */}
             <Modal visible={showAcceptModal} transparent={true} animationType="fade">
@@ -1391,6 +1725,14 @@ export function Solicitud({ solicitudId: solicitudIdProp, type: typeProp, visibl
               questionText="Modificá las fechas y volvé a intentar."
             />
 
+            <AlertModal
+              visible={alertModal.visible}
+              title={alertModal.title}
+              message={alertModal.message}
+              actions={alertModal.actions}
+              onClose={() => setAlertModal((prev) => ({ ...prev, visible: false }))}
+            />
+
             {/* Modal operación pendiente */}
             <OperacionPendienteModal visible={isMutating} />
           </View>
@@ -1440,7 +1782,7 @@ const styles = StyleSheet.create({
   contentContainer: {
     paddingHorizontal: 16,
     paddingTop: 8,
-    paddingBottom: 120,
+    paddingBottom: 24,
     gap: 14,
   },
   contentBlock: {
@@ -1602,6 +1944,15 @@ const styles = StyleSheet.create({
   bitacoraContainer: {
     paddingTop: 10,
   },
+  messagesList: {
+    flexGrow: 1,
+    maxHeight: 320,
+  },
+  messagesListContent: {
+    paddingTop: 4,
+    flexGrow: 1,
+    justifyContent: 'flex-end',
+  },
   bitacoraItem: {
     width: '100%',
     marginBottom: 16,
@@ -1661,73 +2012,84 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.text,
   },
-  fabContainer: {
-    position: 'absolute',
-    bottom: UI.fab.offsetBottom,
-    right: UI.fab.offsetRight,
-    flexDirection: 'column',
-    justifyContent: 'flex-end',
-    alignItems: 'flex-end',
+  messageAttachments: {
+    marginTop: 8,
+    gap: 6,
   },
-  minimizedModifyDraftContainer: {
-    position: 'absolute',
-    right: 80,
-    bottom: 10,
+  messageAttachmentRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: colors.neutralBorder,
-    borderRadius: 12,
-    paddingLeft: 10,
-    paddingRight: 6,
-    paddingVertical: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 4,
+    gap: 6,
   },
-  minimizedModifyDraftMain: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingRight: 6,
-  },
-  minimizedModifyDraftText: {
-    marginLeft: 6,
+  messageAttachmentName: {
+    flex: 1,
+    fontSize: 13,
     color: colors.text,
-    fontSize: 12,
-    fontWeight: '600',
   },
-  minimizedModifyDraftClose: {
-    marginLeft: 6,
+  messageComposer: {
+    marginTop: 12,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.neutralBorder,
+    backgroundColor: colors.componentBackground,
+    overflow: 'hidden',
+  },
+  messageComposerAttachments: {
+    paddingHorizontal: 12,
+    paddingBottom: 8,
+    gap: 6,
+  },
+  messageComposerAttachmentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+  },
+  messageComposerAttachmentName: {
+    flex: 1,
+    fontSize: 13,
+    color: colors.text,
+    marginRight: 8,
+  },
+  messageComposerAttachmentAction: {
     padding: 4,
   },
-  fab: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
+  messageComposerInput: {
+    minHeight: 90,
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    paddingBottom: 6,
+    fontSize: 14,
+    color: colors.text,
   },
-  expiredFabIndicator: {
-    width: 'auto',
-    paddingHorizontal: 14,
-    borderRadius: 24,
-    backgroundColor: colors.neutralMuted,
+  messageActionsRow: {
+    justifyContent: 'flex-end',
+    alignItems: 'center',
     flexDirection: 'row',
     gap: 8,
-    marginBottom: 16,
+    paddingHorizontal: 10,
+    paddingBottom: 10,
+    paddingTop: 4,
   },
-  expiredFabText: {
-    color: colors.background,
-    fontSize: 13,
-    fontWeight: '600',
+  messageActionButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.background,
+  },
+  messageActionButtonPrimary: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.lightTint,
+  },
+  messageActionButtonDisabled: {
+    opacity: 0.5,
   },
   modalOverlay: {
     flex: 1,
@@ -1909,5 +2271,9 @@ const styles = StyleSheet.create({
     color: Colors['light'].lightTint,
     fontWeight: '600',
     fontSize: 16,
+  },
+  linkText: {
+    color: '#2563eb',
+    textDecorationLine: 'underline',
   },
 });

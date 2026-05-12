@@ -1,4 +1,5 @@
 
+import { AlertModal, type AlertModalAction } from '@/components/AlertModal';
 import { ThemedText } from '@/components/themed-text';
 import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
 import { Colors } from '@/constants/theme';
@@ -8,7 +9,7 @@ import { Image } from 'expo-image';
 import type * as ImagePickerTypes from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { uploadReporteImage } from '../services/reportesApi';
 import { useCreateReporte } from '../viewmodels/useReportes';
 
@@ -63,6 +64,12 @@ export default function CrearReporte(props?: CrearReporteProps) {
 	const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
 	const [isUploading, setIsUploading] = useState(false);
 	const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
+	const [alertModal, setAlertModal] = useState<{
+		visible: boolean;
+		title: string;
+		message?: string;
+		actions: AlertModalAction[];
+	}>({ visible: false, title: '', message: undefined, actions: [] });
 
 	const isPending = isCreating || isUploading;
 
@@ -77,6 +84,25 @@ export default function CrearReporte(props?: CrearReporteProps) {
 		);
 	}, [usuarioId, titulo, descripcion, categoria, fechaIncidente]);
 
+	const showModal = useCallback((title: string, message?: string, actions?: AlertModalAction[]) => {
+		const normalizedActions = actions && actions.length > 0
+			? actions
+			: [{ key: 'ok', label: 'Aceptar', onPress: () => { }, variant: 'primary' }];
+
+		setAlertModal({
+			visible: true,
+			title,
+			message,
+			actions: normalizedActions.map((action) => ({
+				...action,
+				onPress: () => {
+					setAlertModal((prev) => ({ ...prev, visible: false }));
+					action.onPress();
+				},
+			})),
+		});
+	}, []);
+
 	// ── Imagen handlers ──────────────────────────────────────────────────────────
 
 	const addAsset = useCallback((asset: ImagePickerTypes.ImagePickerAsset) => {
@@ -88,12 +114,12 @@ export default function CrearReporte(props?: CrearReporteProps) {
 
 	const handlePickFromGallery = useCallback(async () => {
 		if (!ImagePicker) {
-			Alert.alert('No disponible', 'El selector de imágenes no está disponible. Reconstruí la app con el módulo nativo.');
+			showModal('No disponible', 'El selector de imágenes no está disponible. Reconstruí la app con el módulo nativo.');
 			return;
 		}
 		const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
 		if (status !== 'granted') {
-			Alert.alert('Permiso denegado', 'Se necesita acceso a la galería para adjuntar imágenes.');
+			showModal('Permiso denegado', 'Se necesita acceso a la galería para adjuntar imágenes.');
 			return;
 		}
 		const result = await ImagePicker.launchImageLibraryAsync({
@@ -104,16 +130,16 @@ export default function CrearReporte(props?: CrearReporteProps) {
 		if (!result.canceled && result.assets.length > 0) {
 			addAsset(result.assets[0]);
 		}
-	}, [addAsset]);
+	}, [addAsset, showModal]);
 
 	const handleTakePhoto = useCallback(async () => {
 		if (!ImagePicker) {
-			Alert.alert('No disponible', 'La cámara no está disponible. Reconstruí la app con el módulo nativo.');
+			showModal('No disponible', 'La cámara no está disponible. Reconstruí la app con el módulo nativo.');
 			return;
 		}
 		const { status } = await ImagePicker.requestCameraPermissionsAsync();
 		if (status !== 'granted') {
-			Alert.alert('Permiso denegado', 'Se necesita acceso a la cámara para tomar fotos.');
+			showModal('Permiso denegado', 'Se necesita acceso a la cámara para tomar fotos.');
 			return;
 		}
 		const result = await ImagePicker.launchCameraAsync({
@@ -123,7 +149,7 @@ export default function CrearReporte(props?: CrearReporteProps) {
 		if (!result.canceled && result.assets.length > 0) {
 			addAsset(result.assets[0]);
 		}
-	}, [addAsset]);
+	}, [addAsset, showModal]);
 
 	const removeImage = useCallback((index: number) => {
 		setPendingImages((prev) => prev.filter((_, i) => i !== index));
@@ -139,12 +165,12 @@ export default function CrearReporte(props?: CrearReporteProps) {
 
 	const handleCrearReporte = useCallback(async () => {
 		if (!isFormValid) {
-			Alert.alert('Formulario incompleto', 'Por favor completa todos los campos');
+			showModal('Formulario incompleto', 'Por favor completa todos los campos');
 			return;
 		}
 		const token = tokens?.accessToken;
 		if (!token) {
-			Alert.alert('Error', 'No hay sesión activa');
+			showModal('Error', 'No hay sesión activa');
 			return;
 		}
 
@@ -177,11 +203,18 @@ export default function CrearReporte(props?: CrearReporteProps) {
 					}
 				} catch (uploadError: any) {
 					// El reporte ya se creó; avisamos del error pero navegamos igual
-					Alert.alert(
+					showModal(
 						'Reporte creado',
 						`El reporte se creó correctamente, pero algunas imágenes no pudieron subirse: ${uploadError?.message ?? 'Error desconocido'}`,
+						[
+							{
+								key: 'ok',
+								label: 'Aceptar',
+								onPress: () => router.back(),
+								variant: 'primary',
+							},
+						],
 					);
-					router.back();
 					return;
 				} finally {
 					setIsUploading(false);
@@ -189,12 +222,13 @@ export default function CrearReporte(props?: CrearReporteProps) {
 				}
 			}
 
-			Alert.alert('Éxito', 'Reporte creado correctamente');
-			handleClose();
+			showModal('Éxito', 'Reporte creado correctamente', [
+				{ key: 'ok', label: 'Aceptar', onPress: () => handleClose(), variant: 'primary' },
+			]);
 		} catch (error: any) {
-			Alert.alert('Error', error?.message || 'Intenta nuevamente');
+			showModal('Error', error?.message || 'Intenta nuevamente');
 		}
-	}, [isFormValid, tokens, crearReporte, usuarioId, titulo, descripcion, categoria, fechaIncidente, pendingImages, handleClose]);
+	}, [isFormValid, tokens, crearReporte, usuarioId, titulo, descripcion, categoria, fechaIncidente, pendingImages, handleClose, showModal, router]);
 
 	const handleDateConfirm = useCallback((selectedDate: Date) => {
 		setFechaIncidente((prev) => {
@@ -395,6 +429,14 @@ export default function CrearReporte(props?: CrearReporteProps) {
 								}}
 							/>
 						)}
+
+						<AlertModal
+							visible={alertModal.visible}
+							title={alertModal.title}
+							message={alertModal.message}
+							actions={alertModal.actions}
+							onClose={() => setAlertModal((prev) => ({ ...prev, visible: false }))}
+						/>
 					</View>
 				</KeyboardAvoidingView>
 			</View>

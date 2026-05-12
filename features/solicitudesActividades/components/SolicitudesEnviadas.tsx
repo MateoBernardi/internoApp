@@ -45,6 +45,7 @@ function agruparSolicitudes(solicitudes: SolicitudEnviada[]): SolicitudEnviadaAg
 function formatTipoSolicitud(tipo?: string): string {
   if (tipo === 'MANDATO') return 'Actividad';
   if (tipo === 'REUNION') return 'Reunión';
+  if (tipo === 'CHAT') return 'Conversación';
   return tipo ? tipo : 'Solicitud';
 }
 
@@ -54,6 +55,8 @@ function getTipoBadgeStyle(tipo?: string): { borderColor: string; backgroundColo
       return { borderColor: '#2563eb', backgroundColor: '#2563eb12', textColor: '#2563eb' };
     case 'REUNION':
       return { borderColor: '#7c3aed', backgroundColor: '#7c3aed12', textColor: '#7c3aed' };
+    case 'CHAT':
+      return { borderColor: '#0ea5e9', backgroundColor: '#0ea5e912', textColor: '#0ea5e9' };
     default:
       return { borderColor: '#6b7280', backgroundColor: '#6b728012', textColor: '#6b7280' };
   }

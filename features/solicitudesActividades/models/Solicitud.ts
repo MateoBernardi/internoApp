@@ -1,3 +1,5 @@
+import type { Archivo } from '@/features/docs/models/Archivo';
+
 // Estado de invitación (valores según el backend)
 export type EstadoInvitacionDB = 'SENT' | 'SEEN' | 'MODIFIED' | 'MODIFIED_BY_HOST' | 'ACCEPTED_BY_HOST' | 'ACCEPTED' | 'REJECTED' | 'ACTIVIDAD_CREADA' | 'EXPIRED';
 export type EstadoInvitacionUI = 'Pendiente' | 'Visto' | 'Modificado' | 'Modificado por creador' | 'Aceptado por creador' | 'Aceptado' | 'Rechazado' | 'Actividad creada' | 'Expirada';
@@ -43,6 +45,12 @@ export interface Solicitud {
   estado: EstadoInvitacionDB; // Estado de la invitación
   nombre: string; // Opcional: nombre del creador de la solicitud
   apellido: string; // Opcional: apellido del creador de la solicitud
+  nombre_creador?: string; // Nombre del creador (respuesta backend)
+  apellido_creador?: string; // Apellido del creador (respuesta backend)
+  id_usuario_invitado?: number;
+  nombre_invitado?: string;
+  apellido_invitado?: string;
+  archivos?: Archivo[];
 }
 
 export interface SolicitudEnviada {
@@ -56,8 +64,10 @@ export interface SolicitudEnviada {
   estado: EstadoInvitacionDB; // Estado de la invitación
   nombre_creador: string; // Nombre del creador de la solicitud
   apellido_creador: string; // Apellido del creador de la solicitud
+  id_usuario_invitado?: number;
   invitado_nombre: string; // Nombre del invitado
   invitado_apellido: string; // Apellido del invitado
+  archivos?: Archivo[];
 }
 
 export interface InvitadoResumen {
@@ -75,10 +85,11 @@ export interface SolicitudEnviadaAgrupada {
   fecha_fin: Date | null;
   tipo_actividad?: TipoActividadDB;
   invitados: InvitadoResumen[];
+  archivos?: Archivo[];
 }
 
-export type TipoActividad = 'PETICION' | 'REUNION';
-export type TipoActividadDB = 'MANDATO' | 'REUNION';
+export type TipoActividad = 'PETICION' | 'REUNION' | 'CHAT';
+export type TipoActividadDB = 'MANDATO' | 'REUNION' | 'CHAT';
 
 export interface CrearSolicitudRequest {
   titulo: string;
@@ -111,6 +122,7 @@ export interface ActualizarEstadoInvitacionRequest {
   fecha_fin_nueva?: Date | null;
   observacion?: string | null;
   crear_de_todos_modos?: number;
+  archivosIds?: number[];
 }
 
 export interface ActualizarEstadoInvitacionResponse {
@@ -125,6 +137,7 @@ export interface UpdateSolicitudRequest {
   fecha_fin_nueva?: Date | null;
   observacion?: string | null;
   crear_de_todos_modos?: number;
+  archivosIds?: number[];
 }
 
 export interface UpdateSolicitudResponse {
@@ -192,4 +205,5 @@ export interface BitacoraSolicitud {
   usuario_nombre: string;
   usuario_apellido: string;
   estado: EstadoInvitacionDB;
+  archivos?: Archivo[];
 }

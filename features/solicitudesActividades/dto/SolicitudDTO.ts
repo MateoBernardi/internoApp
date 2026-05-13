@@ -45,8 +45,8 @@ export interface SolicitudInfoDTO {
   apellido_creador: string;
   created_by: number;
   id_usuario_invitado?: number;
-  invitado_nombre: string;
-  invitado_apellido: string;
+  nombre_invitado: string;
+  apellido_invitado: string;
   tipo_actividad: TipoActividadDB | string;
   estado: EstadoInvitacionDB | string;
   archivos: ArchivoDTO[];

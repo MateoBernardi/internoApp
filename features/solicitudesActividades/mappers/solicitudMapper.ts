@@ -69,8 +69,8 @@ export function mapSolicitudInfoDTOToSolicitudEnviada(dto: SolicitudInfoDTO): So
     nombre_creador: dto.nombre_creador,
     apellido_creador: dto.apellido_creador,
     id_usuario_invitado: dto.id_usuario_invitado,
-    invitado_nombre: dto.invitado_nombre,
-    invitado_apellido: dto.invitado_apellido,
+    invitado_nombre: dto.nombre_invitado,
+    invitado_apellido: dto.apellido_invitado,
     archivos: (dto.archivos ?? []).map(mapArchivoDTOToArchivo),
   };
 }
@@ -90,8 +90,8 @@ export function mapSolicitudInfoDTOToSolicitud(dto: SolicitudInfoDTO): Solicitud
     nombre_creador: dto.nombre_creador,
     apellido_creador: dto.apellido_creador,
     id_usuario_invitado: dto.id_usuario_invitado,
-    nombre_invitado: dto.invitado_nombre,
-    apellido_invitado: dto.invitado_apellido,
+    nombre_invitado: dto.nombre_invitado,
+    apellido_invitado: dto.apellido_invitado,
     archivos: (dto.archivos ?? []).map(mapArchivoDTOToArchivo),
   };
 }

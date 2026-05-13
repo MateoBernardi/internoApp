@@ -40,6 +40,7 @@ export interface CreateObjetivo {
     titulo: string;
     descripcion: string;
     estado: typeof ESTADOS[number];
+    solicitud_id?: number;
     invitados?: Invitado[];
     archivosIds?: number[];
 }

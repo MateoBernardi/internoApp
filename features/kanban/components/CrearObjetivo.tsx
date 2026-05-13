@@ -304,6 +304,7 @@ export function FormObjetivoModal({
                                 tamaño: file.size,
                                 tipo: file.type,
                                 uso: ArchivoUso.TAREA,
+                                usuarios_compartidos: invitados ? invitados.map(i => i.user_id) : [],
                             },
                         })),
                     });

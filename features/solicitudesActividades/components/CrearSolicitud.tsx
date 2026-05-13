@@ -368,7 +368,7 @@ export function CrearSolicitud({ visible, onClose }: CrearSolicitudProps) {
         const response = await uploadArchivo({
           item: pickedFiles.map((file) => ({
             archivo: { uri: file.uri, name: file.name, type: file.type, size: file.size },
-            archivoData: { nombre: file.name, tamaño: file.size, tipo: file.type, uso: ArchivoUso.TAREA },
+            archivoData: { nombre: file.name, tamaño: file.size, tipo: file.type, uso: ArchivoUso.TAREA, usuarios_compartidos: selectedUsers.map((u) => u.user_context_id) },
           })),
         });
 

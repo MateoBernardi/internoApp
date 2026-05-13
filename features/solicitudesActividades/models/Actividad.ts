@@ -1,9 +1,10 @@
+import { Archivo } from '@/features/docs/models/Archivo';
 import type {
-    ActividadDetalleDTO as ActividadDetalleDtoType,
-    ActividadDTO as ActividadDtoType,
-    ActividadParticipanteDTO as ActividadParticipanteDtoType,
-    CrearActividadDTO,
-    CrearActividadResultDTO,
+  ActividadDetalleDTO as ActividadDetalleDtoType,
+  ActividadDTO as ActividadDtoType,
+  ActividadParticipanteDTO as ActividadParticipanteDtoType,
+  CrearActividadDTO,
+  CrearActividadResultDTO,
 } from '../dto/ActividadDTO';
 import type { RangoOcupado } from './Solicitud';
 import { RolActividad } from './Solicitud';
@@ -111,6 +112,7 @@ export interface ModificarActividadFechasResponse {
 }
 
 export interface ActividadDetalleParticipante {
+  user_context_id: number;
   rol: string;
   nombre: string;
   apellido: string;
@@ -125,4 +127,5 @@ export interface ActividadDetalleResponse {
   rol?: RolActividad;
   solicitud_id?: number;
   participantes: ActividadDetalleParticipante[];
+  archivos: Archivo[];
 }

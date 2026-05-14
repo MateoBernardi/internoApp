@@ -359,7 +359,7 @@ export function Solicitud({ solicitudId: solicitudIdProp, type: typeProp, visibl
       shouldMarkSeen = ['SENT', 'MODIFIED_BY_HOST', 'ACCEPTED_BY_HOST'].includes(solicitud.estado);
     } else if (resolvedType === 'enviada') {
       // El creador ve: MODIFIED (el invitado modificó)
-      shouldMarkSeen = solicitud.estado === 'MODIFIED';
+      shouldMarkSeen = ['MODIFIED'].includes(solicitud.estado);
     }
 
     if (!shouldMarkSeen) {

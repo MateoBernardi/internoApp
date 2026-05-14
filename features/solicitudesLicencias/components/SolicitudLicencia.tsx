@@ -329,7 +329,10 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
     !isExpired &&
     !isExpiredState &&
     !hasStarted;
-  const canUploadDoc = isCreator && solicitud.estado === 'PENDIENTE_DOCUMENTACION';
+  const isGerencia = user?.rol_nombre === 'gerencia';
+  const canUploadDoc =
+    (isCreator && solicitud.estado === 'PENDIENTE_DOCUMENTACION') ||
+    (isGerencia && solicitud.estado === 'EXPIRADA');
 
   return (
     <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={handleClose}>
@@ -497,7 +500,9 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
               {canUploadDoc && (
                 <View style={styles.uploadSection}>
                   <ThemedText style={styles.uploadLabel}>
-                    Esta solicitud requiere documentación adjunta.
+                    {solicitud.archivos && solicitud.archivos.length > 0
+                      ? 'Podés agregar otro archivo si lo necesitás.'
+                      : 'Esta solicitud requiere documentación adjunta.'}
                   </ThemedText>
                   <TouchableOpacity
                     style={[styles.uploadBtn, isUploadingDoc && { opacity: 0.6 }]}

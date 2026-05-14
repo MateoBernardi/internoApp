@@ -1,3 +1,4 @@
+import { ArchivoDTO } from '@/features/docs/dto/ArchivoDTO';
 import type { RolActividad } from '../models/Solicitud';
 
 type BackendDate = string | Date;
@@ -34,7 +35,13 @@ export interface ActividadDTO {
   solicitud_id?: number;
 }
 
-export interface ActividadDetalleDTO extends ActividadDTO {
-  rol?: RolActividad;
-  participantes?: ActividadParticipanteDTO[];
+export interface ActividadDetalleDTO {
+  actividad_id: number;
+  titulo: string;
+  descripcion: string;
+  fecha_inicio: Date;
+  fecha_fin: Date;
+  solicitud_id: number | null;
+  participantes: ActividadParticipanteDTO[];
+  archivos?: ArchivoDTO[];
 }

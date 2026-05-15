@@ -13,11 +13,9 @@ import type {
   CrearSolicitudResponse,
   EstadoInvitacionDB,
   RangoOcupado,
-  Solicitud,
   SolicitudEnviada,
-  TipoActividadDB,
   UpdateSolicitudRequest,
-  UpdateSolicitudResponse,
+  UpdateSolicitudResponse
 } from '../models/Solicitud';
 import { parseBackendDate, toIsoDate, toIsoDateOrNull } from './dateMapper';
 
@@ -56,45 +54,25 @@ export function mapRangoOcupadoDTOToRangoOcupado(dto: RangoOcupadoDTO): RangoOcu
   };
 }
 
-export function mapSolicitudInfoDTOToSolicitudEnviada(dto: SolicitudInfoDTO): SolicitudEnviada {
-  return {
-    solicitud_id: dto.solicitud_id,
-    titulo: dto.titulo,
-    descripcion: dto.descripcion,
-    created_by: dto.created_by,
-    fecha_inicio: parseBackendDate(dto.fecha_inicio),
-    fecha_fin: parseBackendDate(dto.fecha_fin),
-    tipo_actividad: dto.tipo_actividad as TipoActividadDB,
-    estado: normalizeEstado(dto.estado),
-    nombre_creador: dto.nombre_creador,
-    apellido_creador: dto.apellido_creador,
-    id_usuario_invitado: dto.id_usuario_invitado,
-    invitado_nombre: dto.nombre_invitado,
-    invitado_apellido: dto.apellido_invitado,
-    archivos: (dto.archivos ?? []).map(mapArchivoDTOToArchivo),
-  };
-}
-
-export function mapSolicitudInfoDTOToSolicitud(dto: SolicitudInfoDTO): Solicitud {
-  return {
-    solicitud_id: dto.solicitud_id,
-    titulo: dto.titulo,
-    descripcion: dto.descripcion,
-    created_by: dto.created_by,
-    fecha_inicio: parseBackendDate(dto.fecha_inicio),
-    fecha_fin: parseBackendDate(dto.fecha_fin),
-    tipo_actividad: dto.tipo_actividad as TipoActividadDB,
-    estado: normalizeEstado(dto.estado),
-    nombre: dto.nombre_creador,
-    apellido: dto.apellido_creador,
-    nombre_creador: dto.nombre_creador,
-    apellido_creador: dto.apellido_creador,
-    id_usuario_invitado: dto.id_usuario_invitado,
-    nombre_invitado: dto.nombre_invitado,
-    apellido_invitado: dto.apellido_invitado,
-    archivos: (dto.archivos ?? []).map(mapArchivoDTOToArchivo),
-  };
-}
+export const mapSolicitudInfoDTOToSolicitudEnviada = (dto: SolicitudInfoDTO): SolicitudEnviada => ({
+  solicitud_id: dto.solicitud_id,
+  titulo: dto.titulo,
+  descripcion: dto.descripcion,
+  fecha_inicio: dto.fecha_inicio ? new Date(dto.fecha_inicio) : null,
+  fecha_fin: dto.fecha_fin ? new Date(dto.fecha_fin) : null,
+  nombre_creador: dto.nombre_creador,
+  apellido_creador: dto.apellido_creador,
+  created_by: dto.created_by,
+  invitados: (dto.invitados ?? []).map(inv => ({
+    ...inv,
+    invitado_nombre: (inv as any).nombre,
+    invitado_apellido: (inv as any).apellido
+  })),
+  tipo_actividad: dto.tipo_actividad,
+  estado: dto.estado as EstadoInvitacionDB,
+  archivos: dto.archivos ?? [],
+  is_host: dto.isHost,
+});
 
 export function mapSolicitudBitacoraDTOToBitacora(dto: SolicitudBitacoraDTO): BitacoraSolicitud {
   return {

@@ -1,3 +1,4 @@
+import { ArchivoDTO } from '@/features/docs/dto/ArchivoDTO';
 import type { Archivo } from '@/features/docs/models/Archivo';
 
 // Estado de invitación (valores según el backend)
@@ -57,17 +58,23 @@ export interface SolicitudEnviada {
   solicitud_id: number;
   titulo: string;
   descripcion: string;
-  created_by: number;
   fecha_inicio: Date | null;
   fecha_fin: Date | null;
-  tipo_actividad?: TipoActividadDB;
-  estado: EstadoInvitacionDB; // Estado de la invitación
-  nombre_creador: string; // Nombre del creador de la solicitud
-  apellido_creador: string; // Apellido del creador de la solicitud
-  id_usuario_invitado?: number;
-  invitado_nombre: string; // Nombre del invitado
-  invitado_apellido: string; // Apellido del invitado
-  archivos?: Archivo[];
+  nombre_creador: string;
+  apellido_creador: string;
+  created_by: number;
+  invitados: SolicitudInvitado[]; // todos los participantes, incluye al creador
+  tipo_actividad: string;
+  estado: string;
+  archivos: ArchivoDTO[];
+  is_host: boolean;
+}
+
+export interface SolicitudInvitado {
+  user_id: number;
+  invitado_nombre?: string;
+  invitado_apellido?: string;
+  estado?: EstadoInvitacionDB;
 }
 
 export interface InvitadoResumen {

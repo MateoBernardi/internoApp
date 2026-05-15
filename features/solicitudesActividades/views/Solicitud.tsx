@@ -32,7 +32,7 @@ import {
 import { UserSelector } from '../../../components/UserSelector';
 import { RoleUserSelectionModal } from '../components/RoleUserSelectionModal';
 import { ValidacionFechasModal } from '../components/ValidacionFechasModal';
-import { EstadoInvitacionDB, estadoInvitacionMapping, RangoOcupado, ReenviarSolicitudRequest, UpdateSolicitudResponse } from '../models/Solicitud';
+import { EstadoInvitacionDB, estadoInvitacionMapping, RangoOcupado, ReenviarSolicitudRequest, SolicitudEnviada, UpdateSolicitudResponse } from '../models/Solicitud';
 import { useCrearActividad } from '../viewmodels/useActividades';
 import {
   useActualizarEstadoInvitacion,
@@ -74,23 +74,21 @@ function ceilToNextMinute(date: Date): Date {
 }
 
 interface SolicitudProps {
-  solicitudId?: number;
-  type?: 'enviada' | 'recibida';
+  solicitud: SolicitudEnviada;
   visible?: boolean;
   onClose?: () => void;
 }
 
 // Para este ejemplo, asumimos que obtenemos la solicitud del caché o desde un parámetro
-export function Solicitud({ solicitudId: solicitudIdProp, type: typeProp, visible, onClose }: SolicitudProps = {}) {
+export function Solicitud(props: SolicitudProps = {}) {
   const router = useRouter();
   const { id, type: typeParam } = useLocalSearchParams<{ id?: string; type?: string }>();
   const { user } = useAuth();
   const { hasRole } = useRoleCheck();
 
-  const resolvedType = typeProp ?? (typeParam === 'enviada' ? 'enviada' : 'recibida');
-  const solicitudId = solicitudIdProp ?? (id ? parseInt(id, 10) : 0);
-  const modalVisible = visible ?? true;
-  const handleClose = onClose ?? (() => router.back());
+  const { solicitud, visible, onClose } = props;
+  const solicitudId = solicitud.solicitud_id;
+  const isHost = solicitud.is_host;
 
   const { data: bitacora, isLoading: isLoadingBitacora } = useSolicitudBitacora(solicitudId);
   const { mutate: actualizarEstado, isPending: isUpdatingEstado } = useActualizarEstadoInvitacion();
@@ -173,25 +171,16 @@ export function Solicitud({ solicitudId: solicitudIdProp, type: typeProp, visibl
     );
   }, [backendActividadRangos]);
 
-  const solicitud = useMemo(() => {
-    if (resolvedType === 'enviada') {
-      return enviadas?.find(s => s.solicitud_id === solicitudId);
-    }
-    return recibidas?.find(s => s.solicitud_id === solicitudId);
-  }, [resolvedType, solicitudId, enviadas, recibidas]);
-
   // Para REUNION: obtener todos los invitados de esta solicitud (desde enviadas)
-  const todosInvitados = useMemo(() => {
-    if (!enviadas) return [];
-    return enviadas.filter(s => s.solicitud_id === solicitudId);
-  }, [enviadas, solicitudId]);
+  const todosInvitados = solicitud?.invitados ?? [];
 
   const paraEnviada = useMemo(() => {
-    const nombres = todosInvitados
-      .map((inv) => [inv.invitado_nombre, inv.invitado_apellido].filter(Boolean).join(' ').trim())
+    const nombres = (solicitud?.invitados ?? [])
+      .filter(inv => inv.user_id !== solicitud?.created_by) // excluir al creador del "Para:"
+      .map(inv => [inv.invitado_nombre, inv.invitado_apellido].filter(Boolean).join(' ').trim())
       .filter(Boolean);
     return Array.from(new Set(nombres)).join(', ');
-  }, [todosInvitados]);
+  }, [solicitud]);
 
   // IDs de participantes aceptados (para REUNION "agregar a la agenda")
   const participantesAceptados = useMemo(() => {
@@ -206,25 +195,16 @@ export function Solicitud({ solicitudId: solicitudIdProp, type: typeProp, visibl
 
   // Determinar si se puede "agregar a la agenda" según tipo
   const puedeAgregarAAgenda = useMemo(() => {
-    if (!solicitud) return false;
-    // Si ya se creó la actividad, no se puede agregar nuevamente
     if (solicitud.estado === 'ACTIVIDAD_CREADA') return false;
-    const esReunion = solicitud.tipo_actividad === 'REUNION';
-    const esMandato = solicitud.tipo_actividad === 'MANDATO';
-
-    if (esReunion) {
-      // REUNION: solo el creador (ve la solicitud como "enviada") puede agregar
-      // Y al menos un invitado debe haber aceptado
-      const algunAceptado = todosInvitados.some(inv => inv.estado === 'ACCEPTED');
-      return resolvedType === 'enviada' && algunAceptado;
+    if (solicitud.tipo_actividad === 'REUNION') {
+      const algunAceptado = solicitud.invitados.some(inv => inv.estado === 'ACCEPTED');
+      return isHost && algunAceptado;
     }
-    if (esMandato) {
-      // MANDATO: el invitado (recibida) agrega a su propia agenda cuando acepta
-      return resolvedType === 'recibida' && solicitud.estado === 'ACCEPTED';
+    if (solicitud.tipo_actividad === 'MANDATO') {
+      return !isHost && solicitud.estado === 'ACCEPTED';
     }
-    // Fallback: comportamiento anterior
-    return resolvedType === 'recibida' && solicitud.estado === 'ACCEPTED';
-  }, [solicitud, resolvedType, todosInvitados]);
+    return !isHost && solicitud.estado === 'ACCEPTED';
+  }, [solicitud, isHost]);
 
   const esActividadCreada = solicitud?.estado === 'ACTIVIDAD_CREADA';
 
@@ -252,7 +232,7 @@ export function Solicitud({ solicitudId: solicitudIdProp, type: typeProp, visibl
   useEffect(() => {
     if (!solicitud) return;
 
-    const shouldMarkSeen = (resolvedType === 'recibida' && ['SENT', 'MODIFIED_BY_HOST', 'ACCEPTED_BY_HOST'].includes(solicitud.estado));
+    const shouldMarkSeen = !isHost && ['SENT', 'MODIFIED_BY_HOST', 'ACCEPTED_BY_HOST'].includes(solicitud.estado);
 
     if (!shouldMarkSeen) {
       seenAutoMarkKeyRef.current = null;
@@ -412,7 +392,7 @@ export function Solicitud({ solicitudId: solicitudIdProp, type: typeProp, visibl
     setPendingModificarPayload(payload);
     actualizarEstado({
       solicitud_id: solicitudId,
-      estado: resolvedType === 'enviada' ? 'MODIFIED_BY_HOST' : 'MODIFIED',
+      estado: isHost ? 'MODIFIED_BY_HOST' : 'MODIFIED',
       ...payload,
       crear_de_todos_modos: crearDeTodosModos,
     }, {
@@ -744,10 +724,10 @@ export function Solicitud({ solicitudId: solicitudIdProp, type: typeProp, visibl
   const fechaInicioPasada = hasDates ? fechaInicio < new Date() : false;
   const isExpiredState = solicitud?.estado === 'EXPIRED';
   const isSentState = solicitud?.estado === 'SENT';
-  const isAceptarModificacionesFlow = resolvedType === 'enviada' && solicitud?.estado === 'MODIFIED';
-  const puedeCompartirEnviada = resolvedType === 'enviada' && !isExpiredState && !esActividadCreada;
-  const puedeCancelarEnviada = resolvedType === 'enviada' && !!solicitud && CANCELABLE_ENVIADA_STATES.includes(solicitud.estado);
-  const compartirEnMenuEnviadaVista = resolvedType === 'enviada' && solicitud?.estado === 'SEEN';
+  const isAceptarModificacionesFlow = isHost && solicitud.estado === 'MODIFIED';
+  const puedeCompartirEnviada = isHost && !isExpiredState && !esActividadCreada;
+  const puedeCancelarEnviada = isHost && CANCELABLE_ENVIADA_STATES.includes(solicitud.estado);
+  const compartirEnMenuEnviadaVista = isHost && solicitud.estado === 'SEEN';
   const canOpenMenu = !esActividadCreada
     && !isExpiredState
     && solicitud?.estado !== 'ACCEPTED'
@@ -813,11 +793,11 @@ export function Solicitud({ solicitudId: solicitudIdProp, type: typeProp, visibl
                 showsVerticalScrollIndicator={false}
               >
                 <View style={styles.sectionCard}>
-                  <ThemedText style={styles.sectionLabel}>{resolvedType === 'enviada' ? 'Para' : 'De'}</ThemedText>
+                  <ThemedText style={styles.sectionLabel}>{isHost ? 'Para' : 'De'}</ThemedText>
                   <ThemedText style={styles.sectionValue}>
-                    {resolvedType === 'enviada'
+                    {isHost
                       ? paraEnviada
-                      : `${solicitud?.nombre_creador || ''} ${solicitud?.apellido_creador || ''}`}
+                      : `${solicitud.nombre_creador} ${solicitud.apellido_creador}`}
                   </ThemedText>
                 </View>
 

@@ -39,17 +39,17 @@ export interface SolicitudInfoDTO {
   solicitud_id: number;
   titulo: string;
   descripcion: string;
-  fecha_inicio: BackendDate | null;
-  fecha_fin: BackendDate | null;
+  fecha_inicio: Date;
+  fecha_fin: Date;
   nombre_creador: string;
   apellido_creador: string;
   created_by: number;
   id_usuario_invitado?: number;
-  nombre_invitado: string;
-  apellido_invitado: string;
-  tipo_actividad: TipoActividadDB | string;
-  estado: EstadoInvitacionDB | string;
+  invitados: SolicitudInvitadoDTO[]; //Todos los participantes, incluyendo el creador
+  tipo_actividad: string;
+  estado: string;
   archivos: ArchivoDTO[];
+  isHost: boolean;
 }
 
 export interface SolicitudBitacoraDTO {
@@ -64,4 +64,10 @@ export interface SolicitudBitacoraDTO {
   usuario_apellido?: string;
   archivos?: ArchivoDTO[];
   estado: EstadoInvitacionDB | string;
+}
+
+export interface SolicitudInvitadoDTO {
+  user_id: number;
+  invitado_nombre?: string;
+  invitado_apellido?: string;
 }

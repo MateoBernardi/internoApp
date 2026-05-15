@@ -404,7 +404,7 @@ export default function TabLayout() {
           listeners={{ tabPress: () => setActiveMenu(null) }}
           options={{
             href: hideExplore ? null : undefined,
-            title: 'Solicitudes',
+            title: 'Mensajes',
             tabBarIcon: ({ color }) => (
               <View style={styles.tabIconContainer}>
                 <IconSymbol size={24} name="paperplane.fill" color={color} />

@@ -22,11 +22,13 @@ export interface SolicitudDTO {
   estado?: EstadoInvitacionDB | string;
   crear_de_todos_modos: number;
   archivosIds?: number[];
+  enviar_por_separado?: 0 | 1;
 }
 
 export interface CreateSolicitudResult {
   created: boolean;
   solicitudId: number | null;
+  solicitudIds?: number[];
   rangosOcupados: RangoOcupadoDTO[];
 }
 
@@ -67,7 +69,11 @@ export interface SolicitudBitacoraDTO {
 }
 
 export interface SolicitudInvitadoDTO {
-  user_id: number;
+  user_id?: number;
+  id_usuario_invitado?: number;
+  nombre?: string;
+  apellido?: string;
   invitado_nombre?: string;
   invitado_apellido?: string;
+  estado?: string;
 }

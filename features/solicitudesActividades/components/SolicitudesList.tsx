@@ -17,8 +17,6 @@ import { useOcultarSolicitudInvitado } from '../viewmodels/useSolicitudes';
 
 const colors = Colors['light'];
 
-// ─── Helpers visuales (Se mantienen igual) ──────────────────────
-
 function formatTipoSolicitud(tipo?: string): string {
     if (tipo === 'MANDATO') return 'Actividad';
     if (tipo === 'REUNION') return 'Reunión';
@@ -65,11 +63,21 @@ const ESTADO_PRIORITY: Record<string, number> = {
 };
 
 function getEstadoRelevante(solicitud: SolicitudEnviada): string {
+    const estadoPropio = mapEstado(solicitud.estado);
+
     if (!solicitud.is_host) {
-        return mapEstado(solicitud.estado);
+        return estadoPropio;
     }
+
+    if (estadoPropio === 'Visto') {
+        return 'Visto';
+    }
+
     const invitados = solicitud.invitados.filter(inv => inv.user_id !== solicitud.created_by);
-    if (invitados.length === 0) return mapEstado(solicitud.estado);
+
+    if (invitados.length === 0) {
+        return estadoPropio;
+    }
 
     const estadosUI = invitados.map(inv => mapEstado(inv.estado ?? ''));
     return estadosUI.sort(
@@ -79,28 +87,23 @@ function getEstadoRelevante(solicitud: SolicitudEnviada): string {
 
 function getContainerColor(estadoUI: string, isHost: boolean): string {
     const activos = isHost
-        ? ['Modificado', 'Modificado por creador']
+        ? ['Modificado']
         : ['Pendiente', 'Modificado por creador'];
     return activos.includes(estadoUI) ? colors.componentBackground : colors.background;
 }
 
-// ─── Props Actualizadas ──────────────────────────────────────────────────────
-
 interface SolicitudesListProps {
-    solicitudes: SolicitudEnviada[]; // <-- Ahora recibe las solicitudes del padre
+    solicitudes: SolicitudEnviada[];
     onRefresh?: () => Promise<void>;
     refreshing?: boolean;
     isLoading?: boolean;
     onOpenSolicitud: (solicitud: SolicitudEnviada) => void;
+    emptyMessage?: string;
 }
 
-// ─── Componente principal ─────────────────────────────────────────────────────
-
-export function SolicitudesList({ solicitudes, onRefresh, refreshing, isLoading, onOpenSolicitud }: SolicitudesListProps) {
-    // Ya no llamamos a useSolicitudes aquí, lo hace el padre
+export function SolicitudesList({ solicitudes, onRefresh, refreshing, isLoading, onOpenSolicitud, emptyMessage }: SolicitudesListProps) {
     const { mutate: ocultarSolicitud, isPending: isHiding } = useOcultarSolicitudInvitado();
 
-    // Deduplicación por seguridad (por si el backend repite IDs en el cambio de página)
     const solicitudesDeduplicadas = useMemo(() => {
         const seen = new Set<number>();
         return solicitudes.filter(s => {
@@ -132,37 +135,27 @@ export function SolicitudesList({ solicitudes, onRefresh, refreshing, isLoading,
         );
     }, [ocultarSolicitud]);
 
-    // El estado de carga (Skeleton) ahora se maneja en SolicitudesView para cubrir toda la pantalla
-
-    if (solicitudesDeduplicadas.length === 0 && !refreshing) {
-        return (
-            <View style={styles.centerContainer}>
-                <ThemedText type="subtitle">No tenés solicitudes</ThemedText>
-                <ThemedText style={{ color: colors.icon, marginTop: 8 }}>
-                    Aquí aparecerán las solicitudes en las que participás
-                </ThemedText>
-            </View>
-        );
-    }
-
     if (isLoading && !refreshing) {
         return <ScreenSkeleton rows={6} showHeader={false} />;
     }
 
-    if (solicitudes.length === 0 && !refreshing) {
+    if (solicitudesDeduplicadas.length === 0 && !refreshing) {
+        const subtitle = emptyMessage ?? 'No tenés solicitudes';
         return (
             <View style={styles.centerContainer}>
-                <ThemedText type="subtitle">No tenés solicitudes</ThemedText>
-                <ThemedText style={{ color: colors.icon, marginTop: 8 }}>
-                    Aquí aparecerán las solicitudes en las que participás
-                </ThemedText>
+                <ThemedText type="subtitle">{subtitle}</ThemedText>
+                {!emptyMessage && (
+                    <ThemedText style={{ color: colors.icon, marginTop: 8 }}>
+                        Aquí aparecerán las solicitudes en las que participás
+                    </ThemedText>
+                )}
             </View>
         );
     }
 
     return (
         <ScrollView
-            contentContainerStyle={{ paddingBottom: 140 }} // Aumentado para que el paginador no tape nada
+            contentContainerStyle={{ paddingBottom: 140 }}
             refreshControl={
                 <RefreshControl
                     refreshing={refreshing ?? false}
@@ -188,8 +181,6 @@ export function SolicitudesList({ solicitudes, onRefresh, refreshing, isLoading,
         </ScrollView>
     );
 }
-
-// ─── Item (Se mantiene casi igual) ──────────────────────────────────────────
 
 interface SolicitudItemProps {
     solicitud: SolicitudEnviada;
@@ -272,7 +263,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         paddingHorizontal: '4%',
-        paddingVertical: 100, // Ajustado para centrar mejor
+        paddingVertical: 100,
     },
     separator: {
         height: StyleSheet.hairlineWidth,
@@ -285,7 +276,7 @@ const styles = StyleSheet.create({
         marginVertical: 4,
         paddingHorizontal: '3%',
         paddingVertical: '3%',
-        borderRadius: 12, // Un poco más redondeado
+        borderRadius: 12,
     },
     itemContent: {
         flexDirection: 'column',

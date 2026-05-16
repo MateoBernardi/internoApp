@@ -102,8 +102,6 @@ export function useCrearSolicitud() {
         queryKey: solicitudesQueryKeys.lista(1, 20),
       });
     },
-    retry: 3,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
 }
 
@@ -128,8 +126,6 @@ export function useCancelarSolicitud() {
         queryKey: solicitudesQueryKeys.lista(1, 20),
       });
     },
-    retry: 3,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
 }
 
@@ -154,8 +150,25 @@ export function useReenviarSolicitud() {
         queryKey: solicitudesQueryKeys.lista(1, 20),
       });
     },
-    retry: 3,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+  });
+}
+
+/**
+ * Hook para agregar o quitar invitados de una solicitud existente
+ */
+export function useActualizarInvitadosSolicitud() {
+  const { tokens } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: solicitudModels.ActualizarInvitadosSolicitudRequest) => {
+      const accessToken = tokens?.accessToken;
+      if (!accessToken) throw new Error('No access token available');
+      return solicitudesApi.actualizarInvitadosSolicitud(accessToken, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: solicitudesQueryKeys.all });
+    },
   });
 }
 
@@ -179,8 +192,6 @@ export function useOcultarSolicitudInvitado() {
         queryKey: solicitudesQueryKeys.lista(1, 20),
       });
     },
-    retry: 3,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
 }
 
@@ -208,6 +219,22 @@ export function useActualizarEstadoInvitacion() {
         queryKey: solicitudesQueryKeys.lista(1, 20),
       });
     },
+  });
+}
+
+export function useBuscarSolicitudes(q: string) {
+  const { tokens } = useAuth();
+
+  return useQuery({
+    queryKey: [...solicitudesQueryKeys.all, 'buscar', q] as const,
+    enabled: q.trim().length > 0,
+    queryFn: async () => {
+      const token = tokens?.accessToken;
+      if (!token) throw new Error('No access token available');
+      return solicitudesApi.buscarSolicitudes(token, q);
+    },
+    staleTime: 1000 * 30,
+    gcTime: 1000 * 60 * 5,
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });

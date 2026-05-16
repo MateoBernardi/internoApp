@@ -23,7 +23,7 @@ import { SolicitudesList } from '../components/SolicitudesList';
 
 // Modelos, Hooks y Mappers
 import { EstadoInvitacionDB, SolicitudEnviada, estadoInvitacionMapping } from '../models/Solicitud';
-import { useSolicitudes } from '../viewmodels/useSolicitudes';
+import { useBuscarSolicitudes, useSolicitudes } from '../viewmodels/useSolicitudes';
 
 const colors = Colors['light'];
 
@@ -56,23 +56,26 @@ export default function SolicitudesView({ onRefresh, refreshing }: SolicitudesVi
   // --- ESTADOS ---
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedSolicitud, setSelectedSolicitud] = useState<SolicitudEnviada | null>(null);
   const [showCrearSolicitud, setShowCrearSolicitud] = useState(false);
   const handledParamRef = useRef<string | null>(null);
 
   // --- DATA FETCHING ---
-  const { data, isLoading, isFetching } = useSolicitudes(page, 20);
+  const isSearching = debouncedSearch.trim().length > 0;
+  const { data, isLoading, isFetching } = useSolicitudes(page, 20, !isSearching);
+  const { data: searchResults, isLoading: isLoadingSearch, isFetching: isFetchingSearch } = useBuscarSolicitudes(debouncedSearch);
 
-  const solicitudes = data?.data ?? [];
-  const totalSolicitudesGlobal = data?.total ?? 0;
-  const totalPages = Math.ceil(totalSolicitudesGlobal / 20);
+  const solicitudes = isSearching ? (searchResults ?? []) : (data?.data ?? []);
+  const totalSolicitudesGlobal = isSearching ? 0 : (data?.total ?? 0);
+  const totalPages = isSearching ? 0 : Math.ceil(totalSolicitudesGlobal / 20);
 
   // Mapeo de datos y contador de pendientes en la página actual
   const { sinVerCount } = useMemo(() => {
     const count = solicitudes.reduce((acc, sol) => {
       const estadoUI = getEstadoRelevanteUI(sol);
       const esPendiente = sol.is_host
-        ? ['Modificado', 'Modificado por creador'].includes(estadoUI)
+        ? estadoUI === 'Modificado'
         : ['Pendiente', 'Modificado por creador'].includes(estadoUI);
       return esPendiente ? acc + 1 : acc;
     }, 0);
@@ -87,6 +90,11 @@ export default function SolicitudesView({ onRefresh, refreshing }: SolicitudesVi
 
   // --- EFECTOS ---
   useEffect(() => { if (refreshing) setPage(1); }, [refreshing]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 400);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   useEffect(() => {
     if (!solicitudIdParam || solicitudes.length === 0 || handledParamRef.current === solicitudIdParam) return;
@@ -128,16 +136,17 @@ export default function SolicitudesView({ onRefresh, refreshing }: SolicitudesVi
             <Text style={styles.totalCountText}>Todo al día en esta página</Text>
           )}
         </View>
-        {isFetching && <ActivityIndicator size="small" color={colors.tint} />}
+        {(isFetching || isFetchingSearch) && <ActivityIndicator size="small" color={colors.tint} />}
       </View>
 
       {/* LISTA */}
       <SolicitudesList
         solicitudes={solicitudes}
-        isLoading={isLoading || isFetching}
-        onRefresh={onRefresh}
-        refreshing={refreshing}
+        isLoading={isSearching ? (isLoadingSearch || isFetchingSearch) : (isLoading || isFetching)}
+        onRefresh={isSearching ? undefined : onRefresh}
+        refreshing={isSearching ? false : refreshing}
         onOpenSolicitud={handleOpenSolicitud}
+        emptyMessage={isSearching ? 'No se encontraron solicitudes' : undefined}
       />
 
       {/* PAGINACIÓN */}

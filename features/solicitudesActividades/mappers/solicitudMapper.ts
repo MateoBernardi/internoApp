@@ -65,8 +65,9 @@ export const mapSolicitudInfoDTOToSolicitudEnviada = (dto: SolicitudInfoDTO): So
   created_by: dto.created_by,
   invitados: (dto.invitados ?? []).map(inv => ({
     ...inv,
-    invitado_nombre: (inv as any).nombre,
-    invitado_apellido: (inv as any).apellido
+    user_id: inv.user_id || (inv as any).id_usuario_invitado,
+    invitado_nombre: (inv as any).nombre ?? inv.invitado_nombre,
+    invitado_apellido: (inv as any).apellido ?? inv.invitado_apellido,
   })),
   tipo_actividad: dto.tipo_actividad,
   estado: dto.estado as EstadoInvitacionDB,
@@ -100,6 +101,7 @@ export function mapCrearSolicitudRequestToSolicitudDTO(request: CrearSolicitudRe
     invitados: request.invitados,
     archivosIds: request.archivosIds,
     crear_de_todos_modos: request.crear_de_todos_modos ?? 0,
+    enviar_por_separado: request.enviar_por_separado,
   };
 }
 
@@ -115,6 +117,7 @@ export function mapSolicitudDTOToCreatePayload(dto: SolicitudDTO): Record<string
     estado: dto.estado,
     crear_de_todos_modos: dto.crear_de_todos_modos,
     archivosIds: dto.archivosIds,
+    ...(dto.enviar_por_separado !== undefined ? { enviar_por_separado: dto.enviar_por_separado } : {}),
   };
 }
 
@@ -150,6 +153,7 @@ export function mapCreateSolicitudResultToResponse(result: CreateSolicitudResult
   return {
     success: result.created,
     solicitudId: result.solicitudId ?? null,
+    solicitudIds: result.solicitudIds,
     rangosOcupados: (result.rangosOcupados ?? []).map(mapRangoOcupadoDTOToRangoOcupado),
   };
 }

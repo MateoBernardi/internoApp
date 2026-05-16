@@ -118,6 +118,26 @@ export async function actualizarEstadoInvitacion(accessToken: string, data: soli
     return mapUpdateSolicitudResultToResponse(result);
 }
 
+export async function actualizarInvitadosSolicitud(
+    accessToken: string,
+    data: solicitudes.ActualizarInvitadosSolicitudRequest,
+): Promise<solicitudes.ActualizarInvitadosSolicitudResponse> {
+    console.log('Datos recibidos en actualizarInvitadosSolicitud:', data);
+    const response = await apiRequest({
+        method: 'PATCH',
+        endpoint: `/solicitudes-actividades/solicitudes/${data.solicitudId}/invitados?action=${data.action}`,
+        token: accessToken,
+        body: { invitados: data.invitados },
+    });
+
+    if (!response.ok) {
+        const errorMsg = await extractErrorText(response);
+        throw new Error(errorMsg);
+    }
+
+    return await response.json();
+}
+
 export async function ocultarSolicitudInvitado(accessToken: string, data: solicitudes.OcultarSolicitudInvitadoRequest): Promise<solicitudes.OcultarSolicitudInvitadoResponse> {
     const response = await apiRequest({ method: 'POST', endpoint: `/solicitudes-actividades/solicitudes/ocultar-invitado`, token: accessToken, body: data });
 
@@ -128,6 +148,25 @@ export async function ocultarSolicitudInvitado(accessToken: string, data: solici
     }
 
     return await response.json();
+}
+
+export async function buscarSolicitudes(
+    accessToken: string,
+    q: string,
+): Promise<solicitudes.SolicitudEnviada[]> {
+    const response = await apiRequest({
+        method: 'GET',
+        endpoint: `/solicitudes-actividades/solicitudes/buscar?q=${encodeURIComponent(q)}`,
+        token: accessToken,
+    });
+
+    if (!response.ok) {
+        const errorMsg = await extractErrorText(response);
+        throw new Error(errorMsg);
+    }
+
+    const data: SolicitudInfoDTO[] = await response.json();
+    return data.map(mapSolicitudInfoDTOToSolicitudEnviada);
 }
 
 export async function getSolicitudes(

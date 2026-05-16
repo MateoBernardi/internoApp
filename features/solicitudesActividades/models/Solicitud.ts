@@ -107,6 +107,7 @@ export interface CrearSolicitudRequest {
   invitados: number[]; // Array de IDs de usuario_entidad
   crear_de_todos_modos?: number;
   archivosIds?: number[]; // Array de IDs de archivos adjuntos (opcional)
+  enviar_por_separado?: 0 | 1;
 }
 
 export interface RangoOcupado {
@@ -119,6 +120,7 @@ export interface RangoOcupado {
 export interface CrearSolicitudResponse {
   success: boolean;
   solicitudId: number | null;
+  solicitudIds?: number[];
   rangosOcupados?: RangoOcupado[];
 }
 
@@ -161,6 +163,16 @@ export interface ReenviarSolicitudRequest {
 }
 
 export interface ReenviarSolicitudResponse {
+  success: boolean;
+}
+
+export interface ActualizarInvitadosSolicitudRequest {
+  solicitudId: number;
+  action: 'add' | 'remove';
+  invitados: number[];
+}
+
+export interface ActualizarInvitadosSolicitudResponse {
   success: boolean;
 }
 

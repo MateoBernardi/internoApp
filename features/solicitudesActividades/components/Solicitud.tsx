@@ -41,12 +41,14 @@ import {
   RangoOcupado,
   ReenviarSolicitudRequest,
   SolicitudEnviada,
+  SolicitudInvitado,
   UpdateSolicitudResponse,
   estadoInvitacionMapping,
 } from '../models/Solicitud';
 import { useCrearActividad } from '../viewmodels/useActividades';
 import {
   useActualizarEstadoInvitacion,
+  useActualizarInvitadosSolicitud,
   useCancelarSolicitud,
   useReenviarSolicitud,
   useSolicitudBitacora,
@@ -126,6 +128,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
   const { mutateAsync: crearObjetivo, isPending: isCreatingObjetivo } = useCreateObjetivo();
   const { mutateAsync: uploadArchivo } = useUploadArchivo();
   const { getArchivoUrlFirmada } = useGetArchivoUrlFirmada();
+  const { mutate: actualizarInvitados } = useActualizarInvitadosSolicitud();
   const validacion = useValidacionFechas();
 
   const isMutating = isUpdatingEstado || isCancellingSolicitud || isSharing
@@ -181,6 +184,26 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
   const { data: roleUsersData, isLoading: isLoadingRole } = useGetUserByRole(activeRole);
   const isLoadingUsers = isSearchingUsers || isLoadingRole;
 
+  // Participantes (agregar/quitar invitados)
+  const [localParticipantes, setLocalParticipantes] = useState<SolicitudInvitado[]>(() => solicitud.invitados);
+  const [participantesSelectedUsers, setParticipantesSelectedUsers] = useState<UserSummary[]>(() =>
+    solicitud.invitados.map(inv => ({
+      user_context_id: inv.user_id,
+      username: '',
+      nombre: inv.invitado_nombre ?? '',
+      apellido: inv.invitado_apellido ?? '',
+      email: '',
+      role: [],
+    }))
+  );
+  const [showParticipantesSelector, setShowParticipantesSelector] = useState(false);
+  const [participantesSearchQuery, setParticipantesSearchQuery] = useState('');
+  const [participantesActiveRole, setParticipantesActiveRole] = useState('');
+  const [showParticipantesRoleModal, setShowParticipantesRoleModal] = useState(false);
+  const [participantesExpanded, setParticipantesExpanded] = useState(false);
+  const { data: participantesSearchResults, isLoading: isSearchingParticipantes } = useSearchUsers(participantesSearchQuery);
+  const { data: participantesRoleUsersData, isLoading: isLoadingParticipantesRole } = useGetUserByRole(participantesActiveRole);
+
   const seenAutoMarkKeyRef = useRef<string | null>(null);
   const messagesScrollRef = useRef<ScrollView | null>(null);
 
@@ -232,12 +255,21 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
     return Array.from(map.values());
   }, [solicitud.archivos, bitacora]);
 
+  const displayParticipantes = useMemo(
+    () => localParticipantes.filter(inv => inv.user_id !== solicitud.created_by),
+    [localParticipantes, solicitud.created_by],
+  );
+
+  const getParticipanteDisplayName = useCallback((inv: SolicitudInvitado): string => {
+    if (inv.invitado_nombre) return `${inv.invitado_nombre} ${inv.invitado_apellido ?? ''}`.trim();
+    const matched = participantesSelectedUsers.find(u => u.user_context_id === inv.user_id);
+    if (matched?.nombre) return `${matched.nombre} ${matched.apellido}`.trim();
+    return `Usuario #${inv.user_id}`;
+  }, [participantesSelectedUsers]);
+
   // ─── Flags de estado ──────────────────────────────────────────────────────
 
   const hasDates = !!(solicitud.fecha_inicio && solicitud.fecha_fin);
-  const fechaInicio = solicitud.fecha_inicio ? new Date(solicitud.fecha_inicio) : new Date();
-  const fechaFin = solicitud.fecha_fin ? new Date(solicitud.fecha_fin) : new Date();
-  const fechaInicioPasada = hasDates && fechaInicio < new Date();
   const isExpiredState = solicitud.estado === 'EXPIRED';
   const esActividadCreada = solicitud.estado === 'ACTIVIDAD_CREADA';
   const isFinalState = ['ACTIVIDAD_CREADA', 'EXPIRED', 'ACCEPTED', 'REJECTED'].includes(solicitud.estado);
@@ -395,13 +427,16 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
 
   useEffect(() => {
     if (!solicitud) return;
+    const hasModifiedInvitados = invitadosSinCreador.some(inv => inv.estado === 'MODIFIED');
     const shouldMarkSeen = isHost
-      ? ['MODIFIED'].includes(solicitud.estado)
+      ? hasModifiedInvitados
       : ['SENT', 'MODIFIED_BY_HOST', 'ACCEPTED_BY_HOST'].includes(solicitud.estado);
 
     if (!shouldMarkSeen) { seenAutoMarkKeyRef.current = null; return; }
 
-    const key = `${solicitudId}:${solicitud.estado}`;
+    const key = isHost
+      ? `${solicitudId}:host:${hasModifiedInvitados}`
+      : `${solicitudId}:${solicitud.estado}`;
     if (seenAutoMarkKeyRef.current === key) return;
     seenAutoMarkKeyRef.current = key;
 
@@ -409,7 +444,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
       { solicitud_id: solicitudId, estado: 'SEEN' },
       { onError: () => { seenAutoMarkKeyRef.current = null; } },
     );
-  }, [solicitud, solicitudId, isHost, actualizarEstado]);
+  }, [solicitud, solicitudId, isHost, invitadosSinCreador, actualizarEstado]);
 
   // ─── Handlers aceptar / rechazar ─────────────────────────────────────────
 
@@ -680,18 +715,16 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
 
   // ─── Agenda ───────────────────────────────────────────────────────────────
 
-  const agendaStartDate = agendaFechaInicio;
-  const agendaEndDate = agendaFechaFin;
   const agendaNow = useMemo(
     () => ceilToNextMinute(new Date()),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [agendaFechaInicio, agendaFechaFin, showAddToAgendaModal],
   );
   const agendaDateErrorMessage = useMemo(() => {
-    if (agendaStartDate < agendaNow) return 'La fecha de inicio es menor a la actual.';
-    if (agendaEndDate <= agendaStartDate) return 'La fecha de fin debe ser mayor a la de inicio.';
+    if (agendaFechaInicio < agendaNow) return 'La fecha de inicio es menor a la actual.';
+    if (agendaFechaFin <= agendaFechaInicio) return 'La fecha de fin debe ser mayor a la de inicio.';
     return null;
-  }, [agendaStartDate, agendaEndDate, agendaNow]);
+  }, [agendaFechaInicio, agendaFechaFin, agendaNow]);
 
   const ejecutarAgregarAAgenda = useCallback(() => {
     const esReunion = solicitud.tipo_actividad === 'REUNION';
@@ -729,14 +762,92 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
       : (user?.user_context_id ? [user.user_context_id] : []);
     validacion.validate(
       {
-        fechaInicio: agendaStartDate, fechaFin: agendaEndDate,
+        fechaInicio: agendaFechaInicio, fechaFin: agendaFechaFin,
         participantes,
         tipo_actividad: solicitud.tipo_actividad === 'CHAT' ? undefined : solicitud.tipo_actividad as 'REUNION' | 'MANDATO',
         actividadIdExcluir: null,
       },
       () => ejecutarAgregarAAgenda(),
     );
-  }, [agendaDateErrorMessage, solicitud, user, validacion, ejecutarAgregarAAgenda, participantesAceptados, agendaStartDate, agendaEndDate]);
+  }, [agendaDateErrorMessage, solicitud, user, validacion, ejecutarAgregarAAgenda, participantesAceptados, agendaFechaInicio, agendaFechaFin]);
+
+  // ─── Participantes ───────────────────────────────────────────────────────────
+
+  const handleSelectParticipantes = useCallback((newSelection: UserSummary[]) => {
+    const currentIds = new Set(localParticipantes.map(inv => inv.user_id));
+    const newIds = new Set(newSelection.map(u => u.user_context_id));
+    const toAdd = newSelection.filter(u => !currentIds.has(u.user_context_id));
+    const toRemove = localParticipantes.filter(inv => !newIds.has(inv.user_id));
+    const snapshot = [...localParticipantes];
+
+    const nextList: SolicitudInvitado[] = [
+      ...localParticipantes.filter(inv => newIds.has(inv.user_id)),
+      ...toAdd.map(u => ({ user_id: u.user_context_id })),
+    ];
+    setLocalParticipantes(nextList);
+    setParticipantesSelectedUsers(prev => {
+      const byId = new Map(prev.map(u => [u.user_context_id, u]));
+      newSelection.forEach(u => byId.set(u.user_context_id, u));
+      toRemove.forEach(inv => byId.delete(inv.user_id));
+      return Array.from(byId.values());
+    });
+
+    if (toAdd.length > 0) {
+      actualizarInvitados(
+        { solicitudId, action: 'add', invitados: toAdd.map(u => u.user_context_id) },
+        { onError: () => setLocalParticipantes(snapshot) },
+      );
+    }
+    if (toRemove.length > 0) {
+      actualizarInvitados(
+        { solicitudId, action: 'remove', invitados: toRemove.map(inv => inv.user_id) },
+        { onError: () => setLocalParticipantes(snapshot) },
+      );
+    }
+  }, [localParticipantes, solicitudId, actualizarInvitados]);
+
+  const handleQuitarParticipante = useCallback((userId: number) => {
+    const snapshot = [...localParticipantes];
+    setLocalParticipantes(prev => prev.filter(inv => inv.user_id !== userId));
+    setParticipantesSelectedUsers(prev => prev.filter(u => u.user_context_id !== userId));
+    actualizarInvitados(
+      { solicitudId, action: 'remove', invitados: [userId] },
+      { onError: () => setLocalParticipantes(snapshot) },
+    );
+  }, [localParticipantes, solicitudId, actualizarInvitados]);
+
+  const handleToggleUserParticipante = useCallback((u: UserSummary) => {
+    const snapshot = [...localParticipantes];
+    const isInList = localParticipantes.some(inv => inv.user_id === u.user_context_id);
+    if (isInList) {
+      setLocalParticipantes(prev => prev.filter(inv => inv.user_id !== u.user_context_id));
+      setParticipantesSelectedUsers(prev => prev.filter(p => p.user_context_id !== u.user_context_id));
+      actualizarInvitados(
+        { solicitudId, action: 'remove', invitados: [u.user_context_id] },
+        { onError: () => setLocalParticipantes(snapshot) },
+      );
+    } else {
+      setLocalParticipantes(prev => [...prev, { user_id: u.user_context_id }]);
+      setParticipantesSelectedUsers(prev =>
+        prev.some(p => p.user_context_id === u.user_context_id) ? prev : [...prev, u]
+      );
+      actualizarInvitados(
+        { solicitudId, action: 'add', invitados: [u.user_context_id] },
+        { onError: () => setLocalParticipantes(snapshot) },
+      );
+    }
+  }, [localParticipantes, solicitudId, actualizarInvitados]);
+
+  const handleSelectAllParticipantes = useCallback((users: UserSummary[]) => {
+    const byId = new Map(participantesSelectedUsers.map(u => [u.user_context_id, u]));
+    users.forEach(u => { if (!byId.has(u.user_context_id)) byId.set(u.user_context_id, u); });
+    handleSelectParticipantes(Array.from(byId.values()));
+  }, [participantesSelectedUsers, handleSelectParticipantes]);
+
+  const handleDeselectAllParticipantes = useCallback((users: UserSummary[]) => {
+    const idsToRemove = new Set(users.map(u => u.user_context_id));
+    handleSelectParticipantes(participantesSelectedUsers.filter(u => !idsToRemove.has(u.user_context_id)));
+  }, [participantesSelectedUsers, handleSelectParticipantes]);
 
   // ─── Compartir ────────────────────────────────────────────────────────────
 
@@ -836,6 +947,76 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                   </View>
                 </View>
               </View>
+
+              {/* Participantes */}
+              {isHost && (
+                <View style={styles.participantesSection}>
+                  <View style={styles.sectionHeaderRow}>
+                    <ThemedText style={styles.label}>Participantes</ThemedText>
+                    <TouchableOpacity
+                      style={styles.actionButton}
+                      onPress={() => setShowParticipantesSelector(p => !p)}
+                    >
+                      <Ionicons name="add" size={16} color={colors.tint} />
+                      <ThemedText style={styles.actionButtonText}>Agregar</ThemedText>
+                    </TouchableOpacity>
+                  </View>
+
+                  {showParticipantesSelector && (
+                    <View style={styles.selectorCard}>
+                      <UserSelector
+                        selectedUsers={participantesSelectedUsers}
+                        onSelectUsers={handleSelectParticipantes}
+                        users={participantesSearchResults ?? []}
+                        roles={rolesForSelector}
+                        isLoadingUsers={isSearchingParticipantes || isLoadingParticipantesRole}
+                        onSearch={setParticipantesSearchQuery}
+                        onSelectRole={role => { setParticipantesActiveRole(role); setShowParticipantesRoleModal(true); }}
+                        showSelectedChips={false}
+                      />
+                    </View>
+                  )}
+
+                  {displayParticipantes.length === 0 ? (
+                    <ThemedText style={{ color: colors.secondaryText, fontSize: 14 }}>Sin participantes</ThemedText>
+                  ) : (
+                    <>
+                      {(participantesExpanded ? displayParticipantes : displayParticipantes.slice(0, 2)).map((inv, idx) => (
+                        <View key={`${inv.user_id ?? idx}-${idx}`} style={styles.inviteRow}>
+                          <View style={styles.participanteAvatar}>
+                            <ThemedText style={styles.participanteAvatarText}>
+                              {getParticipanteDisplayName(inv).charAt(0).toUpperCase()}
+                            </ThemedText>
+                          </View>
+                          <ThemedText style={[styles.inviteName, { flex: 1 }]}>
+                            {getParticipanteDisplayName(inv)}
+                          </ThemedText>
+                          <TouchableOpacity onPress={() => handleQuitarParticipante(inv.user_id)}>
+                            <Ionicons name="close-circle" size={20} color="#9ca3af" />
+                          </TouchableOpacity>
+                        </View>
+                      ))}
+                      {displayParticipantes.length > 2 && (
+                        <TouchableOpacity
+                          onPress={() => setParticipantesExpanded(p => !p)}
+                          style={styles.collapsibleToggle}
+                        >
+                          <ThemedText style={styles.collapsibleToggleText}>
+                            {participantesExpanded
+                              ? 'Ver menos'
+                              : `+${displayParticipantes.length - 2} más`}
+                          </ThemedText>
+                          <Ionicons
+                            name={participantesExpanded ? 'chevron-up' : 'chevron-down'}
+                            size={14}
+                            color={colors.tint}
+                          />
+                        </TouchableOpacity>
+                      )}
+                    </>
+                  )}
+                </View>
+              )}
 
               {/* Banner expirada */}
               {isExpiredState && (
@@ -1270,6 +1451,17 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
               onDeselectAll={handleDeselectAllRoleUsers}
             />
 
+            <RoleUserSelectionModal
+              visible={showParticipantesRoleModal}
+              onClose={() => { setShowParticipantesRoleModal(false); setParticipantesActiveRole(''); }}
+              roleName={participantesActiveRole}
+              roleUsers={participantesRoleUsersData ?? []}
+              selectedUsers={participantesSelectedUsers}
+              onToggleUser={handleToggleUserParticipante}
+              onSelectAll={handleSelectAllParticipantes}
+              onDeselectAll={handleDeselectAllParticipantes}
+            />
+
             {/* Modal Agregar a la Agenda */}
             <Modal visible={showAddToAgendaModal} transparent animationType="fade" onRequestClose={() => setShowAddToAgendaModal(false)}>
               <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
@@ -1418,11 +1610,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: '#f3f4f6',
   },
-  loadingContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   content: {
     flex: 1,
   },
@@ -1442,86 +1629,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.neutralBorder,
   },
-  sectionTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  labelInline: {
-    marginBottom: 0,
-  },
   badgeRow: {
     marginTop: 8,
-  },
-  emptyValueText: {
-    color: colors.secondaryText,
-    fontSize: 14,
-    marginTop: 4,
-  },
-  dateStack: {
-    marginTop: 6,
-    gap: 6,
-  },
-  fullScreenContainer: {
-    flex: 1,
-    marginTop: '5%',
-    backgroundColor: Colors['light'].componentBackground,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    overflow: 'hidden',
-  },
-  dateSection: {
-    padding: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.componentBackground,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.componentBackground,
-  },
-  switchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  dateSectionTitle: {
-    fontSize: 16,
-    color: colors.text,
-  },
-  dateRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 4,
-  },
-  dateValue: {
-    fontSize: 16,
-    color: colors.tint,
-    flex: 1,
-  },
-  timeValue: {
-    fontSize: 16,
-    color: colors.tint,
-    textAlign: 'right',
-  },
-  inputSection: {
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.componentBackground,
   },
   label: {
     fontSize: 12,
     fontWeight: '600',
     color: '#6b7280',
     marginBottom: 4,
-  },
-  valueText: {
-    fontSize: 16,
-    color: colors.text,
-  },
-  userChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
   },
   chip: {
     alignSelf: 'flex-start',
@@ -1536,15 +1651,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.lightTint,
     fontWeight: '700',
-  },
-  messageSection: {
-    padding: 16,
-    minHeight: 100,
-  },
-  messageText: {
-    fontSize: 16,
-    color: colors.text,
-    lineHeight: 24,
   },
   expiredBanner: {
     marginHorizontal: UI.spacing.lg,
@@ -1569,7 +1675,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginTop: 2,
   },
-  // Banner verde para solicitud aceptada
   agendaVerdeBanner: {
     borderRadius: 10,
     borderWidth: 1,
@@ -1609,19 +1714,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 13,
     fontWeight: '600',
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: colors.background,
-  },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: colors.secondaryText,
   },
   sectionActionText: {
     fontSize: 12,
@@ -1699,7 +1791,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.text,
   },
-  // Mensaje de sistema centrado
   systemMessageContainer: {
     alignItems: 'center',
     marginVertical: 8,
@@ -1740,7 +1831,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.componentBackground,
     overflow: 'hidden',
   },
-  // Sección de fechas inline en el composer
   inlineDateSection: {
     paddingHorizontal: 12,
     paddingTop: 10,
@@ -1897,46 +1987,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 16,
   },
-  modifyModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-  },
-  modifyModalHeader: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomColor: Colors['light'].icon,
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-  },
-  modifyModalTitle: {
-    fontSize: UI.fontSize.xxl,
-    color: colors.tint,
-    fontWeight: '500',
-  },
-  modifyModalHeaderActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginLeft: 12,
-  },
-  modifyModalHeaderBtn: {
-    padding: 6,
-    borderRadius: 16,
-    backgroundColor: '#f3f4f6',
-    marginLeft: 8,
-  },
   dateBtn: {
     padding: 10,
     backgroundColor: colors.background,
     borderRadius: 8,
     flex: 0.48,
     alignItems: 'center',
-  },
-  input: {
-    borderBottomWidth: 1,
-    borderBottomColor: colors.background,
-    paddingVertical: 8,
-    fontSize: 16,
   },
   sectionHeaderRow: {
     flexDirection: 'row',
@@ -1955,28 +2011,52 @@ const styles = StyleSheet.create({
     borderColor: Colors.light.tint,
     backgroundColor: Colors.light.tint + '12',
   },
-  actionButtonDisabled: {
-    opacity: 0.5,
-  },
   actionButtonText: {
     fontSize: 12,
     fontWeight: '700',
     color: Colors.light.tint,
-  },
-  actionButtonTextDisabled: {
-    color: '#9ca3af',
-  },
-  section: {
-    marginTop: 12,
-    gap: 10,
   },
   sectionValue: {
     fontSize: 16,
     color: '#111827',
     fontWeight: '600',
   },
-  inviteList: {
-    gap: 10,
+  participantesSection: {
+    gap: 8,
+  },
+  selectorCard: {
+    marginTop: 4,
+    marginBottom: 4,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.neutralBorder,
+    backgroundColor: colors.background,
+  },
+  participanteAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.lightTint + '22',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  participanteAvatarText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.lightTint,
+  },
+  collapsibleToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingTop: 2,
+  },
+  collapsibleToggleText: {
+    fontSize: 13,
+    color: colors.tint,
+    fontWeight: '600',
   },
   inviteRow: {
     flexDirection: 'row',
@@ -1988,40 +2068,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e5e7eb',
   },
-  inviteRowActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
   inviteName: {
     fontSize: 14,
     fontWeight: '600',
     color: '#111827',
-  },
-  inviteMeta: {
-    fontSize: 12,
-    color: '#6b7280',
-    marginTop: 2,
-  },
-  uploadButtonContainer: {
-    backgroundColor: Colors['light'].componentBackground,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: Colors['light'].icon,
-    paddingHorizontal: '4%',
-    paddingTop: 10,
-  },
-  uploadButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 8,
-    gap: 8,
-  },
-  uploadButtonText: {
-    color: Colors['light'].lightTint,
-    fontWeight: '600',
-    fontSize: 16,
   },
   linkText: {
     color: '#2563eb',

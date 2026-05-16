@@ -98,6 +98,7 @@ export function CrearSolicitud({ visible, onClose }: CrearSolicitudProps) {
   const [allDay, setAllDay] = useState(false);
   const [tipoActividad, setTipoActividad] = useState<'REUNION' | 'MANDATO' | 'CHAT'>('MANDATO');
   const [includeDates, setIncludeDates] = useState(false);
+  const [enviarPorSeparado, setEnviarPorSeparado] = useState(false);
   const [showRoleModal, setShowRoleModal] = useState(false);
   const [activeRole, setActiveRole] = useState('');
   const [selectedUsers, setSelectedUsers] = useState<UserSummary[]>([]);
@@ -167,6 +168,7 @@ export function CrearSolicitud({ visible, onClose }: CrearSolicitudProps) {
     setBackendRangosOcupados([]);
     setPendingPayload(null);
     setPickedFiles([]);
+    setEnviarPorSeparado(false);
     onClose();
   }, [onClose]);
 
@@ -323,11 +325,17 @@ export function CrearSolicitud({ visible, onClose }: CrearSolicitudProps) {
           return;
         }
 
-        showModal('Éxito', 'Solicitud creada correctamente');
+        if (response.solicitudIds && response.solicitudIds.length > 1) {
+          showModal('Éxito', `Se crearon ${response.solicitudIds.length} solicitudes`);
+        } else {
+          showModal('Éxito', 'Solicitud creada correctamente');
+        }
         handleClose();
       },
       onError: (error: any) => {
-        showModal('Error', error instanceof Error ? error.message : 'Intenta nuevamente');
+        const msg = error instanceof Error ? error.message : 'Intenta nuevamente';
+        const isChatDuplicate = msg.includes('Ya existe una solicitud de CHAT activa');
+        showModal(isChatDuplicate ? 'Conversación duplicada' : 'Error', msg);
       },
     });
   }, [crearSolicitud, handleClose, showModal]);
@@ -398,6 +406,7 @@ export function CrearSolicitud({ visible, onClose }: CrearSolicitudProps) {
       crear_de_todos_modos: 0,
       ...(archivosIds.length > 0 ? { archivosIds } : {}),
       ...(hasDates ? { fecha_inicio: start, fecha_fin: end } : {}),
+      ...(enviarPorSeparado && selectedUsers.length > 1 ? { enviar_por_separado: 1 } : {}),
     };
 
     ejecutarCreacion(payload);
@@ -554,6 +563,20 @@ export function CrearSolicitud({ visible, onClose }: CrearSolicitudProps) {
               </View>
 
               <View style={styles.dateSection}>
+                {selectedUsers.length > 1 && (
+                  <View style={[styles.switchRow, { marginTop: 4 }]}>
+                    <Ionicons name="people-outline" size={20} color={colors.secondaryText} style={{ marginRight: 8 }} />
+                    <ThemedText style={[styles.dateSectionTitle, { color: colors.secondaryText }]}>Enviar por separado</ThemedText>
+                    <View style={{ flex: 1 }} />
+                    <Switch
+                      value={enviarPorSeparado}
+                      onValueChange={setEnviarPorSeparado}
+                      trackColor={{ false: colors.secondaryText, true: colors.success }}
+                      thumbColor={colors.componentBackground}
+                    />
+                  </View>
+                )}
+
                 {tipoActividad === 'MANDATO' && (
                   <View style={[styles.switchRow, { marginTop: 4 }]}>
                     <Ionicons name="calendar-outline" size={20} color={colors.secondaryText} style={{ marginRight: 8 }} />

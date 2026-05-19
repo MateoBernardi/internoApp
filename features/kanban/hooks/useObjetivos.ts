@@ -46,7 +46,6 @@ export function useCreateObjetivo() {
             if (!token) {
                 throw new Error('No hay token de acceso');
             }
-            console.log('Creando objetivo con data:', data);
             return createObjetivo(token, data);
         },
         onSuccess: (newObjetivo) => {

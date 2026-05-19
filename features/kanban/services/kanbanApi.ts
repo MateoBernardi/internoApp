@@ -10,7 +10,6 @@ export async function fetchObjetivos(accessToken: string): Promise<Objetivo[]> {
     }
 
     const data: Objetivo[] = await response.json();
-    console.log('Objetivos obtenidos:', data);
     return data;
 }
 
@@ -50,7 +49,6 @@ export async function editObjetivo(
     field: 'titulo' | 'descripcion',
     data: string
 ): Promise<Objetivo> {
-    console.log(`Editando objetivo ${id}, campo: ${field}, nuevo valor: ${data}`);
 
     const response = await apiRequest({
         method: 'PATCH',

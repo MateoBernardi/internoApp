@@ -39,7 +39,7 @@ export default function Documentos() {
   const deleteCarpeta = useDeleteCarpeta();
   const [tab, setTab] = useState<TabType>('empresa');
   const [modalVisible, setModalVisible] = useState(false);
-  const [pickedFile, setPickedFile] = useState<any>(null);
+  const [pickedFiles, setPickedFiles] = useState<any[]>([]);
   const [query, setQuery] = useState('');
   const { data: searchResults } = useSearchArchivos(query);
   const [currentFolderId, setCurrentFolderId] = useState<number | null>(null);
@@ -234,9 +234,11 @@ export default function Documentos() {
   const handleCreateDocument = async () => {
     setFabMenuVisible(false);
     try {
-      const result = await DocumentPicker.getDocumentAsync({});
+      const result = await DocumentPicker.getDocumentAsync({
+        multiple: true
+      });
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        setPickedFile(result.assets[0]);
+        setPickedFiles(result.assets);
         setModalVisible(true);
       }
     } catch (err) {
@@ -459,9 +461,9 @@ export default function Documentos() {
           visible={modalVisible}
           onClose={() => {
             setModalVisible(false);
-            setPickedFile(null);
+            setPickedFiles([]);
           }}
-          initialFile={pickedFile}
+          initialFiles={pickedFiles}
           initialFolderId={currentFolderId}
         />
       )}

@@ -1,6 +1,9 @@
+import { ArchivoDTO } from '@/features/docs/dto/ArchivoDTO';
+import type { Archivo } from '@/features/docs/models/Archivo';
+
 // Estado de invitación (valores según el backend)
 export type EstadoInvitacionDB = 'SENT' | 'SEEN' | 'MODIFIED' | 'MODIFIED_BY_HOST' | 'ACCEPTED_BY_HOST' | 'ACCEPTED' | 'REJECTED' | 'ACTIVIDAD_CREADA' | 'EXPIRED';
-export type EstadoInvitacionUI = 'Pendiente' | 'Visto' | 'Modificado' | 'Modificado por creador' |'Aceptado por creador' | 'Aceptado' | 'Rechazado' | 'Actividad creada' | 'Expirada';
+export type EstadoInvitacionUI = 'Pendiente' | 'Visto' | 'Modificado' | 'Modificado por creador' | 'Aceptado por creador' | 'Aceptado' | 'Rechazado' | 'Actividad creada' | 'Expirada';
 
 // Mapeo de estados de DB a UI
 export const estadoInvitacionMapping: Record<EstadoInvitacionDB, EstadoInvitacionUI> = {
@@ -43,21 +46,35 @@ export interface Solicitud {
   estado: EstadoInvitacionDB; // Estado de la invitación
   nombre: string; // Opcional: nombre del creador de la solicitud
   apellido: string; // Opcional: apellido del creador de la solicitud
+  nombre_creador?: string; // Nombre del creador (respuesta backend)
+  apellido_creador?: string; // Apellido del creador (respuesta backend)
+  id_usuario_invitado?: number;
+  nombre_invitado?: string;
+  apellido_invitado?: string;
+  archivos?: Archivo[];
 }
 
-export interface SolicitudEnviada{
+export interface SolicitudEnviada {
   solicitud_id: number;
   titulo: string;
   descripcion: string;
-  created_by: number;
   fecha_inicio: Date | null;
   fecha_fin: Date | null;
-  tipo_actividad?: TipoActividadDB;
-  estado: EstadoInvitacionDB; // Estado de la invitación
-  nombre_creador: string; // Nombre del creador de la solicitud
-  apellido_creador: string; // Apellido del creador de la solicitud
-  invitado_nombre: string; // Nombre del invitado
-  invitado_apellido: string; // Apellido del invitado
+  nombre_creador: string;
+  apellido_creador: string;
+  created_by: number;
+  invitados: SolicitudInvitado[]; // todos los participantes, incluye al creador
+  tipo_actividad: string;
+  estado: string;
+  archivos: ArchivoDTO[];
+  is_host: boolean;
+}
+
+export interface SolicitudInvitado {
+  user_id: number;
+  invitado_nombre?: string;
+  invitado_apellido?: string;
+  estado?: EstadoInvitacionDB;
 }
 
 export interface InvitadoResumen {
@@ -75,10 +92,11 @@ export interface SolicitudEnviadaAgrupada {
   fecha_fin: Date | null;
   tipo_actividad?: TipoActividadDB;
   invitados: InvitadoResumen[];
+  archivos?: Archivo[];
 }
 
-export type TipoActividad = 'PETICION' | 'REUNION';
-export type TipoActividadDB = 'MANDATO' | 'REUNION';
+export type TipoActividad = 'PETICION' | 'REUNION' | 'CHAT';
+export type TipoActividadDB = 'MANDATO' | 'REUNION' | 'CHAT';
 
 export interface CrearSolicitudRequest {
   titulo: string;
@@ -88,6 +106,8 @@ export interface CrearSolicitudRequest {
   tipo_actividad: TipoActividadDB;
   invitados: number[]; // Array de IDs de usuario_entidad
   crear_de_todos_modos?: number;
+  archivosIds?: number[]; // Array de IDs de archivos adjuntos (opcional)
+  enviar_por_separado?: 0 | 1;
 }
 
 export interface RangoOcupado {
@@ -100,6 +120,7 @@ export interface RangoOcupado {
 export interface CrearSolicitudResponse {
   success: boolean;
   solicitudId: number | null;
+  solicitudIds?: number[];
   rangosOcupados?: RangoOcupado[];
 }
 
@@ -110,6 +131,7 @@ export interface ActualizarEstadoInvitacionRequest {
   fecha_fin_nueva?: Date | null;
   observacion?: string | null;
   crear_de_todos_modos?: number;
+  archivosIds?: number[];
 }
 
 export interface ActualizarEstadoInvitacionResponse {
@@ -124,6 +146,7 @@ export interface UpdateSolicitudRequest {
   fecha_fin_nueva?: Date | null;
   observacion?: string | null;
   crear_de_todos_modos?: number;
+  archivosIds?: number[];
 }
 
 export interface UpdateSolicitudResponse {
@@ -140,6 +163,16 @@ export interface ReenviarSolicitudRequest {
 }
 
 export interface ReenviarSolicitudResponse {
+  success: boolean;
+}
+
+export interface ActualizarInvitadosSolicitudRequest {
+  solicitudId: number;
+  action: 'add' | 'remove';
+  invitados: number[];
+}
+
+export interface ActualizarInvitadosSolicitudResponse {
   success: boolean;
 }
 
@@ -191,4 +224,5 @@ export interface BitacoraSolicitud {
   usuario_nombre: string;
   usuario_apellido: string;
   estado: EstadoInvitacionDB;
+  archivos?: Archivo[];
 }

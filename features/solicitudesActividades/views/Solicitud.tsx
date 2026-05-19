@@ -3,6 +3,7 @@ import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
 import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
 import { Colors, UI } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
+import { useGetArchivoUrlFirmada } from '@/features/docs/viewmodels/useArchivos';
 import { useValidacionFechas } from '@/features/solicitudesActividades/viewmodels/useValidacionFechas';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { AppFab } from '@/shared/ui/AppFab';
@@ -11,24 +12,27 @@ import { adminRoles, allRoles } from '@/shared/users/roles';
 import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
+  Linking,
   Modal,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
+  Text,
   TextInput,
   TouchableOpacity,
   TouchableWithoutFeedback,
-  View,
+  View
 } from 'react-native';
 import { UserSelector } from '../../../components/UserSelector';
 import { RoleUserSelectionModal } from '../components/RoleUserSelectionModal';
 import { ValidacionFechasModal } from '../components/ValidacionFechasModal';
-import { EstadoInvitacionDB, estadoInvitacionMapping, RangoOcupado, ReenviarSolicitudRequest, UpdateSolicitudResponse } from '../models/Solicitud';
+import { EstadoInvitacionDB, estadoInvitacionMapping, RangoOcupado, ReenviarSolicitudRequest, SolicitudEnviada, UpdateSolicitudResponse } from '../models/Solicitud';
 import { useCrearActividad } from '../viewmodels/useActividades';
 import {
   useActualizarEstadoInvitacion,
@@ -69,14 +73,22 @@ function ceilToNextMinute(date: Date): Date {
   return normalized;
 }
 
+interface SolicitudProps {
+  solicitud: SolicitudEnviada;
+  visible?: boolean;
+  onClose?: () => void;
+}
+
 // Para este ejemplo, asumimos que obtenemos la solicitud del caché o desde un parámetro
-export function Solicitud() {
+export function Solicitud(props: SolicitudProps = {}) {
   const router = useRouter();
-  const { id, type } = useLocalSearchParams<{ id: string; type: string }>();
+  const { id, type: typeParam } = useLocalSearchParams<{ id?: string; type?: string }>();
   const { user } = useAuth();
   const { hasRole } = useRoleCheck();
 
-  const solicitudId = parseInt(id);
+  const { solicitud, visible, onClose } = props;
+  const solicitudId = solicitud.solicitud_id;
+  const isHost = solicitud.is_host;
 
   const { data: bitacora, isLoading: isLoadingBitacora } = useSolicitudBitacora(solicitudId);
   const { mutate: actualizarEstado, isPending: isUpdatingEstado } = useActualizarEstadoInvitacion();
@@ -84,6 +96,7 @@ export function Solicitud() {
   const { mutate: reenviarSolicitud, isPending: isSharing } = useReenviarSolicitud();
   const { mutate: crearActividad, isPending: isCreatingActividad } = useCrearActividad();
   const validacion = useValidacionFechas();
+  const { getArchivoUrlFirmada } = useGetArchivoUrlFirmada();
 
   const { data: enviadas } = useSolicitudesCreadas();
   const { data: recibidas } = useInvitaciones();
@@ -158,25 +171,16 @@ export function Solicitud() {
     );
   }, [backendActividadRangos]);
 
-  const solicitud = useMemo(() => {
-    if (type === 'enviada') {
-      return enviadas?.find(s => s.solicitud_id === solicitudId);
-    }
-    return recibidas?.find(s => s.solicitud_id === solicitudId);
-  }, [type, solicitudId, enviadas, recibidas]);
-
   // Para REUNION: obtener todos los invitados de esta solicitud (desde enviadas)
-  const todosInvitados = useMemo(() => {
-    if (!enviadas) return [];
-    return enviadas.filter(s => s.solicitud_id === solicitudId);
-  }, [enviadas, solicitudId]);
+  const todosInvitados = solicitud?.invitados ?? [];
 
   const paraEnviada = useMemo(() => {
-    const nombres = todosInvitados
-      .map((inv) => [inv.invitado_nombre, inv.invitado_apellido].filter(Boolean).join(' ').trim())
+    const nombres = (solicitud?.invitados ?? [])
+      .filter(inv => inv.user_id !== solicitud?.created_by) // excluir al creador del "Para:"
+      .map(inv => [inv.invitado_nombre, inv.invitado_apellido].filter(Boolean).join(' ').trim())
       .filter(Boolean);
     return Array.from(new Set(nombres)).join(', ');
-  }, [todosInvitados]);
+  }, [solicitud]);
 
   // IDs de participantes aceptados (para REUNION "agregar a la agenda")
   const participantesAceptados = useMemo(() => {
@@ -191,25 +195,16 @@ export function Solicitud() {
 
   // Determinar si se puede "agregar a la agenda" según tipo
   const puedeAgregarAAgenda = useMemo(() => {
-    if (!solicitud) return false;
-    // Si ya se creó la actividad, no se puede agregar nuevamente
     if (solicitud.estado === 'ACTIVIDAD_CREADA') return false;
-    const esReunion = solicitud.tipo_actividad === 'REUNION';
-    const esMandato = solicitud.tipo_actividad === 'MANDATO';
-
-    if (esReunion) {
-      // REUNION: solo el creador (ve la solicitud como "enviada") puede agregar
-      // Y al menos un invitado debe haber aceptado
-      const algunAceptado = todosInvitados.some(inv => inv.estado === 'ACCEPTED');
-      return type === 'enviada' && algunAceptado;
+    if (solicitud.tipo_actividad === 'REUNION') {
+      const algunAceptado = solicitud.invitados.some(inv => inv.estado === 'ACCEPTED');
+      return isHost && algunAceptado;
     }
-    if (esMandato) {
-      // MANDATO: el invitado (recibida) agrega a su propia agenda cuando acepta
-      return type === 'recibida' && solicitud.estado === 'ACCEPTED';
+    if (solicitud.tipo_actividad === 'MANDATO') {
+      return !isHost && solicitud.estado === 'ACCEPTED';
     }
-    // Fallback: comportamiento anterior
-    return type === 'recibida' && solicitud.estado === 'ACCEPTED';
-  }, [solicitud, type, todosInvitados]);
+    return !isHost && solicitud.estado === 'ACCEPTED';
+  }, [solicitud, isHost]);
 
   const esActividadCreada = solicitud?.estado === 'ACTIVIDAD_CREADA';
 
@@ -237,14 +232,14 @@ export function Solicitud() {
   useEffect(() => {
     if (!solicitud) return;
 
-    const shouldMarkSeen = (type === 'recibida' && ['SENT', 'MODIFIED_BY_HOST', 'ACCEPTED_BY_HOST'].includes(solicitud.estado));
+    const shouldMarkSeen = !isHost && ['SENT', 'MODIFIED_BY_HOST', 'ACCEPTED_BY_HOST'].includes(solicitud.estado);
 
     if (!shouldMarkSeen) {
       seenAutoMarkKeyRef.current = null;
       return;
     }
 
-    const attemptKey = `${type}:${solicitud.solicitud_id}:${solicitud.estado}`;
+    const attemptKey = `${resolvedType}:${solicitud.solicitud_id}:${solicitud.estado}`;
     if (seenAutoMarkKeyRef.current === attemptKey) {
       return;
     }
@@ -262,7 +257,7 @@ export function Solicitud() {
         },
       }
     );
-  }, [type, solicitud, actualizarEstado]);
+  }, [resolvedType, solicitud, actualizarEstado]);
 
   const handleAceptarPress = useCallback(() => {
     setAcceptObservation('');
@@ -397,7 +392,7 @@ export function Solicitud() {
     setPendingModificarPayload(payload);
     actualizarEstado({
       solicitud_id: solicitudId,
-      estado: type === 'enviada' ? 'MODIFIED_BY_HOST' : 'MODIFIED',
+      estado: isHost ? 'MODIFIED_BY_HOST' : 'MODIFIED',
       ...payload,
       crear_de_todos_modos: crearDeTodosModos,
     }, {
@@ -415,7 +410,7 @@ export function Solicitud() {
         Alert.alert('Error', error instanceof Error ? error.message : 'Intenta nuevamente');
       }
     });
-  }, [solicitudId, modStartDate, modEndDate, modObservation, actualizarEstado, type, solicitud, resetModifyDraft]);
+  }, [solicitudId, modStartDate, modEndDate, modObservation, actualizarEstado, resolvedType, solicitud, resetModifyDraft]);
 
   const forceModificarSolicitud = useCallback(() => {
     if (!pendingModificarPayload) return;
@@ -714,16 +709,25 @@ export function Solicitud() {
     setShowRoleModal(true);
   }, []);
 
+  const handleOpenArchivo = useCallback(async (archivoId: number) => {
+    try {
+      const url = await getArchivoUrlFirmada(archivoId);
+      Linking.openURL(url).catch(() => Alert.alert('Error', 'No se pudo abrir el archivo'));
+    } catch {
+      Alert.alert('Error', 'No se pudo obtener el enlace del archivo');
+    }
+  }, [getArchivoUrlFirmada]);
+
   const hasDates = !!(solicitud?.fecha_inicio && solicitud?.fecha_fin);
   const fechaInicio = solicitud?.fecha_inicio ? new Date(solicitud.fecha_inicio) : new Date();
   const fechaFin = solicitud?.fecha_fin ? new Date(solicitud.fecha_fin) : new Date();
   const fechaInicioPasada = hasDates ? fechaInicio < new Date() : false;
   const isExpiredState = solicitud?.estado === 'EXPIRED';
   const isSentState = solicitud?.estado === 'SENT';
-  const isAceptarModificacionesFlow = type === 'enviada' && solicitud?.estado === 'MODIFIED';
-  const puedeCompartirEnviada = type === 'enviada' && !isExpiredState && !esActividadCreada;
-  const puedeCancelarEnviada = type === 'enviada' && !!solicitud && CANCELABLE_ENVIADA_STATES.includes(solicitud.estado);
-  const compartirEnMenuEnviadaVista = type === 'enviada' && solicitud?.estado === 'SEEN';
+  const isAceptarModificacionesFlow = isHost && solicitud.estado === 'MODIFIED';
+  const puedeCompartirEnviada = isHost && !isExpiredState && !esActividadCreada;
+  const puedeCancelarEnviada = isHost && CANCELABLE_ENVIADA_STATES.includes(solicitud.estado);
+  const compartirEnMenuEnviadaVista = isHost && solicitud.estado === 'SEEN';
   const canOpenMenu = !esActividadCreada
     && !isExpiredState
     && solicitud?.estado !== 'ACCEPTED'
@@ -735,598 +739,713 @@ export function Solicitud() {
     return bitacora.filter((entrada) => MODIFIED_STATES.includes(entrada.estado));
   }, [bitacora, showFullBitacora]);
 
-  if (!solicitud && !enviadas && !recibidas) {
-    return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color={colors.lightTint} />
-      </View>
-    )
-  }
+  const mensajes = useMemo(() => {
+    if (!solicitud) return bitacoraVisible;
+
+    const descripcion = solicitud.descripcion?.trim();
+    if (!descripcion) return bitacoraVisible;
+
+    const createdAt = solicitud.fecha_inicio
+      ? new Date(solicitud.fecha_inicio).toISOString()
+      : new Date().toISOString();
+
+    return [
+      {
+        id: 'descripcion',
+        usuario_id: solicitud.created_by ?? null,
+        usuario_nombre: solicitud.nombre_creador ?? '',
+        usuario_apellido: solicitud.apellido_creador ?? '',
+        created_at: createdAt,
+        observacion: descripcion,
+        estado: 'MESSAGE',
+        fecha_inicio_nueva: null,
+        fecha_fin_nueva: null,
+        archivos: solicitud.archivos ?? [],
+      },
+      ...bitacoraVisible,
+    ];
+  }, [bitacoraVisible, solicitud]);
+
+  const isLoadingSolicitud = !solicitud && !enviadas && !recibidas;
 
   return (
-    <View style={styles.container}>
-      <ScrollView
-        style={styles.content}
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Detalles */}
-        <View style={styles.inputSection}>
-          <ThemedText style={styles.label}>{type === 'enviada' ? 'Para' : 'De'}</ThemedText>
-          <View style={styles.userChip}>
-            <ThemedText style={{ color: colors.lightTint }}>
-              {type === 'enviada'
-                ? paraEnviada
-                : `${solicitud?.nombre_creador || ''} ${solicitud?.apellido_creador || ''}`}
-            </ThemedText>
-          </View>
-        </View>
-
-        <View style={[styles.inputSection, { borderBottomWidth: 0, paddingVertical: 10 }]}>
-          <View style={[styles.chip, { borderColor: colors.lightTint, backgroundColor: 'transparent', borderWidth: 1 }]}>
-            <ThemedText style={[styles.chipText, { color: colors.lightTint, fontWeight: 'bold' }]}>
-              {solicitud?.tipo_actividad === 'MANDATO' ? 'Actividad' : 'Reunión'}
-            </ThemedText>
-          </View>
-        </View>
-
-        <View style={styles.dateSection}>
-          <View style={styles.switchRow}>
-            <Ionicons name="time-outline" size={20} color={colors.lightTint} style={{ marginRight: 8 }} />
-            <ThemedText style={styles.dateSectionTitle}>
-              Fecha
-            </ThemedText>
-          </View>
-
-          {hasDates ? (
-            <>
-              <View style={styles.dateRow}>
-                <ThemedText style={styles.dateValue}>
-                  {formatDateDDMMYYYY(fechaInicio)}
-                </ThemedText>
-                <ThemedText style={styles.timeValue}>
-                  {formatTimeHHMM(fechaInicio)}
-                </ThemedText>
-              </View>
-
-              <View style={styles.dateRow}>
-                <ThemedText style={styles.dateValue}>
-                  {formatDateDDMMYYYY(fechaFin)}
-                </ThemedText>
-                <ThemedText style={styles.timeValue}>
-                  {formatTimeHHMM(fechaFin)}
-                </ThemedText>
-              </View>
-            </>
-          ) : (
-            <ThemedText style={{ color: colors.secondaryText, fontSize: 14, marginTop: 4 }}>
-              Sin fecha definida
-            </ThemedText>
-          )}
-        </View>
-
-        <View style={styles.inputSection}>
-          <ThemedText style={styles.label}>Asunto</ThemedText>
-          <ThemedText style={styles.valueText}>{solicitud?.titulo}</ThemedText>
-        </View>
-
-        <View style={styles.messageSection}>
-          <ThemedText style={styles.label}>Mensaje</ThemedText>
-          <ThemedText style={styles.messageText}>{solicitud?.descripcion}</ThemedText>
-        </View>
-
-        {isExpiredState && (
-          <View style={styles.expiredBanner}>
-            <Ionicons name="alert-circle-outline" size={20} color="#5F6368" style={{ marginRight: 8 }} />
-            <View style={{ flex: 1 }}>
-              <ThemedText style={styles.expiredBannerTitle}>Solicitud expirada</ThemedText>
-              <ThemedText style={styles.expiredBannerText}>No se pueden realizar acciones sobre esta solicitud.</ThemedText>
+    <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={handleClose}>
+      <View style={styles.overlay}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.keyboardContainer}
+        >
+          <View style={styles.container}>
+            <View style={styles.modalHeader}>
+              <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
+                <Ionicons name="chevron-down" size={24} color="#999" />
+              </TouchableOpacity>
             </View>
-          </View>
-        )}
 
-        {/* Separador Bitácora */}
-        <View style={styles.sectionHeader}>
-          <ThemedText style={styles.sectionTitle}>Respuestas</ThemedText>
-          <TouchableOpacity onPress={() => setShowFullBitacora(prev => !prev)}>
-            <ThemedText style={styles.sectionActionText}>
-              {showFullBitacora ? 'Ocultar información completa' : 'Mostrar información completa'}
-            </ThemedText>
-          </TouchableOpacity>
-        </View>
+            {isLoadingSolicitud ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={colors.lightTint} />
+              </View>
+            ) : (
+              <ScrollView
+                style={styles.content}
+                contentContainerStyle={styles.contentContainer}
+                showsVerticalScrollIndicator={false}
+              >
+                <View style={styles.sectionCard}>
+                  <ThemedText style={styles.sectionLabel}>{isHost ? 'Para' : 'De'}</ThemedText>
+                  <ThemedText style={styles.sectionValue}>
+                    {isHost
+                      ? paraEnviada
+                      : `${solicitud.nombre_creador} ${solicitud.apellido_creador}`}
+                  </ThemedText>
+                </View>
 
-        {/* Bitácora Integrada */}
-        <View style={styles.bitacoraContainer}>
-          {isLoadingBitacora ? (
-            <ActivityIndicator size="small" color={colors.lightTint} style={{ marginTop: 20 }} />
-          ) : (
-            bitacoraVisible.length > 0 ? (
-              bitacoraVisible.map((b) => {
-                const isOwnEntry = b.usuario_id !== null && b.usuario_id === user?.user_context_id;
-                const hideActionTitle = MODIFIED_STATES.includes(b.estado)
-                  && b.estado !== 'ACCEPTED'
-                  && b.estado !== 'ACCEPTED_BY_HOST';
-
-                return (
-                  <View
-                    key={b.id}
-                    style={[
-                      styles.bitacoraItem,
-                      isOwnEntry ? styles.bitacoraItemOwn : styles.bitacoraItemOther,
-                    ]}
-                  >
-                    <View style={styles.bitacoraCard}>
-                      <View style={styles.bitacoraHeader}>
-                        <ThemedText style={styles.bitacoraUser}>{b.usuario_nombre} {b.usuario_apellido}</ThemedText>
-                        <ThemedText style={styles.bitacoraDate}>{formatDateDDMMYYYY(new Date(b.created_at))} {formatTimeHHMM(new Date(b.created_at))}</ThemedText>
-                      </View>
-                      <View style={styles.bitacoraBody}>
-                        {!hideActionTitle && (
-                          <ThemedText style={styles.bitacoraAction}>
-                            {estadoInvitacionMapping[b.estado] || b.estado}
-                          </ThemedText>
-                        )}
-                        {b.observacion && (
-                          <View style={styles.bitacoraBubble}>
-                            <ThemedText style={styles.bitacoraText}>{b.observacion}</ThemedText>
-                          </View>
-                        )}
-                        {b.fecha_inicio_nueva && (
-                          <View style={styles.changeBubble}>
-                            <ThemedText style={styles.changeText}>
-                              Propuso cambio:
-                            </ThemedText>
-                            <ThemedText style={styles.changeText}>
-                              Inicio: {formatDateDDMMYYYY(new Date(b.fecha_inicio_nueva))} {formatTimeHHMM(new Date(b.fecha_inicio_nueva))}
-                            </ThemedText>
-                            {b.fecha_fin_nueva && (
-                              <ThemedText style={styles.changeText}>
-                                Fin: {formatDateDDMMYYYY(new Date(b.fecha_fin_nueva))} {formatTimeHHMM(new Date(b.fecha_fin_nueva))}
-                              </ThemedText>
-                            )}
-                          </View>
-                        )}
-                      </View>
+                <View style={styles.sectionCard}>
+                  <ThemedText style={styles.sectionLabel}>Titulo</ThemedText>
+                  <ThemedText style={styles.sectionValue}>{solicitud?.titulo}</ThemedText>
+                  <View style={styles.badgeRow}>
+                    <View style={styles.chip}>
+                      <ThemedText style={styles.chipText}>
+                        {solicitud?.tipo_actividad}
+                      </ThemedText>
                     </View>
                   </View>
-                );
-              })
-            ) : (
-              <ThemedText style={{ color: colors.secondaryText, textAlign: 'center', marginTop: 20 }}>
-                {showFullBitacora ? 'No hay actividad reciente' : 'No hay cambios relevantes'}
-              </ThemedText>
-            )
-          )}
-        </View>
-      </ScrollView>
+                </View>
 
-      {/* Footer Actions (FABs) */}
-      <View style={styles.fabContainer}>
-        {isModifyModalMinimized && (
-          <View style={styles.minimizedModifyDraftContainer}>
-            <TouchableOpacity style={styles.minimizedModifyDraftMain} onPress={restoreModifyModal}>
-              <Ionicons name="chevron-up" size={18} color={colors.lightTint} />
-              <ThemedText style={styles.minimizedModifyDraftText}>Editar</ThemedText>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.minimizedModifyDraftClose} onPress={resetModifyDraft}>
-              <Ionicons name="close" size={16} color={colors.secondaryText} />
-            </TouchableOpacity>
-          </View>
-        )}
+                <View style={styles.sectionCard}>
+                  <View style={styles.sectionHeaderRow}>
+                    <View style={styles.sectionTitleRow}>
+                      <Ionicons name="time-outline" size={18} color={colors.lightTint} />
+                      <Text style={styles.sectionTitleText}>Fecha</Text>
+                    </View>
+                  </View>
 
-        {/* Indicador de actividad creada */}
-        {esActividadCreada && (
-          <View style={[styles.fab, { backgroundColor: colors.activityCreated, marginBottom: 16, width: 'auto', paddingHorizontal: 16, borderRadius: 28, flexDirection: 'row', gap: 6 }]}>
-            <Ionicons name="checkmark-done" size={20} color={colors.background} />
-            <ThemedText style={{ color: colors.background, fontSize: 13, fontWeight: '600' }}>Actividad creada</ThemedText>
-          </View>
-        )}
+                  {hasDates ? (
+                    <View style={styles.dateStack}>
+                      <View style={styles.dateRow}>
+                        <ThemedText style={styles.dateValue}>
+                          {formatDateDDMMYYYY(fechaInicio)}
+                        </ThemedText>
+                        <ThemedText style={styles.timeValue}>
+                          {formatTimeHHMM(fechaInicio)}
+                        </ThemedText>
+                      </View>
 
-        {isExpiredState && (
-          <View style={[styles.fab, styles.expiredFabIndicator]}>
-            <Ionicons name="time-outline" size={20} color={colors.background} />
-            <ThemedText style={styles.expiredFabText}>Expirada</ThemedText>
-          </View>
-        )}
+                      <View style={styles.dateRow}>
+                        <ThemedText style={styles.dateValue}>
+                          {formatDateDDMMYYYY(fechaFin)}
+                        </ThemedText>
+                        <ThemedText style={styles.timeValue}>
+                          {formatTimeHHMM(fechaFin)}
+                        </ThemedText>
+                      </View>
+                    </View>
+                  ) : (
+                    <ThemedText style={styles.emptyValueText}>Sin fecha definida</ThemedText>
+                  )}
+                </View>
 
-        {/* Secondary Actions (Revealed via Menu) */}
-        {menuOpen && canOpenMenu && (
-          <>
-            {/* Opciones para Recibidas */}
-            {type === 'recibida' && solicitud?.estado !== 'ACCEPTED' && solicitud?.estado !== 'REJECTED' && !fechaInicioPasada && (
-              <>
-                <AppFab icon="close" floating={false} backgroundColor={colors.error} onPress={handleRechazar} style={{ marginBottom: 16 }} />
-                <AppFab icon="create-outline" floating={false} backgroundColor={colors.lightTint} onPress={handleModificarPress} style={{ marginBottom: 16 }} />
-              </>
-            )}
-
-            {/* Opciones para Enviadas */}
-            {type === 'enviada' && solicitud?.estado !== 'ACCEPTED' && solicitud?.estado !== 'REJECTED' && solicitud?.estado !== 'ACCEPTED_BY_HOST' && (!fechaInicioPasada || isSentState) && (
-              <>
-                {compartirEnMenuEnviadaVista && puedeCompartirEnviada && (
-                  <AppFab icon="share-social-outline" floating={false} backgroundColor={colors.icon} onPress={handleCompartir} style={{ marginBottom: 16 }} />
+                {isExpiredState && (
+                  <View style={styles.expiredBanner}>
+                    <Ionicons name="alert-circle-outline" size={20} color="#5F6368" style={{ marginRight: 8 }} />
+                    <View style={{ flex: 1 }}>
+                      <ThemedText style={styles.expiredBannerTitle}>Solicitud expirada</ThemedText>
+                      <ThemedText style={styles.expiredBannerText}>No se pueden realizar acciones sobre esta solicitud.</ThemedText>
+                    </View>
+                  </View>
                 )}
-                <AppFab icon="create-outline" floating={false} backgroundColor={colors.lightTint} onPress={handleModificarPress} style={{ marginBottom: 16 }} />
-              </>
+
+                <View style={styles.sectionCard}>
+                  <View style={styles.sectionHeaderRow}>
+                    <Text style={styles.sectionLabel}>Mensajes</Text>
+                    <TouchableOpacity onPress={() => setShowFullBitacora(prev => !prev)}>
+                      <Text style={styles.sectionActionText}>
+                        {showFullBitacora ? 'Ocultar información completa' : 'Mostrar información completa'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={styles.bitacoraContainer}>
+                    {isLoadingBitacora ? (
+                      <ActivityIndicator size="small" color={colors.lightTint} style={{ marginTop: 20 }} />
+                    ) : (
+                      mensajes.length > 0 ? (
+                        mensajes.map((b: any) => {
+                          const isOwnEntry = b.usuario_id !== null && b.usuario_id === user?.user_context_id;
+                          const isDescripcionEntry = b.id === 'descripcion';
+                          const estadoKey = typeof b.estado === 'string' && b.estado in estadoInvitacionMapping
+                            ? (b.estado as EstadoInvitacionDB)
+                            : null;
+                          const hideActionTitle = isDescripcionEntry || (MODIFIED_STATES.includes(b.estado)
+                            && b.estado !== 'ACCEPTED'
+                            && b.estado !== 'ACCEPTED_BY_HOST');
+                          const archivos = Array.isArray(b.archivos) ? b.archivos : [];
+
+                          return (
+                            <View
+                              key={String(b.id)}
+                              style={[
+                                styles.bitacoraItem,
+                                isOwnEntry ? styles.bitacoraItemOwn : styles.bitacoraItemOther,
+                              ]}
+                            >
+                              <View style={styles.bitacoraCard}>
+                                <View style={styles.bitacoraHeader}>
+                                  <ThemedText style={styles.bitacoraUser}>{b.usuario_nombre} {b.usuario_apellido}</ThemedText>
+                                  <ThemedText style={styles.bitacoraDate}>{formatDateDDMMYYYY(new Date(b.created_at))} {formatTimeHHMM(new Date(b.created_at))}</ThemedText>
+                                </View>
+                                <View style={styles.bitacoraBody}>
+                                  {!hideActionTitle && (
+                                    <ThemedText style={styles.bitacoraAction}>
+                                      {estadoKey ? estadoInvitacionMapping[estadoKey] : b.estado}
+                                    </ThemedText>
+                                  )}
+                                  {b.observacion && (
+                                    <View style={styles.bitacoraBubble}>
+                                      <ThemedText style={styles.bitacoraText}>{b.observacion}</ThemedText>
+                                    </View>
+                                  )}
+                                  {archivos.length > 0 && (
+                                    <View style={styles.messageAttachments}>
+                                      {archivos.map((archivo: any) => (
+                                        <Pressable
+                                          key={`archivo-${archivo.id}`}
+                                          style={({ pressed }) => [
+                                            styles.messageAttachmentRow,
+                                            pressed && { opacity: 0.6 },
+                                          ]}
+                                          onPress={() => handleOpenArchivo(archivo.id)}
+                                          android_ripple={{ color: '#00000010' }}
+                                        >
+                                          <Ionicons
+                                            name="document-outline"
+                                            size={16}
+                                            color={colors.secondaryText}
+                                          />
+
+                                          <ThemedText
+                                            style={[styles.messageAttachmentName, styles.linkText]}
+                                            numberOfLines={1}
+                                          >
+                                            {archivo.nombre}
+                                          </ThemedText>
+                                        </Pressable>
+                                      ))}
+                                    </View>
+                                  )}
+                                  {b.fecha_inicio_nueva && (
+                                    <View style={styles.changeBubble}>
+                                      <ThemedText style={styles.changeText}>
+                                        Propuso cambio:
+                                      </ThemedText>
+                                      <ThemedText style={styles.changeText}>
+                                        Inicio: {formatDateDDMMYYYY(new Date(b.fecha_inicio_nueva))} {formatTimeHHMM(new Date(b.fecha_inicio_nueva))}
+                                      </ThemedText>
+                                      {b.fecha_fin_nueva && (
+                                        <ThemedText style={styles.changeText}>
+                                          Fin: {formatDateDDMMYYYY(new Date(b.fecha_fin_nueva))} {formatTimeHHMM(new Date(b.fecha_fin_nueva))}
+                                        </ThemedText>
+                                      )}
+                                    </View>
+                                  )}
+                                </View>
+                              </View>
+                            </View>
+                          );
+                        })
+                      ) : (
+                        <ThemedText style={{ color: colors.secondaryText, textAlign: 'center', marginTop: 20 }}>
+                          {showFullBitacora ? 'No hay actividad reciente' : 'No hay cambios relevantes'}
+                        </ThemedText>
+                      )
+                    )}
+                  </View>
+                </View>
+              </ScrollView>
             )}
 
-            {puedeCancelarEnviada && (
-              <AppFab
-                icon="trash-outline"
-                floating={false}
-                backgroundColor={colors.error}
-                onPress={handleCancelarSolicitud}
-                style={{ marginBottom: 16 }}
-              />
-            )}
-          </>
-        )}
-
-        {/* Agregar a la agenda (REUNION: solo creador/enviada; MANDATO: invitado/recibida aceptada) */}
-        {!isExpiredState && !fechaInicioPasada && puedeAgregarAAgenda && (
-          <AppFab icon="calendar-outline" floating={false} backgroundColor={colors.success} onPress={handleAgregarAAgenda} style={{ marginBottom: 16 }} />
-        )}
-
-        {/* Main Action: Accept */}
-        {!esActividadCreada && !isExpiredState && !fechaInicioPasada && (
-          (type === 'recibida' && solicitud?.estado !== 'ACCEPTED' && solicitud?.estado !== 'REJECTED' && solicitud?.estado !== 'MODIFIED')
-          || (type === 'enviada' && solicitud?.estado === 'MODIFIED')
-        ) && (
-            <AppFab icon="checkmark" floating={false} backgroundColor={colors.success} onPress={handleAceptarPress} style={{ marginBottom: 16 }} />
-          )}
-
-        {puedeCompartirEnviada && !compartirEnMenuEnviadaVista && (
-          <AppFab icon="share-social-outline" floating={false} backgroundColor={colors.icon} onPress={handleCompartir} style={{ marginBottom: 16 }} />
-        )}
-
-        {/* Menu Button */}
-        {canOpenMenu && (
-          <AppFab icon="ellipsis-horizontal" floating={false} backgroundColor={colors.icon} onPress={() => setMenuOpen(!menuOpen)} />
-        )}
-      </View>
-
-      {/* Modal Aceptar */}
-      <Modal visible={showAcceptModal} transparent animationType="fade">
-        <TouchableWithoutFeedback onPress={closeAcceptModal}>
-          <View style={styles.modalOverlay}>
-            <TouchableWithoutFeedback onPress={e => e.stopPropagation()}>
-              <View style={styles.modalContent}>
-                <ThemedText type="subtitle" style={{ marginBottom: 16 }}>{isAceptarModificacionesFlow ? 'Aceptar Modificaciones' : 'Aceptar Solicitud'}</ThemedText>
-                <ThemedText style={{ marginBottom: 8 }}>{isAceptarModificacionesFlow ? '¿Confirmas que deseas aceptar las modificaciones propuestas?' : '¿Confirmas que deseas aceptar esta solicitud?'}</ThemedText>
-                <ThemedText style={styles.modalInputLabel}>Observación (opcional)</ThemedText>
-                <TextInput
-                  style={styles.modalTextInput}
-                  placeholder="Podés agregar una observación"
-                  value={acceptObservation}
-                  onChangeText={setAcceptObservation}
-                  multiline
-                />
-                <View style={styles.modalActions}>
-                  <TouchableOpacity onPress={closeAcceptModal} style={styles.modalBtnCancel}>
-                    <ThemedText style={{ color: colors.error }}>Cancelar</ThemedText>
+            <View style={styles.fabContainer}>
+              {isModifyModalMinimized && (
+                <View style={styles.minimizedModifyDraftContainer}>
+                  <TouchableOpacity style={styles.minimizedModifyDraftMain} onPress={restoreModifyModal}>
+                    <Ionicons name="chevron-up" size={18} color={colors.lightTint} />
+                    <ThemedText style={styles.minimizedModifyDraftText}>Editar</ThemedText>
                   </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={isAceptarModificacionesFlow ? confirmAceptarModificaciones : confirmAceptar}
-                    style={styles.modalBtnConfirm}
-                    disabled={isUpdatingEstado}
-                  >
-                    {isUpdatingEstado
-                      ? <ActivityIndicator color={colors.background} />
-                      : <ThemedText style={{ color: colors.background }}>Aceptar</ThemedText>
-                    }
+                  <TouchableOpacity style={styles.minimizedModifyDraftClose} onPress={resetModifyDraft}>
+                    <Ionicons name="close" size={16} color={colors.secondaryText} />
                   </TouchableOpacity>
                 </View>
-              </View>
-            </TouchableWithoutFeedback>
-          </View>
-        </TouchableWithoutFeedback>
-      </Modal>
+              )}
 
-      {/* Modal Rechazar */}
-      <Modal visible={showRejectModal} transparent animationType="fade">
-        <TouchableWithoutFeedback onPress={closeRejectModal}>
-          <View style={styles.modalOverlay}>
-            <TouchableWithoutFeedback onPress={e => e.stopPropagation()}>
-              <View style={styles.modalContent}>
-                <ThemedText type="subtitle" style={{ marginBottom: 16 }}>Rechazar solicitud</ThemedText>
-                <ThemedText style={{ marginBottom: 8 }}>¿Deseas rechazar esta solicitud?</ThemedText>
-                <ThemedText style={styles.modalInputLabel}>Observación (opcional)</ThemedText>
-                <TextInput
-                  style={styles.modalTextInput}
-                  placeholder="Podés agregar un motivo"
-                  value={rejectObservation}
-                  onChangeText={setRejectObservation}
-                  multiline
-                />
-                <View style={styles.modalActions}>
-                  <TouchableOpacity onPress={closeRejectModal} style={styles.modalBtnCancel}>
-                    <ThemedText style={{ color: colors.error }}>Cancelar</ThemedText>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={confirmRechazar}
-                    style={[styles.modalBtnConfirm, { backgroundColor: colors.error }]}
-                    disabled={isUpdatingEstado}
-                  >
-                    {isUpdatingEstado
-                      ? <ActivityIndicator color={colors.background} />
-                      : <ThemedText style={{ color: colors.background }}>Rechazar</ThemedText>
-                    }
-                  </TouchableOpacity>
+              {/* Indicador de actividad creada */}
+              {esActividadCreada && (
+                <View style={[styles.fab, { backgroundColor: colors.activityCreated, marginBottom: 16, width: 'auto', paddingHorizontal: 16, borderRadius: 28, flexDirection: 'row', gap: 6 }]}>
+                  <Ionicons name="checkmark-done" size={20} color={colors.background} />
+                  <ThemedText style={{ color: colors.background, fontSize: 13, fontWeight: '600' }}>Actividad creada</ThemedText>
                 </View>
-              </View>
-            </TouchableWithoutFeedback>
-          </View>
-        </TouchableWithoutFeedback>
-      </Modal>
-
-      {/* Modal Modificar */}
-      <Modal visible={showModifyModal} transparent={false} animationType="slide" onRequestClose={minimizeModifyModal}>
-        <View style={styles.container}>
-          <View style={styles.modifyModalHeader}>
-            <ThemedText style={styles.modifyModalTitle}>Modificar solicitud</ThemedText>
-            <View style={styles.modifyModalHeaderActions}>
-              <TouchableOpacity onPress={minimizeModifyModal} style={styles.modifyModalHeaderBtn}>
-                <Ionicons name="chevron-down" size={24} color={colors.secondaryText} />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={resetModifyDraft} style={styles.modifyModalHeaderBtn}>
-                <Ionicons name="close" size={22} color={colors.secondaryText} />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-            <View style={styles.dateSection}>
-              <ThemedText style={styles.label}>Nueva Fecha Inicio</ThemedText>
-              <View style={styles.row}>
-                <TouchableOpacity
-                  onPress={() => showPicker('date', 'start')}
-                  style={styles.dateBtn}
-                >
-                  <ThemedText>{modStartDate ? formatDateDDMMYYYY(modStartDate) : 'Día'}</ThemedText>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => showPicker('time', 'start')} style={styles.dateBtn}>
-                  <ThemedText>{modStartDate ? formatTimeHHMM(modStartDate) : 'Hora'}</ThemedText>
-                </TouchableOpacity>
-              </View>
-
-              <ThemedText style={styles.label}>Nueva Fecha Fin</ThemedText>
-              <View style={styles.row}>
-                <TouchableOpacity
-                  onPress={() => showPicker('date', 'end')}
-                  style={styles.dateBtn}
-                >
-                  <ThemedText>{modEndDate ? formatDateDDMMYYYY(modEndDate) : 'Día'}</ThemedText>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => showPicker('time', 'end')} style={styles.dateBtn}>
-                  <ThemedText>{modEndDate ? formatTimeHHMM(modEndDate) : 'Hora'}</ThemedText>
-                </TouchableOpacity>
-              </View>
-
-              <ThemedText style={styles.label}>Observación</ThemedText>
-              <TextInput
-                style={styles.input}
-                placeholder="Respuesta"
-                value={modObservation}
-                onChangeText={setModObservation}
-                multiline
-              />
-
-              {modDateErrorMessage && (
-                <ThemedText style={{ color: colors.error, fontSize: 12, marginTop: 8 }}>
-                  {modDateErrorMessage}
-                </ThemedText>
               )}
 
-              {!hasDateChanges && (
-                <ThemedText style={{ color: colors.secondaryText, fontSize: 12, marginTop: 8 }}>
-                  Podés enviar solo una observación sin cambiar fechas.
-                </ThemedText>
+              {isExpiredState && (
+                <View style={[styles.fab, styles.expiredFabIndicator]}>
+                  <Ionicons name="time-outline" size={20} color={colors.background} />
+                  <ThemedText style={styles.expiredFabText}>Expirada</ThemedText>
+                </View>
+              )}
+
+              {/* Secondary Actions (Revealed via Menu) */}
+              {menuOpen && canOpenMenu && (
+                <>
+                  {/* Opciones para Recibidas */}
+                  {resolvedType === 'recibida' && solicitud?.estado !== 'ACCEPTED' && solicitud?.estado !== 'REJECTED' && !fechaInicioPasada && (
+                    <>
+                      <AppFab icon="close" floating={false} backgroundColor={colors.error} onPress={handleRechazar} style={{ marginBottom: 16 }} />
+                      <AppFab icon="create-outline" floating={false} backgroundColor={colors.lightTint} onPress={handleModificarPress} style={{ marginBottom: 16 }} />
+                    </>
+                  )}
+
+                  {/* Opciones para Enviadas */}
+                  {resolvedType === 'enviada' && solicitud?.estado !== 'ACCEPTED' && solicitud?.estado !== 'REJECTED' && solicitud?.estado !== 'ACCEPTED_BY_HOST' && (!fechaInicioPasada || isSentState) && (
+                    <>
+                      {compartirEnMenuEnviadaVista && puedeCompartirEnviada && (
+                        <AppFab icon="share-social-outline" floating={false} backgroundColor={colors.icon} onPress={handleCompartir} style={{ marginBottom: 16 }} />
+                      )}
+                      <AppFab icon="create-outline" floating={false} backgroundColor={colors.lightTint} onPress={handleModificarPress} style={{ marginBottom: 16 }} />
+                    </>
+                  )}
+
+                  {puedeCancelarEnviada && (
+                    <AppFab
+                      icon="trash-outline"
+                      floating={false}
+                      backgroundColor={colors.error}
+                      onPress={handleCancelarSolicitud}
+                      style={{ marginBottom: 16 }}
+                    />
+                  )}
+                </>
+              )}
+
+              {/* Agregar a la agenda (REUNION: solo creador/enviada; MANDATO: invitado/recibida aceptada) */}
+              {!isExpiredState && !fechaInicioPasada && puedeAgregarAAgenda && (
+                <AppFab icon="calendar-outline" floating={false} backgroundColor={colors.success} onPress={handleAgregarAAgenda} style={{ marginBottom: 16 }} />
+              )}
+
+              {/* Main Action: Accept */}
+              {!esActividadCreada && !isExpiredState && !fechaInicioPasada && (
+                (resolvedType === 'recibida' && solicitud?.estado !== 'ACCEPTED' && solicitud?.estado !== 'REJECTED' && solicitud?.estado !== 'MODIFIED')
+                || (resolvedType === 'enviada' && solicitud?.estado === 'MODIFIED')
+              ) && (
+                  <AppFab icon="checkmark" floating={false} backgroundColor={colors.success} onPress={handleAceptarPress} style={{ marginBottom: 16 }} />
+                )}
+
+              {puedeCompartirEnviada && !compartirEnMenuEnviadaVista && (
+                <AppFab icon="share-social-outline" floating={false} backgroundColor={colors.icon} onPress={handleCompartir} style={{ marginBottom: 16 }} />
+              )}
+
+              {/* Menu Button */}
+              {canOpenMenu && (
+                <AppFab icon="ellipsis-horizontal" floating={false} backgroundColor={colors.icon} onPress={() => setMenuOpen(!menuOpen)} />
               )}
             </View>
-          </ScrollView>
 
-          <AppFab
-            icon="checkmark"
-            onPress={confirmModificar}
-            disabled={!canSubmitModificar}
-            isLoading={isUpdatingEstado}
-          />
+            {/* Modal Aceptar */}
+            <Modal visible={showAcceptModal} transparent animationType="fade">
+              <TouchableWithoutFeedback onPress={closeAcceptModal}>
+                <View style={styles.modalOverlay}>
+                  <TouchableWithoutFeedback onPress={e => e.stopPropagation()}>
+                    <View style={styles.modalContent}>
+                      <ThemedText type="subtitle" style={{ marginBottom: 16 }}>{isAceptarModificacionesFlow ? 'Aceptar Modificaciones' : 'Aceptar Solicitud'}</ThemedText>
+                      <ThemedText style={{ marginBottom: 8 }}>{isAceptarModificacionesFlow ? '¿Confirmas que deseas aceptar las modificaciones propuestas?' : '¿Confirmas que deseas aceptar esta solicitud?'}</ThemedText>
+                      <ThemedText style={styles.modalInputLabel}>Observación (opcional)</ThemedText>
+                      <TextInput
+                        style={styles.modalTextInput}
+                        placeholder="Podés agregar una observación"
+                        value={acceptObservation}
+                        onChangeText={setAcceptObservation}
+                        multiline
+                      />
+                      <View style={styles.modalActions}>
+                        <TouchableOpacity onPress={closeAcceptModal} style={styles.modalBtnCancel}>
+                          <ThemedText style={{ color: colors.error }}>Cancelar</ThemedText>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={isAceptarModificacionesFlow ? confirmAceptarModificaciones : confirmAceptar}
+                          style={styles.modalBtnConfirm}
+                          disabled={isUpdatingEstado}
+                        >
+                          {isUpdatingEstado
+                            ? <ActivityIndicator color={colors.background} />
+                            : <ThemedText style={{ color: colors.background }}>Aceptar</ThemedText>
+                          }
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </TouchableWithoutFeedback>
+                </View>
+              </TouchableWithoutFeedback>
+            </Modal>
 
-          {showDatePicker.show && (
-            <DateTimePicker
-              visible={showDatePicker.show}
-              testID="dateTimePicker"
-              value={modPickerValue}
-              mode={showDatePicker.mode}
-              is24Hour={true}
-              onConfirm={onDateConfirm}
-              onCancel={onDateCancel}
-            />
-          )}
-        </View>
-      </Modal>
+            {/* Modal Rechazar */}
+            <Modal visible={showRejectModal} transparent animationType="fade">
+              <TouchableWithoutFeedback onPress={closeRejectModal}>
+                <View style={styles.modalOverlay}>
+                  <TouchableWithoutFeedback onPress={e => e.stopPropagation()}>
+                    <View style={styles.modalContent}>
+                      <ThemedText type="subtitle" style={{ marginBottom: 16 }}>Rechazar solicitud</ThemedText>
+                      <ThemedText style={{ marginBottom: 8 }}>¿Deseas rechazar esta solicitud?</ThemedText>
+                      <ThemedText style={styles.modalInputLabel}>Observación (opcional)</ThemedText>
+                      <TextInput
+                        style={styles.modalTextInput}
+                        placeholder="Podés agregar un motivo"
+                        value={rejectObservation}
+                        onChangeText={setRejectObservation}
+                        multiline
+                      />
+                      <View style={styles.modalActions}>
+                        <TouchableOpacity onPress={closeRejectModal} style={styles.modalBtnCancel}>
+                          <ThemedText style={{ color: colors.error }}>Cancelar</ThemedText>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={confirmRechazar}
+                          style={[styles.modalBtnConfirm, { backgroundColor: colors.error }]}
+                          disabled={isUpdatingEstado}
+                        >
+                          {isUpdatingEstado
+                            ? <ActivityIndicator color={colors.background} />
+                            : <ThemedText style={{ color: colors.background }}>Rechazar</ThemedText>
+                          }
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </TouchableWithoutFeedback>
+                </View>
+              </TouchableWithoutFeedback>
+            </Modal>
 
-      {/* Modal Compartir */}
-      <Modal visible={showShareModal} transparent animationType="fade" onRequestClose={() => setShowShareModal(false)}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-          <TouchableWithoutFeedback onPress={() => setShowShareModal(false)}>
-            <View style={styles.modalOverlay}>
-              <TouchableWithoutFeedback onPress={e => e.stopPropagation()}>
-                <View style={styles.modalContent}>
-                  <ThemedText type="subtitle" style={{ marginBottom: 16 }}>Compartir Solicitud</ThemedText>
-                  <UserSelector
-                    selectedUsers={selectedUsersToShare}
-                    onSelectUsers={setSelectedUsersToShare}
-                    users={users || []}
-                    onSearch={setSearchQuery}
-                    isLoadingUsers={isLoadingUsers}
-                    roles={rolesForSelector}
-                    onSelectRole={handleRoleSelect}
+            {/* Modal Modificar */}
+            <Modal visible={showModifyModal} transparent={false} animationType="slide" onRequestClose={minimizeModifyModal}>
+              <View style={styles.fullScreenContainer}>
+                <View style={styles.modifyModalHeader}>
+                  <ThemedText style={styles.modifyModalTitle}>Modificar solicitud</ThemedText>
+                  <View style={styles.modifyModalHeaderActions}>
+                    <TouchableOpacity onPress={minimizeModifyModal} style={styles.modifyModalHeaderBtn}>
+                      <Ionicons name="chevron-down" size={24} color={colors.secondaryText} />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={resetModifyDraft} style={styles.modifyModalHeaderBtn}>
+                      <Ionicons name="close" size={22} color={colors.secondaryText} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+                  <View style={styles.dateSection}>
+                    <ThemedText style={styles.label}>Nueva Fecha Inicio</ThemedText>
+                    <View style={styles.row}>
+                      <TouchableOpacity
+                        onPress={() => showPicker('date', 'start')}
+                        style={styles.dateBtn}
+                      >
+                        <ThemedText>{modStartDate ? formatDateDDMMYYYY(modStartDate) : 'Día'}</ThemedText>
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => showPicker('time', 'start')} style={styles.dateBtn}>
+                        <ThemedText>{modStartDate ? formatTimeHHMM(modStartDate) : 'Hora'}</ThemedText>
+                      </TouchableOpacity>
+                    </View>
+
+                    <ThemedText style={styles.label}>Nueva Fecha Fin</ThemedText>
+                    <View style={styles.row}>
+                      <TouchableOpacity
+                        onPress={() => showPicker('date', 'end')}
+                        style={styles.dateBtn}
+                      >
+                        <ThemedText>{modEndDate ? formatDateDDMMYYYY(modEndDate) : 'Día'}</ThemedText>
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => showPicker('time', 'end')} style={styles.dateBtn}>
+                        <ThemedText>{modEndDate ? formatTimeHHMM(modEndDate) : 'Hora'}</ThemedText>
+                      </TouchableOpacity>
+                    </View>
+
+                    <ThemedText style={styles.label}>Observación</ThemedText>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Respuesta"
+                      value={modObservation}
+                      onChangeText={setModObservation}
+                      multiline
+                    />
+
+                    {modDateErrorMessage && (
+                      <ThemedText style={{ color: colors.error, fontSize: 12, marginTop: 8 }}>
+                        {modDateErrorMessage}
+                      </ThemedText>
+                    )}
+
+                    {!hasDateChanges && (
+                      <ThemedText style={{ color: colors.secondaryText, fontSize: 12, marginTop: 8 }}>
+                        Podés enviar solo una observación sin cambiar fechas.
+                      </ThemedText>
+                    )}
+                  </View>
+                </ScrollView>
+
+                <AppFab
+                  icon="checkmark"
+                  onPress={confirmModificar}
+                  disabled={!canSubmitModificar}
+                  isLoading={isUpdatingEstado}
+                />
+
+                {showDatePicker.show && (
+                  <DateTimePicker
+                    visible={showDatePicker.show}
+                    testID="dateTimePicker"
+                    value={modPickerValue}
+                    mode={showDatePicker.mode}
+                    is24Hour={true}
+                    onConfirm={onDateConfirm}
+                    onCancel={onDateCancel}
                   />
-                  <View style={styles.modalActions}>
-                    <TouchableOpacity onPress={() => setShowShareModal(false)} style={styles.modalBtnCancel}>
-                      <ThemedText style={{ color: colors.error }}>Cancelar</ThemedText>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={confirmCompartir} style={styles.modalBtnConfirm}>
-                      {isSharing ? <ActivityIndicator color={colors.background} /> : <ThemedText style={{ color: colors.background }}>Compartir</ThemedText>}
-                    </TouchableOpacity>
+                )}
+              </View>
+            </Modal>
+
+            {/* Modal Compartir */}
+            <Modal visible={showShareModal} transparent animationType="fade" onRequestClose={() => setShowShareModal(false)}>
+              <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+                <TouchableWithoutFeedback onPress={() => setShowShareModal(false)}>
+                  <View style={styles.modalOverlay}>
+                    <TouchableWithoutFeedback onPress={e => e.stopPropagation()}>
+                      <View style={styles.modalContent}>
+                        <ThemedText type="subtitle" style={{ marginBottom: 16 }}>Compartir Solicitud</ThemedText>
+                        <UserSelector
+                          selectedUsers={selectedUsersToShare}
+                          onSelectUsers={setSelectedUsersToShare}
+                          users={users || []}
+                          onSearch={setSearchQuery}
+                          isLoadingUsers={isLoadingUsers}
+                          roles={rolesForSelector}
+                          onSelectRole={handleRoleSelect}
+                        />
+                        <View style={styles.modalActions}>
+                          <TouchableOpacity onPress={() => setShowShareModal(false)} style={styles.modalBtnCancel}>
+                            <ThemedText style={{ color: colors.error }}>Cancelar</ThemedText>
+                          </TouchableOpacity>
+                          <TouchableOpacity onPress={confirmCompartir} style={styles.modalBtnConfirm}>
+                            {isSharing ? <ActivityIndicator color={colors.background} /> : <ThemedText style={{ color: colors.background }}>Compartir</ThemedText>}
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    </TouchableWithoutFeedback>
                   </View>
-                </View>
-              </TouchableWithoutFeedback>
-            </View>
-          </TouchableWithoutFeedback>
-        </KeyboardAvoidingView>
-      </Modal>
+                </TouchableWithoutFeedback>
+              </KeyboardAvoidingView>
+            </Modal>
 
-      {/* Modal de Selección de Usuarios por Rol */}
-      <RoleUserSelectionModal
-        visible={showRoleModal}
-        onClose={handleCloseRoleModal}
-        roleName={activeRole}
-        roleUsers={roleUsersData ?? []}
-        selectedUsers={selectedUsersToShare}
-        onToggleUser={handleToggleUserShare}
-        onSelectAll={handleSelectAllRoleUsers}
-        onDeselectAll={handleDeselectAllRoleUsers}
-      />
-
-      {/* Modal Agregar a la Agenda */}
-      <Modal visible={showAddToAgendaModal} transparent animationType="fade" onRequestClose={() => setShowAddToAgendaModal(false)}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-          <TouchableWithoutFeedback onPress={() => setShowAddToAgendaModal(false)}>
-            <View style={styles.modalOverlay}>
-              <TouchableWithoutFeedback onPress={e => e.stopPropagation()}>
-                <View style={styles.modalContent}>
-                  <ThemedText type="subtitle" style={{ marginBottom: 8 }}>Agregar a la agenda</ThemedText>
-                  {!hasDates && (
-                    <ThemedText style={{ color: colors.secondaryText, marginBottom: 16, fontSize: 13 }}>
-                      Esta tarea no tiene fechas. Ingresa las fechas para agendar la actividad.
-                    </ThemedText>
-                  )}
-
-                  <ThemedText style={styles.label}>Fecha de inicio</ThemedText>
-                  <View style={styles.row}>
-                    <TouchableOpacity
-                      onPress={() => setShowAgendaDatePicker({ show: true, mode: 'date', target: 'start' })}
-                      style={styles.dateBtn}
-                    >
-                      <ThemedText>{formatDateDDMMYYYY(agendaFechaInicio)}</ThemedText>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => setShowAgendaDatePicker({ show: true, mode: 'time', target: 'start' })} style={styles.dateBtn}>
-                      <ThemedText>{formatTimeHHMM(agendaFechaInicio)}</ThemedText>
-                    </TouchableOpacity>
-                  </View>
-
-                  <ThemedText style={styles.label}>Fecha de fin</ThemedText>
-                  <View style={styles.row}>
-                    <TouchableOpacity
-                      onPress={() => setShowAgendaDatePicker({ show: true, mode: 'date', target: 'end' })}
-                      style={styles.dateBtn}
-                    >
-                      <ThemedText>{formatDateDDMMYYYY(agendaFechaFin)}</ThemedText>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => setShowAgendaDatePicker({ show: true, mode: 'time', target: 'end' })} style={styles.dateBtn}>
-                      <ThemedText>{formatTimeHHMM(agendaFechaFin)}</ThemedText>
-                    </TouchableOpacity>
-                  </View>
-
-                  {agendaDateErrorMessage && (
-                    <ThemedText style={{ color: colors.error, fontSize: 12, marginBottom: 8 }}>
-                      {agendaDateErrorMessage}
-                    </ThemedText>
-                  )}
-
-                  <View style={styles.modalActions}>
-                    <TouchableOpacity onPress={() => setShowAddToAgendaModal(false)} style={styles.modalBtnCancel}>
-                      <ThemedText style={{ color: colors.error }}>Cancelar</ThemedText>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={confirmAgregarAAgenda}
-                      style={[styles.modalBtnConfirm, { opacity: agendaDateErrorMessage ? 0.5 : 1 }]}
-                      disabled={isCreatingActividad || !!agendaDateErrorMessage}
-                    >
-                      {isCreatingActividad
-                        ? <ActivityIndicator color={colors.background} />
-                        : <ThemedText style={{ color: colors.background }}>Agregar</ThemedText>
-                      }
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </TouchableWithoutFeedback>
-            </View>
-          </TouchableWithoutFeedback>
-          {showAgendaDatePicker.show && (
-            <DateTimePicker
-              visible={showAgendaDatePicker.show}
-              testID="agendaDateTimePicker"
-              value={showAgendaDatePicker.target === 'start' ? agendaFechaInicio : agendaFechaFin}
-              mode={showAgendaDatePicker.mode}
-              is24Hour={true}
-              onConfirm={onAgendaDateConfirm}
-              onCancel={onAgendaDateCancel}
+            {/* Modal de Selección de Usuarios por Rol */}
+            <RoleUserSelectionModal
+              visible={showRoleModal}
+              onClose={handleCloseRoleModal}
+              roleName={activeRole}
+              roleUsers={roleUsersData ?? []}
+              selectedUsers={selectedUsersToShare}
+              onToggleUser={handleToggleUserShare}
+              onSelectAll={handleSelectAllRoleUsers}
+              onDeselectAll={handleDeselectAllRoleUsers}
             />
-          )}
+
+            {/* Modal Agregar a la Agenda */}
+            <Modal visible={showAddToAgendaModal} transparent animationType="fade" onRequestClose={() => setShowAddToAgendaModal(false)}>
+              <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+                <TouchableWithoutFeedback onPress={() => setShowAddToAgendaModal(false)}>
+                  <View style={styles.modalOverlay}>
+                    <TouchableWithoutFeedback onPress={e => e.stopPropagation()}>
+                      <View style={styles.modalContent}>
+                        <ThemedText type="subtitle" style={{ marginBottom: 8 }}>Agregar a la agenda</ThemedText>
+                        {!hasDates && (
+                          <ThemedText style={{ color: colors.secondaryText, marginBottom: 16, fontSize: 13 }}>
+                            Esta tarea no tiene fechas. Ingresa las fechas para agendar la actividad.
+                          </ThemedText>
+                        )}
+
+                        <ThemedText style={styles.label}>Fecha de inicio</ThemedText>
+                        <View style={styles.row}>
+                          <TouchableOpacity
+                            onPress={() => setShowAgendaDatePicker({ show: true, mode: 'date', target: 'start' })}
+                            style={styles.dateBtn}
+                          >
+                            <ThemedText>{formatDateDDMMYYYY(agendaFechaInicio)}</ThemedText>
+                          </TouchableOpacity>
+                          <TouchableOpacity onPress={() => setShowAgendaDatePicker({ show: true, mode: 'time', target: 'start' })} style={styles.dateBtn}>
+                            <ThemedText>{formatTimeHHMM(agendaFechaInicio)}</ThemedText>
+                          </TouchableOpacity>
+                        </View>
+
+                        <ThemedText style={styles.label}>Fecha de fin</ThemedText>
+                        <View style={styles.row}>
+                          <TouchableOpacity
+                            onPress={() => setShowAgendaDatePicker({ show: true, mode: 'date', target: 'end' })}
+                            style={styles.dateBtn}
+                          >
+                            <ThemedText>{formatDateDDMMYYYY(agendaFechaFin)}</ThemedText>
+                          </TouchableOpacity>
+                          <TouchableOpacity onPress={() => setShowAgendaDatePicker({ show: true, mode: 'time', target: 'end' })} style={styles.dateBtn}>
+                            <ThemedText>{formatTimeHHMM(agendaFechaFin)}</ThemedText>
+                          </TouchableOpacity>
+                        </View>
+
+                        {agendaDateErrorMessage && (
+                          <ThemedText style={{ color: colors.error, fontSize: 12, marginBottom: 8 }}>
+                            {agendaDateErrorMessage}
+                          </ThemedText>
+                        )}
+
+                        <View style={styles.modalActions}>
+                          <TouchableOpacity onPress={() => setShowAddToAgendaModal(false)} style={styles.modalBtnCancel}>
+                            <ThemedText style={{ color: colors.error }}>Cancelar</ThemedText>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            onPress={confirmAgregarAAgenda}
+                            style={[styles.modalBtnConfirm, { opacity: agendaDateErrorMessage ? 0.5 : 1 }]}
+                            disabled={isCreatingActividad || !!agendaDateErrorMessage}
+                          >
+                            {isCreatingActividad
+                              ? <ActivityIndicator color={colors.background} />
+                              : <ThemedText style={{ color: colors.background }}>Agregar</ThemedText>
+                            }
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    </TouchableWithoutFeedback>
+                  </View>
+                </TouchableWithoutFeedback>
+                {showAgendaDatePicker.show && (
+                  <DateTimePicker
+                    visible={showAgendaDatePicker.show}
+                    testID="agendaDateTimePicker"
+                    value={showAgendaDatePicker.target === 'start' ? agendaFechaInicio : agendaFechaFin}
+                    mode={showAgendaDatePicker.mode}
+                    is24Hour={true}
+                    onConfirm={onAgendaDateConfirm}
+                    onCancel={onAgendaDateCancel}
+                  />
+                )}
+              </KeyboardAvoidingView>
+            </Modal>
+
+            {/* Modal de validación de fechas */}
+            <ValidacionFechasModal
+              state={validacion.state}
+              avisos={validacion.avisos}
+              rangosOcupados={validacion.rangosOcupados}
+              errorMessage={validacion.errorMessage}
+              onConfirm={validacion.confirm}
+              onCancel={validacion.cancel}
+            />
+
+            <ValidacionFechasModal
+              state={backendSolicitudRangos.length > 0 ? 'warnings' : 'idle'}
+              avisos={avisosBackendSolicitud}
+              rangosOcupados={backendSolicitudRangos}
+              onConfirm={forceModificarSolicitud}
+              onCancel={() => setBackendSolicitudRangos([])}
+            />
+
+            <ValidacionFechasModal
+              state={backendActividadRangos.length > 0 ? 'warnings' : 'idle'}
+              avisos={avisosBackendActividad}
+              rangosOcupados={backendActividadRangos}
+              onConfirm={() => setBackendActividadRangos([])}
+              onCancel={() => setBackendActividadRangos([])}
+              showConfirmAction={false}
+              cancelLabel="Modificar fechas"
+              questionText="Modificá las fechas y volvé a intentar."
+            />
+
+            {/* Modal operación pendiente */}
+            <OperacionPendienteModal visible={isMutating} />
+          </View>
         </KeyboardAvoidingView>
-      </Modal>
-
-      {/* Modal de validación de fechas */}
-      <ValidacionFechasModal
-        state={validacion.state}
-        avisos={validacion.avisos}
-        rangosOcupados={validacion.rangosOcupados}
-        errorMessage={validacion.errorMessage}
-        onConfirm={validacion.confirm}
-        onCancel={validacion.cancel}
-      />
-
-      <ValidacionFechasModal
-        state={backendSolicitudRangos.length > 0 ? 'warnings' : 'idle'}
-        avisos={avisosBackendSolicitud}
-        rangosOcupados={backendSolicitudRangos}
-        onConfirm={forceModificarSolicitud}
-        onCancel={() => setBackendSolicitudRangos([])}
-      />
-
-      <ValidacionFechasModal
-        state={backendActividadRangos.length > 0 ? 'warnings' : 'idle'}
-        avisos={avisosBackendActividad}
-        rangosOcupados={backendActividadRangos}
-        onConfirm={() => setBackendActividadRangos([])}
-        onCancel={() => setBackendActividadRangos([])}
-        showConfirmAction={false}
-        cancelLabel="Modificar fechas"
-        questionText="Modificá las fechas y volvé a intentar."
-      />
-
-      {/* Modal operación pendiente */}
-      <OperacionPendienteModal visible={isMutating} />
-
-    </View>
+      </View>
+    </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  keyboardContainer: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
   container: {
     flex: 1,
+    marginTop: '5%',
     backgroundColor: colors.componentBackground,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    overflow: 'hidden',
   },
-  header: {
-    flexDirection: 'row',
+  modalHeader: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.background,
+    alignItems: 'flex-end',
+  },
+  closeButton: {
+    padding: 6,
+    borderRadius: 16,
+    backgroundColor: '#f3f4f6',
+  },
+  loadingContainer: {
+    flex: 1,
     alignItems: 'center',
-    paddingHorizontal: UI.header.horizontalPadding,
-    paddingVertical: UI.header.verticalPadding,
-  },
-  headerTitle: {
-    fontSize: UI.fontSize.xxl,
-    color: colors.tint,
-    fontWeight: '500',
-    marginLeft: UI.spacing.sm,
+    justifyContent: 'center',
   },
   content: {
     flex: 1,
   },
   contentContainer: {
-    paddingBottom: 100,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 120,
+    gap: 12,
+  },
+  sectionCard: {
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: colors.neutralBorder,
+  },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  sectionTitleText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.secondaryText,
+  },
+  badgeRow: {
+    marginTop: 8,
+  },
+  emptyValueText: {
+    color: colors.secondaryText,
+    fontSize: 14,
+    marginTop: 4,
+  },
+  dateStack: {
+    marginTop: 6,
+    gap: 6,
+  },
+  fullScreenContainer: {
+    flex: 1,
+    backgroundColor: colors.componentBackground,
   },
   dateSection: {
     padding: 16,
@@ -1382,14 +1501,17 @@ const styles = StyleSheet.create({
   },
   chip: {
     alignSelf: 'flex-start',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
     borderWidth: 1,
-    borderColor: colors.background,
+    borderColor: colors.lightTint,
+    backgroundColor: colors.lightTint + '12',
   },
   chipText: {
-    fontSize: 14,
+    fontSize: 12,
+    color: colors.lightTint,
+    fontWeight: '700',
   },
   messageSection: {
     padding: 16,
@@ -1442,7 +1564,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   bitacoraContainer: {
-    padding: 16,
+    paddingTop: 10,
   },
   bitacoraItem: {
     width: '100%',
@@ -1491,6 +1613,20 @@ const styles = StyleSheet.create({
   },
   bitacoraText: {
     fontSize: 14,
+    color: colors.text,
+  },
+  messageAttachments: {
+    marginTop: 8,
+    gap: 6,
+  },
+  messageAttachmentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  messageAttachmentName: {
+    flex: 1,
+    fontSize: 13,
     color: colors.text,
   },
   changeBubble: {
@@ -1658,5 +1794,76 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.background,
     paddingVertical: 8,
     fontSize: 16,
-  }
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: Colors.light.tint,
+    backgroundColor: Colors.light.tint + '12',
+  },
+  actionButtonText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.light.tint,
+  },
+  section: {
+    marginTop: 12,
+    gap: 10,
+  },
+  sectionLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#6b7280',
+    textTransform: 'uppercase',
+    marginBottom: 6,
+    letterSpacing: 0.4,
+  },
+  sectionValue: {
+    fontSize: 16,
+    color: '#111827',
+    fontWeight: '600',
+  },
+  inviteList: {
+    gap: 10,
+  },
+  inviteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    backgroundColor: '#f9fafb',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  inviteRowActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  inviteName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  inviteMeta: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: 2,
+  },
+  linkText: {
+    color: '#2563eb',
+    textDecorationLine: 'underline',
+  },
 });

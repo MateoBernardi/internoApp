@@ -275,8 +275,7 @@ export async function getUrlCargaArchivo(accessToken: string, data: archivos.Ped
     }
 
     const responseData = await response.json();
-    const { uploadUrl, ruta_r2, fileName } = responseData;
-    return { uploadUrl, ruta_r2, fileName };
+    return { urls: responseData.urls };
 }
 
 export async function uploadArchivoR2(uploadUrl: string, fileUri: string, mimeType: string): Promise<void> {
@@ -339,55 +338,73 @@ export async function confirmarUploadArchivo(accessToken: string, archivoData: a
 
 export async function uploadArchivo(
     accessToken: string,
-    archivo: archivos.MobileFile,
-    archivoData: archivos.UploadArchivoPayload
-): Promise<ApiOperationResult<archivos.Archivo>> {
+    items: archivos.ArchivoAProcesar[]
+): Promise<{ exitosos: ApiOperationResult<archivos.Archivo>[], fallidos: any[] }> {
     try {
-        // Get proper MIME type from file name and provided type
-        const contentType = getMimeType(archivo.name, archivo.type);
+        // 1. Preparar el payload con todos los archivos para pedir las URLs de golpe
+        const requestFiles = items.map(item => ({
+            fileName: item.archivoData.nombre,
+            contentType: getMimeType(item.archivo.name, item.archivo.type)
+        }));
 
-        // 1. Pedir URL de carga
-        const urlCargaResponse = await getUrlCargaArchivo(accessToken, {
-            fileName: archivoData.nombre,
-            contentType: contentType,
-        });
-        const uploadUrl = urlCargaResponse.uploadUrl;
-        const rutaR2 = urlCargaResponse.ruta_r2;
+        // 2. Pedir todas las URLs en una sola llamada al backend
+        const urlsResponse = await getUrlCargaArchivo(accessToken, { files: requestFiles });
 
-        // 2. Subir archivo a R2
-        await uploadArchivoR2(uploadUrl, archivo.uri, contentType);
+        // 3. Ejecutar las subidas y confirmaciones en paralelo
+        const promesasDeSubida = items.map(async (item, index) => {
+            // Como mandamos los archivos en orden, las URLs devueltas corresponden al mismo index
+            const urlInfo = urlsResponse.urls[index];
+            const contentType = getMimeType(item.archivo.name, item.archivo.type);
 
-        // 3. Confirmar subida con datos adicionales
-        const payloadConfirmacion: archivos.UploadArchivoPayload = {
-            nombre: archivoData.nombre,
-            titulo: archivoData.titulo,
-            ruta_r2: rutaR2,
-            tamaño: archivo.size,
-            tipo: contentType,
-            ...(archivoData.uso ? { uso: archivoData.uso } : {}),
-            ...(archivoData.id_carpeta !== undefined ? { id_carpeta: archivoData.id_carpeta } : {}),
-            allowed_roles: archivoData.allowed_roles || [],
-            usuarios_asociados: archivoData.usuarios_asociados || [],
-            usuarios_compartidos: archivoData.usuarios_compartidos || [],
-        };
+            // A. Subir archivo a R2
+            await uploadArchivoR2(urlInfo.uploadUrl, item.archivo.uri, contentType);
 
-        const metadataResponse = await apiRequest({ method: 'POST', endpoint: '/archivos/metadata', token: accessToken, body: payloadConfirmacion });
+            // B. Confirmar subida (Metadata) 
+            // Nota: Actualmente esto hace una petición por archivo.
+            const payloadConfirmacion: archivos.UploadArchivoPayload = {
+                ...item.archivoData, // Copiamos toda la info (título, uso, id_carpeta, roles, etc)
+                ruta_r2: urlInfo.ruta_r2,
+                tamaño: item.archivo.size,
+                tipo: contentType,
+            };
 
-        if (!metadataResponse.ok) {
+            const metadataResponse = await apiRequest({
+                method: 'POST',
+                endpoint: '/archivos/metadata',
+                token: accessToken,
+                body: payloadConfirmacion
+            });
+
+            if (!metadataResponse.ok) {
+                const body = await parseBody(metadataResponse);
+                throw buildApiError(metadataResponse.status, metadataResponse.statusText, body);
+            }
+
             const body = await parseBody(metadataResponse);
-            throw buildApiError(metadataResponse.status, metadataResponse.statusText, body);
-        }
+            const dto: ArchivoDTO = body?.archivo || body?.resource || body?.data || body;
 
-        const body = await parseBody(metadataResponse);
-        const dto: ArchivoDTO = body?.archivo || body?.resource || body?.data || body;
+            return {
+                status: metadataResponse.status === 207 ? 'partial_success' : 'success',
+                statusCode: metadataResponse.status,
+                data: mapArchivoDTOToArchivo(dto),
+                message: body?.message,
+                warnings: parseWarnings(body),
+            } as ApiOperationResult<archivos.Archivo>;
+        });
 
-        return {
-            status: metadataResponse.status === 207 ? 'partial_success' : 'success',
-            statusCode: metadataResponse.status,
-            data: mapArchivoDTOToArchivo(dto),
-            message: body?.message,
-            warnings: parseWarnings(body),
-        };
+        // 4. Esperar a que todos terminen (sin que un fallo detenga a los demás)
+        const resultados = await Promise.allSettled(promesasDeSubida);
+
+        // 5. Separar éxitos de fracasos para informar a la UI
+        const exitosos = resultados
+            .filter((res): res is PromiseFulfilledResult<ApiOperationResult<archivos.Archivo>> => res.status === 'fulfilled')
+            .map(res => res.value);
+
+        const fallidos = resultados
+            .filter((res): res is PromiseRejectedResult => res.status === 'rejected')
+            .map(res => res.reason);
+
+        return { exitosos, fallidos };
     } catch (error) {
         console.error('Error subiendo el archivo:', error);
         throw error;

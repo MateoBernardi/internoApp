@@ -1,6 +1,6 @@
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Archivo, MobileFile, UpdateArchivoPayload, UploadArchivoPayload } from '../models/Archivo';
+import { Archivo, ArchivoAProcesar, UpdateArchivoPayload } from '../models/Archivo';
 import { CarpetaView, CreateCarpetaPayload, UpdateCarpetaPayload } from '../models/Carpeta';
 import type { RemovePermisosPayload, ResourcePermisos } from '../models/Permisos';
 import * as archivosApi from '../services/archivosApi';
@@ -140,10 +140,10 @@ export function useUploadArchivo() {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: async ({ archivo, data }: { archivo: MobileFile; data: UploadArchivoPayload }) => {
+        mutationFn: async ({ item }: { item: ArchivoAProcesar[] }) => {
             const token = tokens?.accessToken;
             if (!token) throw new Error("No authentification token found");
-            return archivosApi.uploadArchivo(token, archivo, data);
+            return archivosApi.uploadArchivo(token, item);
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ARCHIVOS_KEYS.all });

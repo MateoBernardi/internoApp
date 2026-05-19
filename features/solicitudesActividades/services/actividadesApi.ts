@@ -36,7 +36,7 @@ async function extractErrorText(response: Response): Promise<string> {
 
 export async function createActividad(accessToken: string, data: actividades.CrearActividadRequest): Promise<actividades.CrearActividadResponse> {
     const payload = mapCrearActividadRequestToDTO(data);
-    const response = await apiRequest({ method: "PUT", endpoint: "/solicitudes-actividades/actividades/crear", token: accessToken, body: payload });    
+    const response = await apiRequest({ method: "PUT", endpoint: "/solicitudes-actividades/actividades/crear", token: accessToken, body: payload });
     if (!response.ok) {
         const errorMsg = await extractErrorText(response);
         console.error("Error en createActividad:", response.status, errorMsg);
@@ -55,14 +55,14 @@ export async function createActividad(accessToken: string, data: actividades.Cre
 }
 
 export async function agregarParticipanteActividad(accessToken: string, data: actividades.AgregarParticipanteRequest): Promise<actividades.AgregarParticipanteResponse> {
-    const response = await apiRequest({ method: "POST", endpoint: `/solicitudes-actividades/actividades/participantes`, token: accessToken, body: data });    
+    const response = await apiRequest({ method: "POST", endpoint: `/solicitudes-actividades/actividades/participantes`, token: accessToken, body: data });
     if (!response.ok) {
         const errorText = await response.text();
         console.error("Error en agregarParticipanteActividad:", response.status, errorText);
         throw new Error(`No se pudo agregar el participante a la actividad: ${response.status} - ${errorText}`);
     }
     return await response.json();
-}   
+}
 
 export async function obtenerActividadesPorPeriodo(
     accessToken: string,
@@ -93,7 +93,7 @@ export async function cancelarActividad(accessToken: string, data: actividades.C
         throw new Error(`No se pudo cancelar la actividad: ${response.status} - ${errorText}`);
     }
     return await response.json();
-}   
+}
 
 export async function modificarActividadFechas(accessToken: string, data: actividades.ModificarActividadFechasRequest): Promise<actividades.ModificarActividadFechasResponse> {
     const payload = mapModificarActividadFechasRequestToPayload(data);
@@ -129,4 +129,49 @@ export async function obtenerActividadById(accessToken: string, actividadId: num
 
     const dto: actividades.ActividadDetalleDTO = await response.json();
     return mapActividadDTOToDetalle(dto);
+}
+
+// archivoActividad: agrega o elimina archivos
+export async function archivoActividad(
+    accessToken: string,
+    id: number,
+    action: 'add' | 'remove',
+    archivosIds: number[]
+): Promise<actividades.ActividadDTO> {
+    const response = await apiRequest({
+        method: 'PATCH',
+        endpoint: `/solicitudes-actividades/actividades/${id}/archivos?action=${action}`,
+        token: accessToken,
+        body: { archivosIds },
+    });
+
+    if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.message || errData.error || response.statusText);
+    }
+
+    return response.json();
+}
+
+// invitadosActividad: agrega o elimina invitados
+export async function invitadosActividad(
+    accessToken: string,
+    id: number,
+    action: 'add' | 'remove',
+    invitados: actividades.ActividadDetalleParticipante[]
+): Promise<actividades.ActividadDTO> {
+    console.log("InvitadosActividad payload:", { id, action, invitados });
+    const response = await apiRequest({
+        method: 'PATCH',
+        endpoint: `/solicitudes-actividades/actividades/${id}/invitados?action=${action}`,
+        token: accessToken,
+        body: { invitados },
+    });
+
+    if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.message || errData.error || response.statusText);
+    }
+
+    return response.json();
 }

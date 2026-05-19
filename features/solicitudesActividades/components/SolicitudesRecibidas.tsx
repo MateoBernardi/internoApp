@@ -18,22 +18,70 @@ import { useInvitaciones, useOcultarSolicitudInvitado } from '../viewmodels/useS
 
 const colors = Colors['light'];
 
+function formatTipoSolicitud(tipo?: string): string {
+  if (tipo === 'MANDATO') return 'Actividad';
+  if (tipo === 'REUNION') return 'Reunión';
+  if (tipo === 'CHAT') return 'Conversación';
+  return tipo ? tipo : 'Solicitud';
+}
+
+function getTipoBadgeStyle(tipo?: string): { borderColor: string; backgroundColor: string; textColor: string } {
+  switch (tipo) {
+    case 'MANDATO':
+      return { borderColor: '#2563eb', backgroundColor: '#2563eb12', textColor: '#2563eb' };
+    case 'REUNION':
+      return { borderColor: '#7c3aed', backgroundColor: '#7c3aed12', textColor: '#7c3aed' };
+    case 'CHAT':
+      return { borderColor: '#0ea5e9', backgroundColor: '#0ea5e912', textColor: '#0ea5e9' };
+    default:
+      return { borderColor: '#6b7280', backgroundColor: '#6b728012', textColor: '#6b7280' };
+  }
+}
+
+function getEstadoBadgeStyle(estado: string): { borderColor: string; backgroundColor: string; textColor: string } {
+  switch (estado) {
+    case 'Pendiente':
+      return { borderColor: '#9ca3af', backgroundColor: '#9ca3af12', textColor: '#6b7280' };
+    case 'Visto':
+      return { borderColor: '#2563eb', backgroundColor: '#2563eb12', textColor: '#2563eb' };
+    case 'Modificado':
+    case 'Modificado por creador':
+      return { borderColor: '#f59e0b', backgroundColor: '#f59e0b12', textColor: '#b45309' };
+    case 'Aceptado':
+      return { borderColor: '#16a34a', backgroundColor: '#16a34a12', textColor: '#15803d' };
+    case 'Rechazado':
+      return { borderColor: '#dc2626', backgroundColor: '#dc262612', textColor: '#b91c1c' };
+    case 'Actividad creada':
+      return { borderColor: '#0f766e', backgroundColor: '#0f766e12', textColor: '#0f766e' };
+    case 'Expirada':
+      return { borderColor: '#64748b', backgroundColor: '#64748b12', textColor: '#475569' };
+    default:
+      return { borderColor: '#6b7280', backgroundColor: '#6b728012', textColor: '#6b7280' };
+  }
+}
+
 interface SolicitudesRecibidasProps {
   onRefresh?: () => Promise<void>;
   refreshing?: boolean;
+  onOpenSolicitud?: (solicitudId: number) => void;
 }
 
-export function SolicitudesRecibidas({ onRefresh, refreshing }: SolicitudesRecibidasProps = {}) {
+export function SolicitudesRecibidas({ onRefresh, refreshing, onOpenSolicitud }: SolicitudesRecibidasProps = {}) {
   const router = useRouter();
   const { data: invitaciones, isLoading, error, refetch } = useInvitaciones();
   const { mutate: ocultarSolicitud, isPending: isHidingSolicitud } = useOcultarSolicitudInvitado();
 
   const handleOpenSolicitud = useCallback((solicitudId: number) => {
+    if (onOpenSolicitud) {
+      onOpenSolicitud(solicitudId);
+      return;
+    }
+
     router.push({
-      pathname: '/(extras)/solicitud',
-      params: { id: solicitudId.toString(), type: 'recibida' },
+      pathname: '/(tabs)/explore',
+      params: { solicitudId: solicitudId.toString(), type: 'recibida' },
     });
-  }, [router]);
+  }, [router, onOpenSolicitud]);
 
   const handleRefresh = useCallback(async () => {
     await refetch();
@@ -158,26 +206,9 @@ function SolicitudRecibidaItem({ solicitud, estadoUI, onPress, onHide, isHiding 
     }
   };
 
-  const getEstadoIcon = (estado: string): { name: keyof typeof Ionicons.glyphMap; color: string } | null => {
-    switch (estado) {
-      case 'Modificado por creador':
-        return { name: 'create-outline', color: colors.secondaryText };
-      case 'Visto':
-        return { name: 'checkmark-done', color: '#1E88E5' };
-      case 'Aceptado':
-        return { name: 'checkmark', color: '#43A047' };
-      case 'Rechazado':
-        return { name: 'close', color: '#E53935' };
-      case 'Actividad creada':
-        return { name: 'checkmark-done', color: '#2E7D32' };
-      case 'Expirada':
-        return { name: 'time-outline', color: '#757575' };
-      default:
-        return null;
-    }
-  };
-
-  const estadoIcon = getEstadoIcon(estadoUI);
+  const tipoLabel = formatTipoSolicitud(solicitud.tipo_actividad);
+  const tipoBadgeStyle = getTipoBadgeStyle(solicitud.tipo_actividad);
+  const estadoBadgeStyle = getEstadoBadgeStyle(estadoUI);
 
   return (
     <TouchableOpacity
@@ -200,16 +231,29 @@ function SolicitudRecibidaItem({ solicitud, estadoUI, onPress, onHide, isHiding 
         >
           {solicitud.descripcion}
         </ThemedText>
+        <View style={styles.badgeRow}>
+          <View
+            style={[
+              styles.badge,
+              { borderColor: tipoBadgeStyle.borderColor, backgroundColor: tipoBadgeStyle.backgroundColor },
+            ]}
+          >
+            <ThemedText style={[styles.badgeText, { color: tipoBadgeStyle.textColor }]}>{tipoLabel}</ThemedText>
+          </View>
+          <View
+            style={[
+              styles.badge,
+              { borderColor: estadoBadgeStyle.borderColor, backgroundColor: estadoBadgeStyle.backgroundColor },
+            ]}
+          >
+            <ThemedText style={[styles.badgeText, { color: estadoBadgeStyle.textColor }]}>{estadoUI}</ThemedText>
+          </View>
+        </View>
         <View style={styles.footerContainer}>
           <ThemedText style={[styles.dateText, { color: colors.secondaryText }]}>
             {solicitud.fecha_inicio ? solicitud.fecha_inicio.toLocaleDateString('es-AR') : 'Sin fecha'}
           </ThemedText>
           <View style={styles.footerRightGroup}>
-            {estadoIcon ? (
-              <View style={styles.estadoIconContainer}>
-                <Ionicons name={estadoIcon.name} size={18} color={estadoIcon.color} />
-              </View>
-            ) : null}
             <TouchableOpacity
               onPress={(event: GestureResponderEvent) => {
                 event.stopPropagation();
@@ -271,6 +315,25 @@ const styles = StyleSheet.create({
   dateText: {
     fontSize: 12,
   },
+  badgeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 8,
+  },
+  badge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#f9fafb',
+  },
+  badgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#374151',
+  },
   hideButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -282,9 +345,5 @@ const styles = StyleSheet.create({
   },
   hideButtonDisabled: {
     opacity: 0.6,
-  },
-  estadoIconContainer: {
-    width: 20,
-    alignItems: 'center',
   },
 });

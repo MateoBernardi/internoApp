@@ -56,7 +56,6 @@ export function MisReportes() {
 
 	return (
 		<View style={styles.container}>
-			<ThemedText type="subtitle" style={styles.title}>Mis Reportes</ThemedText>
 			{(!reportes || reportes.length === 0) ? (
 				<View style={styles.centerContainer}>
 					<ThemedText type="subtitle">No hay nada para mostar aún.</ThemedText>

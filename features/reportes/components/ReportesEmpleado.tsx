@@ -3,7 +3,6 @@ import { CreateButton } from '@/components/ui/CreateButton';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { Colors } from '@/constants/theme';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
-import { useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
 	ScrollView,
@@ -14,6 +13,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EstadoReporte, Reporte } from '../models/Reporte';
 import { useReportes } from '../viewmodels/useReportes';
+import CrearReporte from '../views/CrearReporte';
 import { ReporteModal } from './ReporteModal';
 
 const estadoMapping: Record<EstadoReporte, string> = {
@@ -28,12 +28,11 @@ interface ReportesEmpleadoProps {
 	userNombre?: string;
 	userApellido?: string;
 	fabBehavior?: 'container' | 'viewport';
-}	
+}
 
 const colors = Colors['light'];
 
 export function ReportesEmpleado({ userId, userNombre = '', userApellido = '', fabBehavior = 'container' }: ReportesEmpleadoProps) {
-	const router = useRouter();
 	const insets = useSafeAreaInsets();
 	const { hasRole } = useRoleCheck();
 	const { data: reportes, isLoading, error } = useReportes(userId);
@@ -41,6 +40,7 @@ export function ReportesEmpleado({ userId, userNombre = '', userApellido = '', f
 
 	const [modalVisible, setModalVisible] = useState(false);
 	const [selectedReporte, setSelectedReporte] = useState<Reporte | null>(null);
+	const [createModalVisible, setCreateModalVisible] = useState(false);
 
 	const handleOpenReporte = useCallback((reporte: Reporte) => {
 		setSelectedReporte(reporte);
@@ -53,15 +53,12 @@ export function ReportesEmpleado({ userId, userNombre = '', userApellido = '', f
 	}, []);
 
 	const handleCrearReporte = useCallback(() => {
-		router.push({
-			pathname: '/(extras)/crear-reporte',
-			params: {
-				user_context_id: userId,
-				user_nombre: userNombre,
-				user_apellido: userApellido,
-			},
-		});
-	}, [router, userId, userNombre, userApellido]);
+		setCreateModalVisible(true);
+	}, []);
+
+	const handleCloseCreateModal = useCallback(() => {
+		setCreateModalVisible(false);
+	}, []);
 
 	const Separator = useCallback(() => (
 		<View
@@ -147,6 +144,15 @@ export function ReportesEmpleado({ userId, userNombre = '', userApellido = '', f
 					onClose={handleCloseModal}
 					reporte={selectedReporte}
 					origen="empleado"
+				/>
+			)}
+			{createModalVisible && (
+				<CrearReporte
+					visible={createModalVisible}
+					onClose={handleCloseCreateModal}
+					user_context_id={userId}
+					user_nombre={userNombre}
+					user_apellido={userApellido}
 				/>
 			)}
 			{renderCreateButton()}

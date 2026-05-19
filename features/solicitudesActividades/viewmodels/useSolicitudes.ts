@@ -1,10 +1,12 @@
 import { useAuth } from '@/features/auth/context/AuthContext';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as solicitudModels from '../models/Solicitud';
 import * as solicitudesApi from '../services/solicitudesApi';
 
 const solicitudesQueryKeys = {
   all: ['solicitudes'] as const,
+  lista: (page: number, pageSize: number) =>
+    [...solicitudesQueryKeys.all, 'lista', page, pageSize] as const,
   creadas: () => [...solicitudesQueryKeys.all, 'creadas'] as const,
   invitaciones: () => [...solicitudesQueryKeys.all, 'invitaciones'] as const,
   bitacora: (solicitudId: number) => [...solicitudesQueryKeys.all, 'bitacora', solicitudId] as const,
@@ -14,45 +16,45 @@ const solicitudesQueryKeys = {
  * Hook para obtener las solicitudes creadas por el usuario
  */
 export function useSolicitudesCreadas(enabled: boolean = true) {
-    const { tokens } = useAuth();
-    return useQuery({
-        queryKey: solicitudesQueryKeys.creadas(),
+  const { tokens } = useAuth();
+  return useQuery({
+    queryKey: solicitudesQueryKeys.creadas(),
     enabled,
-        queryFn: async () => {
-            const token = tokens?.accessToken;
-            if (!token) {
-                throw new Error('No access token available');
-            }
-            return solicitudesApi.getSolicitudesCreadas(token);
-        },
-        staleTime: 1000 * 60 * 5, // 5 minutos
-        gcTime: 1000 * 60 * 10, // 10 minutos (anteriormente cacheTime)
-        retry: 3,
-        retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-    });
+    queryFn: async () => {
+      const token = tokens?.accessToken;
+      if (!token) {
+        throw new Error('No access token available');
+      }
+      return solicitudesApi.getSolicitudesCreadas(token);
+    },
+    staleTime: 1000 * 60 * 5, // 5 minutos
+    gcTime: 1000 * 60 * 10, // 10 minutos (anteriormente cacheTime)
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+  });
 }
 
 /**
  * Hook para obtener las invitaciones recibidas por el usuario
  */
 export function useInvitaciones(enabled: boolean = true) {
-    const { tokens } = useAuth();
+  const { tokens } = useAuth();
 
-    return useQuery({
-        queryKey: solicitudesQueryKeys.invitaciones(),
-      enabled,
-        queryFn: async () => {
-            const accessToken = tokens?.accessToken;
-            if (!accessToken) {
-                throw new Error('No access token available');
-            }
-            return solicitudesApi.obtenerMisInvitaciones(accessToken);
-        },
-        staleTime: 1000 * 60 * 5, // 5 minutos
-        gcTime: 1000 * 60 * 10, // 10 minutos
-        retry: 3,
-        retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-    });
+  return useQuery({
+    queryKey: solicitudesQueryKeys.invitaciones(),
+    enabled,
+    queryFn: async () => {
+      const accessToken = tokens?.accessToken;
+      if (!accessToken) {
+        throw new Error('No access token available');
+      }
+      return solicitudesApi.obtenerMisInvitaciones(accessToken);
+    },
+    staleTime: 1000 * 60 * 5, // 5 minutos
+    gcTime: 1000 * 60 * 10, // 10 minutos
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+  });
 }
 
 /**
@@ -91,16 +93,15 @@ export function useCrearSolicitud() {
       if (!accessToken) {
         throw new Error('No access token available');
       }
+      console.log('Creando solicitud con data:', data);
       return solicitudesApi.crearSolicitud(accessToken, data);
     },
     onSuccess: () => {
       // Invalidar las solicitudes creadas para refrescar la lista
       queryClient.invalidateQueries({
-        queryKey: solicitudesQueryKeys.creadas(),
+        queryKey: solicitudesQueryKeys.lista(1, 20),
       });
     },
-    retry: 3,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
 }
 
@@ -122,14 +123,9 @@ export function useCancelarSolicitud() {
     onSuccess: () => {
       // Invalidar ambas listas de solicitudes
       queryClient.invalidateQueries({
-        queryKey: solicitudesQueryKeys.creadas(),
-      });
-      queryClient.invalidateQueries({
-        queryKey: solicitudesQueryKeys.invitaciones(),
+        queryKey: solicitudesQueryKeys.lista(1, 20),
       });
     },
-    retry: 3,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
 }
 
@@ -151,11 +147,28 @@ export function useReenviarSolicitud() {
     onSuccess: () => {
       // Invalidar las solicitudes creadas
       queryClient.invalidateQueries({
-        queryKey: solicitudesQueryKeys.creadas(),
+        queryKey: solicitudesQueryKeys.lista(1, 20),
       });
     },
-    retry: 3,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+  });
+}
+
+/**
+ * Hook para agregar o quitar invitados de una solicitud existente
+ */
+export function useActualizarInvitadosSolicitud() {
+  const { tokens } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: solicitudModels.ActualizarInvitadosSolicitudRequest) => {
+      const accessToken = tokens?.accessToken;
+      if (!accessToken) throw new Error('No access token available');
+      return solicitudesApi.actualizarInvitadosSolicitud(accessToken, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: solicitudesQueryKeys.all });
+    },
   });
 }
 
@@ -176,14 +189,9 @@ export function useOcultarSolicitudInvitado() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: solicitudesQueryKeys.invitaciones(),
-      });
-      queryClient.invalidateQueries({
-        queryKey: solicitudesQueryKeys.creadas(),
+        queryKey: solicitudesQueryKeys.lista(1, 20),
       });
     },
-    retry: 3,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
 }
 
@@ -208,13 +216,44 @@ export function useActualizarEstadoInvitacion() {
       });
       // Invalidar las invitaciones para refrescar la lista
       queryClient.invalidateQueries({
-        queryKey: solicitudesQueryKeys.invitaciones(),
-      });
-      // Invalidar también las creadas por si estamos actualizando una enviada (ej. SEEN)
-      queryClient.invalidateQueries({
-        queryKey: solicitudesQueryKeys.creadas(),
+        queryKey: solicitudesQueryKeys.lista(1, 20),
       });
     },
+  });
+}
+
+export function useBuscarSolicitudes(q: string) {
+  const { tokens } = useAuth();
+
+  return useQuery({
+    queryKey: [...solicitudesQueryKeys.all, 'buscar', q] as const,
+    enabled: q.trim().length > 0,
+    queryFn: async () => {
+      const token = tokens?.accessToken;
+      if (!token) throw new Error('No access token available');
+      return solicitudesApi.buscarSolicitudes(token, q);
+    },
+    staleTime: 1000 * 30,
+    gcTime: 1000 * 60 * 5,
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+  });
+}
+
+export function useSolicitudes(page: number = 1, pageSize: number = 20, enabled: boolean = true) {
+  const { tokens } = useAuth();
+
+  return useQuery({
+    queryKey: solicitudesQueryKeys.lista(page, pageSize),
+    enabled,
+    queryFn: async () => {
+      const token = tokens?.accessToken;
+      if (!token) throw new Error('No access token available');
+      return solicitudesApi.getSolicitudes(token, page, pageSize);
+    },
+    placeholderData: keepPreviousData,
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 10,
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });

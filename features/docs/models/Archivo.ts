@@ -2,6 +2,7 @@ export enum ArchivoUso {
   EMPRESA = 'EMPRESA',
   LICENCIA = 'LICENCIA',
   MAYORISTA = 'MAYORISTA',
+  TAREA = 'TAREA',
   WEB = 'WEB',
 }
 
@@ -60,14 +61,18 @@ export interface MoverArchivoPayload {
 }
 
 export interface PedirUrlCargaRequest {
-  fileName: string;
-  contentType: string;
+  files: {
+    fileName: string;
+    contentType: string;
+  }[];
 }
 
 export interface PedirUrlCargaResponse {
-  uploadUrl: string;
-  ruta_r2: string;
-  fileName: string;
+  urls: {
+    uploadUrl: string;
+    ruta_r2: string;
+    fileName: string;
+  }[];
 }
 
 export interface MobileFile {
@@ -75,4 +80,9 @@ export interface MobileFile {
   name: string;
   type: string;
   size?: number;
+}
+
+export interface ArchivoAProcesar {
+  archivo: MobileFile;
+  archivoData: UploadArchivoPayload;
 }

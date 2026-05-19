@@ -81,9 +81,10 @@ function RootNavigator() {
     }
 
     if (Number.isFinite(actividadId) && actividadId > 0) {
+      const rol = String(payload.rol ?? payload.role ?? '');
       router.push({
-        pathname: '/(extras)/actividad-detalle' as any,
-        params: { id: actividadId.toString(), actividadId: actividadId.toString() },
+        pathname: '/(extras)/agenda-personal' as any,
+        params: { actividadId: actividadId.toString(), rol },
       });
       return;
     }
@@ -91,8 +92,8 @@ function RootNavigator() {
     if (Number.isFinite(solicitudId) && solicitudId > 0) {
       const esCreador = Boolean(payload.es_creador ?? payload.is_creator ?? payload.creator);
       router.push({
-        pathname: '/(extras)/solicitud' as any,
-        params: { id: solicitudId.toString(), type: esCreador ? 'enviada' : 'recibida' },
+        pathname: '/(tabs)/explore' as any,
+        params: { solicitudId: solicitudId.toString(), type: esCreador ? 'enviada' : 'recibida' },
       });
     }
   },

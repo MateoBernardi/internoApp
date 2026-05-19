@@ -1,3 +1,4 @@
+import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import React, { memo } from 'react';
 import {
@@ -31,7 +32,7 @@ export const CreateButton = memo(({
         {
           width: size,
           height: size,
-          backgroundColor: '#00054bff', // Azul marino
+          backgroundColor: Colors['light'].lightTint, // Azul marino
         },
         style,
       ]}

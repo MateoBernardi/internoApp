@@ -2,6 +2,7 @@ import { useAuth } from '@/features/auth/context/AuthContext';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as actividadesModels from '../models/Actividad';
 import * as actividadesApi from '../services/actividadesApi';
+import { archivoActividad, invitadosActividad } from '../services/actividadesApi';
 
 export interface PeriodoVentana {
   fechaInicio: Date;
@@ -203,3 +204,59 @@ export function useModificarActividadFechas() {
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
 }
+
+export function useArchivoActividad() {
+  const queryClient = useQueryClient();
+  const { tokens } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({
+      id,
+      action,
+      archivosIds,
+    }: {
+      id: number;
+      action: 'add' | 'remove';
+      archivosIds: number[];
+    }) => {
+      const token = tokens?.accessToken;
+      if (!token) throw new Error('No hay token de acceso');
+      return archivoActividad(token, id, action, archivosIds);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: actividadesQueryKeys.all });
+    },
+    onError: () => {
+      queryClient.invalidateQueries({ queryKey: actividadesQueryKeys.all });
+    },
+  });
+}
+
+// useInvitadosObjetivo: mutación para invitados
+export function useInvitadosActividad() {
+  const queryClient = useQueryClient();
+  const { tokens } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({
+      id,
+      action,
+      invitados,
+    }: {
+      id: number;
+      action: 'add' | 'remove';
+      invitados: actividadesModels.ActividadDetalleParticipante[];
+    }) => {
+      const token = tokens?.accessToken;
+      if (!token) throw new Error('No hay token de acceso');
+      return invitadosActividad(token, id, action, invitados);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: actividadesQueryKeys.all });
+    },
+    onError: () => {
+      queryClient.invalidateQueries({ queryKey: actividadesQueryKeys.all });
+    },
+  });
+}
+

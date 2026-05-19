@@ -1,3 +1,4 @@
+import { AlertModal, type AlertModalAction } from '@/components/AlertModal';
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
@@ -6,7 +7,6 @@ import { Image } from 'expo-image';
 import React, { useCallback, useState } from 'react';
 import {
     ActivityIndicator,
-    Alert,
     ImageStyle,
     Modal,
     Platform,
@@ -133,6 +133,12 @@ export function ImagenesReporte({
     const [showUploadForm, setShowUploadForm] = useState(false);
     const [uploadDescription, setUploadDescription] = useState('');
     const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
+    const [alertModal, setAlertModal] = useState<{
+        visible: boolean;
+        title: string;
+        message?: string;
+        actions: AlertModalAction[];
+    }>({ visible: false, title: '', message: undefined, actions: [] });
 
     // Datos completos solo se necesitan cuando el usuario puede gestionar imágenes
     const {
@@ -143,6 +149,25 @@ export function ImagenesReporte({
 
     const { mutate: uploadImage, isPending: uploading } = useUploadReporteImage();
     const { mutate: unlinkImage, isPending: unlinking } = useUnlinkReporteImage();
+
+    const showModal = useCallback((title: string, message?: string, actions?: AlertModalAction[]) => {
+        const normalizedActions = actions && actions.length > 0
+            ? actions
+            : [{ key: 'ok', label: 'Aceptar', onPress: () => { }, variant: 'primary' }];
+
+        setAlertModal({
+            visible: true,
+            title,
+            message,
+            actions: normalizedActions.map((action) => ({
+                ...action,
+                onPress: () => {
+                    setAlertModal((prev) => ({ ...prev, visible: false }));
+                    action.onPress();
+                },
+            })),
+        });
+    }, []);
 
     const handlePickAndUpload = useCallback(async () => {
         try {
@@ -168,48 +193,47 @@ export function ImagenesReporte({
                 },
                 {
                     onSuccess: () => {
-                        Alert.alert('Éxito', 'Imagen subida correctamente.');
+                        showModal('Éxito', 'Imagen subida correctamente.');
                         setUploadDescription('');
                         setShowUploadForm(false);
                     },
                     onError: (error: any) => {
-                        Alert.alert('Error', error?.message ?? 'Intenta nuevamente');
+                        showModal('Error', error?.message ?? 'Intenta nuevamente');
                     },
                 },
             );
         } catch (err: any) {
-            Alert.alert('Error', err?.message ?? 'Intenta nuevamente');
+            showModal('Error', err?.message ?? 'Intenta nuevamente');
         }
-    }, [uploadDescription, uploadImage, reporteId, imagenesDetalle, imagenesUrl]);
+    }, [uploadDescription, uploadImage, reporteId, imagenesDetalle, imagenesUrl, showModal]);
 
     const handleUnlink = useCallback(
         (imageId: number, orden: number) => {
-            Alert.alert(
-                'Eliminar imagen',
-                '¿Desvincular esta imagen del reporte?',
-                [
-                    { text: 'Cancelar', style: 'cancel' },
-                    {
-                        text: 'Eliminar',
-                        style: 'destructive',
-                        onPress: () => {
-                            unlinkImage(
-                                { reporteId, imageId, orden },
-                                {
-                                    onError: (error: any) => {
-                                        Alert.alert(
-                                            'Error',
-                                            error?.message ?? 'Intenta nuevamente',
-                                        );
-                                    },
+            showModal('Eliminar imagen', '¿Desvincular esta imagen del reporte?', [
+                {
+                    key: 'cancel',
+                    label: 'Cancelar',
+                    onPress: () => { },
+                    variant: 'neutral',
+                },
+                {
+                    key: 'delete',
+                    label: 'Eliminar',
+                    variant: 'destructive',
+                    onPress: () => {
+                        unlinkImage(
+                            { reporteId, imageId, orden },
+                            {
+                                onError: (error: any) => {
+                                    showModal('Error', error?.message ?? 'Intenta nuevamente');
                                 },
-                            );
-                        },
+                            },
+                        );
                     },
-                ],
-            );
+                },
+            ]);
         },
-        [unlinkImage, reporteId],
+        [unlinkImage, reporteId, showModal],
     );
 
     // ── Render ──────────────────────────────────────────────────────────────────
@@ -352,6 +376,14 @@ export function ImagenesReporte({
                     </TouchableOpacity>
                 </GestureHandlerRootView>
             </Modal>
+
+            <AlertModal
+                visible={alertModal.visible}
+                title={alertModal.title}
+                message={alertModal.message}
+                actions={alertModal.actions}
+                onClose={() => setAlertModal((prev) => ({ ...prev, visible: false }))}
+            />
         </View>
     );
 }

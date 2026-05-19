@@ -1,11 +1,10 @@
 import { ThemedText } from '@/components/themed-text';
 import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
 import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
-import { Colors, UI } from '@/constants/theme';
+import { Colors } from '@/constants/theme';
 import { Archivo, ArchivoUso } from '@/features/docs/models/Archivo';
 import { useGetArchivoUrlFirmada, useUploadArchivo } from '@/features/docs/viewmodels/useArchivos';
 import { ApiOperationResult } from '@/shared/types/apiStatus';
-import { AppFab } from '@/shared/ui/AppFab';
 import { UserSummary } from '@/shared/users/User';
 import { allRoles } from '@/shared/users/roles';
 import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
@@ -24,7 +23,7 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
 import { UserSelector } from '../../../components/UserSelector';
 import { RoleUserSelectionModal } from '../../solicitudesActividades/components/RoleUserSelectionModal';
@@ -41,8 +40,6 @@ import {
 
 const colors = Colors['light'];
 
-// ─── Tipos locales ────────────────────────────────────────────────────────────
-
 interface PendingFile {
   name: string;
   uri: string;
@@ -50,7 +47,7 @@ interface PendingFile {
   size?: number;
 }
 
-// ─── Helpers de formato ───────────────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function formatDateLabel(date: Date): string {
   const day = String(date.getDate()).padStart(2, '0');
@@ -60,10 +57,7 @@ function formatDateLabel(date: Date): string {
 }
 
 function formatTimeLabel(date: Date): string {
-  return date.toLocaleTimeString('es-ES', {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
 }
 
 function formatParticipantRole(role: string): string {
@@ -86,9 +80,7 @@ function makePlaceholderUser(userId: number): UserSummary {
 function mergeUsers(current: UserSummary[], incoming: UserSummary[]): UserSummary[] {
   const byId = new Map(current.map((u) => [u.user_context_id, u]));
   incoming.forEach((u) => {
-    if (!byId.has(u.user_context_id)) {
-      byId.set(u.user_context_id, u);
-    }
+    if (!byId.has(u.user_context_id)) byId.set(u.user_context_id, u);
   });
   return Array.from(byId.values());
 }
@@ -131,26 +123,23 @@ export function ActividadDetalle({
   const numericId = Number(resolvedActividadId);
   const isValidId = Number.isFinite(numericId) && numericId > 0;
 
-  // ─── Queries y mutations existentes ─────────────────────────────────────────
+  // ─── Queries / mutations ──────────────────────────────────────────────────
 
   const actividadQuery = useActividadById(isValidId ? numericId : undefined);
   const { mutate: modificarFechas, isPending: isModifying } = useModificarActividadFechas();
   const { mutate: cancelarActividad, isPending: isCancelling } = useCancelarActividad();
-
-  // ─── Mutations de archivos y participantes (misma lógica que objetivos) ──────
-
   const { mutateAsync: uploadArchivo } = useUploadArchivo();
   const archivoMutation = useArchivoActividad();
   const participantesMutation = useInvitadosActividad();
   const { getArchivoUrlFirmada } = useGetArchivoUrlFirmada();
 
-  // ─── Estado local de archivos ─────────────────────────────────────────────
+  // ─── Estado: archivos ─────────────────────────────────────────────────────
 
   const [localArchivos, setLocalArchivos] = useState<Archivo[]>([]);
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
   const [isUploadingFile, setIsUploadingFile] = useState(false);
 
-  // ─── Estado local de participantes ───────────────────────────────────────
+  // ─── Estado: participantes ────────────────────────────────────────────────
 
   const [localParticipantes, setLocalParticipantes] = useState<ActividadDetalleParticipante[]>([]);
   const [selectedUsers, setSelectedUsers] = useState<UserSummary[]>([]);
@@ -159,17 +148,14 @@ export function ActividadDetalle({
   const [activeRole, setActiveRole] = useState('');
   const [showSelector, setShowSelector] = useState(false);
 
-  // ─── Búsqueda de usuarios ─────────────────────────────────────────────────
-
   const { data: searchResults, isLoading: isSearchingUsers } = useSearchUsers(searchQuery);
   const { data: roleUsersData, isLoading: isLoadingRole } = useGetUserByRole(activeRole);
   const users = searchResults || [];
   const isLoadingUsers = isSearchingUsers || isLoadingRole;
 
-  // ─── Estado del modal de modificar fechas (sin cambios) ───────────────────
+  // ─── Estado: edición inline de fechas ────────────────────────────────────
 
-  const [showModifyModal, setShowModifyModal] = useState(false);
-  const [isFabExpanded, setIsFabExpanded] = useState(false);
+  const [isEditingFechas, setIsEditingFechas] = useState(false);
   const [modStartDate, setModStartDate] = useState(new Date());
   const [modEndDate, setModEndDate] = useState(new Date());
   const [showEndDateFields, setShowEndDateFields] = useState(false);
@@ -203,6 +189,9 @@ export function ActividadDetalle({
   const fechaInicio = actividad?.fecha_inicio ?? new Date();
   const fechaFin = actividad?.fecha_fin ?? null;
 
+  const isLoadingActividad = hasIdParam && actividadQuery.isLoading;
+  const hasActividadError = !hasIdParam || !isValidId || actividadQuery.isError || !actividad;
+
   // ─── Limpieza al cerrar ───────────────────────────────────────────────────
 
   useEffect(() => {
@@ -215,9 +204,11 @@ export function ActividadDetalle({
     setShowSelector(false);
     setShowRoleModal(false);
     setActiveRole('');
+    setIsEditingFechas(false);
+    setBackendRangosOcupados([]);
   }, [modalVisible]);
 
-  // ─── Inicialización con datos de la actividad ─────────────────────────────
+  // ─── Inicialización ───────────────────────────────────────────────────────
 
   useEffect(() => {
     if (!modalVisible || !actividad) return;
@@ -247,7 +238,7 @@ export function ActividadDetalle({
     );
   }, [modalVisible, actividad]);
 
-  // ─── Helpers de archivos ──────────────────────────────────────────────────
+  // ─── Archivos ─────────────────────────────────────────────────────────────
 
   const isSuccess = <T,>(r: ApiOperationResult<T>): r is ApiOperationResult<T> & { data: T } =>
     r.status === 'success' && r.data !== undefined;
@@ -259,7 +250,6 @@ export function ActividadDetalle({
         type: '*/*',
         copyToCacheDirectory: true,
       });
-
       if (result.canceled || !result.assets || result.assets.length === 0) return;
 
       const nuevosArchivos: PendingFile[] = result.assets.map((asset) => ({
@@ -276,7 +266,12 @@ export function ActividadDetalle({
         const response = await uploadArchivo({
           item: nuevosArchivos.map((file) => ({
             archivo: { uri: file.uri, name: file.name, type: file.type, size: file.size },
-            archivoData: { nombre: file.name, tamaño: file.size, tipo: file.type, uso: ArchivoUso.TAREA },
+            archivoData: {
+              nombre: file.name,
+              tamano: file.size,
+              tipo: file.type,
+              uso: ArchivoUso.TAREA,
+            },
           })),
         });
 
@@ -296,7 +291,9 @@ export function ActividadDetalle({
         }
 
         if (nuevosIds.length > 0) {
+          // Suma los nuevos a los existentes en la UI
           setLocalArchivos((prev) => [...prev, ...nuevosArchivosData]);
+          // Solo envía los IDs nuevos al backend
           await archivoMutation.mutateAsync({
             id: numericId,
             action: 'add',
@@ -333,7 +330,9 @@ export function ActividadDetalle({
         text: 'Eliminar',
         style: 'destructive',
         onPress: () => {
+          // Quita ese archivo de la UI
           setLocalArchivos((prev) => prev.filter((a) => a.id !== archivoId));
+          // Solo envía ese ID al backend
           void archivoMutation.mutateAsync({
             id: numericId,
             action: 'remove',
@@ -344,7 +343,7 @@ export function ActividadDetalle({
     ]);
   };
 
-  // ─── Helpers de participantes ─────────────────────────────────────────────
+  // ─── Participantes ────────────────────────────────────────────────────────
 
   const getDisplayName = (userId: number) => {
     const p = localParticipantes.find((i) => i.user_context_id === userId);
@@ -354,34 +353,30 @@ export function ActividadDetalle({
     return `Usuario #${userId}`;
   };
 
-  const persistParticipantes = async (nextParticipantes: ActividadDetalleParticipante[]) => {
-    setLocalParticipantes(nextParticipantes);
-    setSelectedUsers((prev) => {
-      const byId = new Map(prev.map((u) => [u.user_context_id, u]));
-      return nextParticipantes.map(
-        (p) => byId.get(p.user_context_id) ?? makePlaceholderUser(p.user_context_id)
-      );
-    });
-    await participantesMutation.mutateAsync({
+  const handleSelectUsers = (usersToSelect: UserSummary[]) => {
+    // Solo los que no estaban ya en la lista
+    const existingIds = new Set(localParticipantes.map((p) => p.user_context_id));
+    const realmenteNuevos = usersToSelect.filter((u) => !existingIds.has(u.user_context_id));
+
+    if (realmenteNuevos.length === 0) return;
+
+    const nuevosParticipantes: ActividadDetalleParticipante[] = realmenteNuevos.map((u) => ({
+      user_context_id: u.user_context_id,
+      nombre: u.nombre,
+      apellido: u.apellido,
+      rol: 'guest',
+    }));
+
+    // Suma los nuevos a los existentes en la UI
+    setLocalParticipantes((prev) => [...prev, ...nuevosParticipantes]);
+    setSelectedUsers((prev) => mergeUsers(prev, realmenteNuevos));
+
+    // Solo envía los nuevos al backend
+    void participantesMutation.mutateAsync({
       id: numericId,
       action: 'add',
-      invitados: nextParticipantes,
+      invitados: nuevosParticipantes,
     });
-  };
-
-  const handleSelectUsers = (usersToSelect: UserSummary[]) => {
-    const incomingIds = new Set(usersToSelect.map((u) => u.user_context_id));
-    const nextParticipantes: ActividadDetalleParticipante[] = [
-      ...localParticipantes.filter((p) => !incomingIds.has(p.user_context_id)),
-      ...usersToSelect.map((u) => ({
-        user_context_id: u.user_context_id,
-        nombre: u.nombre,
-        apellido: u.apellido,
-        rol: 'guest',
-      })),
-    ];
-    setSelectedUsers((prev) => mergeUsers(prev, usersToSelect));
-    void persistParticipantes(nextParticipantes);
   };
 
   const handleSelectRole = (role: string) => {
@@ -391,118 +386,75 @@ export function ActividadDetalle({
 
   const handleToggleUser = (selectedUser: UserSummary) => {
     const exists = localParticipantes.some((p) => p.user_context_id === selectedUser.user_context_id);
-    const nextParticipantes: ActividadDetalleParticipante[] = exists
-      ? localParticipantes.filter((p) => p.user_context_id !== selectedUser.user_context_id)
-      : [
-        ...localParticipantes,
-        {
-          user_context_id: selectedUser.user_context_id,
-          nombre: selectedUser.nombre,
-          apellido: selectedUser.apellido,
-          rol: 'guest',
-        },
-      ];
 
     if (!exists) {
+      const nuevo: ActividadDetalleParticipante = {
+        user_context_id: selectedUser.user_context_id,
+        nombre: selectedUser.nombre,
+        apellido: selectedUser.apellido,
+        rol: 'guest',
+      };
+      // Suma solo el nuevo a la UI
+      setLocalParticipantes((prev) => [...prev, nuevo]);
       setSelectedUsers((prev) =>
         prev.some((u) => u.user_context_id === selectedUser.user_context_id)
           ? prev
           : [...prev, selectedUser]
       );
+      // Envía solo ese nuevo al backend
+      void participantesMutation.mutateAsync({
+        id: numericId,
+        action: 'add',
+        invitados: [nuevo],
+      });
     } else {
+      // Quita de la UI
+      setLocalParticipantes((prev) =>
+        prev.filter((p) => p.user_context_id !== selectedUser.user_context_id)
+      );
       setSelectedUsers((prev) =>
         prev.filter((u) => u.user_context_id !== selectedUser.user_context_id)
       );
+      // Envía solo ese al backend para remover
+      void participantesMutation.mutateAsync({
+        id: numericId,
+        action: 'remove',
+        invitados: [{ user_context_id: selectedUser.user_context_id, nombre: selectedUser.nombre, apellido: selectedUser.apellido, rol: 'guest' }],
+      });
     }
-
-    void persistParticipantes(nextParticipantes);
   };
 
   const handleRemoveParticipante = (userId: number) => {
-    const toRemove = localParticipantes.filter((p) => p.user_context_id === userId);
-    const nextParticipantes = localParticipantes.filter((p) => p.user_context_id !== userId);
+    const toRemove = localParticipantes.find((p) => p.user_context_id === userId);
+    if (!toRemove) return;
+    // Quita de la UI
+    setLocalParticipantes((prev) => prev.filter((p) => p.user_context_id !== userId));
     setSelectedUsers((prev) => prev.filter((u) => u.user_context_id !== userId));
-    setLocalParticipantes(nextParticipantes);
+    // Solo envía el eliminado al backend
     void participantesMutation.mutateAsync({
       id: numericId,
       action: 'remove',
-      invitados: toRemove,
+      invitados: [toRemove],
     });
   };
 
-  // ─── Handlers existentes (sin cambios) ───────────────────────────────────
+  // ─── Fechas inline ────────────────────────────────────────────────────────
 
-  const handleModificarPress = useCallback(() => {
+  const handleEditarFechasPress = () => {
     if (!actividad) return;
-    setIsFabExpanded(false);
     const startDate = new Date(actividad.fecha_inicio);
     setModStartDate(startDate);
     setModEndDate(new Date(actividad.fecha_fin ?? startDate.getTime() + 3600000));
     setShowEndDateFields(Boolean(actividad.fecha_fin));
-    setShowModifyModal(true);
-  }, [actividad]);
+    setIsEditingFechas(true);
+  };
 
-  const confirmDeleteOrLeave = useCallback(() => {
-    if (!actividad) return;
-    const isGuestAction = isGuest && !isHost;
-    const confirmTitle = isGuestAction ? 'Darse de baja' : 'Eliminar actividad';
-    const confirmMessage = isGuestAction
-      ? '¿Querés darte de baja de esta actividad?'
-      : '¿Querés eliminar esta actividad?';
+  const handleCancelarEdicionFechas = () => {
+    setIsEditingFechas(false);
+    setShowDatePicker({ show: false, mode: 'date', target: 'start' });
+  };
 
-    Alert.alert(confirmTitle, confirmMessage, [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: isGuestAction ? 'Darme de baja' : 'Eliminar',
-        style: 'destructive',
-        onPress: () => {
-          cancelarActividad(
-            { id: actividad.id },
-            {
-              onSuccess: () => {
-                Alert.alert(
-                  'Éxito',
-                  isGuestAction
-                    ? 'Te diste de baja de la actividad'
-                    : 'Actividad eliminada correctamente'
-                );
-                router.back();
-              },
-              onError: (error) => {
-                Alert.alert(
-                  'Error',
-                  error instanceof Error ? error.message : 'Intentá nuevamente'
-                );
-              },
-            }
-          );
-        },
-      },
-    ]);
-  }, [actividad, cancelarActividad, isGuest, isHost, router]);
-
-  const handleHostDeletePress = useCallback(() => {
-    setIsFabExpanded(false);
-    confirmDeleteOrLeave();
-  }, [confirmDeleteOrLeave]);
-
-  const handleGuestLeavePress = useCallback(() => {
-    confirmDeleteOrLeave();
-  }, [confirmDeleteOrLeave]);
-
-  const handleFabPress = useCallback(() => {
-    if (isHost) {
-      setIsFabExpanded((prev) => !prev);
-      return;
-    }
-    if (isGuest) {
-      handleGuestLeavePress();
-      return;
-    }
-    handleModificarPress();
-  }, [handleGuestLeavePress, handleModificarPress, isGuest, isHost]);
-
-  const confirmModificar = useCallback(() => {
+  const handleConfirmarFechas = useCallback(() => {
     if (!actividad) return;
     if (showEndDateFields && modStartDate >= modEndDate) {
       Alert.alert('Error', 'La fecha de fin debe ser posterior a la de inicio');
@@ -516,10 +468,7 @@ export function ActividadDetalle({
       },
       {
         onError: (error) => {
-          Alert.alert(
-            'Error',
-            error instanceof Error ? error.message : 'Intentá nuevamente'
-          );
+          Alert.alert('Error', error instanceof Error ? error.message : 'Intentá nuevamente');
         },
         onSuccess: (response: ModificarActividadFechasResponse) => {
           if (!response.success && (response.rangosOcupados?.length ?? 0) > 0) {
@@ -527,20 +476,17 @@ export function ActividadDetalle({
             return;
           }
           setBackendRangosOcupados([]);
-          setShowModifyModal(false);
-          Alert.alert('Éxito', 'Fechas de la actividad modificadas');
+          setIsEditingFechas(false);
+          Alert.alert('Éxito', 'Fechas modificadas correctamente');
         },
       }
     );
   }, [actividad, modStartDate, modEndDate, modificarFechas, showEndDateFields]);
 
   const onDateConfirm = (selectedDate: Date) => {
-    const currentTarget = showDatePicker.target;
-    if (currentTarget === 'start') {
+    if (showDatePicker.target === 'start') {
       setModStartDate(selectedDate);
-      if (selectedDate > modEndDate) {
-        setModEndDate(new Date(selectedDate.getTime() + 3600000));
-      }
+      if (selectedDate > modEndDate) setModEndDate(new Date(selectedDate.getTime() + 3600000));
     } else {
       setModEndDate(selectedDate);
     }
@@ -551,29 +497,68 @@ export function ActividadDetalle({
     setShowDatePicker({ show: true, mode, target });
   };
 
-  // ─── Guards ───────────────────────────────────────────────────────────────
+  // ─── Eliminar / darse de baja ─────────────────────────────────────────────
 
-  const isLoadingActividad = hasIdParam && actividadQuery.isLoading;
-  const hasActividadError =
-    !hasIdParam || !isValidId || actividadQuery.isError || !actividad;
+  const handleEliminarActividad = useCallback(() => {
+    if (!actividad) return;
+    const isGuestAction = isGuest && !isHost;
+    Alert.alert(
+      isGuestAction ? 'Darse de baja' : 'Eliminar actividad',
+      isGuestAction
+        ? '¿Querés darte de baja de esta actividad?'
+        : '¿Querés eliminar esta actividad? Esta acción no se puede deshacer.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: isGuestAction ? 'Darme de baja' : 'Eliminar',
+          style: 'destructive',
+          onPress: () => {
+            cancelarActividad(
+              { id: actividad.id },
+              {
+                onSuccess: () => {
+                  Alert.alert(
+                    'Éxito',
+                    isGuestAction ? 'Te diste de baja de la actividad' : 'Actividad eliminada'
+                  );
+                  handleClose();
+                },
+                onError: (error) => {
+                  Alert.alert(
+                    'Error',
+                    error instanceof Error ? error.message : 'Intentá nuevamente'
+                  );
+                },
+              }
+            );
+          },
+        },
+      ]
+    );
+  }, [actividad, cancelarActividad, isGuest, isHost, handleClose]);
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
-    <Modal
-      visible={modalVisible}
-      transparent
-      animationType="slide"
-      onRequestClose={handleClose}
-    >
+    <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={handleClose}>
       <View style={styles.overlay}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardContainer}
         >
           <View style={styles.container}>
-            {/* Header */}
+
+            {/* ── Header ──────────────────────────────────────────────────── */}
             <View style={styles.modalHeader}>
+              {isGuest && (
+                <TouchableOpacity
+                  style={styles.headerLeaveBtn}
+                  onPress={handleEliminarActividad}
+                  disabled={isCancelling}
+                >
+                  <Ionicons name="exit-outline" size={20} color={colors.error} />
+                </TouchableOpacity>
+              )}
               <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
                 <Ionicons name="chevron-down" size={24} color="#6b7280" />
               </TouchableOpacity>
@@ -594,6 +579,7 @@ export function ActividadDetalle({
                 style={styles.content}
                 contentContainerStyle={styles.contentContainer}
                 showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
               >
                 {/* Título */}
                 <View style={styles.contentBlock}>
@@ -609,54 +595,185 @@ export function ActividadDetalle({
                   </ThemedText>
                 </View>
 
-                {/* Fechas */}
+                {/* ── Fechas ──────────────────────────────────────────────── */}
                 <View style={styles.contentBlock}>
-                  <View style={styles.sectionTitleRow}>
-                    <Ionicons name="time-outline" size={18} color={colors.lightTint} />
-                    <ThemedText style={[styles.label, styles.labelInline]}>Fechas</ThemedText>
-                  </View>
-
-                  <View style={styles.dateRow}>
-                    <ThemedText style={styles.dateValue}>
-                      {formatDateLabel(new Date(fechaInicio))}
-                    </ThemedText>
-                    <View style={styles.dateRightCol}>
-                      <ThemedText style={styles.timeValue}>
-                        {formatTimeLabel(new Date(fechaInicio))}
-                      </ThemedText>
+                  <View style={styles.sectionHeaderRow}>
+                    <View style={styles.sectionTitleRow}>
+                      <Ionicons name="time-outline" size={16} color={colors.lightTint} />
+                      <ThemedText style={[styles.label, styles.labelInline]}>Fechas</ThemedText>
                     </View>
+                    {isHost && !isEditingFechas && (
+                      <TouchableOpacity style={styles.actionButton} onPress={handleEditarFechasPress}>
+                        <Ionicons name="create-outline" size={14} color={Colors.light.tint} />
+                        <Text style={styles.actionButtonText}>Editar</Text>
+                      </TouchableOpacity>
+                    )}
+                    {isHost && isEditingFechas && (
+                      <View style={styles.inlineEditActions}>
+                        <TouchableOpacity
+                          style={styles.cancelBtn}
+                          onPress={handleCancelarEdicionFechas}
+                        >
+                          <Text style={styles.cancelBtnText}>✕</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.saveBtn, isModifying && styles.saveBtnDisabled]}
+                          onPress={handleConfirmarFechas}
+                          disabled={isModifying}
+                        >
+                          {isModifying ? (
+                            <ActivityIndicator size="small" color="#fff" />
+                          ) : (
+                            <Text style={styles.saveBtnText}>✓</Text>
+                          )}
+                        </TouchableOpacity>
+                      </View>
+                    )}
                   </View>
 
-                  {fechaFin && (
-                    <View style={styles.dateRow}>
-                      <ThemedText style={styles.dateValue}>
-                        {formatDateLabel(new Date(fechaFin))}
-                      </ThemedText>
-                      <View style={styles.dateRightCol}>
-                        <ThemedText style={styles.timeValue}>
-                          {formatTimeLabel(new Date(fechaFin))}
-                        </ThemedText>
+                  {!isEditingFechas ? (
+                    /* Vista lectura */
+                    <>
+                      <View style={styles.dateRow}>
+                        <Text style={styles.dateLabelSmall}>Inicio</Text>
+                        <View style={styles.dateValueRow}>
+                          <ThemedText style={styles.dateValue}>
+                            {formatDateLabel(new Date(fechaInicio))}
+                          </ThemedText>
+                          <ThemedText style={styles.timeValue}>
+                            {formatTimeLabel(new Date(fechaInicio))}
+                          </ThemedText>
+                        </View>
                       </View>
+                      {fechaFin && (
+                        <View style={styles.dateRow}>
+                          <Text style={styles.dateLabelSmall}>Fin</Text>
+                          <View style={styles.dateValueRow}>
+                            <ThemedText style={styles.dateValue}>
+                              {formatDateLabel(new Date(fechaFin))}
+                            </ThemedText>
+                            <ThemedText style={styles.timeValue}>
+                              {formatTimeLabel(new Date(fechaFin))}
+                            </ThemedText>
+                          </View>
+                        </View>
+                      )}
+                    </>
+                  ) : (
+                    /* Vista edición inline */
+                    <View style={styles.dateEditBlock}>
+                      <Text style={styles.modalLabel}>Fecha inicio</Text>
+                      <View style={styles.row}>
+                        <TouchableOpacity
+                          onPress={() => showPicker('date', 'start')}
+                          style={styles.dateBtn}
+                        >
+                          <Ionicons
+                            name="calendar-outline"
+                            size={14}
+                            color={colors.secondaryText}
+                            style={{ marginRight: 6 }}
+                          />
+                          <ThemedText style={styles.dateBtnText}>
+                            {modStartDate.toLocaleDateString('es-AR')}
+                          </ThemedText>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={() => showPicker('time', 'start')}
+                          style={styles.dateBtn}
+                        >
+                          <Ionicons
+                            name="time-outline"
+                            size={14}
+                            color={colors.secondaryText}
+                            style={{ marginRight: 6 }}
+                          />
+                          <ThemedText style={styles.dateBtnText}>
+                            {modStartDate.toLocaleTimeString('es-ES', {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </ThemedText>
+                        </TouchableOpacity>
+                      </View>
+
+                      <TouchableOpacity
+                        style={styles.endDateCollapsible}
+                        onPress={() => setShowEndDateFields((prev) => !prev)}
+                      >
+                        <ThemedText style={styles.endDateCollapsibleText}>
+                          {showEndDateFields ? 'Quitar fecha de fin' : 'Agregar fecha de fin'}
+                        </ThemedText>
+                        <Ionicons
+                          name={showEndDateFields ? 'chevron-up' : 'chevron-down'}
+                          size={14}
+                          color={colors.secondaryText}
+                        />
+                      </TouchableOpacity>
+
+                      {showEndDateFields && (
+                        <>
+                          <Text style={[styles.modalLabel, { marginTop: 10 }]}>Fecha fin</Text>
+                          <View style={styles.row}>
+                            <TouchableOpacity
+                              onPress={() => showPicker('date', 'end')}
+                              style={styles.dateBtn}
+                            >
+                              <Ionicons
+                                name="calendar-outline"
+                                size={14}
+                                color={colors.secondaryText}
+                                style={{ marginRight: 6 }}
+                              />
+                              <ThemedText style={styles.dateBtnText}>
+                                {modEndDate.toLocaleDateString('es-AR')}
+                              </ThemedText>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              onPress={() => showPicker('time', 'end')}
+                              style={styles.dateBtn}
+                            >
+                              <Ionicons
+                                name="time-outline"
+                                size={14}
+                                color={colors.secondaryText}
+                                style={{ marginRight: 6 }}
+                              />
+                              <ThemedText style={styles.dateBtnText}>
+                                {modEndDate.toLocaleTimeString('es-ES', {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                              </ThemedText>
+                            </TouchableOpacity>
+                          </View>
+                          {modStartDate >= modEndDate && (
+                            <Text style={styles.errorText}>
+                              La fecha de fin debe ser posterior a la de inicio
+                            </Text>
+                          )}
+                        </>
+                      )}
                     </View>
                   )}
                 </View>
 
-                {/* Participantes */}
+                {/* ── Participantes ────────────────────────────────────────── */}
                 <View style={styles.inviteSection}>
                   <View style={styles.sectionHeaderRow}>
                     <View style={styles.sectionTitleRow}>
-                      <Ionicons name="people-outline" size={18} color={colors.lightTint} />
+                      <Ionicons name="people-outline" size={16} color={colors.lightTint} />
                       <Text style={[styles.label, styles.labelInline]}>Participantes</Text>
                     </View>
-                    <View style={styles.headerActions}>
+                    {isHost && (
                       <TouchableOpacity
                         style={styles.actionButton}
                         onPress={() => setShowSelector((prev) => !prev)}
                       >
-                        <Ionicons name="add" size={16} color={Colors.light.tint} />
+                        <Ionicons name="add" size={14} color={Colors.light.tint} />
                         <Text style={styles.actionButtonText}>Agregar</Text>
                       </TouchableOpacity>
-                    </View>
+                    )}
                   </View>
 
                   {showSelector && (
@@ -681,7 +798,6 @@ export function ActividadDetalle({
                     <View style={styles.inviteList}>
                       {localParticipantes.map((p) => (
                         <View key={p.user_context_id} style={styles.inviteRow}>
-                          {/* Avatar */}
                           <View style={styles.avatar}>
                             <Text style={styles.avatarText}>
                               {getDisplayName(p.user_context_id).charAt(0).toUpperCase()}
@@ -689,20 +805,20 @@ export function ActividadDetalle({
                           </View>
                           <View style={styles.inviteInfo}>
                             <Text style={styles.inviteName}>{getDisplayName(p.user_context_id)}</Text>
-                            <Text style={styles.inviteMeta}>
-                              {formatParticipantRole(p.rol)}
-                            </Text>
+                            <Text style={styles.inviteMeta}>{formatParticipantRole(p.rol)}</Text>
                           </View>
-                          <TouchableOpacity onPress={() => handleRemoveParticipante(p.user_context_id)}>
-                            <Ionicons name="close-circle" size={20} color="#9ca3af" />
-                          </TouchableOpacity>
+                          {isHost && p.rol !== 'host' && (
+                            <TouchableOpacity onPress={() => handleRemoveParticipante(p.user_context_id)}>
+                              <Ionicons name="close-circle" size={20} color="#9ca3af" />
+                            </TouchableOpacity>
+                          )}
                         </View>
                       ))}
                     </View>
                   )}
                 </View>
 
-                {/* Archivos */}
+                {/* ── Archivos ─────────────────────────────────────────────── */}
                 <View style={styles.section}>
                   <View style={styles.sectionHeaderRow}>
                     <Text style={styles.label}>Archivos enlazados</Text>
@@ -710,9 +826,9 @@ export function ActividadDetalle({
                       style={styles.actionButton}
                       onPress={handleSeleccionarArchivo}
                     >
-                      <Ionicons name="add" size={16} color={Colors.light.tint} />
+                      <Ionicons name="add" size={14} color={Colors.light.tint} />
                       <Text style={styles.actionButtonText}>
-                        {isUploadingFile ? 'Subiendo...' : 'Agregar archivos'}
+                        {isUploadingFile ? 'Subiendo...' : 'Agregar'}
                       </Text>
                     </TouchableOpacity>
                   </View>
@@ -730,11 +846,7 @@ export function ActividadDetalle({
                             </View>
                             <View style={styles.inviteRowActions}>
                               <TouchableOpacity onPress={() => handleOpenArchivo(archivo.id)}>
-                                <Ionicons
-                                  name="open-outline"
-                                  size={20}
-                                  color={Colors.light.tint}
-                                />
+                                <Ionicons name="open-outline" size={20} color={Colors.light.tint} />
                               </TouchableOpacity>
                               <TouchableOpacity onPress={() => handleRemoveArchivo(archivo.id)}>
                                 <Ionicons name="trash-outline" size={20} color="#9ca3af" />
@@ -757,179 +869,44 @@ export function ActividadDetalle({
                     )}
                   </View>
                 </View>
+
+                {/* ── Botón eliminar (host) ─────────────────────────────────── */}
+                {isHost && (
+                  <TouchableOpacity
+                    style={styles.deleteButton}
+                    onPress={handleEliminarActividad}
+                    disabled={isCancelling}
+                  >
+                    {isCancelling ? (
+                      <ActivityIndicator size="small" color={colors.error} />
+                    ) : (
+                      <>
+                        <Ionicons name="trash-outline" size={18} color={colors.error} />
+                        <Text style={styles.deleteButtonText}>Eliminar actividad</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                )}
               </ScrollView>
             )}
 
-            {/* FAB */}
-            <View style={styles.fabContainer}>
-              {isHost && isFabExpanded && (
-                <>
-                  <AppFab
-                    icon="trash-outline"
-                    floating={false}
-                    onPress={handleHostDeletePress}
-                    backgroundColor={colors.error}
-                    style={{ marginBottom: 16 }}
-                  />
-                  <AppFab
-                    icon="create-outline"
-                    floating={false}
-                    onPress={handleModificarPress}
-                    backgroundColor={colors.tint}
-                    style={{ marginBottom: 16 }}
-                  />
-                </>
-              )}
-              <AppFab
-                icon={
-                  isGuest
-                    ? 'close-outline'
-                    : isHost
-                      ? isFabExpanded
-                        ? 'close-outline'
-                        : 'ellipsis-horizontal'
-                      : 'create-outline'
+            {/* DateTimePicker (fuera del scroll para evitar conflictos de layout) */}
+            {showDatePicker.show && (
+              <DateTimePicker
+                key={`${showDatePicker.target}-${showDatePicker.mode}`}
+                visible={showDatePicker.show}
+                testID="actividadDateTimePicker"
+                value={showDatePicker.target === 'start' ? modStartDate : modEndDate}
+                mode={showDatePicker.mode}
+                is24Hour={true}
+                onConfirm={onDateConfirm}
+                onCancel={() =>
+                  setShowDatePicker({ show: false, mode: 'date', target: 'start' })
                 }
-                floating={false}
-                backgroundColor={isHost && !isFabExpanded ? colors.secondaryText : undefined}
-                isLoading={isModifying || isCancelling}
-                onPress={handleFabPress}
               />
-            </View>
+            )}
 
-            {/* Modal modificar fechas (sin cambios) */}
-            <Modal
-              visible={showModifyModal}
-              transparent={false}
-              animationType="slide"
-              onRequestClose={() => {
-                setShowDatePicker({ show: false, mode: 'date', target: 'start' });
-                setShowModifyModal(false);
-              }}
-            >
-              <KeyboardAvoidingView
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                style={styles.modalKavWrapper}
-              >
-                <View style={styles.modalScreen}>
-                  <View style={styles.modalHeaderFullScreen}>
-                    <ThemedText type="subtitle" style={styles.modalTitleFullScreen}>
-                      Modificar actividad
-                    </ThemedText>
-                    <TouchableOpacity
-                      onPress={() => {
-                        setShowDatePicker({ show: false, mode: 'date', target: 'start' });
-                        setShowModifyModal(false);
-                      }}
-                      style={styles.modalHeaderActionBtn}
-                    >
-                      <Ionicons name="chevron-down" size={24} color={colors.secondaryText} />
-                    </TouchableOpacity>
-                  </View>
-
-                  <ScrollView
-                    style={styles.content}
-                    contentContainerStyle={styles.modalScrollContent}
-                    keyboardShouldPersistTaps="handled"
-                    showsVerticalScrollIndicator={false}
-                  >
-                    <View style={styles.modalSection}>
-                      <ThemedText style={styles.modalLabel}>Nueva Fecha Inicio</ThemedText>
-                      <View style={styles.row}>
-                        <TouchableOpacity
-                          onPress={() => showPicker('date', 'start')}
-                          style={styles.dateBtn}
-                        >
-                          <ThemedText>{modStartDate.toLocaleDateString('es-AR')}</ThemedText>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          onPress={() => showPicker('time', 'start')}
-                          style={styles.dateBtn}
-                        >
-                          <ThemedText>
-                            {modStartDate.toLocaleTimeString('es-ES', {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
-                          </ThemedText>
-                        </TouchableOpacity>
-                      </View>
-
-                      <TouchableOpacity
-                        style={styles.endDateCollapsible}
-                        onPress={() => setShowEndDateFields((prev) => !prev)}
-                      >
-                        <ThemedText style={styles.endDateCollapsibleText}>
-                          {showEndDateFields ? 'Quitar fecha de fin' : 'Agregar fecha de fin'}
-                        </ThemedText>
-                        <Ionicons
-                          name={showEndDateFields ? 'chevron-up' : 'chevron-down'}
-                          size={16}
-                          color={colors.secondaryText}
-                        />
-                      </TouchableOpacity>
-
-                      {showEndDateFields && (
-                        <>
-                          <ThemedText style={styles.modalLabel}>Nueva Fecha Fin</ThemedText>
-                          <View style={styles.row}>
-                            <TouchableOpacity
-                              onPress={() => showPicker('date', 'end')}
-                              style={styles.dateBtn}
-                            >
-                              <ThemedText>{modEndDate.toLocaleDateString('es-AR')}</ThemedText>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                              onPress={() => showPicker('time', 'end')}
-                              style={styles.dateBtn}
-                            >
-                              <ThemedText>
-                                {modEndDate.toLocaleTimeString('es-ES', {
-                                  hour: '2-digit',
-                                  minute: '2-digit',
-                                })}
-                              </ThemedText>
-                            </TouchableOpacity>
-                          </View>
-                        </>
-                      )}
-
-                      {showEndDateFields && modStartDate >= modEndDate && (
-                        <ThemedText style={{ color: colors.error, fontSize: 12, marginBottom: 8 }}>
-                          La fecha de fin debe ser posterior a la de inicio
-                        </ThemedText>
-                      )}
-                    </View>
-                  </ScrollView>
-
-                  <AppFab
-                    icon="checkmark"
-                    floating={false}
-                    onPress={confirmModificar}
-                    isLoading={isModifying}
-                    disabled={showEndDateFields && modStartDate >= modEndDate}
-                    style={styles.modalSubmitFab}
-                  />
-                </View>
-
-                {showDatePicker.show && (
-                  <DateTimePicker
-                    key={`${showDatePicker.target}-${showDatePicker.mode}`}
-                    visible={showDatePicker.show}
-                    testID="actividadDateTimePicker"
-                    value={showDatePicker.target === 'start' ? modStartDate : modEndDate}
-                    mode={showDatePicker.mode}
-                    is24Hour={true}
-                    onConfirm={onDateConfirm}
-                    onCancel={() =>
-                      setShowDatePicker({ show: false, mode: 'date', target: 'start' })
-                    }
-                  />
-                )}
-              </KeyboardAvoidingView>
-            </Modal>
-
-            <OperacionPendienteModal visible={isModifying || isCancelling} />
+            <OperacionPendienteModal visible={isCancelling} />
 
             <ValidacionFechasModal
               state={backendRangosOcupados.length > 0 ? 'warnings' : 'idle'}
@@ -942,7 +919,6 @@ export function ActividadDetalle({
               questionText="Modificá las fechas y volvé a intentar."
             />
 
-            {/* Modal selector por rol */}
             <RoleUserSelectionModal
               visible={showRoleModal}
               onClose={() => {
@@ -959,7 +935,8 @@ export function ActividadDetalle({
               onDeselectAll={(usersToDeselect) =>
                 handleSelectUsers(
                   selectedUsers.filter(
-                    (u) => !usersToDeselect.some((r) => r.user_context_id === u.user_context_id)
+                    (u) =>
+                      !usersToDeselect.some((r) => r.user_context_id === u.user_context_id)
                   )
                 )
               }
@@ -990,6 +967,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 16,
     overflow: 'hidden',
   },
+  // ── Header ────────────────────────────────────────────────────────────────
   modalHeader: {
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -997,30 +975,39 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'flex-end',
     alignItems: 'center',
+    gap: 8,
   },
   closeButton: {
     padding: 6,
     borderRadius: 16,
     backgroundColor: '#f3f4f6',
-    marginLeft: 8,
   },
+  headerLeaveBtn: {
+    padding: 6,
+    borderRadius: 16,
+    backgroundColor: colors.error + '15',
+    marginRight: 'auto',
+  },
+  // ── Loading ───────────────────────────────────────────────────────────────
   loadingContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // ── Scroll ────────────────────────────────────────────────────────────────
   content: {
     flex: 1,
   },
   contentContainer: {
     paddingHorizontal: 16,
     paddingTop: 8,
-    paddingBottom: 120,
-    gap: 14,
+    paddingBottom: 40,
+    gap: 16,
   },
   contentBlock: {
     gap: 6,
   },
+  // ── Tipografía ────────────────────────────────────────────────────────────
   titulo: {
     fontSize: 20,
     fontWeight: '700',
@@ -1040,6 +1027,16 @@ const styles = StyleSheet.create({
     color: colors.text,
     lineHeight: 22,
   },
+  sectionValueMuted: {
+    fontSize: 14,
+    color: '#6b7280',
+  },
+  errorText: {
+    color: colors.error,
+    fontSize: 12,
+    marginBottom: 4,
+  },
+  // ── Encabezados de sección ────────────────────────────────────────────────
   sectionTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1050,49 +1047,152 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
+    marginBottom: 6,
   },
+  // ── Fechas: vista lectura ─────────────────────────────────────────────────
   dateRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingVertical: 4,
+    gap: 8,
   },
-  dateRightCol: {
+  dateLabelSmall: {
+    fontSize: 12,
+    color: '#9ca3af',
+    fontWeight: '500',
+    width: 34,
+  },
+  dateValueRow: {
     flex: 1,
-    alignItems: 'flex-end',
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    gap: 10,
   },
   dateValue: {
-    fontSize: 15,
+    fontSize: 14,
     color: colors.text,
     fontWeight: '500',
   },
   timeValue: {
-    marginTop: 2,
     fontSize: 14,
-    color: colors.text,
-    textAlign: 'right',
+    color: colors.secondaryText,
   },
-  // ─── Participantes / invitados ────────────────────────────────────────────
+  // ── Fechas: edición inline ────────────────────────────────────────────────
+  dateEditBlock: {
+    backgroundColor: '#f9fafb',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    padding: 12,
+    gap: 4,
+  },
+  modalLabel: {
+    fontSize: 12,
+    color: colors.secondaryText,
+    marginBottom: 4,
+    fontWeight: '500',
+  },
+  row: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 8,
+  },
+  dateBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 10,
+    backgroundColor: colors.componentBackground,
+    borderRadius: 8,
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  dateBtnText: {
+    fontSize: 13,
+    color: colors.text,
+  },
+  endDateCollapsible: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: colors.componentBackground,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.secondaryText,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  endDateCollapsibleText: {
+    color: colors.secondaryText,
+    fontSize: 13,
+  },
+  // ── Confirmar / cancelar edición ──────────────────────────────────────────
+  inlineEditActions: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  cancelBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#fff',
+  },
+  cancelBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#9ca3af',
+  },
+  saveBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.light.tint,
+  },
+  saveBtnDisabled: {
+    opacity: 0.6,
+  },
+  saveBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  // ── Botón acción (pill) ───────────────────────────────────────────────────
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: Colors.light.tint,
+    backgroundColor: Colors.light.tint + '12',
+  },
+  actionButtonText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.light.tint,
+  },
+  // ── Participantes ─────────────────────────────────────────────────────────
   inviteSection: {
     gap: 8,
   },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
   selectorCard: {
-    marginTop: 12,
-    marginBottom: 12,
+    marginTop: 4,
+    marginBottom: 4,
     padding: 12,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#e5e7eb',
     backgroundColor: '#f9fafb',
-  },
-  sectionValueMuted: {
-    fontSize: 14,
-    color: '#6b7280',
   },
   inviteList: {
     gap: 10,
@@ -1127,7 +1227,7 @@ const styles = StyleSheet.create({
   },
   inviteInfo: {
     flex: 1,
-    gap: 4,
+    gap: 2,
     marginLeft: 10,
   },
   inviteName: {
@@ -1139,102 +1239,29 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6b7280',
     marginTop: 2,
+    textTransform: 'capitalize',
   },
-  // ─── Archivos ─────────────────────────────────────────────────────────────
+  // ── Archivos ──────────────────────────────────────────────────────────────
   section: {
     gap: 8,
   },
-  actionButton: {
+  // ── Botón eliminar actividad ──────────────────────────────────────────────
+  deleteButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: Colors.light.tint,
-    backgroundColor: Colors.light.tint + '12',
-  },
-  actionButtonText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: Colors.light.tint,
-  },
-  // ─── FAB ──────────────────────────────────────────────────────────────────
-  fabContainer: {
-    position: 'absolute',
-    bottom: UI.fab.offsetBottom,
-    right: UI.fab.offsetRight,
-    flexDirection: 'column',
-    justifyContent: 'flex-end',
-    alignItems: 'flex-end',
-  },
-  // ─── Modal modificar fechas ───────────────────────────────────────────────
-  modalKavWrapper: {
-    flex: 1,
-  },
-  modalScreen: {
-    flex: 1,
-    backgroundColor: colors.componentBackground,
-  },
-  modalHeaderFullScreen: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 8,
-  },
-  modalTitleFullScreen: {
-    color: colors.text,
-  },
-  modalHeaderActionBtn: {
-    padding: 6,
-  },
-  modalScrollContent: {
-    paddingBottom: 100,
-  },
-  modalSection: {
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 8,
+    marginBottom: 8,
     paddingVertical: 14,
-    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: colors.error + '50',
+    backgroundColor: colors.error + '08',
   },
-  modalLabel: {
-    fontSize: 12,
-    color: colors.secondaryText,
-    marginBottom: 4,
-  },
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  dateBtn: {
-    padding: 10,
-    backgroundColor: colors.background,
-    borderRadius: 8,
-    flex: 0.48,
-    alignItems: 'center',
-  },
-  endDateCollapsible: {
-    marginTop: 4,
-    marginBottom: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: colors.background,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.secondaryText,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  endDateCollapsibleText: {
-    color: colors.secondaryText,
+  deleteButtonText: {
     fontSize: 14,
-  },
-  modalSubmitFab: {
-    position: 'absolute',
-    right: UI.fab.offsetRight,
-    bottom: UI.fab.offsetBottom,
+    fontWeight: '700',
+    color: colors.error,
   },
 });

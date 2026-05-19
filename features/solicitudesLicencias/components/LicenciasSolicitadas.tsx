@@ -3,21 +3,21 @@ import { SearchBar } from '@/components/ui/SearchBar';
 import { Colors } from '@/constants/theme';
 import { useSearchUsers } from '@/shared/users/useUser';
 import { Ionicons } from '@expo/vector-icons'; // Importar iconos
-import { useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-    ActivityIndicator,
-    FlatList,
-    ListRenderItem,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  FlatList,
+  ListRenderItem,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SolicitudLicencia } from '../models/SolicitudLicencia';
 import { formatCantidadLicencia } from '../utils/formatCantidad';
 import { useGetSolicitudesLicencias } from '../viewmodels/useSolicitudes';
+import { SolicitudLicencia as SolicitudLicenciaModal } from './SolicitudLicencia';
 
 // Mapeo incluyendo "TODOS" para la UI
 const estadoMapping: Record<string, string> = {
@@ -34,25 +34,29 @@ const estadoMapping: Record<string, string> = {
 const colors = Colors['light'];
 
 export function LicenciasSolicitadas() {
-  const router = useRouter();
-  
   // Estados
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [selectedUserName, setSelectedUserName] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [selectedEstado, setSelectedEstado] = useState<string>('ALL'); // "Todos" por defecto
+  const [selectedSolicitudId, setSelectedSolicitudId] = useState<number | null>(null);
+  const [detalleVisible, setDetalleVisible] = useState(false);
+  const [selectedEstado, setSelectedEstado] = useState<string>('ALL');
   const [showFilters, setShowFilters] = useState(false);
 
   const { data: solicitudes, isLoading, refetch, isRefetching } = useGetSolicitudesLicencias({});
   const { data: searchResults, isLoading: isSearching } = useSearchUsers(searchQuery);
 
   const handleOpenSolicitud = useCallback((solicitudId: number) => {
-    router.push({
-      pathname: '/(extras)/solicitud-licencia' as any,
-      params: { id: solicitudId.toString(), type: 'recibida' },
-    });
-  }, [router]);
+    setSelectedSolicitudId(solicitudId);
+    setDetalleVisible(true);
+    setShowSuggestions(false);
+  }, []);
+
+  const handleCloseDetalle = useCallback(() => {
+    setDetalleVisible(false);
+    setSelectedSolicitudId(null);
+  }, []);
 
   const handleSelectUser = useCallback((userId: number, userName: string) => {
     setSelectedUserId(userId);
@@ -188,8 +192,8 @@ export function LicenciasSolicitadas() {
         <View style={styles.centerContainer}>
           <Ionicons name="document-text-outline" size={48} color={colors.icon} />
           <ThemedText style={styles.emptyTitle}>
-            {selectedUserId 
-              ? `No hay solicitudes de ${selectedUserName}` 
+            {selectedUserId
+              ? `No hay solicitudes de ${selectedUserName}`
               : "No hay resultados"}
           </ThemedText>
           <ThemedText style={styles.emptySubtitle}>
@@ -211,6 +215,15 @@ export function LicenciasSolicitadas() {
               tintColor={colors.tint}
             />
           }
+        />
+      )}
+
+      {selectedSolicitudId !== null && (
+        <SolicitudLicenciaModal
+          visible={detalleVisible}
+          onClose={handleCloseDetalle}
+          solicitudId={selectedSolicitudId}
+          type="recibida"
         />
       )}
     </View>
@@ -256,7 +269,7 @@ const styles = StyleSheet.create({
   title: { color: colors.tint, fontSize: 14, justifyContent: 'center' },
   underline: { height: 3, backgroundColor: colors.tint, width: 100, marginTop: 4, borderRadius: 2 },
   centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: '5%' },
-  
+
   // Buscador y Sugerencias
   suggestionsContainer: {
     backgroundColor: colors.componentBackground,

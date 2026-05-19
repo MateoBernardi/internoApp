@@ -29,12 +29,8 @@ export default function ExtrasLayout() {
         headerLeft: () => <AppBackButton onPress={() => router.back()} />,
       }}
     >
-      <Stack.Screen name="actividad-detalle" options={{ title: 'Detalle de Actividad' }} />
       <Stack.Screen name="agenda-personal" options={{ title: 'Agenda Personal' }} />
       <Stack.Screen name="cambiar-rol" options={{ title: 'Gestión de Roles' }} />
-      <Stack.Screen name="crear-reporte" options={{ title: 'Nuevo Reporte' }} />
-      <Stack.Screen name="crear-solicitud" options={{ title: 'Redactar invitación' }} />
-      <Stack.Screen name="crear-solicitudes-licencias" options={{ title: 'Nueva Solicitud' }} />
       <Stack.Screen name="detalle-empleados" options={{ title: 'Detalle de Empleado' }} />
       <Stack.Screen name="editar-usuario" options={{ title: 'Editar Perfil' }} />
       <Stack.Screen name="encuestas" options={{ title: 'Gestión de Encuestas' }} />
@@ -44,8 +40,6 @@ export default function ExtrasLayout() {
       <Stack.Screen name="reportes" options={{ title: 'Métricas de empleados' }} />
       <Stack.Screen name="reportes-encargado" options={{ title: 'Reportes de Empleados' }} />
       <Stack.Screen name="responder-encuesta" options={{ title: 'Responder Encuesta' }} />
-      <Stack.Screen name="solicitud" options={{ title: 'Solicitud' }} />
-      <Stack.Screen name="solicitud-licencia" options={{ title: 'Solicitud' }} />
       <Stack.Screen name="solicitudes-licencias" options={{ title: 'Solicitudes de Licencias' }} />
     </Stack>
   );

@@ -30,7 +30,7 @@ async function extractErrorText(response: Response): Promise<string> {
 export async function crearSolicitud(accessToken: string, data: solicitudes.CrearSolicitudRequest): Promise<solicitudes.CrearSolicitudResponse> {
     const dto = mapCrearSolicitudRequestToSolicitudDTO(data);
     const payload = mapSolicitudDTOToCreatePayload(dto);
-    const response = await apiRequest({method: 'POST', endpoint: '/solicitudes-actividades/solicitudes', token: accessToken, body: payload});
+    const response = await apiRequest({ method: 'POST', endpoint: '/solicitudes-actividades/solicitudes', token: accessToken, body: payload });
 
     if (!response.ok) {
         const errorMsg = await extractErrorText(response);
@@ -43,7 +43,7 @@ export async function crearSolicitud(accessToken: string, data: solicitudes.Crea
 }
 
 export async function cancelarSolicitud(accessToken: string, data: solicitudes.CancelarSolicitudRequest): Promise<void> {
-    const response = await apiRequest({method: 'POST', endpoint: `/solicitudes-actividades/solicitudes/cancelar`, token: accessToken, body: data});
+    const response = await apiRequest({ method: 'POST', endpoint: `/solicitudes-actividades/solicitudes/cancelar`, token: accessToken, body: data });
 
     if (!response.ok) {
         const errorText = await response.text();
@@ -53,7 +53,7 @@ export async function cancelarSolicitud(accessToken: string, data: solicitudes.C
 }
 
 export async function reenviarSolicitud(accessToken: string, data: solicitudes.ReenviarSolicitudRequest): Promise<solicitudes.ReenviarSolicitudResponse> {
-    const response = await apiRequest({method: 'POST', endpoint: `/solicitudes-actividades/solicitudes/reenviar`, token: accessToken, body: data});
+    const response = await apiRequest({ method: 'POST', endpoint: `/solicitudes-actividades/solicitudes/reenviar`, token: accessToken, body: data });
 
     if (!response.ok) {
         const errorText = await response.text();
@@ -65,7 +65,7 @@ export async function reenviarSolicitud(accessToken: string, data: solicitudes.R
 }
 
 export async function getSolicitudBitacora(accessToken: string, solicitudId: number): Promise<solicitudes.BitacoraSolicitud[]> {
-    const response = await apiRequest({method: 'GET', endpoint: `/solicitudes-actividades/solicitudes/bitacora/${solicitudId}`, token: accessToken});
+    const response = await apiRequest({ method: 'GET', endpoint: `/solicitudes-actividades/solicitudes/bitacora/${solicitudId}`, token: accessToken });
 
     if (!response.ok) {
         const errorText = await response.text();
@@ -78,7 +78,7 @@ export async function getSolicitudBitacora(accessToken: string, solicitudId: num
 }
 
 export async function getSolicitudesCreadas(accessToken: string): Promise<solicitudes.SolicitudEnviada[]> {
-    const response = await apiRequest({method: 'GET', endpoint: '/solicitudes-actividades/solicitudes/creador', token: accessToken});
+    const response = await apiRequest({ method: 'GET', endpoint: '/solicitudes-actividades/solicitudes/creador', token: accessToken });
 
     if (!response.ok) {
         const errorText = await response.text();
@@ -91,7 +91,7 @@ export async function getSolicitudesCreadas(accessToken: string): Promise<solici
 }
 
 export async function obtenerMisInvitaciones(accessToken: string): Promise<solicitudes.SolicitudEnviada[]> {
-    const response = await apiRequest({method: 'GET', endpoint: '/solicitudes-actividades/solicitudes/invitados', token: accessToken});
+    const response = await apiRequest({ method: 'GET', endpoint: '/solicitudes-actividades/solicitudes/invitados', token: accessToken });
 
     if (!response.ok) {
         const errorText = await response.text();
@@ -106,7 +106,7 @@ export async function obtenerMisInvitaciones(accessToken: string): Promise<solic
 export async function actualizarEstadoInvitacion(accessToken: string, data: solicitudes.ActualizarEstadoInvitacionRequest): Promise<solicitudes.ActualizarEstadoInvitacionResponse> {
     const payload = mapUpdateSolicitudRequestToPayload(data);
     console.log('Payload para actualizarEstadoInvitacion:', payload);
-    const response = await apiRequest({method: 'PUT', endpoint: `/solicitudes-actividades/solicitudes/update`, token: accessToken, body: payload});
+    const response = await apiRequest({ method: 'PUT', endpoint: `/solicitudes-actividades/solicitudes/update`, token: accessToken, body: payload });
 
     if (!response.ok) {
         const errorMsg = await extractErrorText(response);
@@ -118,8 +118,28 @@ export async function actualizarEstadoInvitacion(accessToken: string, data: soli
     return mapUpdateSolicitudResultToResponse(result);
 }
 
+export async function actualizarInvitadosSolicitud(
+    accessToken: string,
+    data: solicitudes.ActualizarInvitadosSolicitudRequest,
+): Promise<solicitudes.ActualizarInvitadosSolicitudResponse> {
+    console.log('Datos recibidos en actualizarInvitadosSolicitud:', data);
+    const response = await apiRequest({
+        method: 'PATCH',
+        endpoint: `/solicitudes-actividades/solicitudes/${data.solicitudId}/invitados?action=${data.action}`,
+        token: accessToken,
+        body: { invitados: data.invitados },
+    });
+
+    if (!response.ok) {
+        const errorMsg = await extractErrorText(response);
+        throw new Error(errorMsg);
+    }
+
+    return await response.json();
+}
+
 export async function ocultarSolicitudInvitado(accessToken: string, data: solicitudes.OcultarSolicitudInvitadoRequest): Promise<solicitudes.OcultarSolicitudInvitadoResponse> {
-    const response = await apiRequest({method: 'POST', endpoint: `/solicitudes-actividades/solicitudes/ocultar-invitado`, token: accessToken, body: data});
+    const response = await apiRequest({ method: 'POST', endpoint: `/solicitudes-actividades/solicitudes/ocultar-invitado`, token: accessToken, body: data });
 
     if (!response.ok) {
         const errorMsg = await extractErrorText(response);
@@ -128,4 +148,49 @@ export async function ocultarSolicitudInvitado(accessToken: string, data: solici
     }
 
     return await response.json();
+}
+
+export async function buscarSolicitudes(
+    accessToken: string,
+    q: string,
+): Promise<solicitudes.SolicitudEnviada[]> {
+    const response = await apiRequest({
+        method: 'GET',
+        endpoint: `/solicitudes-actividades/solicitudes/buscar?q=${encodeURIComponent(q)}`,
+        token: accessToken,
+    });
+
+    if (!response.ok) {
+        const errorMsg = await extractErrorText(response);
+        throw new Error(errorMsg);
+    }
+
+    const data: SolicitudInfoDTO[] = await response.json();
+    return data.map(mapSolicitudInfoDTOToSolicitudEnviada);
+}
+
+export async function getSolicitudes(
+    accessToken: string,
+    page: number = 1,
+    pageSize: number = 20,
+): Promise<{ data: solicitudes.SolicitudEnviada[]; total: number; page: number; pageSize: number }> {
+    const response = await apiRequest({
+        method: 'GET',
+        endpoint: `/solicitudes-actividades/solicitudes?page=${page}&pageSize=${pageSize}`,
+        token: accessToken,
+    });
+
+    if (!response.ok) {
+        const errorMsg = await extractErrorText(response);
+        console.error('Error en getSolicitudes:', response.status, errorMsg);
+        throw new Error(errorMsg);
+    }
+
+    const result = await response.json();
+    return {
+        data: result.data.map(mapSolicitudInfoDTOToSolicitudEnviada),
+        total: result.total,
+        page: result.page,
+        pageSize: result.pageSize,
+    };
 }

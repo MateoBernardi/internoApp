@@ -1,11 +1,14 @@
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { CreateObjetivoDTO, Objetivo, UpdateObjetivoDTO } from '../models/Objetivo';
+import type { CreateObjetivo, Invitado, Objetivo, UpdateObjetivo } from '../models/Objetivo';
 import {
+    archivoObjetivo,
     createObjetivo,
     deleteObjetivo,
+    editObjetivo,
     fetchObjetivos,
-    updateObjetivo,
+    invitadosObjetivo,
+    updateObjetivo
 } from '../services/kanbanApi';
 
 const OBJETIVOS_QUERY_KEY = ['objetivos'];
@@ -15,7 +18,7 @@ const OBJETIVOS_QUERY_KEY = ['objetivos'];
  */
 export function useObjetivos() {
     const { tokens } = useAuth();
-    
+
     return useQuery({
         queryKey: OBJETIVOS_QUERY_KEY,
         queryFn: async () => {
@@ -38,11 +41,12 @@ export function useCreateObjetivo() {
     const { tokens } = useAuth();
 
     return useMutation({
-        mutationFn: async (data: CreateObjetivoDTO) => {
+        mutationFn: async (data: CreateObjetivo) => {
             const token = tokens?.accessToken;
             if (!token) {
                 throw new Error('No hay token de acceso');
             }
+            console.log('Creando objetivo con data:', data);
             return createObjetivo(token, data);
         },
         onSuccess: (newObjetivo) => {
@@ -62,7 +66,7 @@ export function useUpdateObjetivo() {
     const { tokens } = useAuth();
 
     return useMutation({
-        mutationFn: async ({ id, data }: { id: number; data: UpdateObjetivoDTO }) => {
+        mutationFn: async ({ id, data }: { id: number; data: UpdateObjetivo }) => {
             const token = tokens?.accessToken;
             if (!token) {
                 throw new Error('No hay token de acceso');
@@ -79,13 +83,13 @@ export function useUpdateObjetivo() {
             // Actualización optimista: actualizar el objetivo localmente
             queryClient.setQueryData<Objetivo[]>(OBJETIVOS_QUERY_KEY, (old) => {
                 if (!old) return old;
-                
+
                 return old.map((obj) => {
                     if (obj.id !== id) return obj;
-                    
+
                     // Crear la versión optimista del objetivo actualizado
                     const updatedObj = { ...obj, ...data };
-                    
+
                     // Si hay cambio de estado y observación, agregar entrada a bitácora optimista
                     if (data.estado && data.estado !== obj.estado && data.observacion) {
                         const newBitacoraEntry = {
@@ -96,22 +100,20 @@ export function useUpdateObjetivo() {
                             created_at: new Date().toISOString(),
                             usuario_id: 0, // Se rellena en el servidor
                             usuario_nombre: 'Tú',
+                            appointment: null,
+                            assignee_id: null,
+                            assignee_nombre: null,
                         };
                         updatedObj.bitacora = [newBitacoraEntry, ...(obj.bitacora || [])];
                     }
-                    
+
                     return updatedObj;
                 });
             });
 
             return { previousData };
         },
-        onSuccess: (updatedObjetivo) => {
-            // Opción A: Reemplazo manual 
-            queryClient.setQueryData<Objetivo[]>(OBJETIVOS_QUERY_KEY, (old) => {
-                return old?.map((obj) => (obj.id === updatedObjetivo.id ? updatedObjetivo : obj));
-            });
-
+        onSuccess: () => {
             // Opción B: Invalidador de la query para refetch
             queryClient.invalidateQueries({ queryKey: OBJETIVOS_QUERY_KEY });
         },
@@ -120,6 +122,90 @@ export function useUpdateObjetivo() {
             if (context?.previousData) {
                 queryClient.setQueryData(OBJETIVOS_QUERY_KEY, context.previousData);
             }
+        },
+    });
+}
+
+// useEditObjetivo: mutación para título o descripción
+export function useEditObjetivo() {
+    const queryClient = useQueryClient();
+    const { tokens } = useAuth();
+
+    return useMutation({
+        mutationFn: async ({
+            id,
+            field,
+            data,
+        }: {
+            id: number;
+            field: 'titulo' | 'descripcion';
+            data: string;
+        }) => {
+            const token = tokens?.accessToken;
+            if (!token) throw new Error('No hay token de acceso');
+            return editObjetivo(token, id, field, data);
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: OBJETIVOS_QUERY_KEY });
+        },
+        onError: () => {
+            queryClient.invalidateQueries({ queryKey: OBJETIVOS_QUERY_KEY });
+        },
+    });
+}
+
+// useArchivoObjetivo: mutación para archivos
+export function useArchivoObjetivo() {
+    const queryClient = useQueryClient();
+    const { tokens } = useAuth();
+
+    return useMutation({
+        mutationFn: async ({
+            id,
+            action,
+            archivosIds,
+        }: {
+            id: number;
+            action: 'add' | 'remove';
+            archivosIds: number[];
+        }) => {
+            const token = tokens?.accessToken;
+            if (!token) throw new Error('No hay token de acceso');
+            return archivoObjetivo(token, id, action, archivosIds);
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: OBJETIVOS_QUERY_KEY });
+        },
+        onError: () => {
+            queryClient.invalidateQueries({ queryKey: OBJETIVOS_QUERY_KEY });
+        },
+    });
+}
+
+// useInvitadosObjetivo: mutación para invitados
+export function useInvitadosObjetivo() {
+    const queryClient = useQueryClient();
+    const { tokens } = useAuth();
+
+    return useMutation({
+        mutationFn: async ({
+            id,
+            action,
+            invitados,
+        }: {
+            id: number;
+            action: 'add' | 'remove';
+            invitados: Invitado[];
+        }) => {
+            const token = tokens?.accessToken;
+            if (!token) throw new Error('No hay token de acceso');
+            return invitadosObjetivo(token, id, action, invitados);
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: OBJETIVOS_QUERY_KEY });
+        },
+        onError: () => {
+            queryClient.invalidateQueries({ queryKey: OBJETIVOS_QUERY_KEY });
         },
     });
 }

@@ -9,7 +9,7 @@ export interface ValidarFechasPayload {
   participantes: number[];
   solicitudIdExcluir?: number | null;
   actividadIdExcluir?: number | null;
-  tipo_actividad?: 'REUNION' | 'MANDATO';
+  tipo_actividad?: 'REUNION' | 'MANDATO' | 'CHAT';
 }
 
 interface UseValidacionFechasResult {

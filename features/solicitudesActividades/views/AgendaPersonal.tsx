@@ -1,13 +1,13 @@
+import { ThemedText } from '@/components/themed-text';
 import { CreateButton } from '@/components/ui/CreateButton';
 import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
 import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { Colors, UI } from '@/constants/theme';
-import { AppFab } from '@/shared/ui/AppFab';
 import { confirmAction } from '@/shared/ui/confirmAction';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import React, { useCallback, useMemo, useState } from 'react';
+import { useLocalSearchParams } from 'expo-router';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -23,6 +23,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ActividadDetalle } from '../components/ActividadDetalle';
 import { AgendaDiaria } from '../components/AgendaDiaria';
 import { AgendaSemanal } from '../components/AgendaSemanal';
 import { ValidacionFechasModal } from '../components/ValidacionFechasModal';
@@ -257,8 +258,15 @@ function mapLicencias(licencias: Licencia[]): Activity[] {
 
 const AgendaPersonal: React.FC = () => {
   const insets = useSafeAreaInsets();
-  const router = useRouter();
+  const { actividadId: actividadIdParam, id: idParam, rol: rolParam } = useLocalSearchParams<{
+    actividadId?: string | string[];
+    id?: string | string[];
+    rol?: string | string[];
+  }>();
   const { height: windowHeight } = useWindowDimensions();
+  const [selectedActividadId, setSelectedActividadId] = useState<number | null>(null);
+  const [selectedActividadRol, setSelectedActividadRol] = useState<string | undefined>(undefined);
+  const handledParamRef = useRef<string | null>(null);
 
   // FIX: today estabilizado con useState para que no cambie de referencia en cada render.
   // Antes era `const today = new Date()` lo que generaba una nueva instancia
@@ -293,6 +301,23 @@ const AgendaPersonal: React.FC = () => {
 
   const isLoading = actividadesPeriodoQuery.isLoading;
   const isMutating = crearActividadMutation.isPending || cancelarActividadMutation.isPending;
+
+  useEffect(() => {
+    const rawActividadId = Array.isArray(actividadIdParam) ? actividadIdParam[0] : actividadIdParam;
+    const rawId = rawActividadId ?? (Array.isArray(idParam) ? idParam[0] : idParam);
+    const rawRol = Array.isArray(rolParam) ? rolParam[0] : rolParam;
+
+    if (!rawId) return;
+    const key = `${rawId}:${rawRol ?? ''}`;
+    if (handledParamRef.current === key) return;
+
+    const parsedId = Number(rawId);
+    if (!Number.isFinite(parsedId) || parsedId <= 0) return;
+
+    setSelectedActividadId(parsedId);
+    setSelectedActividadRol(rawRol ?? undefined);
+    handledParamRef.current = key;
+  }, [actividadIdParam, idParam, rolParam]);
 
   const avisosBackend = useMemo(() => {
     const grouped = new Map<string, number>();
@@ -518,15 +543,14 @@ const AgendaPersonal: React.FC = () => {
     const actividadId = activity.actividad_id ?? Number(activity.id);
     if (!Number.isFinite(actividadId)) return;
 
-    router.push({
-      pathname: '/(extras)/actividad-detalle' as any,
-      params: {
-        id: String(actividadId),
-        actividadId: String(actividadId),
-        rol: activity.rol ?? '',
-      },
-    });
-  }, [router]);
+    setSelectedActividadId(actividadId);
+    setSelectedActividadRol(activity.rol ?? undefined);
+  }, []);
+
+  const handleCloseActividad = useCallback(() => {
+    setSelectedActividadId(null);
+    setSelectedActividadRol(undefined);
+  }, []);
 
   const ejecutarCrearActividad = useCallback(async (payload: {
     titulo: string;
@@ -704,6 +728,7 @@ const AgendaPersonal: React.FC = () => {
         ) : (
           <AgendaDiaria
             activities={filteredActivities}
+            dateKey={selectedDate}
             onDeleteActivity={handleDeleteActivity}
             onPressActivity={handlePressActivity}
           />
@@ -713,7 +738,7 @@ const AgendaPersonal: React.FC = () => {
       {isAddFormMinimized && (
         <View style={[styles.minimizedDraftContainer, { bottom: insets.bottom + UI.spacing.xxl + 68 }]}>
           <TouchableOpacity style={styles.minimizedDraftMain} onPress={openAddActivityModal}>
-            <Ionicons name="chevron-up" size={18} color={colors.lightTint} />
+            <Ionicons name="chevron-up" size={18} color="#6b7280" />
             <Text style={styles.minimizedDraftText}>Borrador de actividad</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.minimizedDraftClose} onPress={closeAddActivityModal}>
@@ -731,171 +756,179 @@ const AgendaPersonal: React.FC = () => {
       </View>
 
       {/* ==================== Add Activity Modal ==================== */}
-      <Modal visible={showAddForm} transparent={false} animationType="slide" onRequestClose={minimizeAddActivityModal}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 12 : 0}
-          style={styles.modalKavWrapper}
-        >
-          <View style={styles.modalContainer}>
-            <ScrollView
-              contentContainerStyle={styles.modalScrollContent}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-            >
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Nueva Actividad</Text>
-                <View style={styles.modalHeaderActions}>
-                  <TouchableOpacity onPress={minimizeAddActivityModal} style={styles.closeButton}>
-                    <Ionicons name="chevron-down" size={24} color={colors.secondaryText} />
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={closeAddActivityModal} style={styles.closeButton}>
-                    <Ionicons name="close" size={22} color={colors.secondaryText} />
-                  </TouchableOpacity>
+      <Modal
+        visible={showAddForm}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={minimizeAddActivityModal}
+      >
+        <View style={styles.overlay}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            keyboardVerticalOffset={0}
+            style={styles.modalKavWrapper}
+          >
+            <View style={styles.modalContainer}>
+              <ScrollView
+                contentContainerStyle={styles.modalScrollContent}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+              >
+                <View style={styles.modalHeader}>
+                  <View style={styles.modalHeaderActions}>
+                    <TouchableOpacity onPress={minimizeAddActivityModal} style={styles.closeButton}>
+                      <Ionicons name="chevron-down" size={24} color={colors.secondaryText} />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={closeAddActivityModal} style={styles.closeButton}>
+                      <Ionicons name="close" size={22} color={colors.secondaryText} />
+                    </TouchableOpacity>
+                  </View>
                 </View>
-              </View>
 
-              {activityDateErrorMessage && (
-                <Text style={styles.errorTextInline}>{activityDateErrorMessage}</Text>
-              )}
-
-              {/* Fecha */}
-              <View style={styles.dateSection}>
-                <TouchableOpacity onPress={handleStartDate} style={styles.dateRow}>
-                  <Ionicons name="calendar" size={20} color={colors.lightTint} />
-                  <View style={{ marginLeft: 12 }}>
-                    <Text style={styles.dateLabel}>Fecha inicio</Text>
-                    <Text style={styles.dateValue}>
-                      {new Date(newActivity.date + 'T00:00:00').toLocaleDateString(
-                        'es-ES',
-                        { weekday: 'short', day: '2-digit', month: 'short' }
-                      )}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-
-                <TouchableOpacity onPress={handleStartTime} style={styles.dateRow}>
-                  <Ionicons name="time" size={20} color={colors.lightTint} />
-                  <View style={{ marginLeft: 12 }}>
-                    <Text style={styles.dateLabel}>Hora inicio</Text>
-                    <Text style={styles.dateValue}>
-                      {newActivity.startTime.toLocaleTimeString('es-ES', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.endDateCollapsible}
-                  onPress={() => {
-                    setShowEndDateFields((prev) => {
-                      if (prev) return false;
-                      setNewActivity((current) => ({
-                        ...current,
-                        endDate: current.date,
-                        endTime: new Date(startDateTime.getTime() + 60 * 60 * 1000),
-                      }));
-                      return true;
-                    });
-                  }}
-                >
-                  <Text style={styles.endDateCollapsibleText}>Agregar fecha de fin</Text>
-                  <Ionicons name={showEndDateFields ? 'chevron-up' : 'chevron-down'} size={16} color={colors.secondaryText} />
-                </TouchableOpacity>
-
-                {showEndDateFields && (
-                  <>
-                    <TouchableOpacity onPress={handleEndDate} style={styles.dateRow}>
-                      <Ionicons name="calendar" size={20} color={colors.lightTint} />
-                      <View style={{ marginLeft: 12 }}>
-                        <Text style={styles.dateLabel}>Fecha fin</Text>
-                        <Text style={styles.dateValue}>
-                          {new Date(newActivity.endDate + 'T00:00:00').toLocaleDateString(
-                            'es-ES',
-                            { weekday: 'short', day: '2-digit', month: 'short' }
-                          )}
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity onPress={handleEndTime} style={styles.dateRow}>
-                      <Ionicons name="time" size={20} color={colors.lightTint} />
-                      <View style={{ marginLeft: 12 }}>
-                        <Text style={styles.dateLabel}>Hora fin</Text>
-                        <Text style={styles.dateValue}>
-                          {newActivity.endTime.toLocaleTimeString('es-ES', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
-                  </>
+                {activityDateErrorMessage && (
+                  <Text style={styles.errorTextInline}>{activityDateErrorMessage}</Text>
                 )}
+
+                {/* Fecha */}
+                <View style={styles.dateSection}>
+                  <TouchableOpacity onPress={handleStartDate} style={styles.dateRow}>
+                    <Ionicons name="calendar" size={20} color={colors.lightTint} />
+                    <View style={{ marginLeft: 12 }}>
+                      <Text style={styles.dateLabel}>Fecha inicio</Text>
+                      <Text style={styles.dateValue}>
+                        {new Date(newActivity.date + 'T00:00:00').toLocaleDateString(
+                          'es-ES',
+                          { weekday: 'short', day: '2-digit', month: 'short' }
+                        )}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity onPress={handleStartTime} style={styles.dateRow}>
+                    <Ionicons name="time" size={20} color={colors.lightTint} />
+                    <View style={{ marginLeft: 12 }}>
+                      <Text style={styles.dateLabel}>Hora inicio</Text>
+                      <Text style={styles.dateValue}>
+                        {newActivity.startTime.toLocaleTimeString('es-ES', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.endDateCollapsible}
+                    onPress={() => {
+                      setShowEndDateFields((prev) => {
+                        if (prev) return false;
+                        setNewActivity((current) => ({
+                          ...current,
+                          endDate: current.date,
+                          endTime: new Date(startDateTime.getTime() + 60 * 60 * 1000),
+                        }));
+                        return true;
+                      });
+                    }}
+                  >
+                    <Text style={styles.endDateCollapsibleText}>Agregar fecha de fin</Text>
+                    <Ionicons name={showEndDateFields ? 'chevron-up' : 'chevron-down'} size={16} color={colors.secondaryText} />
+                  </TouchableOpacity>
+
+                  {showEndDateFields && (
+                    <>
+                      <TouchableOpacity onPress={handleEndDate} style={styles.dateRow}>
+                        <Ionicons name="calendar" size={20} color={colors.lightTint} />
+                        <View style={{ marginLeft: 12 }}>
+                          <Text style={styles.dateLabel}>Fecha fin</Text>
+                          <Text style={styles.dateValue}>
+                            {new Date(newActivity.endDate + 'T00:00:00').toLocaleDateString(
+                              'es-ES',
+                              { weekday: 'short', day: '2-digit', month: 'short' }
+                            )}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity onPress={handleEndTime} style={styles.dateRow}>
+                        <Ionicons name="time" size={20} color={colors.lightTint} />
+                        <View style={{ marginLeft: 12 }}>
+                          <Text style={styles.dateLabel}>Hora fin</Text>
+                          <Text style={styles.dateValue}>
+                            {newActivity.endTime.toLocaleTimeString('es-ES', {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    </>
+                  )}
+                </View>
+
+                {/* Título */}
+                <View style={styles.fieldContainer}>
+                  <Text style={styles.fieldLabel}>Título</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Título"
+                    value={newActivity.title}
+                    onChangeText={(text) => setNewActivity((prev) => ({ ...prev, title: text }))}
+                    placeholderTextColor="#9CA3AF"
+                  />
+                </View>
+
+                {/* Descripción */}
+                <View style={styles.fieldContainer}>
+                  <Text style={styles.fieldLabel}>Descripción</Text>
+                  <TextInput
+                    style={[styles.input, styles.descriptionInput]}
+                    placeholder="Descripción (opcional)"
+                    value={newActivity.description}
+                    onChangeText={(text) => setNewActivity((prev) => ({ ...prev, description: text }))}
+                    placeholderTextColor="#9CA3AF"
+                    multiline
+                    numberOfLines={4}
+                  />
+                </View>
+              </ScrollView>
+
+              <View style={[styles.uploadButtonContainer]}>
+                <TouchableOpacity
+                  onPress={handleAddActivity}
+                  style={[styles.uploadButton, { backgroundColor: isLoading ? '#d1d5db' : Colors['light'].componentBackground }]}
+                >
+                  <Ionicons name="cloud-upload" size={20} color={Colors['light'].lightTint} />
+                  <ThemedText style={styles.uploadButtonText}>{'Crear'}</ThemedText>
+
+                </TouchableOpacity>
               </View>
+            </View>
 
-              {/* Título */}
-              <View style={styles.fieldContainer}>
-                <Text style={styles.fieldLabel}>Título</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Título (requerido)"
-                  value={newActivity.title}
-                  onChangeText={(text) => setNewActivity((prev) => ({ ...prev, title: text }))}
-                  placeholderTextColor="#9CA3AF"
-                />
-              </View>
-
-              {/* Descripción */}
-              <View style={styles.fieldContainer}>
-                <Text style={styles.fieldLabel}>Descripción</Text>
-                <TextInput
-                  style={[styles.input, styles.descriptionInput]}
-                  placeholder="Descripción (opcional)"
-                  value={newActivity.description}
-                  onChangeText={(text) => setNewActivity((prev) => ({ ...prev, description: text }))}
-                  placeholderTextColor="#9CA3AF"
-                  multiline
-                  numberOfLines={4}
-                />
-              </View>
-            </ScrollView>
-
-            <AppFab
-              icon="checkmark"
-              floating={false}
-              onPress={handleAddActivity}
-              disabled={!newActivity.title.trim() || !!activityDateErrorMessage || isMutating}
-              isLoading={isMutating}
-              style={styles.modalSubmitFab}
-            />
-          </View>
-
-          {showDatePicker && Platform.OS !== 'android' && (
-            <DateTimePicker
-              key={`${activeDateType ?? 'none'}-${datePickerMode}`}
-              visible={showDatePicker}
-              testID="dateTimePicker"
-              value={
-                activeDateType === 'monthJump'
-                  ? new Date(selectedDate + 'T00:00:00')
-                  : activeDateType === 'startDate'
-                    ? newActivity.startTime
-                    : activeDateType === 'startTime'
+            {showDatePicker && Platform.OS !== 'android' && (
+              <DateTimePicker
+                key={`${activeDateType ?? 'none'}-${datePickerMode}`}
+                visible={showDatePicker}
+                testID="dateTimePicker"
+                value={
+                  activeDateType === 'monthJump'
+                    ? new Date(selectedDate + 'T00:00:00')
+                    : activeDateType === 'startDate'
                       ? newActivity.startTime
-                      : activeDateType === 'endDate'
-                        ? new Date(newActivity.endDate + 'T00:00:00')
-                        : newActivity.endTime
-              }
-              mode={datePickerMode}
-              is24Hour={true}
-              onConfirm={onDateConfirm}
-              onCancel={onDateCancel}
-            />
-          )}
-        </KeyboardAvoidingView>
+                      : activeDateType === 'startTime'
+                        ? newActivity.startTime
+                        : activeDateType === 'endDate'
+                          ? new Date(newActivity.endDate + 'T00:00:00')
+                          : newActivity.endTime
+                }
+                mode={datePickerMode}
+                is24Hour={true}
+                onConfirm={onDateConfirm}
+                onCancel={onDateCancel}
+              />
+            )}
+          </KeyboardAvoidingView>
+        </View>
       </Modal>
 
       {/* Date Picker (Android) */}
@@ -919,6 +952,15 @@ const AgendaPersonal: React.FC = () => {
           is24Hour={true}
           onConfirm={onDateConfirm}
           onCancel={onDateCancel}
+        />
+      )}
+
+      {selectedActividadId !== null && (
+        <ActividadDetalle
+          visible
+          actividadId={selectedActividadId}
+          rol={selectedActividadRol}
+          onClose={handleCloseActividad}
         />
       )}
 
@@ -1131,17 +1173,19 @@ const styles = StyleSheet.create({
   modalKavWrapper: {
     flex: 1,
     width: '100%',
-    backgroundColor: '#ffffff',
   },
-  modalKavContent: {
+  overlay: {
     flex: 1,
-    justifyContent: 'flex-start',
-    alignItems: 'stretch',
+    backgroundColor: 'rgba(0,0,0,0.5)' // Sombra de fondo
   },
   modalContainer: {
-    backgroundColor: 'white',
+    // Quita el flex: 1, o usa un alto fijo/porcentaje
     flex: 1,
-    width: '100%',
+    marginTop: '5%', // Empuja el modal hacia abajo
+    backgroundColor: Colors['light'].componentBackground,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    overflow: 'hidden',
   },
   modalScrollContent: {
     paddingHorizontal: 20,
@@ -1150,14 +1194,17 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   modalHeader: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomColor: Colors['light'].icon,
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     alignItems: 'center',
-    marginBottom: 16,
   },
   modalHeaderActions: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginLeft: 12,
   },
   modalTitle: {
     fontSize: 20,
@@ -1165,7 +1212,10 @@ const styles = StyleSheet.create({
     color: '#111827',
   },
   closeButton: {
-    padding: 8,
+    padding: 6,
+    borderRadius: 16,
+    backgroundColor: '#f3f4f6',
+    marginLeft: 8,
   },
   dateSection: {
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -1267,6 +1317,26 @@ const styles = StyleSheet.create({
   },
   createButtonContainer: {
     position: 'absolute',
+  },
+  uploadButtonContainer: {
+    backgroundColor: Colors['light'].componentBackground,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: Colors['light'].icon,
+    paddingHorizontal: '4%',
+    paddingTop: 10,
+  },
+  uploadButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 8,
+    gap: 8,
+  },
+  uploadButtonText: {
+    color: Colors['light'].lightTint,
+    fontWeight: '600',
+    fontSize: 16,
   },
 });
 

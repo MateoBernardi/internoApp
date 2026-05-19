@@ -1,36 +1,36 @@
 import { ThemedText } from '@/components/themed-text';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { Colors } from '@/constants/theme';
-import { useRouter } from 'expo-router';
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
-    StyleSheet,
-    TouchableOpacity,
-    View
+	StyleSheet,
+	TouchableOpacity,
+	View
 } from 'react-native';
 import { EstadoSolicitud, SolicitudLicencia } from '../models/SolicitudLicencia';
 import { formatCantidadLicencia } from '../utils/formatCantidad';
 import { useGetSolicitudesLicencias } from '../viewmodels/useSolicitudes';
+import { SolicitudLicencia as SolicitudLicenciaModal } from './SolicitudLicencia';
 
 const estadoMapping: Record<EstadoSolicitud, string> = {
-  'PENDIENTE': 'Pendiente',
-  'PENDIENTE_DOCUMENTACION': 'Pendiente Doc.',
-  'PENDIENTE_APROBACION': 'Pendiente Aprob.',
-  'APROBADA': 'Aprobada',
-  'RECHAZADA': 'Rechazada',
-  'CANCELADA': 'Cancelada',
-  'CONSUMIDA': 'Consumida',
+	'PENDIENTE': 'Pendiente',
+	'PENDIENTE_DOCUMENTACION': 'Pendiente Doc.',
+	'PENDIENTE_APROBACION': 'Pendiente Aprob.',
+	'APROBADA': 'Aprobada',
+	'RECHAZADA': 'Rechazada',
+	'CANCELADA': 'Cancelada',
+	'CONSUMIDA': 'Consumida',
 	'EXPIRADA': 'Expirada',
 };
 
 const getEstadoColor = (estado: string): string => {
-  if (estado.includes('Pendiente')) return '#FF9800';
-  if (estado.includes('Aprobada')) return '#4CAF50';
-  if (estado.includes('Rechazada')) return '#F44336';
-  if (estado.includes('Cancelada')) return '#9C27B0';
-  if (estado.includes('Consumida')) return '#2196F3';
+	if (estado.includes('Pendiente')) return '#FF9800';
+	if (estado.includes('Aprobada')) return '#4CAF50';
+	if (estado.includes('Rechazada')) return '#F44336';
+	if (estado.includes('Cancelada')) return '#9C27B0';
+	if (estado.includes('Consumida')) return '#2196F3';
 	if (estado.includes('Expirada')) return '#757575';
-  return '#757575';
+	return '#757575';
 };
 
 interface VacacionesPorEmpleadoProps {
@@ -40,15 +40,19 @@ interface VacacionesPorEmpleadoProps {
 const colors = Colors['light'];
 
 export function VacacionesPorEmpleado({ usuarioId }: VacacionesPorEmpleadoProps) {
-	const router = useRouter();
 	const { data, isLoading, error } = useGetSolicitudesLicencias({ usuario_id: usuarioId, tipo_licencia_id: 1 });
+	const [selectedSolicitudId, setSelectedSolicitudId] = useState<number | null>(null);
+	const [detalleVisible, setDetalleVisible] = useState(false);
 
 	const handleOpenSolicitud = useCallback((solicitudId: number) => {
-		router.push({
-			pathname: '/(extras)/solicitud-licencia' as any,
-			params: { id: solicitudId.toString(), type: 'recibida' },
-		});
-	}, [router]);
+		setSelectedSolicitudId(solicitudId);
+		setDetalleVisible(true);
+	}, []);
+
+	const handleCloseDetalle = useCallback(() => {
+		setDetalleVisible(false);
+		setSelectedSolicitudId(null);
+	}, []);
 
 	const Separator = useCallback(() => (
 		<View style={[styles.separator, { backgroundColor: colors.icon }]} />
@@ -87,6 +91,14 @@ export function VacacionesPorEmpleado({ usuarioId }: VacacionesPorEmpleadoProps)
 					);
 				})}
 			</View>
+			{selectedSolicitudId !== null && (
+				<SolicitudLicenciaModal
+					visible={detalleVisible}
+					onClose={handleCloseDetalle}
+					solicitudId={selectedSolicitudId}
+					type="recibida"
+				/>
+			)}
 		</View>
 	);
 }

@@ -1,17 +1,17 @@
 import type {
-    ActividadDetalleDTO,
-    ActividadDTO,
-    CrearActividadDTO,
+  ActividadDetalleDTO,
+  ActividadDTO,
+  CrearActividadDTO,
 } from '../dto/ActividadDTO';
 import type {
-    Actividad,
-    ActividadDetalleResponse,
-    ActividadesPorPeriodoResponse,
-    CancelarActividadRequest,
-    CrearActividadRequest,
-    Licencia,
-    ModificarActividadFechasRequest,
-    ObtenerActividadesPorPeriodoRequest,
+  Actividad,
+  ActividadDetalleResponse,
+  ActividadesPorPeriodoResponse,
+  CancelarActividadRequest,
+  CrearActividadRequest,
+  Licencia,
+  ModificarActividadFechasRequest,
+  ObtenerActividadesPorPeriodoRequest,
 } from '../models/Actividad';
 import { parseBackendDate, toIsoDate } from './dateMapper';
 
@@ -49,8 +49,8 @@ export function mapModificarActividadFechasRequestToPayload(
     fecha_inicio: toIsoDate(request.fecha_inicio),
     ...(request.fecha_fin
       ? {
-          fecha_fin: toIsoDate(request.fecha_fin),
-        }
+        fecha_fin: toIsoDate(request.fecha_fin),
+      }
       : {}),
   };
 }
@@ -138,17 +138,24 @@ export function mapActividadDTOToDetalle(dto: ActividadDetalleDTO): ActividadDet
   const fechaFin = toValidDateOrUndefined(dto.fecha_fin);
 
   return {
-    id: dto.actividad_id ?? dto.id ?? 0,
+    id: dto.actividad_id,
     titulo: dto.titulo ?? 'Sin titulo',
     descripcion: dto.descripcion ?? '',
     fecha_inicio: fechaInicio,
     fecha_fin: fechaFin,
-    rol: dto.rol,
-    solicitud_id: dto.solicitud_id,
+    solicitud_id: dto.solicitud_id ? dto.solicitud_id : undefined,
     participantes: (dto.participantes ?? []).map((participante) => ({
+      user_context_id: participante.id_usuario_participante,
       rol: participante.rol,
       nombre: participante.nombre ?? '',
       apellido: participante.apellido ?? '',
     })),
+    archivos: (dto.archivos ?? []).map((archivo) => ({
+      id: archivo.id,
+      nombre: archivo.nombre,
+      // some backend ArchivoDTO versions don't have a 'url' property
+      // use a safe any cast to avoid TS error and default to empty string
+      url: (archivo as any).url ?? '',
+    })) as any,
   };
 }

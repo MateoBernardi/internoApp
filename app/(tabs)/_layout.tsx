@@ -52,7 +52,7 @@ export default function TabLayout() {
   const hasUserContext = Boolean(user?.user_context_id);
   const isEmployeeUser = isRolePending || isEmployee();
   const isEncargado = !isRolePending && hasRole('encargado');
-  const hideExplore = !hasUserContext || isEmployeeUser || isEncargado;
+  const hideExplore = !hasUserContext;
   const hideAdmin = !hasUserContext || isEmployeeUser;
   const hasSolicitudesTab = !hideExplore;
   const hasAdminTab = !hideAdmin;
@@ -404,7 +404,7 @@ export default function TabLayout() {
           listeners={{ tabPress: () => setActiveMenu(null) }}
           options={{
             href: hideExplore ? null : undefined,
-            title: 'Solicitudes',
+            title: 'Mensajes',
             tabBarIcon: ({ color }) => (
               <View style={styles.tabIconContainer}>
                 <IconSymbol size={24} name="paperplane.fill" color={color} />

@@ -542,9 +542,7 @@ export function FormObjetivoModal({
                                     </TouchableOpacity>
                                 </View>
 
-                                {/* TODO: renderizar lista de archivos enlazados */}
                                 <View style={styles.inviteList}>
-                                    {/* TODO: item de archivo con boton abrir */}
                                     <View style={{ width: '100%', flexDirection: 'column', gap: 8 }}>
                                         {pickedFiles && pickedFiles.length > 0 ? (
                                             pickedFiles.map((file, index) => (

@@ -37,16 +37,12 @@ export async function getWebPushToken(): Promise<string | null> {
     const fcmMessaging = await messaging();
 
     if(fcmMessaging){
-      console.log('[WebPush] Obteniendo token de notificaciones push con vapid_key:' + Constants.expoConfig?.extra?.VAPID_PUBLIC_KEY);
       const vapidKey = Constants.expoConfig?.extra?.VAPID_PUBLIC_KEY;
       const token = await getToken(fcmMessaging, {
         vapidKey: vapidKey,
       });
-      console.log('[WebPush] Token obtenido:', token);
       return token;
     }
-
-    console.log('[WebPush] Messaging no soportado en este entorno');
 
     return null;
 

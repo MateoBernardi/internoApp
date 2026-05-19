@@ -2,14 +2,14 @@ import { fetchArchivos } from '@/features/docs/services/archivosApi';
 import { fetchObjetivos } from '@/features/kanban/services/kanbanApi';
 import { fetchReportes } from '@/features/reportes/services/reportesApi';
 import {
-    getSolicitudesCreadas,
-    obtenerMisInvitaciones,
+  getSolicitudesCreadas,
+  obtenerMisInvitaciones,
 } from '@/features/solicitudesActividades/services/solicitudesApi';
 import {
-    getSaldosLicencia,
-    getSolicitudesLicencias,
-    getSolicitudesUsuario,
-    getTiposLicencia,
+  getSaldosLicencia,
+  getSolicitudesLicencias,
+  getSolicitudesUsuario,
+  getTiposLicencia,
 } from '@/features/solicitudesLicencias/services/solicitudesApi';
 import { QueryClient } from '@tanstack/react-query';
 import { RealtimeQueryKeys } from './querySync';
@@ -125,12 +125,6 @@ export async function prefetchCoreRealtimeData(
       reason: context.reason ?? 'unspecified',
       failedTasks: rejected.length,
       totalTasks: results.length,
-    });
-  } else {
-    console.log('[Prefetch] Core realtime prefetch completed', {
-      reason: context.reason ?? 'unspecified',
-      totalTasks: results.length,
-      role,
     });
   }
 }

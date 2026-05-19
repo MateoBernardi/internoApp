@@ -122,8 +122,6 @@ export function useRegisterDevice(options: UseRegisterDeviceOptions = {}) {
           if (nextLink) {
             router.push(nextLink as any);
             onNotificationOpen?.(payload);
-          } else {
-            console.log('[Devices] Notificación recibida sin link:', payload);
           }
         };
       });

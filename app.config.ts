@@ -3,7 +3,7 @@ import { ConfigContext, ExpoConfig } from "expo/config";
 export default ({ config }: ConfigContext): ExpoConfig => ({
   name: "Italo Argentina",
   slug: "internoApp",
-  version: "1.0.3",
+  version: "1.0.4",
   orientation: "portrait",
   icon: "./assets/images/icon-1024.png",
   scheme: "internoapp",
@@ -14,7 +14,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       ? { googleServicesFile: process.env.GOOGLE_SERVICES_IOS }
       : {}),
     supportsTablet: true,
-    bundleIdentifier: "italoarg.com.ar",
+    bundleIdentifier: "ar.com.italoarg",
     infoPlist: {
       UIBackgroundModes: ["remote-notification"],
     },
@@ -30,7 +30,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       monochromeImage: "./assets/images/android-icon-monochrome.png",
     },
     edgeToEdgeEnabled: true,
-    permissions: ["android.permission.RECORD_AUDIO"],
   },
   web: {
     output: "static" as const,

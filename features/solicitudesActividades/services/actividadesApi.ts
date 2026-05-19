@@ -160,7 +160,6 @@ export async function invitadosActividad(
     action: 'add' | 'remove',
     invitados: actividades.ActividadDetalleParticipante[]
 ): Promise<actividades.ActividadDTO> {
-    console.log("InvitadosActividad payload:", { id, action, invitados });
     const response = await apiRequest({
         method: 'PATCH',
         endpoint: `/solicitudes-actividades/actividades/${id}/invitados?action=${action}`,

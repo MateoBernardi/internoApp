@@ -93,7 +93,6 @@ export function useCrearSolicitud() {
       if (!accessToken) {
         throw new Error('No access token available');
       }
-      console.log('Creando solicitud con data:', data);
       return solicitudesApi.crearSolicitud(accessToken, data);
     },
     onSuccess: () => {

@@ -105,7 +105,6 @@ export async function obtenerMisInvitaciones(accessToken: string): Promise<solic
 
 export async function actualizarEstadoInvitacion(accessToken: string, data: solicitudes.ActualizarEstadoInvitacionRequest): Promise<solicitudes.ActualizarEstadoInvitacionResponse> {
     const payload = mapUpdateSolicitudRequestToPayload(data);
-    console.log('Payload para actualizarEstadoInvitacion:', payload);
     const response = await apiRequest({ method: 'PUT', endpoint: `/solicitudes-actividades/solicitudes/update`, token: accessToken, body: payload });
 
     if (!response.ok) {
@@ -122,7 +121,6 @@ export async function actualizarInvitadosSolicitud(
     accessToken: string,
     data: solicitudes.ActualizarInvitadosSolicitudRequest,
 ): Promise<solicitudes.ActualizarInvitadosSolicitudResponse> {
-    console.log('Datos recibidos en actualizarInvitadosSolicitud:', data);
     const response = await apiRequest({
         method: 'PATCH',
         endpoint: `/solicitudes-actividades/solicitudes/${data.solicitudId}/invitados?action=${data.action}`,

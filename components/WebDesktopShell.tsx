@@ -28,7 +28,7 @@ export function WebDesktopShell({ children }: { children: React.ReactNode }) {
     <View
       style={[
         styles.pageBackground,
-        { paddingHorizontal: shellHorizontalPadding },
+        { paddingHorizontal: shellHorizontalPadding, paddingTop: 'env(safe-area-inset-top)' as any },
       ]}
     >
       <View

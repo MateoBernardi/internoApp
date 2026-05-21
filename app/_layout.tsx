@@ -13,6 +13,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect } from 'react';
 import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
 import 'react-native-reanimated';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 installWebAlertPolyfill();
 
@@ -182,13 +183,15 @@ export default function RootLayout() {
   // Permitir que AuthProvider y el hook useRegisterDevice se encarguen de registrar el dispositivo
   // cuando el usuario esté autenticado
   return (
-    <DesktopGate>
-      <QueryProvider>
-        <AuthProvider>
-          <RootNavigator />
-        </AuthProvider>
-      </QueryProvider>
-    </DesktopGate>
+    <SafeAreaProvider>
+      <DesktopGate>
+        <QueryProvider>
+          <AuthProvider>
+            <RootNavigator />
+          </AuthProvider>
+        </QueryProvider>
+      </DesktopGate>
+    </SafeAreaProvider>
   );
 }
 

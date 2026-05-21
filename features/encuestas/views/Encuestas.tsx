@@ -38,7 +38,7 @@ export const Encuestas: React.FC = () => {
 
   // Pantalla de selección de opciones
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={styles.container} edges={['bottom']}>
       <View style={styles.content}>
         <TouchableOpacity
           style={styles.optionCard}

@@ -3,7 +3,7 @@ import { SearchBar } from '@/components/ui/SearchBar';
 import { Colors } from '@/constants/theme';
 import { useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
-import { Platform, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { Semaforo } from '../components/Semaforo';
 import { TopEmployee } from '../components/TopEmployee';
 import { UpgradedEmployee } from '../components/UpgradedEmployee';
@@ -101,7 +101,7 @@ const styles = StyleSheet.create({
 	},
 	searchBarContainer: {
 		paddingHorizontal: '3%',
-		paddingTop: Platform.OS === 'web' ? 0 : '3%',
+		paddingTop: 0,
 		paddingBottom: '4%',
 	},
 	searchBar: {
@@ -124,7 +124,7 @@ const styles = StyleSheet.create({
 	},
 	titleContainer: {
 		paddingHorizontal: '4%',
-		paddingTop: Platform.OS === 'web' ? 0 : '2%',
+		paddingTop: 0,
 	},
 	semaforoTitle: {
 		fontSize: 20,

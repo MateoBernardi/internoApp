@@ -1,12 +1,13 @@
 import { ThemedView } from '@/components/themed-view';
 import Documentos from '@/features/docs/views/Documentos';
-import { Platform, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
+import { useSafeTopInset } from '@/hooks/useSafeTopInset';
 
 export default function DocumentosScreen() {
-  const containerPaddingTop = Platform.OS === 'web' ? 0 : '10%';
+  const top = useSafeTopInset();
 
   return (
-        <ThemedView style={[styles.container, { paddingTop: containerPaddingTop }]}> 
+        <ThemedView style={[styles.container, { paddingTop: top }]}>
           <Documentos />
         </ThemedView>
     );
@@ -15,6 +16,5 @@ export default function DocumentosScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: '10%',
   },
 });

@@ -10,18 +10,16 @@ import {
     StyleSheet,
     View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const colors = Colors['light'];
 
 export default function ResponderEncuestaScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const { encuesta: encuestaParam } = useLocalSearchParams<{ encuesta: string }>();
 
   if (!encuestaParam) {
     return (
-      <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={styles.container}>
         <ThemedText style={styles.errorText}>Error: No se encontró la encuesta</ThemedText>
       </View>
     );
@@ -33,7 +31,7 @@ export default function ResponderEncuestaScreen() {
   } catch (error) {
     console.error('Error parsing encuesta:', error);
     return (
-      <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={styles.container}>
         <ThemedText style={styles.errorText}>Error: No se pudo cargar la encuesta</ThemedText>
       </View>
     );
@@ -41,7 +39,7 @@ export default function ResponderEncuestaScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={[styles.container, { paddingTop: insets.top }]}
+      style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
     >

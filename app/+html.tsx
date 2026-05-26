@@ -42,6 +42,7 @@ export default function Root({ children }: PropsWithChildren) {
             connect-src 'self'
               blob:
               ${apiBaseUrl}
+              https://italoapp-backend-staging.up.railway.app
               https://italoapp-backend-production.up.railway.app
               https://*.r2.cloudflarestorage.com
               https://fcm.googleapis.com

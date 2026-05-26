@@ -1,5 +1,6 @@
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { solicitudesQueryKeys } from '../../solicitudesActividades/viewmodels/useSolicitudes';
 import type { CreateObjetivo, Invitado, Objetivo, UpdateObjetivo } from '../models/Objetivo';
 import {
     archivoObjetivo,
@@ -52,6 +53,9 @@ export function useCreateObjetivo() {
             // Actualizar el cache agregando el nuevo objetivo
             queryClient.setQueryData(OBJETIVOS_QUERY_KEY, (old: Objetivo[] | undefined) => {
                 return old ? [...old, newObjetivo] : [newObjetivo];
+            });
+            queryClient.invalidateQueries({
+                queryKey: solicitudesQueryKeys.all,
             });
         },
     });

@@ -171,10 +171,12 @@ export async function getSolicitudes(
     accessToken: string,
     page: number = 1,
     pageSize: number = 20,
+    tipoConversacion?: 'CHAT',
 ): Promise<{ data: solicitudes.SolicitudEnviada[]; total: number; page: number; pageSize: number }> {
+    const typeParam = tipoConversacion ? `&type=${tipoConversacion}` : '';
     const response = await apiRequest({
         method: 'GET',
-        endpoint: `/solicitudes-actividades/solicitudes?page=${page}&pageSize=${pageSize}`,
+        endpoint: `/solicitudes-actividades/solicitudes?page=${page}&pageSize=${pageSize}${typeParam}`,
         token: accessToken,
     });
 

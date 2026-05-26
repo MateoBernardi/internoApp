@@ -96,7 +96,7 @@ export function CrearSolicitud({ visible, onClose }: CrearSolicitudProps) {
   const [fechaInicio, setFechaInicio] = useState<Date | null>(null);
   const [fechaFin, setFechaFin] = useState<Date | null>(null);
   const [allDay, setAllDay] = useState(false);
-  const [tipoActividad, setTipoActividad] = useState<'REUNION' | 'MANDATO' | 'CHAT'>('MANDATO');
+  const [tipoActividad, setTipoActividad] = useState<'REUNION' | 'MANDATO'>('MANDATO');
   const [includeDates, setIncludeDates] = useState(false);
   const [enviarPorSeparado, setEnviarPorSeparado] = useState(false);
   const [showRoleModal, setShowRoleModal] = useState(false);
@@ -334,8 +334,7 @@ export function CrearSolicitud({ visible, onClose }: CrearSolicitudProps) {
       },
       onError: (error: any) => {
         const msg = error instanceof Error ? error.message : 'Intenta nuevamente';
-        const isChatDuplicate = msg.includes('Ya existe una solicitud de CHAT activa');
-        showModal(isChatDuplicate ? 'Conversación duplicada' : 'Error', msg);
+        showModal('Error', msg);
       },
     });
   }, [crearSolicitud, handleClose, showModal]);
@@ -540,15 +539,6 @@ export function CrearSolicitud({ visible, onClose }: CrearSolicitudProps) {
                     }}
                   >
                     <ThemedText style={[styles.chipText, tipoActividad === 'MANDATO' ? { color: colors.lightTint, fontWeight: 'bold' } : { color: colors.secondaryText }]}>Actividad</ThemedText>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.chip, tipoActividad === 'CHAT' && { borderColor: colors.lightTint, backgroundColor: 'transparent', borderWidth: 1 }]}
-                    onPress={() => {
-                      setTipoActividad('CHAT');
-                      handleToggleIncludeDates(false);
-                    }}
-                  >
-                    <ThemedText style={[styles.chipText, tipoActividad === 'CHAT' ? { color: colors.lightTint, fontWeight: 'bold' } : { color: colors.secondaryText }]}>Conversación</ThemedText>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.chip, tipoActividad === 'REUNION' && { borderColor: colors.lightTint, backgroundColor: 'transparent', borderWidth: 1 }]}

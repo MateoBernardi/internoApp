@@ -17,6 +17,8 @@ import { CreateButton } from '@/components/ui/CreateButton';
 import { Colors } from '@/constants/theme';
 
 // Componentes de Dominio
+import { ChatsList } from '../components/ChatsList';
+import { ConversacionChat } from '../components/ConversacionChat';
 import { CrearSolicitud } from '../components/CrearSolicitud';
 import { Solicitud } from '../components/Solicitud';
 import { SolicitudesList } from '../components/SolicitudesList';
@@ -57,16 +59,25 @@ export default function SolicitudesView({ onRefresh, refreshing }: SolicitudesVi
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [activeTab, setActiveTab] = useState<'solicitudes' | 'chats'>('solicitudes');
   const [selectedSolicitud, setSelectedSolicitud] = useState<SolicitudEnviada | null>(null);
+  const [selectedChat, setSelectedChat] = useState<SolicitudEnviada | null>(null);
   const [showCrearSolicitud, setShowCrearSolicitud] = useState(false);
   const handledParamRef = useRef<string | null>(null);
 
+  const isChatsTab = activeTab === 'chats';
+
   // --- DATA FETCHING ---
   const isSearching = debouncedSearch.trim().length > 0;
-  const { data, isLoading, isFetching } = useSolicitudes(page, 20, !isSearching);
+  const tipoConversacion = isChatsTab ? ('CHAT' as const) : undefined;
+  const { data, isLoading, isFetching } = useSolicitudes(page, 20, !isSearching, tipoConversacion);
   const { data: searchResults, isLoading: isLoadingSearch, isFetching: isFetchingSearch } = useBuscarSolicitudes(debouncedSearch);
 
-  const solicitudes = isSearching ? (searchResults ?? []) : (data?.data ?? []);
+  const solicitudesRaw = isSearching ? (searchResults ?? []) : (data?.data ?? []);
+  const solicitudes = useMemo(
+    () => solicitudesRaw.filter(s => isChatsTab ? s.tipo_actividad === 'CHAT' : s.tipo_actividad !== 'CHAT'),
+    [solicitudesRaw, isChatsTab],
+  );
   const totalSolicitudesGlobal = isSearching ? 0 : (data?.total ?? 0);
   const totalPages = isSearching ? 0 : Math.ceil(totalSolicitudesGlobal / 20);
 
@@ -85,6 +96,15 @@ export default function SolicitudesView({ onRefresh, refreshing }: SolicitudesVi
   // --- HANDLERS ---
   const handleOpenSolicitud = useCallback((solicitud: SolicitudEnviada) => setSelectedSolicitud(solicitud), []);
   const handleCloseSolicitud = useCallback(() => setSelectedSolicitud(null), []);
+  const handleOpenChat = useCallback((chat: SolicitudEnviada) => setSelectedChat(chat), []);
+  const handleCloseChat = useCallback(() => setSelectedChat(null), []);
+  const handleChangeTab = useCallback((tab: 'solicitudes' | 'chats') => {
+    setActiveTab(prev => {
+      if (prev === tab) return prev;
+      setPage(1);
+      return tab;
+    });
+  }, []);
   const handleNextPage = () => { if (page < totalPages) setPage(p => p + 1); };
   const handlePrevPage = () => { if (page > 1) setPage(p => p - 1); };
 
@@ -97,13 +117,14 @@ export default function SolicitudesView({ onRefresh, refreshing }: SolicitudesVi
   }, [search]);
 
   useEffect(() => {
-    if (!solicitudIdParam || solicitudes.length === 0 || handledParamRef.current === solicitudIdParam) return;
-    const encontrada = solicitudes.find(s => s.solicitud_id === Number(solicitudIdParam));
+    if (!solicitudIdParam || solicitudesRaw.length === 0 || handledParamRef.current === solicitudIdParam) return;
+    const encontrada = solicitudesRaw.find(s => s.solicitud_id === Number(solicitudIdParam));
     if (encontrada) {
-      setSelectedSolicitud(encontrada);
+      if (encontrada.tipo_actividad === 'CHAT') setSelectedChat(encontrada);
+      else setSelectedSolicitud(encontrada);
       handledParamRef.current = solicitudIdParam;
     }
-  }, [solicitudIdParam, solicitudes]);
+  }, [solicitudIdParam, solicitudesRaw]);
 
   return (
     <ThemedView style={styles.container}>
@@ -120,34 +141,63 @@ export default function SolicitudesView({ onRefresh, refreshing }: SolicitudesVi
             clearButtonMode="while-editing"
           />
         </View>
+
+        {/* SELECTOR DE PESTAÑAS */}
+        <View style={styles.tabBar}>
+          <TouchableOpacity
+            style={[styles.tabItem, !isChatsTab && styles.tabItemActive]}
+            onPress={() => handleChangeTab('solicitudes')}
+          >
+            <Text style={[styles.tabText, !isChatsTab && styles.tabTextActive]}>Solicitudes</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tabItem, isChatsTab && styles.tabItemActive]}
+            onPress={() => handleChangeTab('chats')}
+          >
+            <Text style={[styles.tabText, isChatsTab && styles.tabTextActive]}>Chats</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* INFO BAR (Pendientes) */}
-      <View style={styles.headerInfo}>
-        <View style={styles.infoRow}>
-          {sinVerCount > 0 ? (
-            <View style={styles.unseenBadge}>
-              <Ionicons name="alert-circle" size={14} color={colors.tint} />
-              <Text style={styles.unseenText}>
-                {sinVerCount} {sinVerCount === 1 ? 'sin ver en esta página' : 'sin ver en esta página'}
-              </Text>
-            </View>
-          ) : (
-            <Text style={styles.totalCountText}>Todo al día en esta página</Text>
-          )}
+      {!isChatsTab && (
+        <View style={styles.headerInfo}>
+          <View style={styles.infoRow}>
+            {sinVerCount > 0 ? (
+              <View style={styles.unseenBadge}>
+                <Ionicons name="alert-circle" size={14} color={colors.tint} />
+                <Text style={styles.unseenText}>
+                  {sinVerCount} {sinVerCount === 1 ? 'sin ver en esta página' : 'sin ver en esta página'}
+                </Text>
+              </View>
+            ) : (
+              <Text style={styles.totalCountText}>Todo al día en esta página</Text>
+            )}
+          </View>
+          {(isFetching || isFetchingSearch) && <ActivityIndicator size="small" color={colors.tint} />}
         </View>
-        {(isFetching || isFetchingSearch) && <ActivityIndicator size="small" color={colors.tint} />}
-      </View>
+      )}
 
       {/* LISTA */}
-      <SolicitudesList
-        solicitudes={solicitudes}
-        isLoading={isSearching ? (isLoadingSearch || isFetchingSearch) : (isLoading || isFetching)}
-        onRefresh={isSearching ? undefined : onRefresh}
-        refreshing={isSearching ? false : refreshing}
-        onOpenSolicitud={handleOpenSolicitud}
-        emptyMessage={isSearching ? 'No se encontraron solicitudes' : undefined}
-      />
+      {isChatsTab ? (
+        <ChatsList
+          chats={solicitudes}
+          isLoading={isSearching ? (isLoadingSearch || isFetchingSearch) : (isLoading || isFetching)}
+          onRefresh={isSearching ? undefined : onRefresh}
+          refreshing={isSearching ? false : refreshing}
+          onOpenChat={handleOpenChat}
+          emptyMessage={isSearching ? 'No se encontraron conversaciones' : undefined}
+        />
+      ) : (
+        <SolicitudesList
+          solicitudes={solicitudes}
+          isLoading={isSearching ? (isLoadingSearch || isFetchingSearch) : (isLoading || isFetching)}
+          onRefresh={isSearching ? undefined : onRefresh}
+          refreshing={isSearching ? false : refreshing}
+          onOpenSolicitud={handleOpenSolicitud}
+          emptyMessage={isSearching ? 'No se encontraron solicitudes' : undefined}
+        />
+      )}
 
       {/* PAGINACIÓN */}
       {totalPages > 1 && (
@@ -177,13 +227,18 @@ export default function SolicitudesView({ onRefresh, refreshing }: SolicitudesVi
       )}
 
       {/* BOTÓN FLOTANTE */}
-      <View style={[styles.floatingButtonContainer, { bottom: insets.bottom + 16, right: 24 }]}>
-        <CreateButton onPress={() => setShowCrearSolicitud(true)} size={56} />
-      </View>
+      { !isChatsTab && (
+        <View style={[styles.floatingButtonContainer, { bottom: insets.bottom + 16, right: 24 }]}>
+          <CreateButton onPress={() => setShowCrearSolicitud(true)} size={56} />
+        </View>
+      )}
 
       {/* MODALES */}
       {selectedSolicitud && (
         <Solicitud visible solicitud={selectedSolicitud} onClose={handleCloseSolicitud} />
+      )}
+      {selectedChat && (
+        <ConversacionChat visible solicitud={selectedChat} onClose={handleCloseChat} />
       )}
       <CrearSolicitud visible={showCrearSolicitud} onClose={() => setShowCrearSolicitud(false)} />
     </ThemedView>
@@ -207,6 +262,37 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   searchInput: { flex: 1, fontSize: 15, color: '#333' },
+  tabBar: {
+    flexDirection: 'row',
+    marginTop: 10,
+    backgroundColor: '#f0f2f5',
+    borderRadius: 12,
+    padding: 4,
+    gap: 4,
+  },
+  tabItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    borderRadius: 9,
+  },
+  tabItemActive: {
+    backgroundColor: colors.componentBackground,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    shadowOffset: { width: 0, height: 1 },
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6b7280',
+  },
+  tabTextActive: {
+    color: colors.tint,
+  },
   headerInfo: {
     flexDirection: 'row',
     justifyContent: 'space-between',

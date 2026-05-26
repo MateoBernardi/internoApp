@@ -3,10 +3,10 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import * as solicitudModels from '../models/Solicitud';
 import * as solicitudesApi from '../services/solicitudesApi';
 
-const solicitudesQueryKeys = {
+export const solicitudesQueryKeys = {
   all: ['solicitudes'] as const,
-  lista: (page: number, pageSize: number) =>
-    [...solicitudesQueryKeys.all, 'lista', page, pageSize] as const,
+  lista: (page: number, pageSize: number, tipoConversacion?: 'CHAT') =>
+    [...solicitudesQueryKeys.all, 'lista', page, pageSize, tipoConversacion ?? 'all'] as const,
   creadas: () => [...solicitudesQueryKeys.all, 'creadas'] as const,
   invitaciones: () => [...solicitudesQueryKeys.all, 'invitaciones'] as const,
   bitacora: (solicitudId: number) => [...solicitudesQueryKeys.all, 'bitacora', solicitudId] as const,
@@ -98,7 +98,7 @@ export function useCrearSolicitud() {
     onSuccess: () => {
       // Invalidar las solicitudes creadas para refrescar la lista
       queryClient.invalidateQueries({
-        queryKey: solicitudesQueryKeys.lista(1, 20),
+        queryKey: solicitudesQueryKeys.all,
       });
     },
   });
@@ -122,7 +122,7 @@ export function useCancelarSolicitud() {
     onSuccess: () => {
       // Invalidar ambas listas de solicitudes
       queryClient.invalidateQueries({
-        queryKey: solicitudesQueryKeys.lista(1, 20),
+        queryKey: solicitudesQueryKeys.all,
       });
     },
   });
@@ -146,7 +146,7 @@ export function useReenviarSolicitud() {
     onSuccess: () => {
       // Invalidar las solicitudes creadas
       queryClient.invalidateQueries({
-        queryKey: solicitudesQueryKeys.lista(1, 20),
+        queryKey: solicitudesQueryKeys.all,
       });
     },
   });
@@ -188,7 +188,7 @@ export function useOcultarSolicitudInvitado() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: solicitudesQueryKeys.lista(1, 20),
+        queryKey: solicitudesQueryKeys.all,
       });
     },
   });
@@ -215,7 +215,7 @@ export function useActualizarEstadoInvitacion() {
       });
       // Invalidar las invitaciones para refrescar la lista
       queryClient.invalidateQueries({
-        queryKey: solicitudesQueryKeys.lista(1, 20),
+        queryKey: solicitudesQueryKeys.all,
       });
     },
   });
@@ -239,16 +239,16 @@ export function useBuscarSolicitudes(q: string) {
   });
 }
 
-export function useSolicitudes(page: number = 1, pageSize: number = 20, enabled: boolean = true) {
+export function useSolicitudes(page: number = 1, pageSize: number = 20, enabled: boolean = true, tipoConversacion?: 'CHAT') {
   const { tokens } = useAuth();
 
   return useQuery({
-    queryKey: solicitudesQueryKeys.lista(page, pageSize),
+    queryKey: solicitudesQueryKeys.lista(page, pageSize, tipoConversacion),
     enabled,
     queryFn: async () => {
       const token = tokens?.accessToken;
       if (!token) throw new Error('No access token available');
-      return solicitudesApi.getSolicitudes(token, page, pageSize);
+      return solicitudesApi.getSolicitudes(token, page, pageSize, tipoConversacion);
     },
     placeholderData: keepPreviousData,
     staleTime: 1000 * 60 * 5,

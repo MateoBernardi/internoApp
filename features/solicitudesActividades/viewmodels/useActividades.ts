@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as actividadesModels from '../models/Actividad';
 import * as actividadesApi from '../services/actividadesApi';
 import { archivoActividad, invitadosActividad } from '../services/actividadesApi';
+import { solicitudesQueryKeys } from './useSolicitudes';
 
 export interface PeriodoVentana {
   fechaInicio: Date;
@@ -31,12 +32,6 @@ export const actividadesQueryKeys = {
   semanales: () => [...actividadesQueryKeys.all, 'semanales'] as const,
   porPeriodo: (monthKey: string) => [...actividadesQueryKeys.all, 'periodo', monthKey] as const,
   detalle: (actividadId: number) => [...actividadesQueryKeys.all, 'detalle', actividadId] as const,
-};
-
-const solicitudesQueryKeys = {
-  all: ['solicitudes'] as const,
-  creadas: () => [...solicitudesQueryKeys.all, 'creadas'] as const,
-  invitaciones: () => [...solicitudesQueryKeys.all, 'invitaciones'] as const,
 };
 
 // ==================== QUERIES ====================
@@ -119,6 +114,9 @@ export function useCrearActividad() {
       queryClient.invalidateQueries({ queryKey: actividadesQueryKeys.all });
       queryClient.invalidateQueries({ queryKey: solicitudesQueryKeys.creadas() });
       queryClient.invalidateQueries({ queryKey: solicitudesQueryKeys.invitaciones() });
+      queryClient.invalidateQueries({
+        queryKey: solicitudesQueryKeys.all,
+      });
     },
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),

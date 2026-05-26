@@ -2,7 +2,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { Colors } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
     Alert,
     GestureResponderEvent,
@@ -13,9 +13,13 @@ import {
     View,
 } from 'react-native';
 import { EstadoInvitacionDB, SolicitudEnviada, estadoInvitacionMapping } from '../models/Solicitud';
-import { useOcultarSolicitudInvitado } from '../viewmodels/useSolicitudes';
+import { useCancelarSolicitud, useOcultarSolicitudInvitado } from '../viewmodels/useSolicitudes';
 
 const colors = Colors['light'];
+
+const CANCELABLE_HOST_STATES: EstadoInvitacionDB[] = [
+    'SENT', 'SEEN', 'MODIFIED', 'MODIFIED_BY_HOST', 'ACCEPTED_BY_HOST',
+];
 
 function formatTipoSolicitud(tipo?: string): string {
     if (tipo === 'MANDATO') return 'Actividad';
@@ -103,6 +107,7 @@ interface SolicitudesListProps {
 
 export function SolicitudesList({ solicitudes, onRefresh, refreshing, isLoading, onOpenSolicitud, emptyMessage }: SolicitudesListProps) {
     const { mutate: ocultarSolicitud, isPending: isHiding } = useOcultarSolicitudInvitado();
+    const { mutate: cancelarSolicitud, isPending: isCancelling } = useCancelarSolicitud();
 
     const solicitudesDeduplicadas = useMemo(() => {
         const seen = new Set<number>();
@@ -135,6 +140,64 @@ export function SolicitudesList({ solicitudes, onRefresh, refreshing, isLoading,
         );
     }, [ocultarSolicitud]);
 
+    const handleCancelar = useCallback((solicitudId: number) => {
+        Alert.alert(
+            'Cancelar solicitud',
+            '¿Deseas cancelar esta solicitud?',
+            [
+                { text: 'No', style: 'cancel' },
+                {
+                    text: 'Sí, cancelar',
+                    style: 'destructive',
+                    onPress: () => cancelarSolicitud(
+                        { solicitudId },
+                        { onError: (e) => Alert.alert('Error', e instanceof Error ? e.message : 'No se pudo cancelar') }
+                    ),
+                },
+            ]
+        );
+    }, [cancelarSolicitud]);
+
+    // --- FILTROS (derivados de la página actual) ---
+    const [showFilters, setShowFilters] = useState(false);
+    const [rolFilter, setRolFilter] = useState<string[]>([]);
+    const [tipoFilter, setTipoFilter] = useState<string[]>([]);
+    const [estadoFilter, setEstadoFilter] = useState<string[]>([]);
+
+    const tipoOptions = useMemo(
+        () => Array.from(new Set(solicitudesDeduplicadas.map(s => s.tipo_actividad).filter(Boolean))),
+        [solicitudesDeduplicadas],
+    );
+    const estadoOptions = useMemo(
+        () => Array.from(new Set(solicitudesDeduplicadas.map(getEstadoRelevante))),
+        [solicitudesDeduplicadas],
+    );
+
+    const solicitudesFiltradas = useMemo(
+        () => solicitudesDeduplicadas.filter(s => {
+            const rol = s.is_host ? 'host' : 'guest';
+            const rolOk = rolFilter.length === 0 || rolFilter.includes(rol);
+            const tipoOk = tipoFilter.length === 0 || tipoFilter.includes(s.tipo_actividad);
+            const estadoOk = estadoFilter.length === 0 || estadoFilter.includes(getEstadoRelevante(s));
+            return rolOk && tipoOk && estadoOk;
+        }),
+        [solicitudesDeduplicadas, rolFilter, tipoFilter, estadoFilter],
+    );
+
+    const activeFilterCount = rolFilter.length + tipoFilter.length + estadoFilter.length;
+
+    const toggleValue = useCallback(
+        (setFn: React.Dispatch<React.SetStateAction<string[]>>, value: string) => {
+            setFn(prev => prev.includes(value) ? prev.filter(v => v !== value) : [...prev, value]);
+        },
+        [],
+    );
+    const clearFilters = useCallback(() => {
+        setRolFilter([]);
+        setTipoFilter([]);
+        setEstadoFilter([]);
+    }, []);
+
     if (isLoading && !refreshing) {
         return <ScreenSkeleton rows={6} showHeader={false} />;
     }
@@ -154,31 +217,117 @@ export function SolicitudesList({ solicitudes, onRefresh, refreshing, isLoading,
     }
 
     return (
-        <ScrollView
-            contentContainerStyle={{ paddingBottom: 140 }}
-            refreshControl={
-                <RefreshControl
-                    refreshing={refreshing ?? false}
-                    onRefresh={handleRefresh}
-                    colors={[colors.lightTint]}
-                    tintColor={colors.lightTint}
-                />
-            }
-        >
-            {solicitudesDeduplicadas.map((item, index) => (
-                <React.Fragment key={item.solicitud_id.toString()}>
-                    {index > 0 && (
-                        <View style={styles.separator} />
+        <View style={styles.wrapper}>
+            {/* Barra de filtros */}
+            <View style={styles.filterBar}>
+                <TouchableOpacity
+                    onPress={() => setShowFilters(v => !v)}
+                    style={styles.filterToggle}
+                    accessibilityRole="button"
+                    accessibilityLabel="Filtrar"
+                >
+                    <Ionicons name="filter-outline" size={20} color={colors.lightTint} />
+                    <ThemedText style={styles.filterToggleText}>Filtrar</ThemedText>
+                    {activeFilterCount > 0 && (
+                        <View style={styles.filterBadge}>
+                            <ThemedText style={styles.filterBadgeText}>{activeFilterCount}</ThemedText>
+                        </View>
                     )}
-                    <SolicitudItem
-                        solicitud={item}
-                        onPress={() => onOpenSolicitud(item)}
-                        onHide={() => handleOcultar(item.solicitud_id)}
-                        isHiding={isHiding}
+                </TouchableOpacity>
+                {activeFilterCount > 0 && (
+                    <TouchableOpacity onPress={clearFilters}>
+                        <ThemedText style={styles.clearText}>Limpiar</ThemedText>
+                    </TouchableOpacity>
+                )}
+            </View>
+
+            {showFilters && (
+                <View style={styles.filterPanel}>
+                    <View style={styles.filterGroup}>
+                        <ThemedText style={styles.filterGroupLabel}>Rol</ThemedText>
+                        <View style={styles.chipRow}>
+                            <FilterChip label="Anfitrión" active={rolFilter.includes('host')} onPress={() => toggleValue(setRolFilter, 'host')} />
+                            <FilterChip label="Invitado" active={rolFilter.includes('guest')} onPress={() => toggleValue(setRolFilter, 'guest')} />
+                        </View>
+                    </View>
+
+                    {tipoOptions.length > 0 && (
+                        <View style={styles.filterGroup}>
+                            <ThemedText style={styles.filterGroupLabel}>Tipo</ThemedText>
+                            <View style={styles.chipRow}>
+                                {tipoOptions.map(t => (
+                                    <FilterChip key={t} label={formatTipoSolicitud(t)} active={tipoFilter.includes(t)} onPress={() => toggleValue(setTipoFilter, t)} />
+                                ))}
+                            </View>
+                        </View>
+                    )}
+
+                    {estadoOptions.length > 0 && (
+                        <View style={styles.filterGroup}>
+                            <ThemedText style={styles.filterGroupLabel}>Estado</ThemedText>
+                            <View style={styles.chipRow}>
+                                {estadoOptions.map(e => (
+                                    <FilterChip key={e} label={e} active={estadoFilter.includes(e)} onPress={() => toggleValue(setEstadoFilter, e)} />
+                                ))}
+                            </View>
+                        </View>
+                    )}
+                </View>
+            )}
+
+            <ScrollView
+                contentContainerStyle={{ paddingBottom: 140 }}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing ?? false}
+                        onRefresh={handleRefresh}
+                        colors={[colors.lightTint]}
+                        tintColor={colors.lightTint}
                     />
-                </React.Fragment>
-            ))}
-        </ScrollView>
+                }
+            >
+                {solicitudesFiltradas.length === 0 ? (
+                    <View style={styles.noResults}>
+                        <ThemedText style={{ color: colors.icon }}>Sin resultados para los filtros</ThemedText>
+                    </View>
+                ) : (
+                    solicitudesFiltradas.map((item, index) => (
+                        <React.Fragment key={item.solicitud_id.toString()}>
+                            {index > 0 && (
+                                <View style={styles.separator} />
+                            )}
+                            <SolicitudItem
+                                solicitud={item}
+                                onPress={() => onOpenSolicitud(item)}
+                                onHide={() => handleOcultar(item.solicitud_id)}
+                                isHiding={isHiding}
+                                onCancel={() => handleCancelar(item.solicitud_id)}
+                                isCancelling={isCancelling}
+                            />
+                        </React.Fragment>
+                    ))
+                )}
+            </ScrollView>
+        </View>
+    );
+}
+
+interface FilterChipProps {
+    label: string;
+    active: boolean;
+    onPress: () => void;
+}
+
+function FilterChip({ label, active, onPress }: FilterChipProps) {
+    return (
+        <TouchableOpacity
+            onPress={onPress}
+            style={[styles.filterChip, active && styles.filterChipActive]}
+            accessibilityRole="button"
+            accessibilityState={{ selected: active }}
+        >
+            <ThemedText style={[styles.filterChipText, active && styles.filterChipTextActive]}>{label}</ThemedText>
+        </TouchableOpacity>
     );
 }
 
@@ -187,10 +336,14 @@ interface SolicitudItemProps {
     onPress: () => void;
     onHide: () => void;
     isHiding: boolean;
+    onCancel: () => void;
+    isCancelling: boolean;
 }
 
-function SolicitudItem({ solicitud, onPress, onHide, isHiding }: SolicitudItemProps) {
+function SolicitudItem({ solicitud, onPress, onHide, isHiding, onCancel, isCancelling }: SolicitudItemProps) {
     const estadoUI = useMemo(() => getEstadoRelevante(solicitud), [solicitud]);
+    const puedeCancelar = solicitud.is_host
+        && CANCELABLE_HOST_STATES.includes(solicitud.estado as EstadoInvitacionDB);
 
     const contextoTexto = useMemo(() => {
         if (solicitud.is_host) {
@@ -242,7 +395,7 @@ function SolicitudItem({ solicitud, onPress, onHide, isHiding }: SolicitudItemPr
                             : 'Sin fecha'}
                     </ThemedText>
 
-                    {!solicitud.is_host && (
+                    {!solicitud.is_host ? (
                         <TouchableOpacity
                             onPress={(e: GestureResponderEvent) => { e.stopPropagation(); onHide(); }}
                             disabled={isHiding}
@@ -250,7 +403,15 @@ function SolicitudItem({ solicitud, onPress, onHide, isHiding }: SolicitudItemPr
                         >
                             <Ionicons name="trash-outline" size={15} color={colors.error} />
                         </TouchableOpacity>
-                    )}
+                    ) : puedeCancelar ? (
+                        <TouchableOpacity
+                            onPress={(e: GestureResponderEvent) => { e.stopPropagation(); onCancel(); }}
+                            disabled={isCancelling}
+                            style={[styles.hideButton, isCancelling && styles.hideButtonDisabled]}
+                        >
+                            <Ionicons name="close-circle-outline" size={16} color={colors.error} />
+                        </TouchableOpacity>
+                    ) : null}
                 </View>
             </View>
         </TouchableOpacity>
@@ -258,6 +419,98 @@ function SolicitudItem({ solicitud, onPress, onHide, isHiding }: SolicitudItemPr
 }
 
 const styles = StyleSheet.create({
+    wrapper: {
+        flex: 1,
+    },
+    filterBar: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: '4%',
+        paddingVertical: 6,
+    },
+    filterToggle: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        paddingVertical: 6,
+        paddingHorizontal: 12,
+        borderRadius: 999,
+        borderWidth: 1,
+        borderColor: colors.lightTint,
+        backgroundColor: colors.lightTint + '12',
+    },
+    filterToggleText: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: colors.lightTint,
+    },
+    filterBadge: {
+        minWidth: 18,
+        height: 18,
+        borderRadius: 9,
+        paddingHorizontal: 4,
+        backgroundColor: colors.lightTint,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    filterBadgeText: {
+        fontSize: 11,
+        fontWeight: '700',
+        color: '#fff',
+    },
+    clearText: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: colors.lightTint,
+    },
+    filterPanel: {
+        marginHorizontal: '4%',
+        marginBottom: 6,
+        padding: 12,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: colors.neutralBorder,
+        backgroundColor: colors.componentBackground,
+        gap: 10,
+    },
+    filterGroup: {
+        gap: 6,
+    },
+    filterGroupLabel: {
+        fontSize: 12,
+        fontWeight: '700',
+        color: colors.secondaryText,
+    },
+    chipRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 6,
+    },
+    filterChip: {
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 999,
+        borderWidth: 1,
+        borderColor: '#d1d5db',
+        backgroundColor: 'transparent',
+    },
+    filterChipActive: {
+        borderColor: colors.lightTint,
+        backgroundColor: colors.lightTint + '18',
+    },
+    filterChipText: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: colors.secondaryText,
+    },
+    filterChipTextActive: {
+        color: colors.lightTint,
+    },
+    noResults: {
+        alignItems: 'center',
+        paddingVertical: 40,
+    },
     centerContainer: {
         flex: 1,
         justifyContent: 'center',

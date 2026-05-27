@@ -52,6 +52,7 @@ export interface Solicitud {
   nombre_invitado?: string;
   apellido_invitado?: string;
   archivos?: Archivo[];
+  es_grupo?: boolean;
 }
 
 export interface SolicitudEnviada {
@@ -68,6 +69,7 @@ export interface SolicitudEnviada {
   estado: string;
   archivos: ArchivoDTO[];
   is_host: boolean;
+  es_grupo: boolean;
 }
 
 export interface SolicitudInvitado {
@@ -108,6 +110,7 @@ export interface CrearSolicitudRequest {
   crear_de_todos_modos?: number;
   archivosIds?: number[]; // Array de IDs de archivos adjuntos (opcional)
   enviar_por_separado?: 0 | 1;
+  es_grupo?: boolean;
 }
 
 export interface RangoOcupado {
@@ -225,4 +228,9 @@ export interface BitacoraSolicitud {
   usuario_apellido: string;
   estado: EstadoInvitacionDB;
   archivos?: Archivo[];
+}
+
+export interface BitacoraPage {
+  data: BitacoraSolicitud[];
+  nextCursor: number | null;
 }

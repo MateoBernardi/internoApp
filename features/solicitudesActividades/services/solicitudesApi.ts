@@ -1,3 +1,6 @@
+import type { ArchivoDTO } from '@/features/docs/dto/ArchivoDTO';
+import { mapArchivoDTOToArchivo } from '@/features/docs/mappers/archivoMapper';
+import type { Archivo } from '@/features/docs/models/Archivo';
 import { apiRequest } from '@/shared/apiRequest';
 import type {
     CreateSolicitudResult,
@@ -64,8 +67,16 @@ export async function reenviarSolicitud(accessToken: string, data: solicitudes.R
     return await response.json();
 }
 
-export async function getSolicitudBitacora(accessToken: string, solicitudId: number): Promise<solicitudes.BitacoraSolicitud[]> {
-    const response = await apiRequest({ method: 'GET', endpoint: `/solicitudes-actividades/solicitudes/bitacora/${solicitudId}`, token: accessToken });
+export async function getSolicitudBitacora(
+    accessToken: string,
+    solicitudId: number,
+    opts?: { cursor?: number | null; limit?: number },
+): Promise<solicitudes.BitacoraPage> {
+    const params = new URLSearchParams();
+    params.set('limit', String(opts?.limit ?? 20));
+    if (opts?.cursor != null) params.set('cursor', String(opts.cursor));
+    const endpoint = `/solicitudes-actividades/solicitudes/bitacora/${solicitudId}?${params.toString()}`;
+    const response = await apiRequest({ method: 'GET', endpoint, token: accessToken });
 
     if (!response.ok) {
         const errorText = await response.text();
@@ -73,8 +84,28 @@ export async function getSolicitudBitacora(accessToken: string, solicitudId: num
         try { const errData = JSON.parse(errorText); throw new Error(errData.message || errData.error || errorText); } catch (e) { if (e instanceof Error && e.message !== errorText) throw e; throw new Error(errorText || response.statusText); }
     }
 
-    const data: SolicitudBitacoraDTO[] = await response.json();
-    return data.map(mapSolicitudBitacoraDTOToBitacora);
+    const result: { data?: SolicitudBitacoraDTO[]; nextCursor?: number | null } = await response.json();
+    return {
+        data: (result.data ?? []).map(mapSolicitudBitacoraDTOToBitacora),
+        nextCursor: result.nextCursor ?? null,
+    };
+}
+
+export async function getChatArchivos(accessToken: string, solicitudId: number): Promise<Archivo[]> {
+    const response = await apiRequest({
+        method: 'GET',
+        endpoint: `/solicitudes-actividades/solicitudes/chat/archivos?solicitud_id=${solicitudId}`,
+        token: accessToken,
+    });
+
+    if (!response.ok) {
+        const errorMsg = await extractErrorText(response);
+        console.error('Error en getChatArchivos:', response.status, errorMsg);
+        throw new Error(errorMsg);
+    }
+
+    const data: ArchivoDTO[] = await response.json();
+    return data.map(mapArchivoDTOToArchivo);
 }
 
 export async function getSolicitudesCreadas(accessToken: string): Promise<solicitudes.SolicitudEnviada[]> {
@@ -151,10 +182,22 @@ export async function ocultarSolicitudInvitado(accessToken: string, data: solici
 export async function buscarSolicitudes(
     accessToken: string,
     q: string,
+    tipoConversacion?: 'CHAT',
 ): Promise<solicitudes.SolicitudEnviada[]> {
+    const params = new URLSearchParams();
+    params.set('q', q);
+    if (tipoConversacion) params.set('type', tipoConversacion);
+    const endpoint = `/solicitudes-actividades/solicitudes/buscar?${params.toString()}`;
+
+    console.info('[solicitudes-actividades] buscarSolicitudes', {
+        q,
+        tipoConversacion: tipoConversacion ?? 'all',
+        endpoint,
+    });
+
     const response = await apiRequest({
         method: 'GET',
-        endpoint: `/solicitudes-actividades/solicitudes/buscar?q=${encodeURIComponent(q)}`,
+        endpoint,
         token: accessToken,
     });
 

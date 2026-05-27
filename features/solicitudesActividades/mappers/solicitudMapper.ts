@@ -73,6 +73,7 @@ export const mapSolicitudInfoDTOToSolicitudEnviada = (dto: SolicitudInfoDTO): So
   estado: dto.estado as EstadoInvitacionDB,
   archivos: dto.archivos ?? [],
   is_host: dto.isHost,
+  es_grupo: !!dto.es_grupo,
 });
 
 export function mapSolicitudBitacoraDTOToBitacora(dto: SolicitudBitacoraDTO): BitacoraSolicitud {
@@ -102,6 +103,7 @@ export function mapCrearSolicitudRequestToSolicitudDTO(request: CrearSolicitudRe
     archivosIds: request.archivosIds,
     crear_de_todos_modos: request.crear_de_todos_modos ?? 0,
     enviar_por_separado: request.enviar_por_separado,
+    es_grupo: request.es_grupo,
   };
 }
 
@@ -118,6 +120,7 @@ export function mapSolicitudDTOToCreatePayload(dto: SolicitudDTO): Record<string
     crear_de_todos_modos: dto.crear_de_todos_modos,
     archivosIds: dto.archivosIds,
     ...(dto.enviar_por_separado !== undefined ? { enviar_por_separado: dto.enviar_por_separado } : {}),
+    ...(dto.es_grupo !== undefined ? { es_grupo: dto.es_grupo } : {}),
   };
 }
 

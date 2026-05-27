@@ -42,6 +42,7 @@ import {
 import {
   useActualizarEstadoInvitacion,
   useActualizarInvitadosSolicitud,
+  useChatArchivos,
   useReenviarSolicitud,
   useSolicitudBitacora,
 } from '../viewmodels/useSolicitudes';
@@ -90,7 +91,17 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
   const handleClose = onClose ?? (() => router.back());
 
   // ─── Queries / mutations ──────────────────────────────────────────────────
-  const { data: bitacora, isLoading: isLoadingBitacora } = useSolicitudBitacora(solicitudId);
+  const {
+    data: bitacoraData,
+    isLoading: isLoadingBitacora,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useSolicitudBitacora(solicitudId);
+  const bitacoraItems = useMemo(
+    () => (bitacoraData?.pages ?? []).flatMap(p => p.data),
+    [bitacoraData],
+  );
   const { mutate: actualizarEstado, isPending: isUpdatingEstado } = useActualizarEstadoInvitacion();
   const { mutate: reenviarSolicitud, isPending: isSharing } = useReenviarSolicitud();
   const { mutate: actualizarInvitados } = useActualizarInvitadosSolicitud();
@@ -105,6 +116,8 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
 
   // ─── Estado UI ────────────────────────────────────────────────────────────
   const [showShareModal, setShowShareModal] = useState(false);
+  const [showArchivosModal, setShowArchivosModal] = useState(false);
+  const { data: chatArchivos, isLoading: isLoadingArchivos } = useChatArchivos(solicitudId, showArchivosModal);
   const [showFullBitacora, setShowFullBitacora] = useState(false);
   const [messageDraft, setMessageDraft] = useState('');
   const [pickedFiles, setPickedFiles] = useState<any[]>([]);
@@ -144,6 +157,9 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
 
   const seenAutoMarkKeyRef = useRef<string | null>(null);
   const messagesScrollRef = useRef<ScrollView | null>(null);
+  const prevContentHeightRef = useRef(0);
+  const scrollOffsetRef = useRef(0);
+  const isPrependingRef = useRef(false);
 
   // ─── Derivados del prop solicitud ─────────────────────────────────────────
 
@@ -164,11 +180,18 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
 
   const todosArchivos = useMemo(() => {
     const archivosBase = solicitud.archivos ?? [];
-    const archivosBitacora = (bitacora ?? []).flatMap((b: any) => b.archivos ?? []);
+    const archivosBitacora = bitacoraItems.flatMap((b: any) => b.archivos ?? []);
     const map = new Map<number, any>();
     [...archivosBase, ...archivosBitacora].forEach(a => { if (a?.id) map.set(a.id, a); });
     return Array.from(map.values());
-  }, [solicitud.archivos, bitacora]);
+  }, [solicitud.archivos, bitacoraItems]);
+
+  const todosArchivosChat = useMemo(() => {
+    const map = new Map<number, any>();
+    (chatArchivos ?? []).forEach(a => { if (a?.id) map.set(a.id, a); });
+    todosArchivos.forEach(a => { if (a?.id && !map.has(a.id)) map.set(a.id, a); });
+    return Array.from(map.values());
+  }, [chatArchivos, todosArchivos]);
 
   const displayParticipantes = useMemo(
     () => localParticipantes.filter(inv => inv.user_id !== solicitud.created_by),
@@ -190,10 +213,10 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
   // ─── Mensajes / bitácora ──────────────────────────────────────────────────
 
   const bitacoraVisible = useMemo(() => {
-    if (!bitacora) return [];
-    if (showFullBitacora) return bitacora;
-    return bitacora.filter(b => MESSAGE_STATES.includes(b.estado));
-  }, [bitacora, showFullBitacora]);
+    if (bitacoraItems.length === 0) return [];
+    if (showFullBitacora) return bitacoraItems;
+    return bitacoraItems.filter(b => MESSAGE_STATES.includes(b.estado));
+  }, [bitacoraItems, showFullBitacora]);
 
   const mensajes = useMemo(() => {
     const descripcion = solicitud.descripcion?.trim();
@@ -201,7 +224,10 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
       ? new Date(solicitud.fecha_inicio).toISOString()
       : new Date().toISOString();
 
-    const base = descripcion
+    // La descripción es el mensaje original (el más antiguo). Solo se muestra
+    // cuando ya no quedan páginas anteriores por cargar, para que quede arriba
+    // de todo sin contradecir los mensajes más viejos aún sin traer.
+    const base = descripcion && !hasNextPage
       ? [{
         id: 'descripcion',
         usuario_id: solicitud.created_by ?? null,
@@ -227,7 +253,7 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
     });
 
     return [...base, ...sistema];
-  }, [bitacoraVisible, solicitud, isExpiredState]);
+  }, [bitacoraVisible, solicitud, isExpiredState, hasNextPage]);
 
   const canSendMessage = useMemo(() => {
     if (isExpiredState) return false;
@@ -363,6 +389,29 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
       Linking.openURL(url).catch(() => Alert.alert('Error', 'No se pudo abrir el archivo'));
     } catch { Alert.alert('Error', 'No se pudo obtener el enlace'); }
   }, [getArchivoUrlFirmada]);
+
+  // ─── Scroll / carga de mensajes anteriores ─────────────────────────────────
+
+  const handleMessagesScroll = useCallback((e: { nativeEvent: { contentOffset: { y: number } } }) => {
+    const y = e.nativeEvent.contentOffset.y;
+    scrollOffsetRef.current = y;
+    if (y <= 48 && hasNextPage && !isFetchingNextPage) {
+      isPrependingRef.current = true;
+      fetchNextPage();
+    }
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  const handleMessagesContentSizeChange = useCallback((_w: number, h: number) => {
+    if (isPrependingRef.current) {
+      // Al anteponer mensajes viejos, mantenemos la posición visible en vez de saltar al final.
+      const delta = h - prevContentHeightRef.current;
+      if (delta > 0) messagesScrollRef.current?.scrollTo({ y: scrollOffsetRef.current + delta, animated: false });
+      isPrependingRef.current = false;
+    } else {
+      messagesScrollRef.current?.scrollToEnd({ animated: false });
+    }
+    prevContentHeightRef.current = h;
+  }, []);
 
   // ─── Participantes ─────────────────────────────────────────────────────────
 
@@ -500,17 +549,17 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
               showsVerticalScrollIndicator={false}
               nestedScrollEnabled
             >
-              {/* Participantes */}
-              <View style={styles.contentBlock}>
-                <ThemedText style={[styles.label, { marginTop: 4 }]}>
-                  Participantes: {participantesTexto}
-                </ThemedText>
-              </View>
+              {/* Participantes (resumen) — solo en grupos */}
+              {solicitud.es_grupo && (
+                <View style={styles.contentBlock}>
+                  <ThemedText style={[styles.label, { marginTop: 4 }]}>
+                    Participantes: {participantesTexto}
+                  </ThemedText>
+                </View>
+              )}
 
-              {/* Título */}
+              {/* Tipo */}
               <View style={styles.contentBlock}>
-                <ThemedText style={styles.label}>Asunto</ThemedText>
-                <ThemedText style={styles.sectionValue}>{solicitud.titulo}</ThemedText>
                 <View style={styles.badgeRow}>
                   <View style={styles.chip}>
                     <ThemedText style={styles.chipText}>Conversación</ThemedText>
@@ -518,40 +567,53 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
                 </View>
               </View>
 
-              {/* Participantes (host) */}
-              {isHost && (
-                <View style={styles.participantesSection}>
-                  <View style={styles.sectionHeaderRow}>
-                    <ThemedText style={styles.label}>Participantes</ThemedText>
+              {/* Participantes + archivos */}
+              <View style={styles.participantesSection}>
+                <View style={styles.sectionHeaderRow}>
+                  {solicitud.es_grupo
+                    ? <ThemedText style={styles.label}>Participantes</ThemedText>
+                    : <View />}
+                  <View style={styles.sectionHeaderActions}>
                     <TouchableOpacity
-                      style={styles.actionButton}
-                      onPress={() => setShowParticipantesSelector(p => !p)}
+                      style={styles.iconButton}
+                      onPress={() => setShowArchivosModal(true)}
+                      accessibilityLabel="Ver archivos de la conversación"
                     >
-                      <Ionicons name="add" size={16} color={colors.tint} />
-                      <ThemedText style={styles.actionButtonText}>Agregar</ThemedText>
+                      <Ionicons name="information-circle-outline" size={22} color={colors.tint} />
                     </TouchableOpacity>
+                    {solicitud.es_grupo && isHost && (
+                      <TouchableOpacity
+                        style={styles.actionButton}
+                        onPress={() => setShowParticipantesSelector(p => !p)}
+                      >
+                        <Ionicons name="add" size={16} color={colors.tint} />
+                        <ThemedText style={styles.actionButtonText}>Agregar</ThemedText>
+                      </TouchableOpacity>
+                    )}
                   </View>
+                </View>
 
-                  {showParticipantesSelector && (
-                    <View style={styles.selectorCard}>
-                      <UserSelector
-                        selectedUsers={participantesSelectedUsers}
-                        onSelectUsers={handleSelectParticipantes}
-                        users={participantesSearchResults ?? []}
-                        roles={rolesForSelector}
-                        isLoadingUsers={isSearchingParticipantes || isLoadingParticipantesRole}
-                        onSearch={setParticipantesSearchQuery}
-                        onSelectRole={role => { setParticipantesActiveRole(role); setShowParticipantesRoleModal(true); }}
-                        showSelectedChips={false}
-                      />
-                    </View>
-                  )}
+                {solicitud.es_grupo && isHost && showParticipantesSelector && (
+                  <View style={styles.selectorCard}>
+                    <UserSelector
+                      selectedUsers={participantesSelectedUsers}
+                      onSelectUsers={handleSelectParticipantes}
+                      users={participantesSearchResults ?? []}
+                      roles={rolesForSelector}
+                      isLoadingUsers={isSearchingParticipantes || isLoadingParticipantesRole}
+                      onSearch={setParticipantesSearchQuery}
+                      onSelectRole={role => { setParticipantesActiveRole(role); setShowParticipantesRoleModal(true); }}
+                      showSelectedChips={false}
+                    />
+                  </View>
+                )}
 
-                  {displayParticipantes.length === 0 ? (
+                {solicitud.es_grupo && (
+                  displayParticipantes.length === 0 ? (
                     <ThemedText style={{ color: colors.secondaryText, fontSize: 14 }}>Sin participantes</ThemedText>
                   ) : (
                     <>
-                      {(participantesExpanded ? displayParticipantes : displayParticipantes.slice(0, 2)).map((inv, idx) => (
+                      {(participantesExpanded ? displayParticipantes : displayParticipantes.slice(0, 3)).map((inv, idx) => (
                         <View key={`${inv.user_id ?? idx}-${idx}`} style={styles.inviteRow}>
                           <View style={styles.participanteAvatar}>
                             <ThemedText style={styles.participanteAvatarText}>
@@ -561,12 +623,14 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
                           <ThemedText style={[styles.inviteName, { flex: 1 }]}>
                             {getParticipanteDisplayName(inv)}
                           </ThemedText>
-                          <TouchableOpacity onPress={() => handleQuitarParticipante(inv.user_id)}>
-                            <Ionicons name="close-circle" size={20} color="#9ca3af" />
-                          </TouchableOpacity>
+                          {isHost && (
+                            <TouchableOpacity onPress={() => handleQuitarParticipante(inv.user_id)}>
+                              <Ionicons name="close-circle" size={20} color="#9ca3af" />
+                            </TouchableOpacity>
+                          )}
                         </View>
                       ))}
-                      {displayParticipantes.length > 2 && (
+                      {displayParticipantes.length > 3 && (
                         <TouchableOpacity
                           onPress={() => setParticipantesExpanded(p => !p)}
                           style={styles.collapsibleToggle}
@@ -574,7 +638,7 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
                           <ThemedText style={styles.collapsibleToggleText}>
                             {participantesExpanded
                               ? 'Ver menos'
-                              : `+${displayParticipantes.length - 2} más`}
+                              : `+${displayParticipantes.length - 3} más`}
                           </ThemedText>
                           <Ionicons
                             name={participantesExpanded ? 'chevron-up' : 'chevron-down'}
@@ -584,9 +648,9 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
                         </TouchableOpacity>
                       )}
                     </>
-                  )}
-                </View>
-              )}
+                  )
+                )}
+              </View>
 
               {/* Banner expirada */}
               {isExpiredState && (
@@ -620,9 +684,16 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
                       contentContainerStyle={styles.messagesListContent}
                       showsVerticalScrollIndicator={false}
                       nestedScrollEnabled
-                      onContentSizeChange={() => messagesScrollRef.current?.scrollToEnd({ animated: false })}
+                      scrollEventThrottle={16}
+                      onScroll={handleMessagesScroll}
+                      onContentSizeChange={handleMessagesContentSizeChange}
                       onLayout={() => messagesScrollRef.current?.scrollToEnd({ animated: false })}
                     >
+                      {isFetchingNextPage && (
+                        <View style={styles.loadingMoreContainer}>
+                          <ActivityIndicator size="small" color={colors.lightTint} />
+                        </View>
+                      )}
                       {mensajes.map((b: any) => {
                         const isOwn = b.usuario_id !== null && b.usuario_id === user?.user_context_id;
                         const isDescripcion = b.id === 'descripcion';
@@ -804,6 +875,40 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
               onSelectAll={handleSelectAllParticipantes}
               onDeselectAll={handleDeselectAllParticipantes}
             />
+
+            {/* Modal Archivos de la conversación */}
+            <Modal visible={showArchivosModal} transparent animationType="fade" onRequestClose={() => setShowArchivosModal(false)}>
+              <TouchableWithoutFeedback onPress={() => setShowArchivosModal(false)}>
+                <View style={styles.modalOverlay}>
+                  <TouchableWithoutFeedback onPress={e => e.stopPropagation()}>
+                    <View style={styles.modalContent}>
+                      <ThemedText type="subtitle" style={{ marginBottom: 16 }}>Archivos de la conversación</ThemedText>
+                      {isLoadingArchivos ? (
+                        <ActivityIndicator size="small" color={colors.lightTint} style={{ marginVertical: 20 }} />
+                      ) : todosArchivosChat.length === 0 ? (
+                        <ThemedText style={{ color: colors.secondaryText, textAlign: 'center', marginVertical: 20 }}>
+                          No hay archivos en esta conversación
+                        </ThemedText>
+                      ) : (
+                        <ScrollView style={{ maxHeight: 360 }}>
+                          {todosArchivosChat.map(a => (
+                            <Pressable key={`chat-archivo-${a.id}`} style={styles.archivoRow} onPress={() => handleOpenArchivo(a.id)}>
+                              <Ionicons name="document-outline" size={18} color={colors.secondaryText} />
+                              <ThemedText style={[styles.messageAttachmentName, styles.linkText]} numberOfLines={1}>{a.nombre}</ThemedText>
+                            </Pressable>
+                          ))}
+                        </ScrollView>
+                      )}
+                      <View style={styles.modalActions}>
+                        <TouchableOpacity onPress={() => setShowArchivosModal(false)} style={styles.modalBtnCancel}>
+                          <ThemedText style={{ color: colors.error }}>Cerrar</ThemedText>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </TouchableWithoutFeedback>
+                </View>
+              </TouchableWithoutFeedback>
+            </Modal>
 
             <AlertModal
               visible={alertModal.visible}
@@ -1117,6 +1222,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
+  },
+  sectionHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  iconButton: {
+    padding: 4,
+  },
+  loadingMoreContainer: {
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  archivoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.neutralBorder,
   },
   actionButton: {
     flexDirection: 'row',

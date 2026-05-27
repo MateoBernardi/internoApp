@@ -86,9 +86,11 @@ function isSameLocalDay(a: Date, b: Date): boolean {
 interface CrearSolicitudProps {
   visible: boolean;
   onClose: () => void;
+  /** Cuando se abre desde la pestaña Chats, renderiza el formulario simplificado de chat. */
+  fromChatsTab?: boolean;
 }
 
-export function CrearSolicitud({ visible, onClose }: CrearSolicitudProps) {
+export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: CrearSolicitudProps) {
   const { user } = useAuth();
 
   const [titulo, setTitulo] = useState('');
@@ -99,6 +101,7 @@ export function CrearSolicitud({ visible, onClose }: CrearSolicitudProps) {
   const [tipoActividad, setTipoActividad] = useState<'REUNION' | 'MANDATO'>('MANDATO');
   const [includeDates, setIncludeDates] = useState(false);
   const [enviarPorSeparado, setEnviarPorSeparado] = useState(false);
+  const [esGrupo, setEsGrupo] = useState(false);
   const [showRoleModal, setShowRoleModal] = useState(false);
   const [activeRole, setActiveRole] = useState('');
   const [selectedUsers, setSelectedUsers] = useState<UserSummary[]>([]);
@@ -169,6 +172,7 @@ export function CrearSolicitud({ visible, onClose }: CrearSolicitudProps) {
     setPendingPayload(null);
     setPickedFiles([]);
     setEnviarPorSeparado(false);
+    setEsGrupo(false);
     onClose();
   }, [onClose]);
 
@@ -274,7 +278,7 @@ export function CrearSolicitud({ visible, onClose }: CrearSolicitudProps) {
     };
   }, []);
 
-  const hasDates = tipoActividad === 'REUNION' || includeDates;
+  const hasDates = !fromChatsTab && (tipoActividad === 'REUNION' || includeDates);
   const now = ceilToNextMinute(new Date());
   const areDatesMissing = hasDates && (!fechaInicio || !fechaFin);
   const isAllDayCurrentDay = hasDates && allDay && !!fechaInicio && isSameLocalDay(fechaInicio, now);
@@ -293,13 +297,20 @@ export function CrearSolicitud({ visible, onClose }: CrearSolicitudProps) {
   }, [hasDates, areDatesMissing, isAllDayCurrentDay, isStartDatePast, isDateRangeInvalid]);
 
   const isFormValid = useMemo(() => {
+    if (fromChatsTab) {
+      return (
+        selectedUsers.length > 0 &&
+        descripcion.trim().length > 0 &&
+        (!esGrupo || titulo.trim().length > 0)
+      );
+    }
     return (
       titulo.trim().length > 0 &&
       descripcion.trim().length > 0 &&
       (isConsejo || selectedUsers.length > 0) &&
       !dateErrorMessage
     );
-  }, [titulo, descripcion, selectedUsers, dateErrorMessage, isConsejo]);
+  }, [fromChatsTab, esGrupo, titulo, descripcion, selectedUsers, dateErrorMessage, isConsejo]);
 
   const avisosBackend = useMemo(() => {
     const grouped = new Map<string, number>();
@@ -397,19 +408,23 @@ export function CrearSolicitud({ visible, onClose }: CrearSolicitudProps) {
       }
     }
 
+    const enviarSeparado = enviarPorSeparado && selectedUsers.length > 1 && (!fromChatsTab || !esGrupo);
+    const invitadoIds = selectedUsers.map((u) => u.user_context_id);
+
     const payload: CrearSolicitudRequest = {
-      titulo: titulo.trim(),
+      titulo: fromChatsTab ? (esGrupo ? titulo.trim() : '') : titulo.trim(),
       descripcion: descripcion.trim(),
-      tipo_actividad: tipoActividad,
-      invitados: selectedUsers.map((u) => u.user_context_id),
+      tipo_actividad: fromChatsTab ? 'CHAT' : tipoActividad,
+      invitados: invitadoIds,
       crear_de_todos_modos: 0,
+      es_grupo: fromChatsTab ? esGrupo : false,
       ...(archivosIds.length > 0 ? { archivosIds } : {}),
       ...(hasDates ? { fecha_inicio: start, fecha_fin: end } : {}),
-      ...(enviarPorSeparado && selectedUsers.length > 1 ? { enviar_por_separado: 1 } : {}),
+      ...(enviarSeparado ? { enviar_por_separado: 1 } : {}),
     };
 
     ejecutarCreacion(payload);
-  }, [isFormValid, hasDates, fechaInicio, fechaFin, allDay, tipoActividad, selectedUsers, titulo, descripcion, ejecutarCreacion, showModal, pickedFiles]);
+  }, [isFormValid, hasDates, fechaInicio, fechaFin, allDay, tipoActividad, selectedUsers, titulo, descripcion, ejecutarCreacion, showModal, pickedFiles, fromChatsTab, esGrupo, enviarPorSeparado]);
 
   const addImageAsset = useCallback((asset: ImagePickerTypes.ImagePickerAsset) => {
     const ext = asset.uri.split('.').pop() ?? 'jpg';
@@ -529,31 +544,50 @@ export function CrearSolicitud({ visible, onClose }: CrearSolicitudProps) {
                 </View>
               </View>
 
-              <View style={[styles.inputSection, { borderBottomWidth: 0, paddingVertical: 10, alignItems: 'center' }]}>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  <TouchableOpacity
-                    style={[styles.chip, tipoActividad === 'MANDATO' && { borderColor: colors.lightTint, backgroundColor: 'transparent', borderWidth: 1 }]}
-                    onPress={() => {
-                      setTipoActividad('MANDATO');
-                      handleToggleIncludeDates(false);
-                    }}
-                  >
-                    <ThemedText style={[styles.chipText, tipoActividad === 'MANDATO' ? { color: colors.lightTint, fontWeight: 'bold' } : { color: colors.secondaryText }]}>Actividad</ThemedText>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.chip, tipoActividad === 'REUNION' && { borderColor: colors.lightTint, backgroundColor: 'transparent', borderWidth: 1 }]}
-                    onPress={() => {
-                      setTipoActividad('REUNION');
-                      setIncludeDates(true);
-                    }}
-                  >
-                    <ThemedText style={[styles.chipText, tipoActividad === 'REUNION' ? { color: colors.lightTint, fontWeight: 'bold' } : { color: colors.secondaryText }]}>Reunión</ThemedText>
-                  </TouchableOpacity>
-                </ScrollView>
-              </View>
+              {!fromChatsTab && (
+                <View style={[styles.inputSection, { borderBottomWidth: 0, paddingVertical: 10, alignItems: 'center' }]}>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    <TouchableOpacity
+                      style={[styles.chip, tipoActividad === 'MANDATO' && { borderColor: colors.lightTint, backgroundColor: 'transparent', borderWidth: 1 }]}
+                      onPress={() => {
+                        setTipoActividad('MANDATO');
+                        handleToggleIncludeDates(false);
+                      }}
+                    >
+                      <ThemedText style={[styles.chipText, tipoActividad === 'MANDATO' ? { color: colors.lightTint, fontWeight: 'bold' } : { color: colors.secondaryText }]}>Actividad</ThemedText>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.chip, tipoActividad === 'REUNION' && { borderColor: colors.lightTint, backgroundColor: 'transparent', borderWidth: 1 }]}
+                      onPress={() => {
+                        setTipoActividad('REUNION');
+                        setIncludeDates(true);
+                      }}
+                    >
+                      <ThemedText style={[styles.chipText, tipoActividad === 'REUNION' ? { color: colors.lightTint, fontWeight: 'bold' } : { color: colors.secondaryText }]}>Reunión</ThemedText>
+                    </TouchableOpacity>
+                  </ScrollView>
+                </View>
+              )}
 
               <View style={styles.dateSection}>
-                {selectedUsers.length > 1 && (
+                {fromChatsTab && (
+                  <View style={[styles.switchRow, { marginTop: 4 }]}>
+                    <Ionicons name="people-circle-outline" size={20} color={colors.secondaryText} style={{ marginRight: 8 }} />
+                    <ThemedText style={[styles.dateSectionTitle, { color: colors.secondaryText }]}>Crear grupo</ThemedText>
+                    <View style={{ flex: 1 }} />
+                    <Switch
+                      value={esGrupo}
+                      onValueChange={(value) => {
+                        setEsGrupo(value);
+                        if (value) setEnviarPorSeparado(false);
+                      }}
+                      trackColor={{ false: colors.secondaryText, true: colors.success }}
+                      thumbColor={colors.componentBackground}
+                    />
+                  </View>
+                )}
+
+                {selectedUsers.length > 1 && (!fromChatsTab || !esGrupo) && (
                   <View style={[styles.switchRow, { marginTop: 4 }]}>
                     <Ionicons name="people-outline" size={20} color={colors.secondaryText} style={{ marginRight: 8 }} />
                     <ThemedText style={[styles.dateSectionTitle, { color: colors.secondaryText }]}>Enviar por separado</ThemedText>
@@ -567,7 +601,7 @@ export function CrearSolicitud({ visible, onClose }: CrearSolicitudProps) {
                   </View>
                 )}
 
-                {tipoActividad === 'MANDATO' && (
+                {!fromChatsTab && tipoActividad === 'MANDATO' && (
                   <View style={[styles.switchRow, { marginTop: 4 }]}>
                     <Ionicons name="calendar-outline" size={20} color={colors.secondaryText} style={{ marginRight: 8 }} />
                     <ThemedText style={[styles.dateSectionTitle, { color: colors.secondaryText }]}>Incluir fechas</ThemedText>
@@ -581,7 +615,7 @@ export function CrearSolicitud({ visible, onClose }: CrearSolicitudProps) {
                   </View>
                 )}
 
-                {(tipoActividad === 'REUNION' || includeDates) && (
+                {!fromChatsTab && (tipoActividad === 'REUNION' || includeDates) && (
                   <View style={styles.switchRow}>
                     <Ionicons name="time-outline" size={20} color={colors.lightTint} style={{ marginRight: 8 }} />
                     <ThemedText style={styles.dateSectionTitle}>Todo el día</ThemedText>
@@ -595,7 +629,7 @@ export function CrearSolicitud({ visible, onClose }: CrearSolicitudProps) {
                   </View>
                 )}
 
-                {(tipoActividad === 'REUNION' || includeDates) && (
+                {!fromChatsTab && (tipoActividad === 'REUNION' || includeDates) && (
                   <>
                     <View style={styles.dateRow}>
                       <View style={{ flex: 1 }}>
@@ -632,21 +666,23 @@ export function CrearSolicitud({ visible, onClose }: CrearSolicitudProps) {
                 )}
               </View>
 
-              <View style={styles.inputSection}>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Asunto"
-                  placeholderTextColor={colors.secondaryText}
-                  value={titulo}
-                  onChangeText={setTitulo}
-                  maxLength={100}
-                />
-              </View>
+              {(!fromChatsTab || esGrupo) && (
+                <View style={styles.inputSection}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder={fromChatsTab ? 'Nombre del grupo' : 'Asunto'}
+                    placeholderTextColor={colors.secondaryText}
+                    value={titulo}
+                    onChangeText={setTitulo}
+                    maxLength={100}
+                  />
+                </View>
+              )}
 
               <View style={styles.messageBox}>
                 <TextInput
                   style={styles.messageInput}
-                  placeholder="Escribí un mensaje descriptivo para el/los usuario/s"
+                  placeholder={fromChatsTab ? 'Escribí el primer mensaje' : 'Escribí un mensaje descriptivo para el/los usuario/s'}
                   placeholderTextColor={colors.secondaryText}
                   value={descripcion}
                   onChangeText={setDescripcion}

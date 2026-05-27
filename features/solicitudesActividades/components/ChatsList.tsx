@@ -11,12 +11,14 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import { SolicitudEnviada } from '../models/Solicitud';
+import { EstadoInvitacionDB, SolicitudEnviada } from '../models/Solicitud';
 
 const colors = Colors['light'];
 
+const CHAT_BADGE_STATES: EstadoInvitacionDB[] = ['MODIFIED', 'MODIFIED_BY_HOST', 'SENT', 'ACCEPTED_BY_HOST'];
+
 function getChatDisplayName(solicitud: SolicitudEnviada, currentUserId?: number): string {
-    if (solicitud.invitados.length < 2) {
+    if (!solicitud.es_grupo) {
         const otro = solicitud.invitados.find(inv => inv.user_id !== currentUserId);
         const nombre = otro
             ? [otro.invitado_nombre, otro.invitado_apellido].filter(Boolean).join(' ').trim()
@@ -24,6 +26,17 @@ function getChatDisplayName(solicitud: SolicitudEnviada, currentUserId?: number)
         return nombre || solicitud.titulo;
     }
     return solicitud.titulo;
+}
+
+function getChatBadgeState(solicitud: SolicitudEnviada): EstadoInvitacionDB | null {
+    if (solicitud.is_host) {
+        const invitados = solicitud.invitados.filter(inv => inv.user_id !== solicitud.created_by);
+        const estados = invitados.map(inv => inv.estado).filter(Boolean) as EstadoInvitacionDB[];
+        return estados.includes('MODIFIED') ? 'MODIFIED' : null;
+    }
+
+    const estado = solicitud.estado as EstadoInvitacionDB;
+    return CHAT_BADGE_STATES.includes(estado) ? estado : null;
 }
 
 interface ChatsListProps {
@@ -88,6 +101,7 @@ export function ChatsList({ chats, onRefresh, refreshing, isLoading, onOpenChat,
                     <ChatItem
                         chat={item}
                         displayName={getChatDisplayName(item, currentUserId)}
+                        badgeState={getChatBadgeState(item)}
                         onPress={() => onOpenChat(item)}
                     />
                 </React.Fragment>
@@ -99,10 +113,11 @@ export function ChatsList({ chats, onRefresh, refreshing, isLoading, onOpenChat,
 interface ChatItemProps {
     chat: SolicitudEnviada;
     displayName: string;
+    badgeState: EstadoInvitacionDB | null;
     onPress: () => void;
 }
 
-function ChatItem({ chat, displayName, onPress }: ChatItemProps) {
+function ChatItem({ chat, displayName, badgeState, onPress }: ChatItemProps) {
     const inicial = displayName.charAt(0).toUpperCase();
 
     return (
@@ -115,6 +130,7 @@ function ChatItem({ chat, displayName, onPress }: ChatItemProps) {
                     <ThemedText type="defaultSemiBold" numberOfLines={1} style={styles.itemTitle}>
                         {displayName}
                     </ThemedText>
+                    {badgeState && <View style={styles.stateDot} />}
                 </View>
                 {chat.invitados.length > 2 && (
                     <ThemedText
@@ -183,6 +199,12 @@ const styles = StyleSheet.create({
     },
     itemTitle: {
         flex: 1,
+    },
+    stateDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: colors.error,
     },
     invitadoName: {
         marginTop: 4,

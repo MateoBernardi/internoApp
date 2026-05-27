@@ -115,7 +115,17 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
   const handleClose = onClose ?? (() => router.back());
 
   // ─── Queries / mutations ──────────────────────────────────────────────────
-  const { data: bitacora, isLoading: isLoadingBitacora } = useSolicitudBitacora(solicitudId);
+  const {
+    data: bitacoraData,
+    isLoading: isLoadingBitacora,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useSolicitudBitacora(solicitudId);
+  const bitacora = useMemo(
+    () => (bitacoraData?.pages ?? []).flatMap(p => p.data),
+    [bitacoraData],
+  );
   const { mutate: actualizarEstado, isPending: isUpdatingEstado } = useActualizarEstadoInvitacion();
   const { mutate: reenviarSolicitud, isPending: isSharing } = useReenviarSolicitud();
   const { mutate: crearActividad, isPending: isCreatingActividad } = useCrearActividad();
@@ -201,6 +211,9 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
 
   const seenAutoMarkKeyRef = useRef<string | null>(null);
   const messagesScrollRef = useRef<ScrollView | null>(null);
+  const prevContentHeightRef = useRef(0);
+  const scrollOffsetRef = useRef(0);
+  const isPrependingRef = useRef(false);
 
   // ─── Derivados del prop solicitud ─────────────────────────────────────────
 
@@ -318,7 +331,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
       ? new Date(solicitud.fecha_inicio).toISOString()
       : new Date().toISOString();
 
-    const base = descripcion
+    const base = descripcion && !hasNextPage
       ? [{
         id: 'descripcion',
         usuario_id: solicitud.created_by ?? null,
@@ -352,7 +365,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
     });
 
     return [...base, ...sistema];
-  }, [bitacoraVisible, solicitud, esActividadCreada, isExpiredState]);
+  }, [bitacoraVisible, solicitud, esActividadCreada, isExpiredState, hasNextPage]);
 
   // ─── Modificar fechas ─────────────────────────────────────────────────────
 
@@ -696,6 +709,28 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
       Linking.openURL(url).catch(() => Alert.alert('Error', 'No se pudo abrir el archivo'));
     } catch { Alert.alert('Error', 'No se pudo obtener el enlace'); }
   }, [getArchivoUrlFirmada]);
+
+  // ─── Scroll / carga de mensajes anteriores ─────────────────────────────────
+
+  const handleMessagesScroll = useCallback((e: { nativeEvent: { contentOffset: { y: number } } }) => {
+    const y = e.nativeEvent.contentOffset.y;
+    scrollOffsetRef.current = y;
+    if (y <= 48 && hasNextPage && !isFetchingNextPage) {
+      isPrependingRef.current = true;
+      fetchNextPage();
+    }
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  const handleMessagesContentSizeChange = useCallback((_w: number, h: number) => {
+    if (isPrependingRef.current) {
+      const delta = h - prevContentHeightRef.current;
+      if (delta > 0) messagesScrollRef.current?.scrollTo({ y: scrollOffsetRef.current + delta, animated: false });
+      isPrependingRef.current = false;
+    } else {
+      messagesScrollRef.current?.scrollToEnd({ animated: false });
+    }
+    prevContentHeightRef.current = h;
+  }, []);
 
   // ─── Agenda ───────────────────────────────────────────────────────────────
 
@@ -1063,9 +1098,16 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                       contentContainerStyle={styles.messagesListContent}
                       showsVerticalScrollIndicator={false}
                       nestedScrollEnabled
-                      onContentSizeChange={() => messagesScrollRef.current?.scrollToEnd({ animated: false })}
+                      scrollEventThrottle={16}
+                      onScroll={handleMessagesScroll}
+                      onContentSizeChange={handleMessagesContentSizeChange}
                       onLayout={() => messagesScrollRef.current?.scrollToEnd({ animated: false })}
                     >
+                      {isFetchingNextPage && (
+                        <View style={styles.loadingMoreContainer}>
+                          <ActivityIndicator size="small" color={colors.lightTint} />
+                        </View>
+                      )}
                       {mensajes.map((b: any) => {
                         const isOwn = b.usuario_id !== null && b.usuario_id === user?.user_context_id;
                         const isDescripcion = b.id === 'descripcion';
@@ -1704,6 +1746,10 @@ const styles = StyleSheet.create({
     paddingTop: 4,
     flexGrow: 1,
     justifyContent: 'flex-end',
+  },
+  loadingMoreContainer: {
+    paddingVertical: 8,
+    alignItems: 'center',
   },
   bitacoraItem: {
     width: '100%',

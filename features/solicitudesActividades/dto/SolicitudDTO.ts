@@ -23,6 +23,7 @@ export interface SolicitudDTO {
   crear_de_todos_modos: number;
   archivosIds?: number[];
   enviar_por_separado?: 0 | 1;
+  es_grupo?: boolean;
 }
 
 export interface CreateSolicitudResult {
@@ -52,6 +53,7 @@ export interface SolicitudInfoDTO {
   estado: string;
   archivos: ArchivoDTO[];
   isHost: boolean;
+  es_grupo?: boolean;
 }
 
 export interface SolicitudBitacoraDTO {

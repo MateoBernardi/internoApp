@@ -168,10 +168,14 @@ export function SolicitudesList({ solicitudes, onRefresh, refreshing, isLoading,
         () => Array.from(new Set(solicitudesDeduplicadas.map(s => s.tipo_actividad).filter(Boolean))),
         [solicitudesDeduplicadas],
     );
-    const estadoOptions = useMemo(
-        () => Array.from(new Set(solicitudesDeduplicadas.map(getEstadoRelevante))),
-        [solicitudesDeduplicadas],
-    );
+    const estadoOptions = useMemo(() => {
+        const base = solicitudesDeduplicadas.map(getEstadoRelevante);
+        const defaultEstados = [
+            estadoInvitacionMapping.MODIFIED,
+            estadoInvitacionMapping.MODIFIED_BY_HOST,
+        ];
+        return Array.from(new Set([...defaultEstados, ...base]));
+    }, [solicitudesDeduplicadas]);
 
     const solicitudesFiltradas = useMemo(
         () => solicitudesDeduplicadas.filter(s => {
@@ -222,12 +226,26 @@ export function SolicitudesList({ solicitudes, onRefresh, refreshing, isLoading,
             <View style={styles.filterBar}>
                 <TouchableOpacity
                     onPress={() => setShowFilters(v => !v)}
-                    style={styles.filterToggle}
+                    style={[
+                        styles.filterToggle,
+                        activeFilterCount > 0 ? styles.filterToggleActive : styles.filterToggleInactive,
+                    ]}
                     accessibilityRole="button"
                     accessibilityLabel="Filtrar"
                 >
-                    <Ionicons name="filter-outline" size={20} color={colors.lightTint} />
-                    <ThemedText style={styles.filterToggleText}>Filtrar</ThemedText>
+                    <Ionicons
+                        name="filter-outline"
+                        size={20}
+                        color={activeFilterCount > 0 ? colors.lightTint : colors.secondaryText}
+                    />
+                    <ThemedText
+                        style={[
+                            styles.filterToggleText,
+                            activeFilterCount > 0 ? styles.filterToggleTextActive : styles.filterToggleTextInactive,
+                        ]}
+                    >
+                        Filtrar
+                    </ThemedText>
                     {activeFilterCount > 0 && (
                         <View style={styles.filterBadge}>
                             <ThemedText style={styles.filterBadgeText}>{activeFilterCount}</ThemedText>
@@ -437,13 +455,24 @@ const styles = StyleSheet.create({
         paddingHorizontal: 12,
         borderRadius: 999,
         borderWidth: 1,
-        borderColor: colors.lightTint,
-        backgroundColor: colors.lightTint + '12',
     },
     filterToggleText: {
         fontSize: 13,
         fontWeight: '600',
+    },
+    filterToggleActive: {
+        borderColor: colors.lightTint,
+        backgroundColor: colors.lightTint + '12',
+    },
+    filterToggleInactive: {
+        borderColor: '#d1d5db',
+        backgroundColor: '#f8fafc',
+    },
+    filterToggleTextActive: {
         color: colors.lightTint,
+    },
+    filterToggleTextInactive: {
+        color: colors.secondaryText,
     },
     filterBadge: {
         minWidth: 18,

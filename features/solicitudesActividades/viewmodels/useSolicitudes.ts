@@ -1,5 +1,5 @@
 import { useAuth } from '@/features/auth/context/AuthContext';
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as solicitudModels from '../models/Solicitud';
 import * as solicitudesApi from '../services/solicitudesApi';
 
@@ -10,7 +10,10 @@ export const solicitudesQueryKeys = {
   creadas: () => [...solicitudesQueryKeys.all, 'creadas'] as const,
   invitaciones: () => [...solicitudesQueryKeys.all, 'invitaciones'] as const,
   bitacora: (solicitudId: number) => [...solicitudesQueryKeys.all, 'bitacora', solicitudId] as const,
+  chatArchivos: (solicitudId: number) => [...solicitudesQueryKeys.all, 'chatArchivos', solicitudId] as const,
 };
+
+const BITACORA_PAGE_SIZE = 20;
 
 /**
  * Hook para obtener las solicitudes creadas por el usuario
@@ -58,24 +61,60 @@ export function useInvitaciones(enabled: boolean = true) {
 }
 
 /**
- * Hook para obtener la bitácora de cambios de una solicitud
+ * Hook para obtener la bitácora de cambios de una solicitud.
+ * Paginado por cursor: cada página trae las más recientes y `nextCursor`
+ * apunta a las más antiguas. El `select` invierte el orden de las páginas
+ * para que la más antigua quede primero (cronológico de arriba a abajo).
  */
 export function useSolicitudBitacora(solicitudId: number) {
   const { tokens } = useAuth();
 
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: solicitudesQueryKeys.bitacora(solicitudId),
+    queryFn: ({ pageParam }) => {
+      const accessToken = tokens?.accessToken;
+      if (!accessToken) {
+        throw new Error('No access token available');
+      }
+      return solicitudesApi.getSolicitudBitacora(accessToken, solicitudId, {
+        cursor: pageParam,
+        limit: BITACORA_PAGE_SIZE,
+      });
+    },
+    initialPageParam: undefined as number | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    select: (data) => ({
+      ...data,
+      pages: [...data.pages].reverse(),
+    }),
+    enabled: !!solicitudId,
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 10,
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+  });
+}
+
+/**
+ * Hook para obtener los archivos de una conversación (chat).
+ * Se habilita bajo demanda (p. ej. al abrir el modal de archivos).
+ */
+export function useChatArchivos(solicitudId: number, enabled: boolean) {
+  const { tokens } = useAuth();
+
+  return useQuery({
+    queryKey: solicitudesQueryKeys.chatArchivos(solicitudId),
+    enabled: enabled && !!solicitudId,
     queryFn: async () => {
       const accessToken = tokens?.accessToken;
       if (!accessToken) {
         throw new Error('No access token available');
       }
-      return solicitudesApi.getSolicitudBitacora(accessToken, solicitudId);
+      return solicitudesApi.getChatArchivos(accessToken, solicitudId);
     },
-    enabled: !!solicitudId,
-    staleTime: 1000 * 60 * 5,
-    gcTime: 1000 * 60 * 10,
-    retry: 3,
+    staleTime: 1000 * 60,
+    gcTime: 1000 * 60 * 5,
+    retry: 2,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
 }
@@ -221,16 +260,16 @@ export function useActualizarEstadoInvitacion() {
   });
 }
 
-export function useBuscarSolicitudes(q: string) {
+export function useBuscarSolicitudes(q: string, tipoConversacion?: 'CHAT') {
   const { tokens } = useAuth();
 
   return useQuery({
-    queryKey: [...solicitudesQueryKeys.all, 'buscar', q] as const,
+    queryKey: [...solicitudesQueryKeys.all, 'buscar', q, tipoConversacion ?? 'all'] as const,
     enabled: q.trim().length > 0,
     queryFn: async () => {
       const token = tokens?.accessToken;
       if (!token) throw new Error('No access token available');
-      return solicitudesApi.buscarSolicitudes(token, q);
+      return solicitudesApi.buscarSolicitudes(token, q, tipoConversacion);
     },
     staleTime: 1000 * 30,
     gcTime: 1000 * 60 * 5,

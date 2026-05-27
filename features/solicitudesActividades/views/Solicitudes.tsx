@@ -2,12 +2,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -71,7 +71,10 @@ export default function SolicitudesView({ onRefresh, refreshing }: SolicitudesVi
   const isSearching = debouncedSearch.trim().length > 0;
   const tipoConversacion = isChatsTab ? ('CHAT' as const) : undefined;
   const { data, isLoading, isFetching } = useSolicitudes(page, 20, !isSearching, tipoConversacion);
-  const { data: searchResults, isLoading: isLoadingSearch, isFetching: isFetchingSearch } = useBuscarSolicitudes(debouncedSearch);
+  const { data: searchResults, isLoading: isLoadingSearch, isFetching: isFetchingSearch } = useBuscarSolicitudes(
+    debouncedSearch,
+    tipoConversacion,
+  );
 
   const solicitudesRaw = isSearching ? (searchResults ?? []) : (data?.data ?? []);
   const solicitudes = useMemo(
@@ -227,11 +230,9 @@ export default function SolicitudesView({ onRefresh, refreshing }: SolicitudesVi
       )}
 
       {/* BOTÓN FLOTANTE */}
-      { !isChatsTab && (
-        <View style={[styles.floatingButtonContainer, { bottom: insets.bottom + 16, right: 24 }]}>
-          <CreateButton onPress={() => setShowCrearSolicitud(true)} size={56} />
-        </View>
-      )}
+      <View style={[styles.floatingButtonContainer, { bottom: insets.bottom + 16, right: 24 }]}>
+        <CreateButton onPress={() => setShowCrearSolicitud(true)} size={56} />
+      </View>
 
       {/* MODALES */}
       {selectedSolicitud && (
@@ -240,7 +241,7 @@ export default function SolicitudesView({ onRefresh, refreshing }: SolicitudesVi
       {selectedChat && (
         <ConversacionChat visible solicitud={selectedChat} onClose={handleCloseChat} />
       )}
-      <CrearSolicitud visible={showCrearSolicitud} onClose={() => setShowCrearSolicitud(false)} />
+      <CrearSolicitud visible={showCrearSolicitud} onClose={() => setShowCrearSolicitud(false)} fromChatsTab={isChatsTab} />
     </ThemedView>
   );
 }

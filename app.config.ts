@@ -16,7 +16,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     supportsTablet: true,
     bundleIdentifier: "ar.com.italoarg",
     infoPlist: {
-      UIBackgroundModes: ["remote-notification"],
+      infoPlist: {
+        UIBackgroundModes: ["remote-notification"],
+        NSCameraUsageDescription: "Esta aplicación requiere acceso a la cámara para que los empleados puedan escanear códigos QR o capturar imágenes de remitos, productos, o reportes por ejemplo, al registrar un control de stock en el depósito de la empresa.",
+        NSLocationWhenInUseUsageDescription: "Esta aplicación requiere acceso a tu ubicación para verificar que te encontrás dentro del predio de Italo Argentina, por ejemplo, al momento de registrar de forma válida tu asistencia, entrada o salida laboral.",
+        NSPhotoLibraryUsageDescription: "Esta aplicación requiere acceso a tu biblioteca de fotos para que los empleados puedan seleccionar y subir imágenes de comprobantes, recibos o reportes de daños guardados en el dispositivo hacia el sistema de la empresa.",
+      },
     },
   },
   android: {

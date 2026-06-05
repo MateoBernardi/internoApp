@@ -154,3 +154,18 @@ export async function apiRequest({
     throw error;
   }
 }
+
+/**
+ * Lanza un Error con el mensaje más útil disponible a partir del body de una
+ * respuesta fallida: usa `message`/`error` del JSON si parsea, si no el texto
+ * crudo o el statusText. Centraliza el boilerplate repetido en los servicios.
+ */
+export function throwApiError(errorText: string, response: Response): never {
+  try {
+    const errData = JSON.parse(errorText);
+    throw new Error(errData.message || errData.error || errorText);
+  } catch (e) {
+    if (e instanceof Error && e.message !== errorText) throw e;
+    throw new Error(errorText || response.statusText);
+  }
+}

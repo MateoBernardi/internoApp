@@ -1,8 +1,8 @@
-import { AlertModal, type AlertModalAction } from '@/components/AlertModal';
+import { AlertModal } from '@/components/AlertModal';
 import { ThemedText } from '@/components/themed-text';
 import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
 import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
-import { Colors, UI } from '@/constants/theme';
+import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { ArchivoUso } from '@/features/docs/models/Archivo';
 import { useUploadArchivo } from '@/features/docs/viewmodels/useArchivos';
@@ -11,8 +11,6 @@ import { UserSummary } from '@/shared/users/User';
 import { adminRoles, allRoles } from '@/shared/users/roles';
 import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
 import { Ionicons } from '@expo/vector-icons';
-import * as DocumentPicker from 'expo-document-picker';
-import type * as ImagePickerTypes from 'expo-image-picker';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Keyboard,
@@ -20,68 +18,22 @@ import {
   Modal,
   Platform,
   ScrollView,
-  StyleSheet,
   Switch,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { UserSelector } from '../../../components/UserSelector';
+import { useAlertModal } from '../conversacion/hooks/useAlertModal';
+import { useFilePicker } from '../conversacion/hooks/useFilePicker';
 import type { CrearSolicitudRequest, CrearSolicitudResponse, RangoOcupado } from '../models/Solicitud';
 import { useCrearSolicitud } from '../viewmodels/useSolicitudes';
+import { styles } from './crearSolicitudStyles';
+import { ceilToNextMinute, formatDateDDMMYYYY, formatTimeHHMM, isSameLocalDay, toEndOfDay, toStartOfDay } from './crearSolicitudUtils';
 import { RoleUserSelectionModal } from './RoleUserSelectionModal';
 import { ValidacionFechasModal } from './ValidacionFechasModal';
 
 const colors = Colors['light'];
-
-let ImagePicker: typeof ImagePickerTypes | null = null;
-try {
-  ImagePicker = require('expo-image-picker');
-} catch {
-  console.warn('expo-image-picker native module not available. Image picking will be disabled.');
-}
-
-function formatDateDDMMYYYY(date: Date): string {
-  const day = String(date.getDate()).padStart(2, '0');
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const year = date.getFullYear();
-  return `${day}/${month}/${year}`;
-}
-
-function formatTimeHHMM(date: Date): string {
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-  return `${hours}:${minutes}`;
-}
-
-function ceilToNextMinute(date: Date): Date {
-  const normalized = new Date(date);
-  if (normalized.getSeconds() > 0 || normalized.getMilliseconds() > 0) {
-    normalized.setMinutes(normalized.getMinutes() + 1);
-  }
-  normalized.setSeconds(0, 0);
-  return normalized;
-}
-
-function toStartOfDay(date: Date): Date {
-  const normalized = new Date(date);
-  normalized.setHours(0, 0, 0, 0);
-  return normalized;
-}
-
-function toEndOfDay(date: Date): Date {
-  const normalized = new Date(date);
-  normalized.setHours(23, 59, 0, 0);
-  return normalized;
-}
-
-function isSameLocalDay(a: Date, b: Date): boolean {
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  );
-}
 
 interface CrearSolicitudProps {
   visible: boolean;
@@ -123,34 +75,10 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
   const isLoadingUsers = isSearchingUsers || isLoadingRole;
   const isConsejo = (user?.rol_nombre ?? '').toLowerCase() === 'consejo';
 
-  const [pickedFiles, setPickedFiles] = useState<any[]>([]);
-  const [isUploadingFile, setIsUploadingFile] = useState(false);
+  const [, setIsUploadingFile] = useState(false);
   const { mutateAsync: uploadArchivo } = useUploadArchivo();
-  const [alertModal, setAlertModal] = useState<{
-    visible: boolean;
-    title: string;
-    message?: string;
-    actions: AlertModalAction[];
-  }>({ visible: false, title: '', message: undefined, actions: [] });
-
-  const showModal = useCallback((title: string, message?: string, actions?: AlertModalAction[]) => {
-    const normalizedActions: AlertModalAction[] = actions && actions.length > 0
-      ? actions
-      : [{ key: 'ok', label: 'Aceptar', onPress: () => { }, variant: 'primary' }];
-
-    setAlertModal({
-      visible: true,
-      title,
-      message,
-      actions: normalizedActions.map((action) => ({
-        ...action,
-        onPress: () => {
-          setAlertModal((prev) => ({ ...prev, visible: false }));
-          action.onPress();
-        },
-      })),
-    });
-  }, []);
+  const { alertModal, showModal, closeAlert } = useAlertModal();
+  const { pickedFiles, setPickedFiles, handleTakePhoto, handleSeleccionarArchivo } = useFilePicker({ showModal });
 
   const rolesForSelector = useMemo(
     () => (isConsejo ? adminRoles : allRoles),
@@ -174,7 +102,7 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
     setEnviarPorSeparado(false);
     setEsGrupo(false);
     onClose();
-  }, [onClose]);
+  }, [onClose, setPickedFiles]);
 
   const blockDatePickerFromToggle = useCallback(() => {
     ignoreDatePressUntilRef.current = Date.now() + 300;
@@ -425,62 +353,6 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
 
     ejecutarCreacion(payload);
   }, [isFormValid, hasDates, fechaInicio, fechaFin, allDay, tipoActividad, selectedUsers, titulo, descripcion, ejecutarCreacion, showModal, pickedFiles, fromChatsTab, esGrupo, enviarPorSeparado]);
-
-  const addImageAsset = useCallback((asset: ImagePickerTypes.ImagePickerAsset) => {
-    const ext = asset.uri.split('.').pop() ?? 'jpg';
-    const name = asset.fileName ?? `foto_${Date.now()}.${ext}`;
-    const type = asset.mimeType ?? `image/${ext}`;
-    setPickedFiles((prev) => [
-      ...prev,
-      {
-        name,
-        uri: asset.uri,
-        type,
-        size: asset.fileSize,
-      },
-    ]);
-  }, []);
-
-  const handleTakePhoto = useCallback(async () => {
-    if (!ImagePicker) {
-      showModal('No disponible', 'La cámara no está disponible.');
-      return;
-    }
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      showModal('Permiso denegado', 'Se necesita acceso a la cámara para tomar fotos.');
-      return;
-    }
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: 'images',
-      quality: 0.8,
-    });
-    if (!result.canceled && result.assets.length > 0) {
-      addImageAsset(result.assets[0]);
-    }
-  }, [addImageAsset, showModal]);
-
-  const handleSeleccionarArchivo = async () => {
-    try {
-      const result = await DocumentPicker.getDocumentAsync({
-        multiple: true,
-        type: '*/*',
-        copyToCacheDirectory: true,
-      });
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        const nuevosArchivos = result.assets.map((asset) => ({
-          name: asset.name,
-          uri: asset.uri,
-          type: asset.mimeType ?? 'application/octet-stream',
-          size: asset.size,
-        }));
-        setPickedFiles((prev) => [...prev, ...nuevosArchivos]);
-      }
-    } catch (err) {
-      console.error('Error seleccionando documento', err);
-      showModal('Error', 'No se pudo seleccionar el documento. Intenta nuevamente.');
-    }
-  };
 
   const handleAgregarAdjunto = useCallback(() => {
     showModal('Adjuntar archivo', 'Elegí una opción', [
@@ -758,7 +630,7 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
               title={alertModal.title}
               message={alertModal.message}
               actions={alertModal.actions}
-              onClose={() => setAlertModal((prev) => ({ ...prev, visible: false }))}
+              onClose={closeAlert}
             />
           </View>
         </KeyboardAvoidingView>
@@ -781,188 +653,3 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
   );
 }
 
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-  },
-  keyboardContainer: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  container: {
-    flex: 1,
-    marginTop: '5%',
-    backgroundColor: colors.componentBackground,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    overflow: 'hidden',
-  },
-  modalHeader: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.background,
-    alignItems: 'flex-end',
-  },
-  closeButton: {
-    padding: 6,
-    borderRadius: 16,
-    backgroundColor: '#f3f4f6',
-  },
-  fabContainer: {
-    position: 'absolute',
-    bottom: UI.fab.offsetBottom,
-    right: UI.fab.offsetRight,
-  },
-  content: {
-    flex: 1,
-  },
-  contentContainer: {
-    flexGrow: 1,
-  },
-  inputSection: {
-    flexDirection: 'row',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.componentBackground,
-  },
-  input: {
-    flex: 1,
-    fontSize: 16,
-    color: colors.text,
-    padding: 0,
-  },
-  chip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: colors.componentBackground,
-    marginRight: 8,
-  },
-  chipText: {
-    fontSize: 14,
-    color: colors.text,
-  },
-  dateSection: {
-    padding: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.componentBackground,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.componentBackground,
-  },
-  switchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  dateSectionTitle: {
-    fontSize: 16,
-    color: colors.text,
-  },
-  dateRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-  },
-  dateLabel: {
-    fontSize: 12,
-    color: colors.secondaryText,
-    marginBottom: 4,
-  },
-  dateValue: {
-    fontSize: 16,
-    color: colors.lightTint,
-  },
-  timeValue: {
-    fontSize: 16,
-    color: colors.lightTint,
-  },
-  errorText: {
-    color: colors.error,
-    fontSize: 12,
-    marginTop: 8,
-  },
-  messageInput: {
-    fontSize: 16,
-    color: colors.text,
-    padding: 16,
-    minHeight: 150,
-  },
-  messageBox: {
-    marginHorizontal: 16,
-    marginTop: 12,
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#e5e7eb',
-    backgroundColor: '#f9fafb',
-    overflow: 'hidden',
-  },
-  messageFooter: {
-    paddingHorizontal: 12,
-    paddingBottom: 10,
-    alignItems: 'flex-end',
-  },
-  attachmentsList: {
-    marginHorizontal: 16,
-    marginTop: 8,
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#e5e7eb',
-    backgroundColor: '#f9fafb',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    gap: 8,
-  },
-  attachmentRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  attachmentName: {
-    flex: 1,
-    fontSize: 14,
-    color: colors.text,
-    marginRight: 8,
-  },
-  attachmentAction: {
-    padding: 4,
-  },
-  attachmentButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.light.tint + '12',
-  },
-  uploadButtonContainer: {
-    backgroundColor: Colors['light'].componentBackground,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: Colors['light'].icon,
-    paddingHorizontal: '4%',
-    paddingTop: 10,
-  },
-  uploadButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 8,
-    gap: 8,
-  },
-  uploadButtonText: {
-    color: Colors['light'].lightTint,
-    fontWeight: '600',
-    fontSize: 16,
-  },
-  section: {
-    marginTop: 12,
-    gap: 10,
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-  },
-});

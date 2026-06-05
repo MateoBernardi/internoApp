@@ -1,7 +1,7 @@
 import type { ArchivoDTO } from '@/features/docs/dto/ArchivoDTO';
 import { mapArchivoDTOToArchivo } from '@/features/docs/mappers/archivoMapper';
 import type { Archivo } from '@/features/docs/models/Archivo';
-import { apiRequest } from '@/shared/apiRequest';
+import { apiRequest, throwApiError } from '@/shared/apiRequest';
 import type {
     CreateSolicitudResult,
     SolicitudBitacoraDTO,
@@ -51,7 +51,7 @@ export async function cancelarSolicitud(accessToken: string, data: solicitudes.C
     if (!response.ok) {
         const errorText = await response.text();
         console.error('Error en cancelarSolicitud:', response.status, errorText);
-        try { const errData = JSON.parse(errorText); throw new Error(errData.message || errData.error || errorText); } catch (e) { if (e instanceof Error && e.message !== errorText) throw e; throw new Error(errorText || response.statusText); }
+        throwApiError(errorText, response);
     }
 }
 
@@ -61,7 +61,7 @@ export async function reenviarSolicitud(accessToken: string, data: solicitudes.R
     if (!response.ok) {
         const errorText = await response.text();
         console.error('Error en reenviarSolicitud:', response.status, errorText);
-        try { const errData = JSON.parse(errorText); throw new Error(errData.message || errData.error || errorText); } catch (e) { if (e instanceof Error && e.message !== errorText) throw e; throw new Error(errorText || response.statusText); }
+        throwApiError(errorText, response);
     }
 
     return await response.json();
@@ -81,7 +81,7 @@ export async function getSolicitudBitacora(
     if (!response.ok) {
         const errorText = await response.text();
         console.error('Error en getSolicitudBitacora:', response.status, errorText);
-        try { const errData = JSON.parse(errorText); throw new Error(errData.message || errData.error || errorText); } catch (e) { if (e instanceof Error && e.message !== errorText) throw e; throw new Error(errorText || response.statusText); }
+        throwApiError(errorText, response);
     }
 
     const result: { data?: SolicitudBitacoraDTO[]; nextCursor?: number | null } = await response.json();
@@ -114,7 +114,7 @@ export async function getSolicitudesCreadas(accessToken: string): Promise<solici
     if (!response.ok) {
         const errorText = await response.text();
         console.error('Error en getSolicitudesCreadas:', response.status, errorText);
-        try { const errData = JSON.parse(errorText); throw new Error(errData.message || errData.error || errorText); } catch (e) { if (e instanceof Error && e.message !== errorText) throw e; throw new Error(errorText || response.statusText); }
+        throwApiError(errorText, response);
     }
 
     const data: SolicitudInfoDTO[] = await response.json();
@@ -127,7 +127,7 @@ export async function obtenerMisInvitaciones(accessToken: string): Promise<solic
     if (!response.ok) {
         const errorText = await response.text();
         console.error('Error en obtenerMisInvitaciones:', response.status, errorText);
-        try { const errData = JSON.parse(errorText); throw new Error(errData.message || errData.error || errorText); } catch (e) { if (e instanceof Error && e.message !== errorText) throw e; throw new Error(errorText || response.statusText); }
+        throwApiError(errorText, response);
     }
 
     const data: SolicitudInfoDTO[] = await response.json();

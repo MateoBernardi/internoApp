@@ -35,7 +35,7 @@ export default function Root({ children }: PropsWithChildren) {
           httpEquiv="Content-Security-Policy"
           content={`
             default-src 'self';
-            script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com https://static.cloudflareinsights.com;
+            script-src 'self' 'unsafe-inline' https://www.gstatic.com https://static.cloudflareinsights.com;
             style-src 'self' 'unsafe-inline';
             img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com;
             font-src 'self' https://fonts.gstatic.com;

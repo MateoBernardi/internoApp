@@ -1,25 +1,17 @@
-import { AlertModal, type AlertModalAction } from '@/components/AlertModal';
+import { AlertModal } from '@/components/AlertModal';
 import { ThemedText } from '@/components/themed-text';
 import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
-import { Colors, UI } from '@/constants/theme';
+import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
-import { ArchivoUso } from '@/features/docs/models/Archivo';
-import { useGetArchivoUrlFirmada, useUploadArchivo } from '@/features/docs/viewmodels/useArchivos';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
-import { ApiOperationResult } from '@/shared/types/apiStatus';
-import { UserSummary } from '@/shared/users/User';
 import { adminRoles, allRoles } from '@/shared/users/roles';
-import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
 import { Ionicons } from '@expo/vector-icons';
-import * as DocumentPicker from 'expo-document-picker';
-import type * as ImagePickerTypes from 'expo-image-picker';
 import { useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
-  Linking,
   Modal,
   Platform,
   Pressable,
@@ -36,7 +28,6 @@ import {
   EstadoInvitacionDB,
   ReenviarSolicitudRequest,
   SolicitudEnviada,
-  SolicitudInvitado,
   estadoInvitacionMapping,
 } from '../models/Solicitud';
 import {
@@ -46,33 +37,17 @@ import {
   useReenviarSolicitud,
   useSolicitudBitacora,
 } from '../viewmodels/useSolicitudes';
+import { MESSAGE_STATES, formatDateDDMMYYYY, formatTimeHHMM } from '../conversacion/constants';
+import { useAdjuntos } from '../conversacion/hooks/useAdjuntos';
+import { useAlertModal } from '../conversacion/hooks/useAlertModal';
+import { useCompartirSelection } from '../conversacion/hooks/useCompartirSelection';
+import { useMarcarVisto } from '../conversacion/hooks/useMarcarVisto';
+import { useMessagesScroll } from '../conversacion/hooks/useMessagesScroll';
+import { useParticipantesManager } from '../conversacion/hooks/useParticipantesManager';
+import { conversacionStyles } from '../conversacion/styles';
 import { RoleUserSelectionModal } from './RoleUserSelectionModal';
 
 const colors = Colors['light'];
-
-let ImagePicker: typeof ImagePickerTypes | null = null;
-try {
-  ImagePicker = require('expo-image-picker');
-} catch {
-  console.warn('expo-image-picker not available.');
-}
-
-const DATE_FORMATTER = new Intl.DateTimeFormat('es-AR', {
-  day: '2-digit', month: '2-digit', year: 'numeric',
-});
-
-// Estados que representan mensajes/cambios relevantes en la conversación.
-const MESSAGE_STATES: EstadoInvitacionDB[] = [
-  'MODIFIED', 'MODIFIED_BY_HOST', 'ACCEPTED', 'REJECTED', 'ACCEPTED_BY_HOST',
-];
-
-function formatDateDDMMYYYY(date: Date): string {
-  return DATE_FORMATTER.format(date);
-}
-
-function formatTimeHHMM(date: Date): string {
-  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
-}
 
 interface ConversacionChatProps {
   solicitud: SolicitudEnviada;
@@ -105,8 +80,6 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
   const { mutate: actualizarEstado, isPending: isUpdatingEstado } = useActualizarEstadoInvitacion();
   const { mutate: reenviarSolicitud, isPending: isSharing } = useReenviarSolicitud();
   const { mutate: actualizarInvitados } = useActualizarInvitadosSolicitud();
-  const { mutateAsync: uploadArchivo } = useUploadArchivo();
-  const { getArchivoUrlFirmada } = useGetArchivoUrlFirmada();
 
   const isMutating = isUpdatingEstado || isSharing;
 
@@ -115,51 +88,45 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
   const rolesForSelector = isConsejo ? adminRoles : allRoles;
 
   // ─── Estado UI ────────────────────────────────────────────────────────────
-  const [showShareModal, setShowShareModal] = useState(false);
   const [showArchivosModal, setShowArchivosModal] = useState(false);
   const { data: chatArchivos, isLoading: isLoadingArchivos } = useChatArchivos(solicitudId, showArchivosModal);
   const [showFullBitacora, setShowFullBitacora] = useState(false);
   const [messageDraft, setMessageDraft] = useState('');
-  const [pickedFiles, setPickedFiles] = useState<any[]>([]);
   const [isSendingMessage, setIsSendingMessage] = useState(false);
-  const [alertModal, setAlertModal] = useState<{
-    visible: boolean; title: string; message?: string; actions: AlertModalAction[];
-  }>({ visible: false, title: '', actions: [] });
+  const { alertModal, showModal, closeAlert } = useAlertModal();
+  const {
+    pickedFiles, setPickedFiles, handleAgregarAdjunto, handleOpenArchivo, uploadPickedFiles,
+  } = useAdjuntos({ showModal });
 
-  // Compartir
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedUsersToShare, setSelectedUsersToShare] = useState<UserSummary[]>([]);
-  const [activeRole, setActiveRole] = useState('');
-  const [showRoleModal, setShowRoleModal] = useState(false);
-  const { data: searchResults, isLoading: isSearchingUsers } = useSearchUsers(searchQuery);
-  const { data: roleUsersData, isLoading: isLoadingRole } = useGetUserByRole(activeRole);
-  const isLoadingUsers = isSearchingUsers || isLoadingRole;
+  const {
+    showShareModal, setShowShareModal,
+    setSearchQuery,
+    selectedUsersToShare, setSelectedUsersToShare,
+    activeRole, setActiveRole,
+    showRoleModal, setShowRoleModal,
+    searchResults, isLoadingUsers,
+    roleUsersData,
+    handleToggleUserShare, handleSelectAllRoleUsers, handleDeselectAllRoleUsers,
+  } = useCompartirSelection();
 
-  // Participantes (agregar/quitar invitados)
-  const [localParticipantes, setLocalParticipantes] = useState<SolicitudInvitado[]>(() => solicitud.invitados);
-  const [participantesSelectedUsers, setParticipantesSelectedUsers] = useState<UserSummary[]>(() =>
-    solicitud.invitados.map(inv => ({
-      user_context_id: inv.user_id,
-      username: '',
-      nombre: inv.invitado_nombre ?? '',
-      apellido: inv.invitado_apellido ?? '',
-      email: '',
-      role: [],
-    }))
-  );
-  const [showParticipantesSelector, setShowParticipantesSelector] = useState(false);
-  const [participantesSearchQuery, setParticipantesSearchQuery] = useState('');
-  const [participantesActiveRole, setParticipantesActiveRole] = useState('');
-  const [showParticipantesRoleModal, setShowParticipantesRoleModal] = useState(false);
-  const [participantesExpanded, setParticipantesExpanded] = useState(false);
-  const { data: participantesSearchResults, isLoading: isSearchingParticipantes } = useSearchUsers(participantesSearchQuery);
-  const { data: participantesRoleUsersData, isLoading: isLoadingParticipantesRole } = useGetUserByRole(participantesActiveRole);
+  const {
+    participantesSelectedUsers,
+    showParticipantesSelector, setShowParticipantesSelector,
+    setParticipantesSearchQuery,
+    participantesActiveRole, setParticipantesActiveRole,
+    showParticipantesRoleModal, setShowParticipantesRoleModal,
+    participantesExpanded, setParticipantesExpanded,
+    participantesSearchResults, isSearchingParticipantes,
+    participantesRoleUsersData, isLoadingParticipantesRole,
+    displayParticipantes,
+    getParticipanteDisplayName,
+    handleSelectParticipantes, handleQuitarParticipante, handleToggleUserParticipante,
+    handleSelectAllParticipantes, handleDeselectAllParticipantes,
+  } = useParticipantesManager({ solicitud, solicitudId, actualizarInvitados });
 
-  const seenAutoMarkKeyRef = useRef<string | null>(null);
-  const messagesScrollRef = useRef<ScrollView | null>(null);
-  const prevContentHeightRef = useRef(0);
-  const scrollOffsetRef = useRef(0);
-  const isPrependingRef = useRef(false);
+  const { messagesScrollRef, handleMessagesScroll, handleMessagesContentSizeChange } = useMessagesScroll({
+    hasNextPage, isFetchingNextPage, fetchNextPage,
+  });
 
   // ─── Derivados del prop solicitud ─────────────────────────────────────────
 
@@ -192,18 +159,6 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
     todosArchivos.forEach(a => { if (a?.id && !map.has(a.id)) map.set(a.id, a); });
     return Array.from(map.values());
   }, [chatArchivos, todosArchivos]);
-
-  const displayParticipantes = useMemo(
-    () => localParticipantes.filter(inv => inv.user_id !== solicitud.created_by),
-    [localParticipantes, solicitud.created_by],
-  );
-
-  const getParticipanteDisplayName = useCallback((inv: SolicitudInvitado): string => {
-    if (inv.invitado_nombre) return `${inv.invitado_nombre} ${inv.invitado_apellido ?? ''}`.trim();
-    const matched = participantesSelectedUsers.find(u => u.user_context_id === inv.user_id);
-    if (matched?.nombre) return `${matched.nombre} ${matched.apellido}`.trim();
-    return `Usuario #${inv.user_id}`;
-  }, [participantesSelectedUsers]);
 
   // ─── Flags de estado ──────────────────────────────────────────────────────
 
@@ -262,44 +217,9 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
 
-  const showModal = useCallback((title: string, message?: string, actions?: AlertModalAction[]) => {
-    const normalized: AlertModalAction[] = actions?.length
-      ? actions
-      : [{ key: 'ok', label: 'Aceptar', onPress: () => { }, variant: 'primary' }];
-    setAlertModal({
-      visible: true, title, message,
-      actions: normalized.map(a => ({
-        ...a,
-        onPress: () => { setAlertModal(p => ({ ...p, visible: false })); a.onPress(); },
-      })),
-    });
-  }, []);
-
-  const isSuccess = <T,>(r: ApiOperationResult<T>): r is ApiOperationResult<T> & { data: T } =>
-    r.status === 'success' && r.data !== undefined;
-
   // ─── Marcar como visto ────────────────────────────────────────────────────
 
-  useEffect(() => {
-    if (!solicitud) return;
-    const hasModifiedInvitados = invitadosSinCreador.some(inv => inv.estado === 'MODIFIED');
-    const shouldMarkSeen = isHost
-      ? hasModifiedInvitados
-      : ['SENT', 'MODIFIED_BY_HOST', 'ACCEPTED_BY_HOST'].includes(solicitud.estado);
-
-    if (!shouldMarkSeen) { seenAutoMarkKeyRef.current = null; return; }
-
-    const key = isHost
-      ? `${solicitudId}:host:${hasModifiedInvitados}`
-      : `${solicitudId}:${solicitud.estado}`;
-    if (seenAutoMarkKeyRef.current === key) return;
-    seenAutoMarkKeyRef.current = key;
-
-    actualizarEstado(
-      { solicitud_id: solicitudId, estado: 'SEEN' },
-      { onError: () => { seenAutoMarkKeyRef.current = null; } },
-    );
-  }, [solicitud, solicitudId, isHost, invitadosSinCreador, actualizarEstado]);
+  useMarcarVisto({ solicitud, solicitudId, isHost, invitadosSinCreador, actualizarEstado });
 
   // ─── Enviar mensaje ───────────────────────────────────────────────────────
 
@@ -307,25 +227,7 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
     if (!canSendMessage) return;
 
     setIsSendingMessage(true);
-    let archivosIds: number[] = [];
-
-    if (pickedFiles.length > 0) {
-      try {
-        const response = await uploadArchivo({
-          item: pickedFiles.map(f => ({
-            archivo: { uri: f.uri, name: f.name, type: f.type, size: f.size },
-            archivoData: { nombre: f.name, tamaño: f.size, tipo: f.type, uso: ArchivoUso.TAREA },
-          })),
-        });
-        const validos = (response?.exitosos ?? []).filter(isSuccess);
-        archivosIds = validos.map(r => r.data.id);
-        if (validos.length === 0) showModal('Error de archivos', 'No se pudo subir ningún archivo.');
-        else if ((response?.fallidos ?? []).length > 0)
-          showModal('Archivos parciales', `Se subieron ${validos.length} de ${pickedFiles.length}`);
-      } catch {
-        showModal('Error de archivos', 'No se pudieron subir los archivos.');
-      }
-    }
+    const archivosIds = await uploadPickedFiles();
 
     const trimmed = messageDraft.trim();
     if (!trimmed && archivosIds.length === 0) { setIsSendingMessage(false); return; }
@@ -342,154 +244,7 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
         onError: e => { setIsSendingMessage(false); Alert.alert('Error', e instanceof Error ? e.message : 'Intenta nuevamente'); },
       },
     );
-  }, [canSendMessage, pickedFiles, uploadArchivo, isSuccess, messageDraft, actualizarEstado, solicitudId, isHost, showModal]);
-
-  // ─── Archivos ─────────────────────────────────────────────────────────────
-
-  const addImageAsset = useCallback((asset: ImagePickerTypes.ImagePickerAsset) => {
-    const ext = asset.uri.split('.').pop() ?? 'jpg';
-    setPickedFiles(prev => [...prev, {
-      name: asset.fileName ?? `foto_${Date.now()}.${ext}`,
-      uri: asset.uri,
-      type: asset.mimeType ?? `image/${ext}`,
-      size: asset.fileSize,
-    }]);
-  }, []);
-
-  const handleTakePhoto = useCallback(async () => {
-    if (!ImagePicker) { showModal('No disponible', 'Cámara no disponible.'); return; }
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') { showModal('Permiso denegado', 'Se necesita acceso a la cámara.'); return; }
-    const result = await ImagePicker.launchCameraAsync({ mediaTypes: 'images', quality: 0.8 });
-    if (!result.canceled && result.assets.length > 0) addImageAsset(result.assets[0]);
-  }, [addImageAsset, showModal]);
-
-  const handleSeleccionarArchivo = useCallback(async () => {
-    try {
-      const result = await DocumentPicker.getDocumentAsync({ multiple: true, type: '*/*', copyToCacheDirectory: true });
-      if (!result.canceled && result.assets?.length > 0) {
-        setPickedFiles(prev => [...prev, ...result.assets.map(a => ({
-          name: a.name, uri: a.uri, type: a.mimeType ?? 'application/octet-stream', size: a.size,
-        }))]);
-      }
-    } catch { showModal('Error', 'No se pudo seleccionar el documento.'); }
-  }, [showModal]);
-
-  const handleAgregarAdjunto = useCallback(() => {
-    showModal('Adjuntar archivo', 'Elegí una opción', [
-      { key: 'file', label: 'Archivo', onPress: handleSeleccionarArchivo },
-      { key: 'camera', label: 'Cámara', onPress: handleTakePhoto },
-      { key: 'cancel', label: 'Cancelar', onPress: () => { }, variant: 'neutral' },
-    ]);
-  }, [handleTakePhoto, handleSeleccionarArchivo, showModal]);
-
-  const handleOpenArchivo = useCallback(async (archivoId: number) => {
-    try {
-      const url = await getArchivoUrlFirmada(archivoId);
-      Linking.openURL(url).catch(() => Alert.alert('Error', 'No se pudo abrir el archivo'));
-    } catch { Alert.alert('Error', 'No se pudo obtener el enlace'); }
-  }, [getArchivoUrlFirmada]);
-
-  // ─── Scroll / carga de mensajes anteriores ─────────────────────────────────
-
-  const handleMessagesScroll = useCallback((e: { nativeEvent: { contentOffset: { y: number } } }) => {
-    const y = e.nativeEvent.contentOffset.y;
-    scrollOffsetRef.current = y;
-    if (y <= 48 && hasNextPage && !isFetchingNextPage) {
-      isPrependingRef.current = true;
-      fetchNextPage();
-    }
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
-
-  const handleMessagesContentSizeChange = useCallback((_w: number, h: number) => {
-    if (isPrependingRef.current) {
-      // Al anteponer mensajes viejos, mantenemos la posición visible en vez de saltar al final.
-      const delta = h - prevContentHeightRef.current;
-      if (delta > 0) messagesScrollRef.current?.scrollTo({ y: scrollOffsetRef.current + delta, animated: false });
-      isPrependingRef.current = false;
-    } else {
-      messagesScrollRef.current?.scrollToEnd({ animated: false });
-    }
-    prevContentHeightRef.current = h;
-  }, []);
-
-  // ─── Participantes ─────────────────────────────────────────────────────────
-
-  const handleSelectParticipantes = useCallback((newSelection: UserSummary[]) => {
-    const currentIds = new Set(localParticipantes.map(inv => inv.user_id));
-    const newIds = new Set(newSelection.map(u => u.user_context_id));
-    const toAdd = newSelection.filter(u => !currentIds.has(u.user_context_id));
-    const toRemove = localParticipantes.filter(inv => !newIds.has(inv.user_id));
-    const snapshot = [...localParticipantes];
-
-    const nextList: SolicitudInvitado[] = [
-      ...localParticipantes.filter(inv => newIds.has(inv.user_id)),
-      ...toAdd.map(u => ({ user_id: u.user_context_id })),
-    ];
-    setLocalParticipantes(nextList);
-    setParticipantesSelectedUsers(prev => {
-      const byId = new Map(prev.map(u => [u.user_context_id, u]));
-      newSelection.forEach(u => byId.set(u.user_context_id, u));
-      toRemove.forEach(inv => byId.delete(inv.user_id));
-      return Array.from(byId.values());
-    });
-
-    if (toAdd.length > 0) {
-      actualizarInvitados(
-        { solicitudId, action: 'add', invitados: toAdd.map(u => u.user_context_id) },
-        { onError: () => setLocalParticipantes(snapshot) },
-      );
-    }
-    if (toRemove.length > 0) {
-      actualizarInvitados(
-        { solicitudId, action: 'remove', invitados: toRemove.map(inv => inv.user_id) },
-        { onError: () => setLocalParticipantes(snapshot) },
-      );
-    }
-  }, [localParticipantes, solicitudId, actualizarInvitados]);
-
-  const handleQuitarParticipante = useCallback((userId: number) => {
-    const snapshot = [...localParticipantes];
-    setLocalParticipantes(prev => prev.filter(inv => inv.user_id !== userId));
-    setParticipantesSelectedUsers(prev => prev.filter(u => u.user_context_id !== userId));
-    actualizarInvitados(
-      { solicitudId, action: 'remove', invitados: [userId] },
-      { onError: () => setLocalParticipantes(snapshot) },
-    );
-  }, [localParticipantes, solicitudId, actualizarInvitados]);
-
-  const handleToggleUserParticipante = useCallback((u: UserSummary) => {
-    const snapshot = [...localParticipantes];
-    const isInList = localParticipantes.some(inv => inv.user_id === u.user_context_id);
-    if (isInList) {
-      setLocalParticipantes(prev => prev.filter(inv => inv.user_id !== u.user_context_id));
-      setParticipantesSelectedUsers(prev => prev.filter(p => p.user_context_id !== u.user_context_id));
-      actualizarInvitados(
-        { solicitudId, action: 'remove', invitados: [u.user_context_id] },
-        { onError: () => setLocalParticipantes(snapshot) },
-      );
-    } else {
-      setLocalParticipantes(prev => [...prev, { user_id: u.user_context_id }]);
-      setParticipantesSelectedUsers(prev =>
-        prev.some(p => p.user_context_id === u.user_context_id) ? prev : [...prev, u]
-      );
-      actualizarInvitados(
-        { solicitudId, action: 'add', invitados: [u.user_context_id] },
-        { onError: () => setLocalParticipantes(snapshot) },
-      );
-    }
-  }, [localParticipantes, solicitudId, actualizarInvitados]);
-
-  const handleSelectAllParticipantes = useCallback((users: UserSummary[]) => {
-    const byId = new Map(participantesSelectedUsers.map(u => [u.user_context_id, u]));
-    users.forEach(u => { if (!byId.has(u.user_context_id)) byId.set(u.user_context_id, u); });
-    handleSelectParticipantes(Array.from(byId.values()));
-  }, [participantesSelectedUsers, handleSelectParticipantes]);
-
-  const handleDeselectAllParticipantes = useCallback((users: UserSummary[]) => {
-    const idsToRemove = new Set(users.map(u => u.user_context_id));
-    handleSelectParticipantes(participantesSelectedUsers.filter(u => !idsToRemove.has(u.user_context_id)));
-  }, [participantesSelectedUsers, handleSelectParticipantes]);
+  }, [canSendMessage, uploadPickedFiles, messageDraft, actualizarEstado, solicitudId, isHost, setPickedFiles]);
 
   // ─── Compartir ────────────────────────────────────────────────────────────
 
@@ -502,31 +257,12 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
       onSuccess: () => { setShowShareModal(false); Alert.alert('Éxito', 'Conversación compartida'); },
       onError: e => Alert.alert('Error', e instanceof Error ? e.message : 'Intenta nuevamente'),
     });
-  }, [solicitudId, selectedUsersToShare, reenviarSolicitud]);
+  }, [solicitudId, selectedUsersToShare, reenviarSolicitud, setShowShareModal]);
 
   const confirmCompartir = useCallback(() => {
     if (selectedUsersToShare.length === 0) { Alert.alert('Error', 'Selecciona al menos un usuario'); return; }
     ejecutarCompartir();
   }, [selectedUsersToShare, ejecutarCompartir]);
-
-  const handleToggleUserShare = useCallback((u: UserSummary) => {
-    setSelectedUsersToShare(prev => {
-      const isSelected = prev.some(p => p.user_context_id === u.user_context_id);
-      return isSelected ? prev.filter(p => p.user_context_id !== u.user_context_id) : [...prev, u];
-    });
-  }, []);
-
-  const handleSelectAllRoleUsers = useCallback((users: UserSummary[]) => {
-    setSelectedUsersToShare(prev => {
-      const ids = new Set(prev.map(u => u.user_context_id));
-      return [...prev, ...users.filter(u => !ids.has(u.user_context_id))];
-    });
-  }, []);
-
-  const handleDeselectAllRoleUsers = useCallback((users: UserSummary[]) => {
-    const ids = new Set(users.map(u => u.user_context_id));
-    setSelectedUsersToShare(prev => prev.filter(u => !ids.has(u.user_context_id)));
-  }, []);
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
@@ -915,7 +651,7 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
               title={alertModal.title}
               message={alertModal.message}
               actions={alertModal.actions}
-              onClose={() => setAlertModal(p => ({ ...p, visible: false }))}
+              onClose={closeAlert}
             />
 
             <OperacionPendienteModal visible={isMutating} />
@@ -926,303 +662,7 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
   );
 }
 
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-  },
-  keyboardContainer: {
-    flex: 1,
-    width: '100%',
-  },
-  container: {
-    flex: 1,
-    marginTop: '5%',
-    backgroundColor: colors.componentBackground,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    overflow: 'hidden',
-  },
-  modalHeader: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.background,
-    alignItems: 'flex-end',
-  },
-  closeButton: {
-    padding: 6,
-    borderRadius: 16,
-    backgroundColor: '#f3f4f6',
-  },
-  content: {
-    flex: 1,
-  },
-  contentContainer: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 24,
-    gap: 14,
-  },
-  contentBlock: {
-    gap: 6,
-  },
-  messagesCard: {
-    backgroundColor: colors.background,
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: colors.neutralBorder,
-  },
-  badgeRow: {
-    marginTop: 8,
-  },
-  label: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#6b7280',
-    marginBottom: 4,
-  },
-  chip: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: colors.lightTint,
-    backgroundColor: colors.lightTint + '12',
-  },
-  chipText: {
-    fontSize: 12,
-    color: colors.lightTint,
-    fontWeight: '700',
-  },
-  expiredBanner: {
-    marginHorizontal: UI.spacing.lg,
-    marginTop: UI.spacing.sm,
-    marginBottom: UI.spacing.sm,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.neutralBorder,
-    backgroundColor: colors.neutralSurface,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  expiredBannerTitle: {
-    color: colors.neutralTextStrong,
-    fontWeight: '700',
-    fontSize: 14,
-  },
-  expiredBannerText: {
-    color: colors.neutralText,
-    fontSize: 13,
-    marginTop: 2,
-  },
-  sectionActionText: {
-    fontSize: 12,
-    color: colors.lightTint,
-    fontWeight: '600',
-  },
-  bitacoraContainer: {
-    paddingTop: 10,
-  },
-  messagesList: {
-    flexGrow: 1,
-    maxHeight: 320,
-  },
-  messagesListContent: {
-    paddingTop: 4,
-    flexGrow: 1,
-    justifyContent: 'flex-end',
-  },
-  bitacoraItem: {
-    width: '100%',
-    marginBottom: 16,
-  },
-  bitacoraItemOwn: {
-    alignItems: 'flex-end',
-  },
-  bitacoraItemOther: {
-    alignItems: 'flex-start',
-  },
-  bitacoraCard: {
-    width: '90%',
-    backgroundColor: colors.componentBackground,
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-  },
-  bitacoraHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  bitacoraBody: {
-    paddingVertical: 4,
-  },
-  bitacoraUser: {
-    fontWeight: 'bold',
-    color: colors.text,
-    fontSize: 13,
-  },
-  bitacoraDate: {
-    fontSize: 11,
-    color: colors.secondaryText,
-  },
-  bitacoraAction: {
-    color: colors.lightTint,
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  bitacoraBubble: {
-    marginTop: 6,
-    backgroundColor: colors.background,
-    padding: 8,
-    borderRadius: 8,
-  },
-  bitacoraText: {
-    fontSize: 14,
-    color: colors.text,
-  },
-  systemMessageContainer: {
-    alignItems: 'center',
-    marginVertical: 8,
-    paddingHorizontal: 16,
-  },
-  systemMessageBubble: {
-    backgroundColor: colors.neutralSurface,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: colors.neutralBorder,
-  },
-  systemMessageText: {
-    fontSize: 13,
-    color: colors.neutralText,
-    textAlign: 'center',
-  },
-  messageAttachments: {
-    marginTop: 8,
-    gap: 6,
-  },
-  messageAttachmentRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  messageAttachmentName: {
-    flex: 1,
-    fontSize: 13,
-    color: colors.text,
-  },
-  messageComposer: {
-    marginTop: 12,
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.neutralBorder,
-    backgroundColor: colors.componentBackground,
-    overflow: 'hidden',
-  },
-  messageComposerAttachments: {
-    paddingHorizontal: 12,
-    paddingBottom: 8,
-    gap: 6,
-  },
-  messageComposerAttachmentRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.background,
-    borderRadius: 8,
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-  },
-  messageComposerAttachmentName: {
-    flex: 1,
-    fontSize: 13,
-    color: colors.text,
-    marginRight: 8,
-  },
-  messageComposerAttachmentAction: {
-    padding: 4,
-  },
-  messageComposerInput: {
-    minHeight: 70,
-    paddingHorizontal: 12,
-    paddingTop: 10,
-    paddingBottom: 6,
-    fontSize: 14,
-    color: colors.text,
-  },
-  messageActionsRow: {
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 8,
-    paddingHorizontal: 10,
-    paddingBottom: 10,
-    paddingTop: 4,
-  },
-  messageActionButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.background,
-  },
-  messageActionButtonPrimary: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.lightTint,
-  },
-  messageActionButtonDisabled: {
-    opacity: 0.5,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    width: '90%',
-    maxWidth: 450,
-    maxHeight: '85%',
-    backgroundColor: colors.componentBackground,
-    borderRadius: 16,
-    padding: 24,
-    elevation: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-  },
-  modalActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginTop: 24,
-  },
-  modalBtnCancel: {
-    padding: 10,
-    marginRight: 10,
-  },
-  modalBtnConfirm: {
-    backgroundColor: colors.tint,
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-  },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
+const localStyles = StyleSheet.create({
   sectionHeaderActions: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1230,10 +670,6 @@ const styles = StyleSheet.create({
   },
   iconButton: {
     padding: 4,
-  },
-  loadingMoreContainer: {
-    paddingVertical: 8,
-    alignItems: 'center',
   },
   archivoRow: {
     flexDirection: 'row',
@@ -1243,81 +679,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.neutralBorder,
   },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: Colors.light.tint,
-    backgroundColor: Colors.light.tint + '12',
-  },
-  actionButtonText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: Colors.light.tint,
-  },
-  sectionValue: {
-    fontSize: 16,
-    color: '#111827',
-    fontWeight: '600',
-  },
-  participantesSection: {
-    gap: 8,
-  },
-  selectorCard: {
-    marginTop: 4,
-    marginBottom: 4,
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.neutralBorder,
-    backgroundColor: colors.background,
-  },
-  participanteAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.lightTint + '22',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-  },
-  participanteAvatarText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.lightTint,
-  },
-  collapsibleToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingTop: 2,
-  },
-  collapsibleToggleText: {
-    fontSize: 13,
-    color: colors.tint,
-    fontWeight: '600',
-  },
-  inviteRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 12,
-    backgroundColor: '#f9fafb',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-  },
-  inviteName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#111827',
-  },
-  linkText: {
-    color: '#2563eb',
-    textDecorationLine: 'underline',
-  },
 });
+
+const styles = { ...conversacionStyles, ...localStyles };

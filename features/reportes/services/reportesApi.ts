@@ -1,4 +1,4 @@
-import { apiRequest } from '@/shared/apiRequest';
+import { apiRequest, throwApiError } from '@/shared/apiRequest';
 import Constants from 'expo-constants';
 import * as reporte from '../models/Reporte';
 
@@ -10,7 +10,7 @@ export async function createReporte (accessToken: string, payload: reporte.Creat
     if (!response.ok) {
         const errorText = await response.text();
         console.error('Error:', { status: response.status, statusText: response.statusText, body: errorText });
-        try { const errData = JSON.parse(errorText); throw new Error(errData.message || errData.error || errorText); } catch (e) { if (e instanceof Error && e.message !== errorText) throw e; throw new Error(errorText || response.statusText); }
+        throwApiError(errorText, response);
     }
 
     const data: reporte.Reporte = await response.json();
@@ -37,7 +37,7 @@ export async function fetchReportes (accessToken: string, usuarioId?: string): P
         if (!response.ok) {
             const errorText = await response.text();
             console.error('[fetchReportes] Error response:', errorText);
-            try { const errData = JSON.parse(errorText); throw new Error(errData.message || errData.error || errorText); } catch (e) { if (e instanceof Error && e.message !== errorText) throw e; throw new Error(errorText || response.statusText); }
+            throwApiError(errorText, response);
         }
 
         const data: reporte.Reporte[] = await response.json();
@@ -179,7 +179,7 @@ export async function uploadReporteImage (
 
     if (!response.ok) {
         const errorText = await response.text();
-        try { const errData = JSON.parse(errorText); throw new Error(errData.message || errData.error || errorText); } catch (e) { if (e instanceof Error && e.message !== errorText) throw e; throw new Error(errorText || response.statusText); }
+        throwApiError(errorText, response);
     }
 
     return response.json();
@@ -203,7 +203,7 @@ export async function unlinkReporteImage (
 
     if (!response.ok) {
         const errorText = await response.text();
-        try { const errData = JSON.parse(errorText); throw new Error(errData.message || errData.error || errorText); } catch (e) { if (e instanceof Error && e.message !== errorText) throw e; throw new Error(errorText || response.statusText); }
+        throwApiError(errorText, response);
     }
 }
 

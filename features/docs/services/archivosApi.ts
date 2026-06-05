@@ -1,4 +1,4 @@
-import { apiRequest } from "@/shared/apiRequest";
+import { apiRequest, throwApiError } from "@/shared/apiRequest";
 import type { ApiOperationResult, ApiOperationStatus, ApiWarningDetail } from '@/shared/types/apiStatus';
 import type { ArchivoDTO } from "../dto/ArchivoDTO";
 import { mapArchivoDTOToArchivo } from "../mappers/archivoMapper";
@@ -151,7 +151,7 @@ export async function fetchArchivos(accessToken: string): Promise<archivos.Archi
     if (!response.ok) {
         const errorText = await response.text();
         console.error('[fetchArchivos] Error:', { status: response.status, statusText: response.statusText, body: errorText });
-        try { const errData = JSON.parse(errorText); throw new Error(errData.message || errData.error || errorText); } catch (e) { if (e instanceof Error && e.message !== errorText) throw e; throw new Error(errorText || response.statusText); }
+        throwApiError(errorText, response);
     }
 
     const data: ArchivoDTO[] = await response.json();
@@ -294,7 +294,7 @@ export async function uploadArchivoR2(uploadUrl: string, fileUri: string, mimeTy
         if (!response.ok) {
             const errorText = await response.text();
             console.error('Error en R2:', { status: response.status, statusText: response.statusText, body: errorText });
-            try { const errData = JSON.parse(errorText); throw new Error(errData.message || errData.error || errorText); } catch (e) { if (e instanceof Error && e.message !== errorText) throw e; throw new Error(errorText || response.statusText); }
+            throwApiError(errorText, response);
         }
 
     } catch (error) {

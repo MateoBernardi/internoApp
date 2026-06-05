@@ -1,4 +1,5 @@
 import { apiRequest, throwApiError } from "@/shared/apiRequest";
+import { deriveIdempotencyKey, idempotencyHeaders } from "@/shared/idempotency";
 import type { ApiOperationResult, ApiOperationStatus, ApiWarningDetail } from '@/shared/types/apiStatus';
 import type { ArchivoDTO } from "../dto/ArchivoDTO";
 import { mapArchivoDTOToArchivo } from "../mappers/archivoMapper";
@@ -338,7 +339,8 @@ export async function confirmarUploadArchivo(accessToken: string, archivoData: a
 
 export async function uploadArchivo(
     accessToken: string,
-    items: archivos.ArchivoAProcesar[]
+    items: archivos.ArchivoAProcesar[],
+    idempotencyKey?: string
 ): Promise<{ exitosos: ApiOperationResult<archivos.Archivo>[], fallidos: any[] }> {
     try {
         // 1. Preparar el payload con todos los archivos para pedir las URLs de golpe
@@ -368,11 +370,15 @@ export async function uploadArchivo(
                 tipo: contentType,
             };
 
+            // Cada archivo del lote lleva su PROPIA key idempotente derivada de
+            // la key base (estable entre reintentos, única por archivo) para que
+            // un backend idempotente no deduplique archivos distintos como uno.
             const metadataResponse = await apiRequest({
                 method: 'POST',
                 endpoint: '/archivos/metadata',
                 token: accessToken,
-                body: payloadConfirmacion
+                body: payloadConfirmacion,
+                headers: idempotencyHeaders(deriveIdempotencyKey(idempotencyKey, index))
             });
 
             if (!metadataResponse.ok) {

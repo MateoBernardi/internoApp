@@ -1,4 +1,5 @@
 import { useAuth } from '@/features/auth/context/AuthContext';
+import { IDEMPOTENT_MUTATION_RETRY } from '@/shared/idempotency';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { solicitudesQueryKeys } from '../../solicitudesActividades/viewmodels/useSolicitudes';
 import type { CreateObjetivo, Invitado, Objetivo, UpdateObjetivo } from '../models/Objetivo';
@@ -37,7 +38,7 @@ export function useObjetivos() {
 /**
  * Hook para crear un nuevo objetivo
  */
-export function useCreateObjetivo() {
+export function useCreateObjetivo(idempotencyKey?: string) {
     const queryClient = useQueryClient();
     const { tokens } = useAuth();
 
@@ -47,7 +48,7 @@ export function useCreateObjetivo() {
             if (!token) {
                 throw new Error('No hay token de acceso');
             }
-            return createObjetivo(token, data);
+            return createObjetivo(token, data, idempotencyKey);
         },
         onSuccess: (newObjetivo) => {
             // Actualizar el cache agregando el nuevo objetivo
@@ -58,6 +59,8 @@ export function useCreateObjetivo() {
                 queryKey: solicitudesQueryKeys.all,
             });
         },
+        // Reintentos seguros: el mismo X-Idempotency-Key viaja en cada intento.
+        ...IDEMPOTENT_MUTATION_RETRY,
     });
 }
 

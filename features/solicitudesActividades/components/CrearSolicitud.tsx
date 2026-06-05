@@ -7,6 +7,7 @@ import { useAuth } from '@/features/auth/context/AuthContext';
 import { ArchivoUso } from '@/features/docs/models/Archivo';
 import { useUploadArchivo } from '@/features/docs/viewmodels/useArchivos';
 import { ApiOperationResult } from '@/shared/types/apiStatus';
+import { useIdempotencyKey } from '@/shared/useIdempotencyKey';
 import { UserSummary } from '@/shared/users/User';
 import { adminRoles, allRoles } from '@/shared/users/roles';
 import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
@@ -67,7 +68,12 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
   const isKeyboardOpen = keyboardHeight > 0;
 
   const ignoreDatePressUntilRef = useRef(0);
-  const { mutate: crearSolicitud, isPending } = useCrearSolicitud();
+  // UUID v4 generado UNA vez al montar el formulario. Persiste entre re-renders,
+  // por lo que los reintentos automáticos de TanStack Query reutilizan la misma
+  // X-Idempotency-Key. Se regenera cuando comienza una operación lógica nueva
+  // (tras crear con éxito, o antes de forzar la creación ante un conflicto).
+  const { idempotencyKey, regenerateIdempotencyKey } = useIdempotencyKey();
+  const { mutate: crearSolicitud, isPending } = useCrearSolicitud(idempotencyKey);
   const { data: searchResults, isLoading: isSearchingUsers } = useSearchUsers(searchQuery);
   const { data: roleUsersData, isLoading: isLoadingRole } = useGetUserByRole(activeRole);
 
@@ -75,8 +81,8 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
   const isLoadingUsers = isSearchingUsers || isLoadingRole;
   const isConsejo = (user?.rol_nombre ?? '').toLowerCase() === 'consejo';
 
-  const [, setIsUploadingFile] = useState(false);
-  const { mutateAsync: uploadArchivo } = useUploadArchivo();
+  const [isUploadingFile, setIsUploadingFile] = useState(false);
+  const { mutateAsync: uploadArchivo } = useUploadArchivo(idempotencyKey);
   const { alertModal, showModal, closeAlert } = useAlertModal();
   const { pickedFiles, setPickedFiles, handleTakePhoto, handleSeleccionarArchivo } = useFilePicker({ showModal });
 
@@ -261,6 +267,12 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
       onSuccess: (response: CrearSolicitudResponse) => {
         if (!response.success && (response.rangosOcupados?.length ?? 0) > 0) {
           setBackendRangosOcupados(response.rangosOcupados ?? []);
+          // El backend rechazó por solapamientos. Si el usuario fuerza la
+          // creación (crear_de_todos_modos), es una operación lógica nueva:
+          // renovamos la key para que un backend idempotente no devuelva la
+          // respuesta cacheada de conflicto. El re-render ocurre antes de que el
+          // usuario confirme el modal, así que la nueva key ya estará vigente.
+          regenerateIdempotencyKey();
           return;
         }
 
@@ -270,13 +282,18 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
           showModal('Éxito', 'Solicitud creada correctamente');
         }
         handleClose();
+        // Próxima solicitud = nueva operación lógica = nueva key.
+        regenerateIdempotencyKey();
       },
       onError: (error: any) => {
+        // No regeneramos la key en error: si el fallo fue un timeout donde el
+        // servidor sí procesó la solicitud, un reintento del usuario con la
+        // misma key permite que el backend deduplique en lugar de duplicar.
         const msg = error instanceof Error ? error.message : 'Intenta nuevamente';
         showModal('Error', msg);
       },
     });
-  }, [crearSolicitud, handleClose, showModal]);
+  }, [crearSolicitud, handleClose, showModal, regenerateIdempotencyKey]);
 
   const forceCreateSolicitud = useCallback(() => {
     if (!pendingPayload) return;
@@ -594,13 +611,27 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
             </ScrollView>
 
             <View style={[styles.uploadButtonContainer]}>
-              <TouchableOpacity
-                onPress={handleCrearSolicitud}
-                style={[styles.uploadButton, { backgroundColor: isFormValid ? Colors['light'].componentBackground : Colors['light'].componentBackground }]}
-              >
-                <Ionicons name="cloud-upload" size={20} color={isFormValid ? Colors['light'].lightTint : Colors['light'].icon} />
-                <ThemedText style={styles.uploadButtonText}>{'Enviar'}</ThemedText>
-              </TouchableOpacity>
+              {(() => {
+                // `isPending` permanece true durante TODOS los reintentos de
+                // TanStack Query, por lo que el botón no se desbloquea mientras
+                // un reintento corre en segundo plano. Sumamos la subida de
+                // archivos (paso previo) y la validez del formulario.
+                const isBusy = isPending || isUploadingFile;
+                const isDisabled = isBusy || !isFormValid;
+                return (
+                  <TouchableOpacity
+                    onPress={handleCrearSolicitud}
+                    disabled={isDisabled}
+                    accessibilityState={{ disabled: isDisabled, busy: isBusy }}
+                    style={[styles.uploadButton, { opacity: isDisabled ? 0.5 : 1 }]}
+                  >
+                    <Ionicons name="cloud-upload" size={20} color={isFormValid ? Colors['light'].lightTint : Colors['light'].icon} />
+                    <ThemedText style={styles.uploadButtonText}>
+                      {isBusy ? 'Enviando…' : 'Enviar'}
+                    </ThemedText>
+                  </TouchableOpacity>
+                );
+              })()}
             </View>
 
             {showDatePicker && (

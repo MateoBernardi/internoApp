@@ -1,4 +1,5 @@
 import { apiRequest } from "@/shared/apiRequest";
+import { idempotencyHeaders } from "@/shared/idempotency";
 import {
     mapActividadDTOToDetalle,
     mapActividadesPorPeriodoDTOToResponse,
@@ -34,9 +35,9 @@ async function extractErrorText(response: Response): Promise<string> {
     }
 }
 
-export async function createActividad(accessToken: string, data: actividades.CrearActividadRequest): Promise<actividades.CrearActividadResponse> {
+export async function createActividad(accessToken: string, data: actividades.CrearActividadRequest, idempotencyKey?: string): Promise<actividades.CrearActividadResponse> {
     const payload = mapCrearActividadRequestToDTO(data);
-    const response = await apiRequest({ method: "PUT", endpoint: "/solicitudes-actividades/actividades/crear", token: accessToken, body: payload });
+    const response = await apiRequest({ method: "PUT", endpoint: "/solicitudes-actividades/actividades/crear", token: accessToken, body: payload, headers: idempotencyHeaders(idempotencyKey) });
     if (!response.ok) {
         const errorMsg = await extractErrorText(response);
         console.error("Error en createActividad:", response.status, errorMsg);

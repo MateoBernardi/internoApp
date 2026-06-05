@@ -1,4 +1,5 @@
 import { apiRequest } from "@/shared/apiRequest";
+import { idempotencyHeaders } from "@/shared/idempotency";
 import type { CreateObjetivo, Invitado, Objetivo, UpdateObjetivo } from "../models/Objetivo";
 
 export async function fetchObjetivos(accessToken: string): Promise<Objetivo[]> {
@@ -15,9 +16,10 @@ export async function fetchObjetivos(accessToken: string): Promise<Objetivo[]> {
 
 export async function createObjetivo(
     accessToken: string,
-    data: CreateObjetivo
+    data: CreateObjetivo,
+    idempotencyKey?: string
 ): Promise<Objetivo> {
-    const response = await apiRequest({ method: 'POST', endpoint: '/kanban', token: accessToken, body: data });
+    const response = await apiRequest({ method: 'POST', endpoint: '/kanban', token: accessToken, body: data, headers: idempotencyHeaders(idempotencyKey) });
 
     if (!response.ok) {
         const errData = await response.json().catch(() => ({}));

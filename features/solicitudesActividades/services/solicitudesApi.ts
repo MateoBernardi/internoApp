@@ -2,6 +2,7 @@ import type { ArchivoDTO } from '@/features/docs/dto/ArchivoDTO';
 import { mapArchivoDTOToArchivo } from '@/features/docs/mappers/archivoMapper';
 import type { Archivo } from '@/features/docs/models/Archivo';
 import { apiRequest, throwApiError } from '@/shared/apiRequest';
+import { idempotencyHeaders } from '@/shared/idempotency';
 import type {
     CreateSolicitudResult,
     SolicitudBitacoraDTO,
@@ -30,10 +31,10 @@ async function extractErrorText(response: Response): Promise<string> {
     }
 }
 
-export async function crearSolicitud(accessToken: string, data: solicitudes.CrearSolicitudRequest): Promise<solicitudes.CrearSolicitudResponse> {
+export async function crearSolicitud(accessToken: string, data: solicitudes.CrearSolicitudRequest, idempotencyKey?: string): Promise<solicitudes.CrearSolicitudResponse> {
     const dto = mapCrearSolicitudRequestToSolicitudDTO(data);
     const payload = mapSolicitudDTOToCreatePayload(dto);
-    const response = await apiRequest({ method: 'POST', endpoint: '/solicitudes-actividades/solicitudes', token: accessToken, body: payload });
+    const response = await apiRequest({ method: 'POST', endpoint: '/solicitudes-actividades/solicitudes', token: accessToken, body: payload, headers: idempotencyHeaders(idempotencyKey) });
 
     if (!response.ok) {
         const errorMsg = await extractErrorText(response);
@@ -134,9 +135,9 @@ export async function obtenerMisInvitaciones(accessToken: string): Promise<solic
     return data.map(mapSolicitudInfoDTOToSolicitudEnviada);
 }
 
-export async function actualizarEstadoInvitacion(accessToken: string, data: solicitudes.ActualizarEstadoInvitacionRequest): Promise<solicitudes.ActualizarEstadoInvitacionResponse> {
+export async function actualizarEstadoInvitacion(accessToken: string, data: solicitudes.ActualizarEstadoInvitacionRequest, idempotencyKey?: string): Promise<solicitudes.ActualizarEstadoInvitacionResponse> {
     const payload = mapUpdateSolicitudRequestToPayload(data);
-    const response = await apiRequest({ method: 'PUT', endpoint: `/solicitudes-actividades/solicitudes/update`, token: accessToken, body: payload });
+    const response = await apiRequest({ method: 'PUT', endpoint: `/solicitudes-actividades/solicitudes/update`, token: accessToken, body: payload, headers: idempotencyHeaders(idempotencyKey) });
 
     if (!response.ok) {
         const errorMsg = await extractErrorText(response);

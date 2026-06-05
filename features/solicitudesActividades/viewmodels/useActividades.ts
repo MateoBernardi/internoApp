@@ -1,4 +1,5 @@
 import { useAuth } from '@/features/auth/context/AuthContext';
+import { IDEMPOTENT_MUTATION_RETRY } from '@/shared/idempotency';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as actividadesModels from '../models/Actividad';
 import * as actividadesApi from '../services/actividadesApi';
@@ -97,7 +98,7 @@ export function useActividadById(actividadId?: number) {
 /**
  * Hook para crear una nueva actividad (con actualización optimista)
  */
-export function useCrearActividad() {
+export function useCrearActividad(idempotencyKey?: string) {
   const { tokens } = useAuth();
   const queryClient = useQueryClient();
 
@@ -107,7 +108,7 @@ export function useCrearActividad() {
       if (!accessToken) {
         throw new Error('No access token available');
       }
-      return actividadesApi.createActividad(accessToken, data);
+      return actividadesApi.createActividad(accessToken, data, idempotencyKey);
     },
     onSettled: () => {
       // Siempre revalidar con el servidor
@@ -118,8 +119,9 @@ export function useCrearActividad() {
         queryKey: solicitudesQueryKeys.all,
       });
     },
-    retry: 3,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    // Reintentos seguros gracias a la idempotency key: ante un blip de red o un
+    // 5xx transitorio, el mismo X-Idempotency-Key viaja en cada reintento.
+    ...IDEMPOTENT_MUTATION_RETRY,
   });
 }
 

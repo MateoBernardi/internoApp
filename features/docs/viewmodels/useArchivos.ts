@@ -1,4 +1,5 @@
 import { useAuth } from '@/features/auth/context/AuthContext';
+import { IDEMPOTENT_MUTATION_RETRY } from '@/shared/idempotency';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Archivo, ArchivoAProcesar, UpdateArchivoPayload } from '../models/Archivo';
 import { CarpetaView, CreateCarpetaPayload, UpdateCarpetaPayload } from '../models/Carpeta';
@@ -135,7 +136,7 @@ export function useDeleteArchivo() {
     });
 }
 
-export function useUploadArchivo() {
+export function useUploadArchivo(idempotencyKey?: string) {
     const { tokens } = useAuth();
     const queryClient = useQueryClient();
 
@@ -143,11 +144,15 @@ export function useUploadArchivo() {
         mutationFn: async ({ item }: { item: ArchivoAProcesar[] }) => {
             const token = tokens?.accessToken;
             if (!token) throw new Error("No authentification token found");
-            return archivosApi.uploadArchivo(token, item);
+            // Cada archivo del lote recibe una sub-key derivada (`${key}:${index}`)
+            // dentro del servicio, estable entre reintentos.
+            return archivosApi.uploadArchivo(token, item, idempotencyKey);
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ARCHIVOS_KEYS.all });
-        }
+        },
+        // Reintentos seguros: las sub-keys por archivo viajan en cada intento.
+        ...IDEMPOTENT_MUTATION_RETRY,
     });
 }
 

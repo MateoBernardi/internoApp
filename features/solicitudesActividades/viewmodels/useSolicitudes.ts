@@ -1,4 +1,5 @@
 import { useAuth } from '@/features/auth/context/AuthContext';
+import { IDEMPOTENT_MUTATION_RETRY } from '@/shared/idempotency';
 import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as solicitudModels from '../models/Solicitud';
 import * as solicitudesApi from '../services/solicitudesApi';
@@ -122,7 +123,7 @@ export function useChatArchivos(solicitudId: number, enabled: boolean) {
 /**
  * Hook para crear una nueva solicitud
  */
-export function useCrearSolicitud() {
+export function useCrearSolicitud(idempotencyKey?: string) {
   const { tokens } = useAuth();
   const queryClient = useQueryClient();
 
@@ -132,7 +133,7 @@ export function useCrearSolicitud() {
       if (!accessToken) {
         throw new Error('No access token available');
       }
-      return solicitudesApi.crearSolicitud(accessToken, data);
+      return solicitudesApi.crearSolicitud(accessToken, data, idempotencyKey);
     },
     onSuccess: () => {
       // Invalidar las solicitudes creadas para refrescar la lista
@@ -140,6 +141,8 @@ export function useCrearSolicitud() {
         queryKey: solicitudesQueryKeys.all,
       });
     },
+    // Reintentos seguros: el mismo X-Idempotency-Key viaja en cada intento.
+    ...IDEMPOTENT_MUTATION_RETRY,
   });
 }
 
@@ -236,7 +239,7 @@ export function useOcultarSolicitudInvitado() {
 /**
  * Hook para actualizar el estado de una invitación (aceptar, rechazar, etc.)
  */
-export function useActualizarEstadoInvitacion() {
+export function useActualizarEstadoInvitacion(idempotencyKey?: string) {
   const { tokens } = useAuth();
   const queryClient = useQueryClient();
 
@@ -246,7 +249,7 @@ export function useActualizarEstadoInvitacion() {
       if (!accessToken) {
         throw new Error('No access token available');
       }
-      return solicitudesApi.actualizarEstadoInvitacion(accessToken, data);
+      return solicitudesApi.actualizarEstadoInvitacion(accessToken, data, idempotencyKey);
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
@@ -257,6 +260,8 @@ export function useActualizarEstadoInvitacion() {
         queryKey: solicitudesQueryKeys.all,
       });
     },
+    // Reintentos seguros: el mismo X-Idempotency-Key viaja en cada intento.
+    ...IDEMPOTENT_MUTATION_RETRY,
   });
 }
 

@@ -16,6 +16,7 @@ interface RequestOptions {
   body?: any;      // Opcional
   signal?: AbortSignal; // Opcional
   entorno?: string; // Opcional, por defecto es "interno"
+  headers?: Record<string, string>; // Headers extra (p. ej. X-Idempotency-Key). Opcional
 }
 
 async function getAuthSessionService() {
@@ -65,12 +66,21 @@ function buildRequestInit(
   token: string,
   body: RequestOptions['body'],
   signal?: AbortSignal,
-  entorno = 'interno'
+  entorno = 'interno',
+  extraHeaders?: Record<string, string>
 ): RequestInit {
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
     'x-app-entorno': entorno,
   };
+
+  // Headers extra provistos por el servicio (p. ej. idempotencia). Se aplican
+  // antes de Authorization para que nunca puedan sobrescribir el token.
+  if (extraHeaders) {
+    for (const [key, value] of Object.entries(extraHeaders)) {
+      headers[key] = value;
+    }
+  }
 
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
@@ -107,11 +117,12 @@ export async function apiRequest({
   body,
   signal,
   entorno = "interno",
+  headers,
 }: RequestOptions): Promise<Response> {
   const fullUrl = `${API_BASE_URL}${endpoint}`;
 
   const executeFetch = async (activeToken: string): Promise<Response> => {
-    const options = buildRequestInit(method, activeToken, body, signal, entorno);
+    const options = buildRequestInit(method, activeToken, body, signal, entorno, headers);
     return fetch(fullUrl, options);
   };
 

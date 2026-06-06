@@ -1,17 +1,14 @@
 import { AlertModal, type AlertModalAction } from '@/components/AlertModal';
-import { FilePreview, useOpenFilePreview } from '@/components/filePreview';
+import { FilePreview, getExt, useOpenFilePreview } from '@/components/filePreview';
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
-import { DocsList, PendingFile } from '@/features/docs/components/DocsList';
-import { Archivo, ArchivoUso } from '@/features/docs/models/Archivo';
-import { useUploadArchivo } from '@/features/docs/viewmodels/useArchivos';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
-import { ApiOperationResult } from '@/shared/types/apiStatus';
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
-import * as DocumentPicker from 'expo-document-picker';
-import React, { useCallback, useEffect, useState } from 'react';
+import { Image } from 'expo-image';
+import type * as ImagePickerTypes from 'expo-image-picker';
+import React, { useCallback, useState } from 'react';
 import {
 	Alert,
 	ActivityIndicator,
@@ -25,8 +22,15 @@ import {
 	TouchableOpacity,
 	View,
 } from 'react-native';
-import { EstadoReporte, Reporte } from '../models/Reporte';
-import { useArchivoReporte, useUpdateReporte } from '../viewmodels/useReportes';
+import { EstadoReporte, Reporte, ReporteImagen } from '../models/Reporte';
+import { useReporteImagenes, useUnlinkReporteImage, useUpdateReporte, useUploadReporteImage } from '../viewmodels/useReportes';
+
+let ImagePicker: typeof ImagePickerTypes | null = null;
+try {
+	ImagePicker = require('expo-image-picker');
+} catch {
+	console.warn('expo-image-picker native module not available. Image picking will be disabled.');
+}
 
 interface ReporteModalProps {
 	visible: boolean;
@@ -41,9 +45,7 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 	const { mutate: updateReporte, isPending } = useUpdateReporte();
 	const { hasRole } = useRoleCheck();
 	const { user } = useAuth();
-	const { mutateAsync: uploadArchivo } = useUploadArchivo();
-	const archivoMutation = useArchivoReporte();
-	const { previewFile, openFile, closePreview } = useOpenFilePreview();
+	const { previewFile, openWithUri, closePreview } = useOpenFilePreview();
 
 	// ── Estado: formulario de actualización ──────────────────────────────────
 	const [nuevoEstado, setNuevoEstado] = useState<EstadoReporte | null>(null);
@@ -55,18 +57,11 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 		actions: AlertModalAction[];
 	}>({ visible: false, title: '', message: undefined, actions: [] });
 
-	// ── Estado: archivos ─────────────────────────────────────────────────────
-	const [localArchivos, setLocalArchivos] = useState<Archivo[]>([]);
-	const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
-	const [isUploadingFile, setIsUploadingFile] = useState(false);
-
-	useEffect(() => {
-		if (!visible) {
-			setPendingFiles([]);
-			return;
-		}
-		setLocalArchivos(reporte.archivos ?? []);
-	}, [visible, reporte.archivos]);
+	// ── Estado: imágenes ─────────────────────────────────────────────────────
+	const { data: imagenes = [], isLoading: imagenesLoading } = useReporteImagenes(visible ? reporte.id : undefined);
+	const { mutateAsync: uploadImagen } = useUploadReporteImage();
+	const { mutateAsync: unlinkImagen } = useUnlinkReporteImage();
+	const [isUploadingImage, setIsUploadingImage] = useState(false);
 
 	// ── Permisos ─────────────────────────────────────────────────────────────
 	const isReporteFinal = reporte.estado === 'ASENTADO' || reporte.estado === 'DESESTIMADO';
@@ -96,94 +91,92 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 		});
 	}, []);
 
-	// ── Archivos ─────────────────────────────────────────────────────────────
+	// ── Imágenes ─────────────────────────────────────────────────────────────
+	// Solo imágenes (por decisión); se suben/listan vía el sistema reportesImagenes.
 
-	const isSuccess = <T,>(r: ApiOperationResult<T>): r is ApiOperationResult<T> & { data: T } =>
-		r.status === 'success' && r.data !== undefined;
-
-	const handleSeleccionarArchivo = async () => {
+	const uploadAsset = useCallback(async (asset: ImagePickerTypes.ImagePickerAsset) => {
+		const ext = asset.uri.split('.').pop() ?? 'jpg';
+		const name = asset.fileName ?? `imagen_${Date.now()}.${ext}`;
+		const mimeType = asset.mimeType ?? `image/${ext}`;
+		setIsUploadingImage(true);
 		try {
-			const result = await DocumentPicker.getDocumentAsync({
-				multiple: true,
-				type: '*/*',
-				copyToCacheDirectory: true,
+			await uploadImagen({
+				reporteId: reporte.id,
+				fileUri: asset.uri,
+				fileName: name,
+				mimeType,
+				description: 'Imagen de reporte',
+				orden: imagenes.length,
 			});
-			if (result.canceled || !result.assets || result.assets.length === 0) return;
-
-			const nuevosArchivos: PendingFile[] = result.assets.map((asset) => ({
-				name: asset.name,
-				uri: asset.uri,
-				type: asset.mimeType ?? 'application/octet-stream',
-				size: asset.size,
-			}));
-
-			setPendingFiles((prev) => [...prev, ...nuevosArchivos]);
-			setIsUploadingFile(true);
-
-			try {
-				const response = await uploadArchivo({
-					item: nuevosArchivos.map((file) => ({
-						archivo: { uri: file.uri, name: file.name, type: file.type, size: file.size },
-						archivoData: {
-							nombre: file.name,
-							tamaño: file.size,
-							tipo: file.type,
-							uso: ArchivoUso.TAREA,
-						},
-					})),
-				});
-
-				const resultados = response?.exitosos ?? [];
-				const fallidos = response?.fallidos ?? [];
-				const validos = resultados.filter(isSuccess);
-				const nuevosIds = validos.map((r) => r.data.id);
-				const nuevosArchivosData = validos.map((r) => r.data) as Archivo[];
-
-				if (validos.length === 0) {
-					Alert.alert('Error de archivos', 'No se pudo subir ningún archivo.');
-				} else if (fallidos.length > 0) {
-					Alert.alert('Archivos parciales', `Se subieron ${validos.length} de ${nuevosArchivos.length}`);
-				}
-
-				if (nuevosIds.length > 0) {
-					setLocalArchivos((prev) => [...prev, ...nuevosArchivosData]);
-					await archivoMutation.mutateAsync({ id: reporte.id, action: 'add', archivosIds: nuevosIds });
-				}
-			} catch {
-				Alert.alert('Error de archivos', 'No se pudieron subir los archivos.');
-			} finally {
-				setIsUploadingFile(false);
-				setPendingFiles((prev) =>
-					prev.filter((file) => !nuevosArchivos.some((nuevo) => nuevo.uri === file.uri))
-				);
-			}
-		} catch {
-			Alert.alert('Error', 'No se pudo seleccionar el documento. Intentá nuevamente.');
+		} catch (error: any) {
+			Alert.alert('Error', error?.message ?? 'No se pudo subir la imagen.');
+		} finally {
+			setIsUploadingImage(false);
 		}
-	};
+	}, [uploadImagen, reporte.id, imagenes.length]);
 
-	const handleOpenArchivo = (archivoId: number) => {
-		const archivo = localArchivos.find(a => a.id === archivoId);
-		if (!archivo) {
-			Alert.alert('Error', 'No se pudo encontrar el archivo');
+	const handlePickFromGallery = useCallback(async () => {
+		if (!ImagePicker) {
+			Alert.alert('No disponible', 'El selector de imágenes no está disponible.');
 			return;
 		}
-		void openFile(archivo);
-	};
+		const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+		if (status !== 'granted') {
+			Alert.alert('Permiso denegado', 'Se necesita acceso a la galería para adjuntar imágenes.');
+			return;
+		}
+		const result = await ImagePicker.launchImageLibraryAsync({
+			mediaTypes: 'images',
+			allowsMultipleSelection: false,
+			quality: 0.8,
+		});
+		if (!result.canceled && result.assets.length > 0) {
+			await uploadAsset(result.assets[0]);
+		}
+	}, [uploadAsset]);
 
-	const handleRemoveArchivo = (archivoId: number) => {
-		Alert.alert('Eliminar archivo', '¿Querés quitar este archivo?', [
+	const handleTakePhoto = useCallback(async () => {
+		if (!ImagePicker) {
+			Alert.alert('No disponible', 'La cámara no está disponible.');
+			return;
+		}
+		const { status } = await ImagePicker.requestCameraPermissionsAsync();
+		if (status !== 'granted') {
+			Alert.alert('Permiso denegado', 'Se necesita acceso a la cámara para tomar fotos.');
+			return;
+		}
+		const result = await ImagePicker.launchCameraAsync({
+			mediaTypes: 'images',
+			quality: 0.8,
+		});
+		if (!result.canceled && result.assets.length > 0) {
+			await uploadAsset(result.assets[0]);
+		}
+	}, [uploadAsset]);
+
+	const handleOpenImagen = useCallback((img: ReporteImagen) => {
+		openWithUri({
+			id: String(img.image_id),
+			kind: 'image',
+			name: img.imagen_descripcion || `Imagen ${img.orden + 1}`,
+			ext: getExt(undefined, img.url),
+			uri: img.url,
+		});
+	}, [openWithUri]);
+
+	const handleRemoveImagen = useCallback((img: ReporteImagen) => {
+		Alert.alert('Eliminar imagen', '¿Querés quitar esta imagen?', [
 			{ text: 'Cancelar', style: 'cancel' },
 			{
 				text: 'Eliminar',
 				style: 'destructive',
 				onPress: () => {
-					setLocalArchivos((prev) => prev.filter((a) => a.id !== archivoId));
-					void archivoMutation.mutateAsync({ id: reporte.id, action: 'remove', archivosIds: [archivoId] });
+					unlinkImagen({ reporteId: reporte.id, imageId: img.image_id, orden: img.orden })
+						.catch((error: any) => Alert.alert('Error', error?.message ?? 'No se pudo eliminar la imagen.'));
 				},
 			},
 		]);
-	};
+	}, [unlinkImagen, reporte.id]);
 
 	// ── Actualización de estado ───────────────────────────────────────────────
 
@@ -349,25 +342,63 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 								<ThemedText style={styles.descriptionText}>{reporte.descripcion}</ThemedText>
 							</View>
 
-							{/* Archivos enlazados */}
+							{/* Imágenes del reporte */}
 							<View style={styles.section}>
 								<View style={styles.sectionHeaderRow}>
-									<ThemedText style={styles.sectionLabel}>Archivos enlazados</ThemedText>
+									<ThemedText style={styles.sectionLabel}>Imágenes</ThemedText>
 									{canManageFiles && (
-										<TouchableOpacity style={styles.actionButton} onPress={handleSeleccionarArchivo}>
-											<Ionicons name="add" size={14} color={colors.lightTint} />
-											<Text style={styles.actionButtonText}>
-												{isUploadingFile ? 'Subiendo...' : 'Agregar'}
-											</Text>
-										</TouchableOpacity>
+										<View style={styles.imagePickerRow}>
+											<TouchableOpacity
+												style={styles.actionButton}
+												onPress={handlePickFromGallery}
+												disabled={isUploadingImage}
+											>
+												<Ionicons name="image-outline" size={14} color={colors.lightTint} />
+												<Text style={styles.actionButtonText}>Galería</Text>
+											</TouchableOpacity>
+											<TouchableOpacity
+												style={styles.actionButton}
+												onPress={handleTakePhoto}
+												disabled={isUploadingImage}
+											>
+												<Ionicons name="camera-outline" size={14} color={colors.lightTint} />
+												<Text style={styles.actionButtonText}>Cámara</Text>
+											</TouchableOpacity>
+										</View>
 									)}
 								</View>
-								<DocsList
-									archivos={localArchivos}
-									pendingFiles={pendingFiles}
-									onOpen={handleOpenArchivo}
-									onRemove={canManageFiles ? handleRemoveArchivo : undefined}
-								/>
+
+								{imagenesLoading ? (
+									<ActivityIndicator color={colors.lightTint} style={{ marginVertical: 12 }} />
+								) : imagenes.length === 0 ? (
+									<ThemedText style={styles.emptyText}>No hay imágenes.</ThemedText>
+								) : (
+									<View style={styles.imageGrid}>
+										{imagenes.map((img) => (
+											<View key={img.id} style={styles.imageThumbWrap}>
+												<TouchableOpacity onPress={() => handleOpenImagen(img)} activeOpacity={0.85}>
+													<Image source={{ uri: img.url }} style={styles.imageThumb} contentFit="cover" />
+												</TouchableOpacity>
+												{canManageFiles && (
+													<TouchableOpacity
+														style={styles.imageRemoveBtn}
+														onPress={() => handleRemoveImagen(img)}
+														disabled={isUploadingImage}
+													>
+														<Ionicons name="close-circle" size={22} color={colors.error} />
+													</TouchableOpacity>
+												)}
+											</View>
+										))}
+									</View>
+								)}
+
+								{isUploadingImage && (
+									<View style={styles.uploadingRow}>
+										<ActivityIndicator size="small" color={colors.lightTint} />
+										<ThemedText style={styles.uploadingText}>Subiendo imagen...</ThemedText>
+									</View>
+								)}
 							</View>
 
 							{/* Acciones del formulario */}
@@ -512,6 +543,45 @@ const styles = StyleSheet.create({
 		fontSize: 12,
 		fontWeight: '700',
 		color: colors.lightTint,
+	},
+	imagePickerRow: {
+		flexDirection: 'row',
+		gap: 8,
+	},
+	emptyText: {
+		fontSize: 13,
+		color: colors.secondaryText,
+	},
+	imageGrid: {
+		flexDirection: 'row',
+		flexWrap: 'wrap',
+		gap: 10,
+	},
+	imageThumbWrap: {
+		position: 'relative',
+	},
+	imageThumb: {
+		width: 90,
+		height: 90,
+		borderRadius: 8,
+		backgroundColor: '#f3f4f6',
+	},
+	imageRemoveBtn: {
+		position: 'absolute',
+		top: -8,
+		right: -8,
+		backgroundColor: '#fff',
+		borderRadius: 11,
+	},
+	uploadingRow: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 8,
+		marginTop: 10,
+	},
+	uploadingText: {
+		fontSize: 13,
+		color: colors.secondaryText,
 	},
 	formGroup: {
 		marginBottom: 16,

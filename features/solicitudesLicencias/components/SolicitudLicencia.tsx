@@ -2,6 +2,7 @@ import { ThemedText } from '@/components/themed-text';
 import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
+import { DocsList } from '@/features/docs/components/DocsList';
 import { ArchivoUso } from '@/features/docs/models/Archivo';
 import { useArchivoUrl, useUploadArchivo } from '@/features/docs/viewmodels/useArchivos';
 import { Ionicons } from '@expo/vector-icons';
@@ -471,27 +472,10 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
                     <ThemedText style={styles.sectionTitle}>Archivos Adjuntos</ThemedText>
                   </View>
                   <View style={styles.filesContainer}>
-                    {solicitud.archivos.map((archivo) => (
-                      <TouchableOpacity
-                        key={archivo.id}
-                        style={styles.fileItem}
-                        onPress={() => handleOpenFile(archivo.id)}
-                        disabled={isLoadingUrl && selectedArchivoId === archivo.id}
-                      >
-                        {isLoadingUrl && selectedArchivoId === archivo.id ? (
-                          <ActivityIndicator size="small" color={colors.lightTint} />
-                        ) : (
-                          <Ionicons name="document-outline" size={20} color={colors.lightTint} />
-                        )}
-                        <View style={{ flex: 1, marginHorizontal: 8 }}>
-                          <ThemedText numberOfLines={1}>{archivo.nombre}</ThemedText>
-                          <ThemedText style={[styles.smallText, { color: colors.secondaryText }]}>
-                            {(archivo.tamaño / 1024).toFixed(2)} KB
-                          </ThemedText>
-                        </View>
-                        <Ionicons name="open-outline" size={18} color={colors.secondaryText} />
-                      </TouchableOpacity>
-                    ))}
+                    <DocsList
+                      archivos={solicitud.archivos}
+                      onOpen={handleOpenFile}
+                    />
                   </View>
                 </>
               )}
@@ -815,13 +799,6 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
   },
   filesContainer: {
     padding: 16,
-  },
-  fileItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.background,
   },
   smallText: {
     fontSize: 11,

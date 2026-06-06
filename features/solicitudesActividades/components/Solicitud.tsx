@@ -28,6 +28,14 @@ import {
 import { UserSelector } from '../../../components/UserSelector';
 import { useCreateObjetivo } from '../../kanban/hooks/useObjetivos';
 import type { CreateObjetivo, Invitado } from '../../kanban/models/Objetivo';
+import { MESSAGE_STATES, formatDateDDMMYYYY, formatTimeHHMM } from '../conversacion/constants';
+import { useAdjuntos } from '../conversacion/hooks/useAdjuntos';
+import { useAlertModal } from '../conversacion/hooks/useAlertModal';
+import { useCompartirSelection } from '../conversacion/hooks/useCompartirSelection';
+import { useMarcarVisto } from '../conversacion/hooks/useMarcarVisto';
+import { useMessagesScroll } from '../conversacion/hooks/useMessagesScroll';
+import { useParticipantesManager } from '../conversacion/hooks/useParticipantesManager';
+import { conversacionStyles } from '../conversacion/styles';
 import {
   EstadoInvitacionDB,
   RangoOcupado,
@@ -43,14 +51,7 @@ import {
   useReenviarSolicitud,
   useSolicitudBitacora,
 } from '../viewmodels/useSolicitudes';
-import { MESSAGE_STATES, formatDateDDMMYYYY, formatTimeHHMM } from '../conversacion/constants';
-import { useAdjuntos } from '../conversacion/hooks/useAdjuntos';
-import { useAlertModal } from '../conversacion/hooks/useAlertModal';
-import { useCompartirSelection } from '../conversacion/hooks/useCompartirSelection';
-import { useMarcarVisto } from '../conversacion/hooks/useMarcarVisto';
-import { useMessagesScroll } from '../conversacion/hooks/useMessagesScroll';
-import { useParticipantesManager } from '../conversacion/hooks/useParticipantesManager';
-import { conversacionStyles } from '../conversacion/styles';
+import { ParticipantesBlock } from './ParticipantesBlock';
 import { RoleUserSelectionModal } from './RoleUserSelectionModal';
 import { ValidacionFechasModal } from './ValidacionFechasModal';
 
@@ -170,7 +171,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
     setParticipantesSearchQuery,
     participantesActiveRole, setParticipantesActiveRole,
     showParticipantesRoleModal, setShowParticipantesRoleModal,
-    participantesExpanded, setParticipantesExpanded,
+
     participantesSearchResults, isSearchingParticipantes,
     participantesRoleUsersData, isLoadingParticipantesRole,
     displayParticipantes,
@@ -190,16 +191,6 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
     solicitud.invitados.filter(inv => inv.user_id !== solicitud.created_by),
     [solicitud.invitados, solicitud.created_by],
   );
-
-  const participantesTexto = useMemo(() => {
-    const nombres = solicitud.invitados
-      .map(inv => [inv.invitado_nombre, inv.invitado_apellido].filter(Boolean).join(' ').trim())
-      .filter(Boolean);
-    const unicos = Array.from(new Set(nombres));
-    if (unicos.length === 0) return 'Sin participantes';
-    if (unicos.length <= 3) return unicos.join(', ');
-    return `${unicos.slice(0, 3).join(', ')} +${unicos.length - 3} personas`;
-  }, [solicitud.invitados]);
 
   const todosParticipantesIds = useMemo(() => {
     const ids = solicitud.invitados.map(inv => inv.user_id);
@@ -683,40 +674,17 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
               nestedScrollEnabled
             >
               {/* Participantes */}
-              <View style={styles.contentBlock}>
-                <ThemedText style={[styles.label, { marginTop: 4 }]}>
-                  Participantes: {participantesTexto}
-                </ThemedText>
-              </View>
-
-              {/* Título */}
-              <View style={styles.contentBlock}>
-                <ThemedText style={styles.label}>Asunto</ThemedText>
-                <ThemedText style={styles.sectionValue}>{solicitud.titulo}</ThemedText>
-                <View style={styles.badgeRow}>
-                  <View style={styles.chip}>
-                    <ThemedText style={styles.chipText}>
-                      {formatTipoActividad(solicitud.tipo_actividad)}
-                    </ThemedText>
-                  </View>
-                </View>
-              </View>
-
-              {/* Participantes */}
-              {isHost && (
-                <View style={styles.participantesSection}>
-                  <View style={styles.sectionHeaderRow}>
-                    <ThemedText style={styles.label}>Participantes</ThemedText>
-                    <TouchableOpacity
-                      style={styles.actionButton}
-                      onPress={() => setShowParticipantesSelector(p => !p)}
-                    >
-                      <Ionicons name="add" size={16} color={colors.tint} />
-                      <ThemedText style={styles.actionButtonText}>Agregar</ThemedText>
-                    </TouchableOpacity>
-                  </View>
-
-                  {showParticipantesSelector && (
+              <ParticipantesBlock
+                titulo={solicitud.titulo}
+                participantes={displayParticipantes.map(inv => ({
+                  id: inv.user_id,
+                  nombre: getParticipanteDisplayName(inv),
+                }))}
+                onRemove={isHost ? handleQuitarParticipante : undefined}
+                onAgregar={isHost ? () => setShowParticipantesSelector(p => !p) : undefined}
+                canManage={isHost}
+                extraContent={
+                  isHost && showParticipantesSelector ? (
                     <View style={styles.selectorCard}>
                       <UserSelector
                         selectedUsers={participantesSelectedUsers}
@@ -729,48 +697,20 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                         showSelectedChips={false}
                       />
                     </View>
-                  )}
+                  ) : null
+                }
+              />
 
-                  {displayParticipantes.length === 0 ? (
-                    <ThemedText style={{ color: colors.secondaryText, fontSize: 14 }}>Sin participantes</ThemedText>
-                  ) : (
-                    <>
-                      {(participantesExpanded ? displayParticipantes : displayParticipantes.slice(0, 2)).map((inv, idx) => (
-                        <View key={`${inv.user_id ?? idx}-${idx}`} style={styles.inviteRow}>
-                          <View style={styles.participanteAvatar}>
-                            <ThemedText style={styles.participanteAvatarText}>
-                              {getParticipanteDisplayName(inv).charAt(0).toUpperCase()}
-                            </ThemedText>
-                          </View>
-                          <ThemedText style={[styles.inviteName, { flex: 1 }]}>
-                            {getParticipanteDisplayName(inv)}
-                          </ThemedText>
-                          <TouchableOpacity onPress={() => handleQuitarParticipante(inv.user_id)}>
-                            <Ionicons name="close-circle" size={20} color="#9ca3af" />
-                          </TouchableOpacity>
-                        </View>
-                      ))}
-                      {displayParticipantes.length > 2 && (
-                        <TouchableOpacity
-                          onPress={() => setParticipantesExpanded(p => !p)}
-                          style={styles.collapsibleToggle}
-                        >
-                          <ThemedText style={styles.collapsibleToggleText}>
-                            {participantesExpanded
-                              ? 'Ver menos'
-                              : `+${displayParticipantes.length - 2} más`}
-                          </ThemedText>
-                          <Ionicons
-                            name={participantesExpanded ? 'chevron-up' : 'chevron-down'}
-                            size={14}
-                            color={colors.tint}
-                          />
-                        </TouchableOpacity>
-                      )}
-                    </>
-                  )}
+              {/* Título */}
+              <View style={styles.contentBlock}>
+                <View style={styles.badgeRow}>
+                  <View style={styles.chip}>
+                    <ThemedText style={styles.chipText}>
+                      {formatTipoActividad(solicitud.tipo_actividad)}
+                    </ThemedText>
+                  </View>
                 </View>
-              )}
+              </View>
 
               {/* Banner expirada */}
               {isExpiredState && (

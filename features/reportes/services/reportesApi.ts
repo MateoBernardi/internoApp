@@ -208,6 +208,29 @@ export async function unlinkReporteImage (
 }
 
 /**
+ * Agrega o elimina archivos (docs) vinculados a un reporte.
+ * PATCH /reportes/:id/archivos?action=add|remove
+ */
+export async function archivoReporte(
+    accessToken: string,
+    id: string | number,
+    action: 'add' | 'remove',
+    archivosIds: number[],
+): Promise<void> {
+    const response = await apiRequest({
+        method: 'PATCH',
+        endpoint: `/reportes/${id}/archivos?action=${action}`,
+        token: accessToken,
+        body: { archivosIds },
+    });
+
+    if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.message || errData.error || response.statusText);
+    }
+}
+
+/**
  * Actualiza el orden de una imagen dentro de un reporte.
  * PUT /reportesImagenes/update-order/:reporte_id/:image_id
  */

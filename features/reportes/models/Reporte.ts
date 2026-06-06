@@ -1,3 +1,5 @@
+import { Archivo } from '@/features/docs/models/Archivo';
+
 export type EstadoReporte = 'PENDIENTE' | 'DISPUTA' | 'ASENTADO' | 'DESESTIMADO';
 export type CategoriaReporte = 'NEGATIVO' | 'POSITIVO';
 
@@ -30,6 +32,7 @@ export interface Reporte {
     bitacora?: BitacoraItem[];
     /** URLs de imágenes asociadas al reporte (incluidas en GET /reportes) */
     imagenes?: string[];
+    archivos?: Archivo[];
 }
 
 /** Objeto de imagen con metadatos completos (de GET /reportesImagenes/:reporte_id) */

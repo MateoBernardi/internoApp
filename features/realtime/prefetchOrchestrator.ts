@@ -2,10 +2,6 @@ import { fetchArchivos } from '@/features/docs/services/archivosApi';
 import { fetchObjetivos } from '@/features/kanban/services/kanbanApi';
 import { fetchReportes } from '@/features/reportes/services/reportesApi';
 import {
-  getSolicitudesCreadas,
-  obtenerMisInvitaciones,
-} from '@/features/solicitudesActividades/services/solicitudesApi';
-import {
   getSaldosLicencia,
   getSolicitudesLicencias,
   getSolicitudesUsuario,
@@ -51,22 +47,9 @@ export async function prefetchCoreRealtimeData(
     })
   );
 
-  tasks.push(
-    queryClient.prefetchQuery({
-      queryKey: RealtimeQueryKeys.invitaciones,
-      queryFn: () => obtenerMisInvitaciones(context.accessToken),
-      staleTime: 1000 * 45,
-    })
-  );
+  
 
-  tasks.push(
-    queryClient.prefetchQuery({
-      queryKey: RealtimeQueryKeys.solicitudesCreadas,
-      queryFn: () => getSolicitudesCreadas(context.accessToken),
-      staleTime: 1000 * 45,
-    })
-  );
-
+  
   tasks.push(
     queryClient.prefetchQuery({
       queryKey: RealtimeQueryKeys.licenciasAdmin,

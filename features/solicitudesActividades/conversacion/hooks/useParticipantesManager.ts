@@ -40,8 +40,8 @@ export function useParticipantesManager({
   const { data: participantesRoleUsersData, isLoading: isLoadingParticipantesRole } = useGetUserByRole(participantesActiveRole);
 
   const displayParticipantes = useMemo(
-    () => localParticipantes.filter(inv => inv.user_id !== solicitud.created_by),
-    [localParticipantes, solicitud.created_by],
+    () => localParticipantes,
+    [localParticipantes],
   );
 
   const getParticipanteDisplayName = useCallback((inv: SolicitudInvitado): string => {

@@ -1,6 +1,7 @@
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+    archivoReporte,
     createReporte,
     fetchReportes,
     getReporteImagenes,
@@ -252,6 +253,33 @@ export function useUnlinkReporteImage() {
             queryClient.invalidateQueries({
                 queryKey: REPORTE_IMAGENES_QUERY_KEY(variables.reporteId),
             });
+        },
+    });
+}
+
+/**
+ * Agrega o elimina archivos (docs) vinculados a un reporte.
+ */
+export function useArchivoReporte() {
+    const queryClient = useQueryClient();
+    const { tokens } = useAuth();
+
+    return useMutation({
+        mutationFn: async ({
+            id,
+            action,
+            archivosIds,
+        }: {
+            id: string | number;
+            action: 'add' | 'remove';
+            archivosIds: number[];
+        }) => {
+            const token = tokens?.accessToken;
+            if (!token) throw new Error('No hay token de acceso');
+            return archivoReporte(token, id, action, archivosIds);
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: REPORTES_QUERY_KEY });
         },
     });
 }

@@ -2,30 +2,37 @@ import { AlertModal, type AlertModalAction } from '@/components/AlertModal';
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
+import { DocsList, PendingFile } from '@/features/docs/components/DocsList';
+import { Archivo, ArchivoUso } from '@/features/docs/models/Archivo';
+import { useGetArchivoUrlFirmada, useUploadArchivo } from '@/features/docs/viewmodels/useArchivos';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
+import { ApiOperationResult } from '@/shared/types/apiStatus';
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
-import React, { useCallback, useState } from 'react';
+import * as DocumentPicker from 'expo-document-picker';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
+	Alert,
 	ActivityIndicator,
 	KeyboardAvoidingView,
+	Linking,
 	Modal,
 	Platform,
 	ScrollView,
 	StyleSheet,
+	Text,
 	TextInput,
 	TouchableOpacity,
-	View
+	View,
 } from 'react-native';
 import { EstadoReporte, Reporte } from '../models/Reporte';
-import { useUpdateReporte } from '../viewmodels/useReportes';
-import { ImagenesReporte } from './ImagenesReporte';
+import { useArchivoReporte, useUpdateReporte } from '../viewmodels/useReportes';
 
 interface ReporteModalProps {
 	visible: boolean;
 	onClose: () => void;
 	reporte: Reporte;
-	origen: 'mis' | 'empleado'; // 'mis' = MisReportes, 'empleado' = ReportesEmpleado
+	origen: 'mis' | 'empleado';
 }
 
 const colors = Colors['light'];
@@ -34,8 +41,11 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 	const { mutate: updateReporte, isPending } = useUpdateReporte();
 	const { hasRole } = useRoleCheck();
 	const { user } = useAuth();
+	const { mutateAsync: uploadArchivo } = useUploadArchivo();
+	const archivoMutation = useArchivoReporte();
+	const { getArchivoUrlFirmada } = useGetArchivoUrlFirmada();
 
-	// Estado para controles
+	// ── Estado: formulario de actualización ──────────────────────────────────
 	const [nuevoEstado, setNuevoEstado] = useState<EstadoReporte | null>(null);
 	const [observacion, setObservacion] = useState('');
 	const [alertModal, setAlertModal] = useState<{
@@ -45,24 +55,32 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 		actions: AlertModalAction[];
 	}>({ visible: false, title: '', message: undefined, actions: [] });
 
-	// Verificar si el reporte está en un estado final (no editable)
+	// ── Estado: archivos ─────────────────────────────────────────────────────
+	const [localArchivos, setLocalArchivos] = useState<Archivo[]>([]);
+	const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
+	const [isUploadingFile, setIsUploadingFile] = useState(false);
+
+	useEffect(() => {
+		if (!visible) {
+			setPendingFiles([]);
+			return;
+		}
+		setLocalArchivos(reporte.archivos ?? []);
+	}, [visible, reporte.archivos]);
+
+	// ── Permisos ─────────────────────────────────────────────────────────────
 	const isReporteFinal = reporte.estado === 'ASENTADO' || reporte.estado === 'DESESTIMADO';
-
-	// Verificar si el usuario tiene rol 'gerencia'
 	const isGerencia = hasRole('gerencia');
-
-	// Solo gerencia puede modificar si está en estado final
 	const canModify = !isReporteFinal || isGerencia;
-
-	// Roles supervisores que pueden gestionar imágenes
 	const hasSupervisorRole = hasRole(['gerencia', 'personasRelaciones', 'encargado']);
 	const isCreator = !!(user?.user_context_id && reporte.creador_id && user.user_context_id === reporte.creador_id);
-	const canManageImages = hasSupervisorRole && isCreator;
+	const canManageFiles = hasSupervisorRole && isCreator;
 
+	// ── Helpers ───────────────────────────────────────────────────────────────
 	const showModal = useCallback((title: string, message?: string, actions?: AlertModalAction[]) => {
 		const normalizedActions = actions && actions.length > 0
 			? actions
-			: [{ key: 'ok', label: 'Aceptar', onPress: () => { }, variant: 'primary' }];
+			: [{ key: 'ok', label: 'Aceptar', onPress: () => { }, variant: 'primary' as const }];
 
 		setAlertModal({
 			visible: true,
@@ -77,6 +95,97 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 			})),
 		});
 	}, []);
+
+	// ── Archivos ─────────────────────────────────────────────────────────────
+
+	const isSuccess = <T,>(r: ApiOperationResult<T>): r is ApiOperationResult<T> & { data: T } =>
+		r.status === 'success' && r.data !== undefined;
+
+	const handleSeleccionarArchivo = async () => {
+		try {
+			const result = await DocumentPicker.getDocumentAsync({
+				multiple: true,
+				type: '*/*',
+				copyToCacheDirectory: true,
+			});
+			if (result.canceled || !result.assets || result.assets.length === 0) return;
+
+			const nuevosArchivos: PendingFile[] = result.assets.map((asset) => ({
+				name: asset.name,
+				uri: asset.uri,
+				type: asset.mimeType ?? 'application/octet-stream',
+				size: asset.size,
+			}));
+
+			setPendingFiles((prev) => [...prev, ...nuevosArchivos]);
+			setIsUploadingFile(true);
+
+			try {
+				const response = await uploadArchivo({
+					item: nuevosArchivos.map((file) => ({
+						archivo: { uri: file.uri, name: file.name, type: file.type, size: file.size },
+						archivoData: {
+							nombre: file.name,
+							tamaño: file.size,
+							tipo: file.type,
+							uso: ArchivoUso.TAREA,
+						},
+					})),
+				});
+
+				const resultados = response?.exitosos ?? [];
+				const fallidos = response?.fallidos ?? [];
+				const validos = resultados.filter(isSuccess);
+				const nuevosIds = validos.map((r) => r.data.id);
+				const nuevosArchivosData = validos.map((r) => r.data) as Archivo[];
+
+				if (validos.length === 0) {
+					Alert.alert('Error de archivos', 'No se pudo subir ningún archivo.');
+				} else if (fallidos.length > 0) {
+					Alert.alert('Archivos parciales', `Se subieron ${validos.length} de ${nuevosArchivos.length}`);
+				}
+
+				if (nuevosIds.length > 0) {
+					setLocalArchivos((prev) => [...prev, ...nuevosArchivosData]);
+					await archivoMutation.mutateAsync({ id: reporte.id, action: 'add', archivosIds: nuevosIds });
+				}
+			} catch {
+				Alert.alert('Error de archivos', 'No se pudieron subir los archivos.');
+			} finally {
+				setIsUploadingFile(false);
+				setPendingFiles((prev) =>
+					prev.filter((file) => !nuevosArchivos.some((nuevo) => nuevo.uri === file.uri))
+				);
+			}
+		} catch {
+			Alert.alert('Error', 'No se pudo seleccionar el documento. Intentá nuevamente.');
+		}
+	};
+
+	const handleOpenArchivo = async (archivoId: number) => {
+		try {
+			const url = await getArchivoUrlFirmada(archivoId);
+			Linking.openURL(url).catch(() => Alert.alert('Error', 'No se pudo abrir el archivo'));
+		} catch {
+			Alert.alert('Error', 'No se pudo obtener el enlace del archivo');
+		}
+	};
+
+	const handleRemoveArchivo = (archivoId: number) => {
+		Alert.alert('Eliminar archivo', '¿Querés quitar este archivo?', [
+			{ text: 'Cancelar', style: 'cancel' },
+			{
+				text: 'Eliminar',
+				style: 'destructive',
+				onPress: () => {
+					setLocalArchivos((prev) => prev.filter((a) => a.id !== archivoId));
+					void archivoMutation.mutateAsync({ id: reporte.id, action: 'remove', archivosIds: [archivoId] });
+				},
+			},
+		]);
+	};
+
+	// ── Actualización de estado ───────────────────────────────────────────────
 
 	const handleAccion = () => {
 		if (!nuevoEstado) {
@@ -196,7 +305,7 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 					keyboardVerticalOffset={0}
 				>
 					<View style={styles.modalContainer}>
-						{/* Header con botón cerrar */}
+						{/* Header */}
 						<View style={styles.modalHeader}>
 							<View style={styles.modalHeaderActions}>
 								<TouchableOpacity onPress={onClose} style={styles.modalIconButton}>
@@ -240,12 +349,24 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 								<ThemedText style={styles.descriptionText}>{reporte.descripcion}</ThemedText>
 							</View>
 
-							{/* Imágenes */}
+							{/* Archivos enlazados */}
 							<View style={styles.section}>
-								<ImagenesReporte
-									reporteId={reporte.id}
-									imagenesUrl={reporte.imagenes}
-									canManage={canManageImages}
+								<View style={styles.sectionHeaderRow}>
+									<ThemedText style={styles.sectionLabel}>Archivos enlazados</ThemedText>
+									{canManageFiles && (
+										<TouchableOpacity style={styles.actionButton} onPress={handleSeleccionarArchivo}>
+											<Ionicons name="add" size={14} color={colors.lightTint} />
+											<Text style={styles.actionButtonText}>
+												{isUploadingFile ? 'Subiendo...' : 'Agregar'}
+											</Text>
+										</TouchableOpacity>
+									)}
+								</View>
+								<DocsList
+									archivos={localArchivos}
+									pendingFiles={pendingFiles}
+									onOpen={handleOpenArchivo}
+									onRemove={canManageFiles ? handleRemoveArchivo : undefined}
 								/>
 							</View>
 
@@ -269,9 +390,6 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 }
 
 const styles = StyleSheet.create({
-	// ============================================
-	// Layout Principal (Bottom Sheet)
-	// ============================================
 	overlay: {
 		flex: 1,
 		backgroundColor: 'rgba(0,0,0,0.5)',
@@ -307,12 +425,8 @@ const styles = StyleSheet.create({
 	},
 	modalFormContentContainer: {
 		padding: 20,
-		paddingBottom: 60, // Espacio extra al final
+		paddingBottom: 60,
 	},
-
-	// ============================================
-	// Tipografía e Información
-	// ============================================
 	title: {
 		fontSize: 24,
 		fontWeight: 'bold',
@@ -364,23 +478,38 @@ const styles = StyleSheet.create({
 		fontSize: 12,
 		fontWeight: '700',
 	},
-
-	// ============================================
-	// Secciones y Formularios
-	// ============================================
 	section: {
 		marginTop: 24,
 		paddingTop: 24,
 		borderTopWidth: 1,
 		borderTopColor: '#f3f4f6',
+		gap: 12,
 	},
 	sectionHeaderRow: {
-		marginBottom: 16,
+		flexDirection: 'row',
+		alignItems: 'center',
+		justifyContent: 'space-between',
 	},
 	sectionLabel: {
 		fontSize: 16,
 		fontWeight: '700',
 		color: '#111827',
+	},
+	actionButton: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 4,
+		paddingHorizontal: 10,
+		paddingVertical: 6,
+		borderRadius: 999,
+		borderWidth: 1,
+		borderColor: colors.lightTint,
+		backgroundColor: colors.lightTint + '12',
+	},
+	actionButtonText: {
+		fontSize: 12,
+		fontWeight: '700',
+		color: colors.lightTint,
 	},
 	formGroup: {
 		marginBottom: 16,
@@ -416,10 +545,6 @@ const styles = StyleSheet.create({
 		height: 50,
 		color: '#111827',
 	},
-
-	// ============================================
-	// Botones
-	// ============================================
 	confirmBtn: {
 		backgroundColor: colors.lightTint,
 		borderRadius: 10,

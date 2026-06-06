@@ -1,5 +1,6 @@
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
+import { DocsList, PendingFile } from '@/features/docs/components/DocsList';
 import { Archivo, ArchivoUso } from '@/features/docs/models/Archivo';
 import { useGetArchivoUrlFirmada, useUploadArchivo } from '@/features/docs/viewmodels/useArchivos';
 import { ApiOperationResult } from '@/shared/types/apiStatus';
@@ -21,6 +22,7 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
+import { ParticipantesBlock } from '@/features/solicitudesActividades/components/ParticipantesBlock';
 import { UserSelector } from '../../../components/UserSelector';
 import { RoleUserSelectionModal } from '../../solicitudesActividades/components/RoleUserSelectionModal';
 import { useArchivoObjetivo, useEditObjetivo, useInvitadosObjetivo } from '../hooks/useObjetivos';
@@ -30,13 +32,6 @@ interface InfoObjetivoProps {
     visible: boolean;
     objetivo?: Objetivo;
     onClose: () => void;
-}
-
-interface PendingFile {
-    name: string;
-    uri: string;
-    type: string;
-    size?: number;
 }
 
 const ROLE_LABELS: Record<Invitado['rol'], string> = {
@@ -441,76 +436,60 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
                             </View>
                         </View>
 
-                        <View style={styles.inviteSection}>
-                            <View style={styles.sectionHeaderRow}>
-                                <Text style={styles.label}>Equipo</Text>
-                                <View style={styles.headerActions}>
-                                    <TouchableOpacity style={styles.actionButton} onPress={handleAddInvitado}>
-                                        <Ionicons name="add" size={16} color={Colors.light.tint} />
-                                        <Text style={styles.actionButtonText}>Agregar</Text>
-                                    </TouchableOpacity>
-                                </View>
-                            </View>
-
-                            {showSelector && (
-                                <View style={styles.selectorCard}>
-                                    <UserSelector
-                                        selectedUsers={selectedUsers}
-                                        onSelectUsers={handleSelectUsers}
-                                        users={users}
-                                        roles={rolesForSelector}
-                                        isLoadingUsers={isLoadingUsers}
-                                        isLoadingRoles={false}
-                                        onSearch={setSearchQuery}
-                                        onSelectRole={handleSelectRole}
-                                        showSelectedChips={false}
-                                    />
-                                </View>
-                            )}
-
-                            {invitedUsers.length === 0 ? (
-                                <Text style={styles.sectionValueMuted}>Sin participantes</Text>
-                            ) : (
-                                invitedUsers.map((inv) => (
-                                    <View key={inv.user_id} style={styles.inviteRow}>
-                                        {/* Avatar inicial */}
-                                        <View style={styles.avatar}>
-                                            <Text style={styles.avatarText}>
-                                                {getDisplayName(inv.user_id).charAt(0).toUpperCase()}
-                                            </Text>
-                                        </View>
-                                        <View style={styles.inviteInfo}>
-                                            <Text style={styles.inviteName}>{getDisplayName(inv.user_id)}</Text>
-                                            {/* Rol como toggle tipo pill, no como texto suelto */}
-                                            <View style={styles.roleToggleRow}>
-                                                {(['ASSIGNEE', 'VISUALIZER'] as Invitado['rol'][]).map((r) => (
-                                                    <TouchableOpacity
-                                                        key={r}
-                                                        style={[
-                                                            styles.rolePill,
-                                                            inv.rol === r && styles.rolePillActive,
-                                                        ]}
-                                                        onPress={() => {
-                                                            if (inv.rol !== r) handleToggleInvitadoRole(inv.user_id, r);
-                                                        }}
-                                                    >
-                                                        <Text style={[
-                                                            styles.rolePillText,
-                                                            inv.rol === r && styles.rolePillTextActive,
-                                                        ]}>
-                                                            {ROLE_LABELS[r]}
-                                                        </Text>
-                                                    </TouchableOpacity>
-                                                ))}
-                                            </View>
-                                        </View>
-                                        <TouchableOpacity onPress={() => handleRemoveInvitado(inv.user_id)}>
-                                            <Ionicons name="close-circle" size={20} color="#9ca3af" />
-                                        </TouchableOpacity>
+                        <ParticipantesBlock
+                            titulo={currentObjetivo.titulo}
+                            participantes={invitedUsers.map(inv => ({
+                                id: inv.user_id,
+                                nombre: getDisplayName(inv.user_id),
+                            }))}
+                            onRemove={handleRemoveInvitado}
+                            onAgregar={handleAddInvitado}
+                            canManage={true}
+                            extraContent={
+                                showSelector ? (
+                                    <View style={styles.selectorCard}>
+                                        <UserSelector
+                                            selectedUsers={selectedUsers}
+                                            onSelectUsers={handleSelectUsers}
+                                            users={users}
+                                            roles={rolesForSelector}
+                                            isLoadingUsers={isLoadingUsers}
+                                            isLoadingRoles={false}
+                                            onSearch={setSearchQuery}
+                                            onSelectRole={handleSelectRole}
+                                            showSelectedChips={false}
+                                        />
                                     </View>
-                                ))
-                            )}
-                        </View>
+                                ) : null
+                            }
+                            renderRowSub={(id) => {
+                                const inv = invitedUsers.find(i => i.user_id === id);
+                                if (!inv) return null;
+                                return (
+                                    <View style={styles.roleToggleRow}>
+                                        {(['ASSIGNEE', 'VISUALIZER'] as Invitado['rol'][]).map((r) => (
+                                            <TouchableOpacity
+                                                key={r}
+                                                style={[
+                                                    styles.rolePill,
+                                                    inv.rol === r && styles.rolePillActive,
+                                                ]}
+                                                onPress={() => {
+                                                    if (inv.rol !== r) handleToggleInvitadoRole(inv.user_id, r);
+                                                }}
+                                            >
+                                                <Text style={[
+                                                    styles.rolePillText,
+                                                    inv.rol === r && styles.rolePillTextActive,
+                                                ]}>
+                                                    {ROLE_LABELS[r]}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        ))}
+                                    </View>
+                                );
+                            }}
+                        />
 
                         <View style={styles.section}>
                             <View style={styles.sectionHeaderRow}>
@@ -522,41 +501,12 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
                                     </Text>
                                 </TouchableOpacity>
                             </View>
-                            <View style={styles.inviteList}>
-                                {((currentObjetivo.archivos ?? []).length === 0 && pendingFiles.length === 0) ? (
-                                    <Text style={styles.sectionValueMuted}>Sin archivos enlazados</Text>
-                                ) : (
-                                    <>
-                                        {(currentObjetivo.archivos ?? []).map((archivo) => (
-                                            <View key={archivo.id} style={styles.inviteRow}>
-                                                <View>
-                                                    <Text style={styles.inviteName}>{archivo.nombre}</Text>
-                                                    <Text style={styles.inviteMeta}>{archivo.tipo}</Text>
-                                                </View>
-                                                <View style={styles.inviteRowActions}>
-                                                    <TouchableOpacity onPress={() => handleOpenArchivo(archivo.id)}>
-                                                        <Ionicons name="open-outline" size={20} color={Colors.light.tint} />
-                                                    </TouchableOpacity>
-                                                    <TouchableOpacity onPress={() => handleRemoveArchivo(archivo.id)}>
-                                                        <Ionicons name="trash-outline" size={20} color="#9ca3af" />
-                                                    </TouchableOpacity>
-                                                </View>
-                                            </View>
-                                        ))}
-                                        {pendingFiles.map((archivo, index) => (
-                                            <View key={`${archivo.uri}-${index}`} style={styles.inviteRow}>
-                                                <View>
-                                                    <Text style={styles.inviteName}>{archivo.name}</Text>
-                                                    <Text style={styles.inviteMeta}>Subiendo...</Text>
-                                                </View>
-                                                <View style={styles.inviteRowActions}>
-                                                    <ActivityIndicator size="small" color={Colors.light.tint} />
-                                                </View>
-                                            </View>
-                                        ))}
-                                    </>
-                                )}
-                            </View>
+                            <DocsList
+                                archivos={currentObjetivo.archivos ?? []}
+                                pendingFiles={pendingFiles}
+                                onOpen={handleOpenArchivo}
+                                onRemove={handleRemoveArchivo}
+                            />
                         </View>
                     </ScrollView>
 

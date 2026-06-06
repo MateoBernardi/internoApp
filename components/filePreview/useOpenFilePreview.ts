@@ -1,8 +1,14 @@
 import { useGetArchivoUrlFirmada } from '@/features/docs/viewmodels/useArchivos';
 import { useCallback, useState } from 'react';
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
 import { getExt, isImageFile, isTextFile } from './fileKind';
 import type { FileItem } from './types';
+
+const IS_WEB = Platform.OS === 'web';
+
+function openInNewTab(url: string) {
+  if (url) window.open(url, '_blank', 'noopener,noreferrer');
+}
 
 function safeStr(v: unknown): string {
   return typeof v === 'string' ? v : '';
@@ -30,6 +36,8 @@ export function useOpenFilePreview() {
   const openFile = useCallback(async (archivo: ArchivoAbrirInfo) => {
     try {
       const url = await getArchivoUrlFirmada(archivo.id);
+      // On desktop (web) just open the signed view URL in a new browser tab.
+      if (IS_WEB) { openInNewTab(url); return; }
       const tipo = safeStr(archivo.tipo);
       const nombre = safeStr(archivo.nombre) || 'Archivo';
       const ext = getExt(tipo, nombre);
@@ -63,6 +71,7 @@ export function useOpenFilePreview() {
   }, [getArchivoUrlFirmada]);
 
   const openWithUri = useCallback((item: FileItem) => {
+    if (IS_WEB) { openInNewTab(item.uri); return; }
     setPreviewFile(item);
   }, []);
 

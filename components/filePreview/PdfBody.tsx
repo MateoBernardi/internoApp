@@ -85,6 +85,8 @@ function buildPdfHtml(base64: string): string {
 }
 
 export function PdfBody({ uri, name }: Props) {
+  // Web opens the signed URL in a new browser tab (handled in useOpenFilePreview),
+  // so this component only ever renders on native.
   // iOS WKWebView renders a PDF URL natively (with its own pan/zoom).
   if (Platform.OS === 'ios') {
     return (

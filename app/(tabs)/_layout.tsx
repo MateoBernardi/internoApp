@@ -3,6 +3,7 @@ import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { useReportes } from '@/features/reportes/viewmodels/useReportes';
+import { useSolicitudesUnseen } from '@/features/solicitudesActividades/viewmodels/useSolicitudes';
 import {
   useGetSolicitudesLicencias,
   useGetSolicitudesUsuario,
@@ -82,6 +83,13 @@ export default function TabLayout() {
     userContextId,
     canSeeReportesPersonal && hasSessionContext
   );
+
+  // Contador de solicitudes ('Mensajes') sin ver → badge rojo en la tab.
+  const { data: unseenSolicitudes = 0 } = useSolicitudesUnseen(
+    hasSolicitudesTab && hasSessionContext
+  );
+  const hasMensajesBadge = unseenSolicitudes > 0;
+  const mensajesBadgeLabel = unseenSolicitudes > 99 ? '99+' : String(unseenSolicitudes);
 
   const hasSolicitudesLicenciasPendientesAdmin = solicitudesLicenciasAdmin.some((item) =>
     ['PENDIENTE', 'PENDIENTE_DOCUMENTACION', 'PENDIENTE_APROBACION'].includes(item.estado)
@@ -202,6 +210,7 @@ export default function TabLayout() {
               onPress={() => navigateToTab('/(tabs)/explore' as Href)}
             >
               <Text style={[styles.desktopTopButtonText, currentTab === 'explore' && styles.desktopTopButtonTextActive]}>Solicitudes</Text>
+              {hasMensajesBadge && <View style={styles.desktopNavPendingDot} />}
             </TouchableOpacity>
           )}
 
@@ -384,6 +393,11 @@ export default function TabLayout() {
             tabBarIcon: ({ color }) => (
               <View style={styles.tabIconContainer}>
                 <IconSymbol size={24} name="paperplane.fill" color={color} />
+                {hasMensajesBadge && (
+                  <View style={styles.tabBadge}>
+                    <Text style={styles.tabBadgeText}>{mensajesBadgeLabel}</Text>
+                  </View>
+                )}
               </View>
             ),
           }}
@@ -516,6 +530,25 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     backgroundColor: '#FF3B30',
+  },
+  tabBadge: {
+    position: 'absolute',
+    top: -6,
+    right: -10,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    paddingHorizontal: 4,
+    backgroundColor: '#FF3B30',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '700',
+    textAlign: 'center',
+    lineHeight: 14,
   },
   desktopTopBar: {
     flexDirection: 'row',

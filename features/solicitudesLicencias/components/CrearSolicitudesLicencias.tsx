@@ -6,6 +6,7 @@ import { ArchivoUso } from '@/features/docs/models/Archivo';
 import { useUploadArchivo } from '@/features/docs/viewmodels/useArchivos';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
+import type * as ImagePickerTypes from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
@@ -31,6 +32,15 @@ import {
 } from '../viewmodels/useSolicitudes';
 
 const colors = Colors['light'];
+
+// expo-image-picker se carga de forma perezosa: en algunos entornos (web/SSR)
+// el módulo nativo no está disponible y `require` lanza.
+let ImagePicker: typeof ImagePickerTypes | null = null;
+try {
+    ImagePicker = require('expo-image-picker');
+} catch {
+    console.warn('expo-image-picker no disponible. La cámara estará deshabilitada.');
+}
 
 function normalizeToMinute(date: Date): Date {
     const normalized = new Date(date);
@@ -197,6 +207,39 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
             Alert.alert('Error', 'No se pudo seleccionar el archivo.');
         }
     }, []);
+
+    // --- Tomar Foto (cámara) ---
+    const handleTomarFoto = useCallback(async () => {
+        if (!ImagePicker) {
+            Alert.alert('No disponible', 'La cámara no está disponible en este dispositivo.');
+            return;
+        }
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') {
+            Alert.alert('Permiso denegado', 'Se necesita acceso a la cámara para tomar fotos.');
+            return;
+        }
+        const result = await ImagePicker.launchCameraAsync({ mediaTypes: 'images', quality: 0.8 });
+        if (!result.canceled && result.assets.length > 0) {
+            const asset = result.assets[0];
+            const ext = asset.uri.split('.').pop() ?? 'jpg';
+            setArchivoAdjunto({
+                name: asset.fileName ?? `foto_${Date.now()}.${ext}`,
+                uri: asset.uri,
+                type: asset.mimeType ?? `image/${ext}`,
+                size: asset.fileSize,
+            });
+        }
+    }, []);
+
+    // --- Menú de adjunto (cámara / archivo), igual que en Chats ---
+    const handleAgregarAdjunto = useCallback(() => {
+        Alert.alert('Adjuntar documentación', 'Elegí una opción', [
+            { text: 'Tomar foto', onPress: handleTomarFoto },
+            { text: 'Elegir archivo', onPress: handleSeleccionarArchivo },
+            { text: 'Cancelar', style: 'cancel' },
+        ]);
+    }, [handleTomarFoto, handleSeleccionarArchivo]);
 
     // --- Crear Solicitud ---
     const procederCrearSolicitud = useCallback(() => {
@@ -556,7 +599,7 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
                                     {!archivoAdjunto ? (
                                         <TouchableOpacity
                                             style={styles.adjuntoButton}
-                                            onPress={handleSeleccionarArchivo}
+                                            onPress={handleAgregarAdjunto}
                                             disabled={isUploadingFile}
                                         >
                                             <Ionicons name="cloud-upload-outline" size={32} color={colors.lightTint} style={{ marginBottom: 8 }} />
@@ -564,7 +607,7 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
                                                 Cargar archivo requerido
                                             </ThemedText>
                                             <ThemedText style={{ color: colors.secondaryText, fontSize: 12, marginTop: 4, textAlign: 'center' }}>
-                                                PDF, DOC, DOCX, JPG o PNG
+                                                Tomá una foto o elegí un PDF, DOC, DOCX, JPG o PNG
                                             </ThemedText>
                                         </TouchableOpacity>
                                     ) : (

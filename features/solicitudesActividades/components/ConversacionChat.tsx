@@ -405,7 +405,9 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
                                 {archivos.length > 0 && (
                                   <View style={styles.messageAttachments}>
                                     {archivos.map((a: any) => (
-                                      isImageFile(a.tipo, a.nombre) ? (
+                                      // En web no usamos el preview inline de imágenes (abre la
+                                      // página de Cloudflare): las mostramos como adjunto de archivo.
+                                      isImageFile(a.tipo, a.nombre) && Platform.OS !== 'web' ? (
                                         <InlineImageAttachment
                                           key={`archivo-${a.id}`}
                                           archivoId={a.id}
@@ -709,8 +711,11 @@ function ArchivosModalContent({
   onOpen: (a: any) => void;
   onOpenImage: (a: any, uri: string) => void;
 }) {
-  const images = archivos.filter(a => isImageFile(a.tipo, a.nombre));
-  const files = archivos.filter(a => !isImageFile(a.tipo, a.nombre));
+  // En web no usamos el preview inline de imágenes (abre la página de
+  // Cloudflare): se listan como archivos junto al resto.
+  const isWeb = Platform.OS === 'web';
+  const images = isWeb ? [] : archivos.filter(a => isImageFile(a.tipo, a.nombre));
+  const files = isWeb ? archivos : archivos.filter(a => !isImageFile(a.tipo, a.nombre));
 
   if (archivos.length === 0) {
     return <Text style={localStyles.archivosEmpty}>No hay archivos en esta conversación</Text>;

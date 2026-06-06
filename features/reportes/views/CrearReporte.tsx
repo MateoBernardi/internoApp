@@ -184,6 +184,15 @@ export default function CrearReporte(props?: CrearReporteProps) {
 			});
 
 			// Subir imágenes pendientes una por una
+			if (pendingImages.length > 0 && !nuevoReporte?.id) {
+				showModal(
+					'Reporte creado',
+					'El reporte se creó, pero no se pudo identificar para adjuntar las imágenes.',
+					[{ key: 'ok', label: 'Aceptar', onPress: () => handleClose(), variant: 'primary' }],
+				);
+				return;
+			}
+
 			if (pendingImages.length > 0) {
 				setIsUploading(true);
 				setUploadProgress({ current: 0, total: pendingImages.length });

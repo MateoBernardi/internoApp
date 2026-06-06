@@ -837,7 +837,9 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                                 {archivos.length > 0 && (
                                   <View style={styles.messageAttachments}>
                                     {archivos.map((a: any) => (
-                                      isImageFile(a.tipo, a.nombre) ? (
+                                      // En web no usamos el preview inline de imágenes (abre la
+                                      // página de Cloudflare): las mostramos como adjunto de archivo.
+                                      isImageFile(a.tipo, a.nombre) && Platform.OS !== 'web' ? (
                                         <InlineImageAttachment
                                           key={`archivo-${a.id}`}
                                           archivoId={a.id}

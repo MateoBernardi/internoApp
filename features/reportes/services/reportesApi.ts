@@ -1,5 +1,6 @@
 import { apiRequest, throwApiError } from '@/shared/apiRequest';
 import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 import * as reporte from '../models/Reporte';
 
 const API_BASE_URL = Constants.expoConfig?.extra?.API_BASE_URL;
@@ -161,8 +162,27 @@ export async function uploadReporteImage (
     orden: number,
 ): Promise<reporte.UploadReporteImageResponse> {
     const formData = new FormData();
-    // React Native FormData acepta un objeto con uri para representar archivos locales
-    formData.append('file', { uri: fileUri, name: fileName, type: mimeType } as any);
+
+    // El campo `file` se arma distinto según la plataforma:
+    // - Web: el patrón { uri, name, type } NO es un archivo real (se serializa
+    //   como "[object Object]" y el backend recibe vacío). Hay que materializar
+    //   el contenido en un Blob real antes de adjuntarlo.
+    // - Native: React Native sí acepta el objeto { uri, name, type } para
+    //   representar archivos locales (file://, content://, ph://).
+    if (Platform.OS === 'web') {
+        const fileResponse = await fetch(fileUri);
+        if (!fileResponse.ok) {
+            throw new Error(`No se pudo leer la imagen seleccionada (HTTP ${fileResponse.status})`);
+        }
+        const blob = await fileResponse.blob();
+        if (blob.size === 0) {
+            throw new Error('La imagen seleccionada está vacía o ya no está disponible.');
+        }
+        formData.append('file', blob, fileName);
+    } else {
+        formData.append('file', { uri: fileUri, name: fileName, type: mimeType } as any);
+    }
+
     formData.append('reporteId', String(reporteId));
     formData.append('description', description);
     formData.append('orden', String(orden));

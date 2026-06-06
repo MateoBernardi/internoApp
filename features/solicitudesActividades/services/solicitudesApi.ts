@@ -109,6 +109,33 @@ export async function getChatArchivos(accessToken: string, solicitudId: number):
     return data.map(mapArchivoDTOToArchivo);
 }
 
+/**
+ * Devuelve la cantidad de solicitudes sin ver del usuario actual.
+ * Endpoint liviano pensado para prefetch / badge de "Mensajes".
+ * GET /solicitudes-actividades/solicitudes/unseen
+ */
+export async function getSolicitudesUnseen(accessToken: string): Promise<number> {
+    const response = await apiRequest({
+        method: 'GET',
+        endpoint: '/solicitudes-actividades/solicitudes/unseen',
+        token: accessToken,
+    });
+
+    if (!response.ok) {
+        const errorMsg = await extractErrorText(response);
+        console.error('Error en getSolicitudesUnseen:', response.status, errorMsg);
+        throw new Error(errorMsg);
+    }
+
+    // El backend puede responder un número crudo o un objeto envolvente
+    // ({ unseen } | { count } | { total } | { cantidad }). Normalizamos a number.
+    const data = await response.json();
+    if (typeof data === 'number') return Number.isFinite(data) ? data : 0;
+    const raw = data?.unseen ?? data?.count ?? data?.total ?? data?.cantidad ?? 0;
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
 export async function actualizarEstadoInvitacion(accessToken: string, data: solicitudes.ActualizarEstadoInvitacionRequest, idempotencyKey?: string): Promise<solicitudes.ActualizarEstadoInvitacionResponse> {
     const payload = mapUpdateSolicitudRequestToPayload(data);
     const response = await apiRequest({ method: 'PUT', endpoint: `/solicitudes-actividades/solicitudes/update`, token: accessToken, body: payload, headers: idempotencyHeaders(idempotencyKey) });

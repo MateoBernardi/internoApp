@@ -12,6 +12,7 @@ export const solicitudesQueryKeys = {
   invitaciones: () => [...solicitudesQueryKeys.all, 'invitaciones'] as const,
   bitacora: (solicitudId: number) => [...solicitudesQueryKeys.all, 'bitacora', solicitudId] as const,
   chatArchivos: (solicitudId: number) => [...solicitudesQueryKeys.all, 'chatArchivos', solicitudId] as const,
+  unseen: () => [...solicitudesQueryKeys.all, 'unseen'] as const,
 };
 
 const BITACORA_PAGE_SIZE = 20;
@@ -72,6 +73,31 @@ export function useChatArchivos(solicitudId: number, enabled: boolean) {
     gcTime: 1000 * 60 * 5,
     retry: 2,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+  });
+}
+
+/**
+ * Hook para el contador de solicitudes sin ver (badge de "Mensajes").
+ * Refresca periódicamente y al volver el foco para mantener el badge al día.
+ */
+export function useSolicitudesUnseen(enabled = true) {
+  const { tokens } = useAuth();
+
+  return useQuery({
+    queryKey: solicitudesQueryKeys.unseen(),
+    enabled: enabled && !!tokens?.accessToken,
+    queryFn: async () => {
+      const accessToken = tokens?.accessToken;
+      if (!accessToken) {
+        throw new Error('No access token available');
+      }
+      return solicitudesApi.getSolicitudesUnseen(accessToken);
+    },
+    staleTime: 1000 * 30,
+    gcTime: 1000 * 60 * 5,
+    refetchInterval: 1000 * 60,
+    refetchOnWindowFocus: true,
+    retry: 1,
   });
 }
 

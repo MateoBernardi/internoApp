@@ -1,4 +1,5 @@
 import { OwnFlatList } from '@/components/FlatList';
+import { FilePreview, useOpenFilePreview } from '@/components/filePreview';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
@@ -6,9 +7,8 @@ import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { showGlobalToast } from '@/shared/ui/toast';
 import * as FileSystem from 'expo-file-system';
-import * as Linking from 'expo-linking';
 import * as Sharing from 'expo-sharing';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Alert, Platform, StyleSheet, View } from 'react-native';
 import { ArchivoViewersModal } from '../components/ArchivoViewersModal';
 import { DocumentoItem } from '../components/DocumentoItem';
@@ -62,15 +62,15 @@ export default function MisDocumentos({ query = '', selectedFolderId, listHeader
   const { user } = useAuth();
   const { data: carpetasData } = useCarpetas('list', true);
 
+  const { previewFile, openFile, closePreview } = useOpenFilePreview();
   const [fileToEdit, setFileToEdit] = useState<Archivo | null>(null);
-  const [fileToOpen, setFileToOpen] = useState<Archivo | null>(null);
   const [fileToMove, setFileToMove] = useState<Archivo | null>(null);
   const [fileForOptions, setFileForOptions] = useState<Archivo | null>(null);
   const [fileForViewers, setFileForViewers] = useState<Archivo | null>(null);
   const deleteMutation = useDeleteArchivo();
   const moverArchivoMutation = useMoverArchivo();
   const [isDownloading, setIsDownloading] = useState(false);
-  const { getArchivoUrlFirmada } = useGetArchivoUrlFirmada();
+  const { getArchivoUrlFirmada } = useGetArchivoUrlFirmada(); // still used for handleDownloadFile
   const {
     data: archivoViewers = [],
     isLoading: loadingViewers,
@@ -88,25 +88,6 @@ export default function MisDocumentos({ query = '', selectedFolderId, listHeader
     : (displayData || []).filter((file) => (file.id_carpeta ?? null) === selectedFolderId);
   const isLoadingAny = isSearchingWithResults ? loadingSearch || pendingSearch : isLoading || isPending;
 
-  useEffect(() => {
-    if (!fileToOpen) return;
-
-    const openFile = async () => {
-      try {
-        const url = await getArchivoUrlFirmada(fileToOpen.id);
-        if (url) {
-          await Linking.openURL(url);
-        }
-      } catch (e) {
-        console.error("Error opening file", e);
-        Alert.alert("Error", "No se pudo abrir el archivo");
-      } finally {
-        setFileToOpen(null);
-      }
-    };
-
-    openFile();
-  }, [fileToOpen, getArchivoUrlFirmada]);
 
   const handleDownloadFile = async (file: Archivo) => {
     if (isDownloading) return;
@@ -229,7 +210,7 @@ export default function MisDocumentos({ query = '', selectedFolderId, listHeader
     <DocumentoItem
       archivo={item}
       currentUserId={user?.user_context_id}
-      onPress={() => setFileToOpen(item)}
+      onPress={() => openFile(item)}
       onOptions={() => setFileForOptions(item)}
       onDelete={user?.user_context_id === item.creadorId ? () => confirmDelete(item) : undefined}
     />
@@ -319,6 +300,7 @@ export default function MisDocumentos({ query = '', selectedFolderId, listHeader
         onClose={() => setFileForViewers(null)}
       />
 
+      <FilePreview file={previewFile} onClose={closePreview} />
     </ThemedView>
   );
 }

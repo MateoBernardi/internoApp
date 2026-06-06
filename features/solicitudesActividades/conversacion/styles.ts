@@ -27,7 +27,7 @@ export const conversacionStyles = StyleSheet.create({
   },
   modalHeader: {
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingVertical: 5,
     borderBottomWidth: 1,
     borderBottomColor: colors.background,
     alignItems: 'flex-end',

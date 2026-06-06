@@ -1,4 +1,6 @@
 import { AlertModal } from '@/components/AlertModal';
+import { FileAttachment, FilePreview, InlineImageAttachment, useOpenFilePreview } from '@/components/filePreview';
+import type { FileItem } from '@/components/filePreview';
 import { ThemedText } from '@/components/themed-text';
 import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
 import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
@@ -16,7 +18,6 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -118,6 +119,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
   const rolesForSelector = isConsejo ? adminRoles : allRoles;
 
   // ─── Estado UI ────────────────────────────────────────────────────────────
+  const { previewFile, openFile, openWithUri, closePreview } = useOpenFilePreview();
   const [showAcceptModal, setShowAcceptModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showAddToAgendaModal, setShowAddToAgendaModal] = useState(false);
@@ -413,6 +415,8 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
       showModal('Error', e instanceof Error ? e.message : 'Intenta nuevamente');
     }
   }, [solicitud, solicitudId, todosArchivos, buildObjetivoInvitadosTodos, crearObjetivo, showModal]);
+
+  const handleOpenAsPreview = useCallback((archivo: any) => openFile(archivo), [openFile]);
 
   const confirmAceptar = useCallback(() => {
     actualizarEstado(
@@ -833,10 +837,20 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                                 {archivos.length > 0 && (
                                   <View style={styles.messageAttachments}>
                                     {archivos.map((a: any) => (
-                                      <Pressable key={`archivo-${a.id}`} style={styles.messageAttachmentRow} onPress={() => handleOpenArchivo(a.id)}>
-                                        <Ionicons name="document-outline" size={16} color={colors.secondaryText} />
-                                        <ThemedText style={[styles.messageAttachmentName, styles.linkText]} numberOfLines={1}>{a.nombre}</ThemedText>
-                                      </Pressable>
+                                      isImageType(a.tipo) ? (
+                                        <InlineImageAttachment
+                                          key={`archivo-${a.id}`}
+                                          archivoId={a.id}
+                                          nombre={typeof a.nombre === 'string' ? a.nombre : 'Imagen'}
+                                          onOpen={(uri) => openWithUri(buildSolicitudFileItem({ ...a, _resolvedUri: uri }))}
+                                        />
+                                      ) : (
+                                        <FileAttachment
+                                          key={`archivo-${a.id}`}
+                                          file={buildSolicitudFileItem(a)}
+                                          onOpen={() => handleOpenAsPreview(a)}
+                                        />
+                                      )
                                     ))}
                                   </View>
                                 )}
@@ -1274,9 +1288,56 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
           </View>
         </KeyboardAvoidingView>
       </View>
+
+      <FilePreview file={previewFile} onClose={closePreview} />
     </Modal>
   );
 }
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function isImageType(tipo: unknown): boolean {
+  return typeof tipo === 'string' && tipo.startsWith('image/');
+}
+
+function getSolicitudExtFromMime(mime: string, nombre: string): string {
+  if (mime && mime.includes('/')) {
+    const sub = mime.split('/')[1];
+    const map: Record<string, string> = {
+      jpeg: 'jpg',
+      'vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+      'vnd.ms-excel': 'xls',
+      'vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+    };
+    const mapped = map[sub];
+    if (mapped) return mapped;
+    if (sub !== 'octet-stream') return sub;
+  }
+  const dot = nombre.lastIndexOf('.');
+  return dot !== -1 ? nombre.slice(dot + 1).toLowerCase() : 'bin';
+}
+
+function formatSolicitudBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function buildSolicitudFileItem(archivo: any): FileItem {
+  const tipo: string = typeof archivo.tipo === 'string' ? archivo.tipo : '';
+  const nombre: string = typeof archivo.nombre === 'string' ? archivo.nombre : 'Archivo';
+  const ext = getSolicitudExtFromMime(tipo, nombre);
+  return {
+    id: String(archivo.id),
+    kind: isImageType(tipo) ? 'image' : 'file',
+    name: nombre,
+    ext,
+    size: archivo.tamaño ? formatSolicitudBytes(archivo.tamaño) : undefined,
+    uri: typeof archivo._resolvedUri === 'string' ? archivo._resolvedUri : '',
+  };
+}
+
+// ─── localStyles ───────────────────────────────────────────────────────────────
 
 const localStyles = StyleSheet.create({
   agendaVerdeBanner: {

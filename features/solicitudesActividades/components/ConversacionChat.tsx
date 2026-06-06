@@ -1,9 +1,10 @@
 import { AlertModal } from '@/components/AlertModal';
+import { FileAttachment, FilePreview, InlineImageAttachment, useOpenFilePreview } from '@/components/filePreview';
+import type { FileItem } from '@/components/filePreview';
 import { ThemedText } from '@/components/themed-text';
 import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
-import { DocsList } from '@/features/docs/components/DocsList';
 import { ParticipantesBlock } from './ParticipantesBlock';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { adminRoles, allRoles } from '@/shared/users/roles';
@@ -16,7 +17,6 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -91,6 +91,7 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
 
   // ─── Estado UI ────────────────────────────────────────────────────────────
   const [showArchivosModal, setShowArchivosModal] = useState(false);
+  const { previewFile, openFile, openWithUri, closePreview } = useOpenFilePreview();
   const { data: chatArchivos, isLoading: isLoadingArchivos } = useChatArchivos(solicitudId, showArchivosModal);
   const [showFullBitacora, setShowFullBitacora] = useState(false);
   const [messageDraft, setMessageDraft] = useState('');
@@ -238,6 +239,10 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
     );
   }, [canSendMessage, uploadPickedFiles, messageDraft, actualizarEstado, solicitudId, isHost, setPickedFiles]);
 
+  // ─── Preview de archivos ──────────────────────────────────────────────────
+
+  const handleOpenAsPreview = useCallback((archivo: any) => openFile(archivo), [openFile]);
+
   // ─── Compartir ────────────────────────────────────────────────────────────
 
   const ejecutarCompartir = useCallback(() => {
@@ -277,18 +282,15 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
               showsVerticalScrollIndicator={false}
               nestedScrollEnabled
             >
-              {/* Participantes (resumen) — solo en grupos */}
-              {/* Archivos de la conversación */}
-              <View style={[styles.sectionHeaderRow, { marginBottom: 4 }]}>
-                <View />
-                <TouchableOpacity
-                  style={styles.iconButton}
-                  onPress={() => setShowArchivosModal(true)}
-                  accessibilityLabel="Ver archivos de la conversación"
-                >
-                  <Ionicons name="information-circle-outline" size={22} color={colors.tint} />
-                </TouchableOpacity>
-              </View>
+              {/* Conversation header row */}
+              <ChatHeaderRow
+                solicitud={solicitud}
+                displayParticipantes={displayParticipantes}
+                getParticipanteDisplayName={getParticipanteDisplayName}
+                archivosCount={todosArchivos.length}
+                currentUserId={user?.user_context_id}
+                onPress={() => setShowArchivosModal(true)}
+              />
 
               {/* Participantes (solo grupos) */}
               {solicitud.es_grupo && (
@@ -403,10 +405,20 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
                                 {archivos.length > 0 && (
                                   <View style={styles.messageAttachments}>
                                     {archivos.map((a: any) => (
-                                      <Pressable key={`archivo-${a.id}`} style={styles.messageAttachmentRow} onPress={() => handleOpenArchivo(a.id)}>
-                                        <Ionicons name="document-outline" size={16} color={colors.secondaryText} />
-                                        <ThemedText style={[styles.messageAttachmentName, styles.linkText]} numberOfLines={1}>{a.nombre}</ThemedText>
-                                      </Pressable>
+                                      isImageType(a.tipo) ? (
+                                        <InlineImageAttachment
+                                          key={`archivo-${a.id}`}
+                                          archivoId={a.id}
+                                          nombre={typeof a.nombre === 'string' ? a.nombre : 'Imagen'}
+                                          onOpen={(uri) => openWithUri(buildFileItem({ ...a, _resolvedUri: uri }))}
+                                        />
+                                      ) : (
+                                        <FileAttachment
+                                          key={`archivo-${a.id}`}
+                                          file={buildFileItem(a)}
+                                          onOpen={() => handleOpenAsPreview(a)}
+                                        />
+                                      )
                                     ))}
                                   </View>
                                 )}
@@ -549,24 +561,36 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
               <TouchableWithoutFeedback onPress={() => setShowArchivosModal(false)}>
                 <View style={styles.modalOverlay}>
                   <TouchableWithoutFeedback onPress={e => e.stopPropagation()}>
-                    <View style={styles.modalContent}>
-                      <ThemedText type="subtitle" style={{ marginBottom: 16 }}>Archivos de la conversación</ThemedText>
+                    <View style={localStyles.archivosCard}>
+                      <Text style={localStyles.archivosCardTitle}>Archivos de la conversación</Text>
                       {isLoadingArchivos ? (
                         <ActivityIndicator size="small" color={colors.lightTint} style={{ marginVertical: 20 }} />
                       ) : (
-                        <ScrollView style={{ maxHeight: 360 }}>
-                          <DocsList
-                            archivos={todosArchivosChat}
-                            onOpen={handleOpenArchivo}
-                            emptyMessage="No hay archivos en esta conversación"
-                          />
-                        </ScrollView>
+                        <>
+                          <Text style={localStyles.archivosCardSubtitle}>
+                            {countByKind(todosArchivosChat).images} imágenes · {countByKind(todosArchivosChat).files} archivos
+                          </Text>
+                          <ScrollView style={{ maxHeight: 420 }} showsVerticalScrollIndicator={false}>
+                            <ArchivosModalContent
+                              archivos={todosArchivosChat}
+                              onOpen={archivo => {
+                                setShowArchivosModal(false);
+                                handleOpenAsPreview(archivo);
+                              }}
+                              onOpenImage={(archivo, uri) => {
+                                setShowArchivosModal(false);
+                                openWithUri(buildFileItem({ ...archivo, _resolvedUri: uri }));
+                              }}
+                            />
+                          </ScrollView>
+                        </>
                       )}
-                      <View style={styles.modalActions}>
-                        <TouchableOpacity onPress={() => setShowArchivosModal(false)} style={styles.modalBtnCancel}>
-                          <ThemedText style={{ color: colors.error }}>Cerrar</ThemedText>
-                        </TouchableOpacity>
-                      </View>
+                      <TouchableOpacity
+                        onPress={() => setShowArchivosModal(false)}
+                        style={localStyles.archivosCloseBtn}
+                      >
+                        <Text style={localStyles.archivosCloseBtnText}>Cerrar</Text>
+                      </TouchableOpacity>
                     </View>
                   </TouchableWithoutFeedback>
                 </View>
@@ -585,18 +609,284 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
           </View>
         </KeyboardAvoidingView>
       </View>
+
+      <FilePreview file={previewFile} onClose={closePreview} />
     </Modal>
   );
 }
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function isImageType(tipo: unknown): boolean {
+  return typeof tipo === 'string' && tipo.startsWith('image/');
+}
+
+function getExtFromMime(mime: string, nombre: string): string {
+  if (mime && mime.includes('/')) {
+    const sub = mime.split('/')[1];
+    const map: Record<string, string> = {
+      jpeg: 'jpg',
+      'vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+      'vnd.ms-excel': 'xls',
+      'vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+    };
+    const mapped = map[sub];
+    if (mapped) return mapped;
+    if (sub !== 'octet-stream') return sub;
+  }
+  const dot = nombre.lastIndexOf('.');
+  return dot !== -1 ? nombre.slice(dot + 1).toLowerCase() : 'bin';
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function buildFileItem(archivo: any): FileItem {
+  const tipo: string = typeof archivo.tipo === 'string' ? archivo.tipo : '';
+  const nombre: string = typeof archivo.nombre === 'string' ? archivo.nombre : 'Archivo';
+  const ext = getExtFromMime(tipo, nombre);
+  return {
+    id: String(archivo.id),
+    kind: isImageType(tipo) ? 'image' : 'file',
+    name: nombre,
+    ext,
+    size: archivo.tamaño ? formatBytes(archivo.tamaño) : undefined,
+    uri: typeof archivo._resolvedUri === 'string' ? archivo._resolvedUri : '',
+  };
+}
+
+function countByKind(archivos: any[]): { images: number; files: number } {
+  let images = 0, files = 0;
+  for (const a of archivos) {
+    if (isImageType(a.tipo)) images++;
+    else files++;
+  }
+  return { images, files };
+}
+
+// ─── ChatHeaderRow ─────────────────────────────────────────────────────────────
+
+interface ChatHeaderRowProps {
+  solicitud: SolicitudEnviada;
+  displayParticipantes: any[];
+  getParticipanteDisplayName: (p: any) => string;
+  archivosCount: number;
+  currentUserId?: number;
+  onPress: () => void;
+}
+
+function ChatHeaderRow({ solicitud, displayParticipantes, getParticipanteDisplayName, archivosCount, currentUserId, onPress }: ChatHeaderRowProps) {
+  const isGroup = solicitud.es_grupo;
+
+  const otherUser = useMemo(() => {
+    if (isGroup) return null;
+    return displayParticipantes.find(p => p.user_id !== currentUserId) ?? displayParticipantes[0] ?? null;
+  }, [isGroup, displayParticipantes, currentUserId]);
+
+  const title = isGroup
+    ? solicitud.titulo
+    : (otherUser ? getParticipanteDisplayName(otherUser) : solicitud.titulo);
+
+  const subtitle = isGroup
+    ? `${displayParticipantes.length} participantes · toca para ver archivos`
+    : 'Conversación directa · toca para ver archivos';
+
+  const initials = useMemo(() => {
+    if (!otherUser) return '?';
+    const name = getParticipanteDisplayName(otherUser);
+    const parts = name.trim().split(' ');
+    return (parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '');
+  }, [otherUser, getParticipanteDisplayName]);
+
+  return (
+    <TouchableOpacity onPress={onPress} activeOpacity={0.75} style={localStyles.chatHeader}>
+      <View style={localStyles.chatHeaderAvatar}>
+        {isGroup
+          ? <Ionicons name="people" size={20} color="#3b6fd4" />
+          : <Text style={localStyles.chatHeaderAvatarText}>{initials.toUpperCase()}</Text>}
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={localStyles.chatHeaderTitle} numberOfLines={1}>{title}</Text>
+        <Text style={localStyles.chatHeaderSubtitle} numberOfLines={1}>{subtitle}</Text>
+      </View>
+      <View style={localStyles.filesPill}>
+        <Ionicons name="attach" size={14} color="#3b6fd4" />
+        <Text style={localStyles.filesPillCount}>{archivosCount}</Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+// ─── ArchivosModalContent ──────────────────────────────────────────────────────
+
+function ArchivosModalContent({
+  archivos,
+  onOpen,
+  onOpenImage,
+}: {
+  archivos: any[];
+  onOpen: (a: any) => void;
+  onOpenImage: (a: any, uri: string) => void;
+}) {
+  const images = archivos.filter(a => isImageType(a.tipo));
+  const files = archivos.filter(a => !isImageType(a.tipo));
+
+  if (archivos.length === 0) {
+    return <Text style={localStyles.archivosEmpty}>No hay archivos en esta conversación</Text>;
+  }
+
+  return (
+    <View style={{ gap: 16 }}>
+      {images.length > 0 && (
+        <View>
+          <Text style={localStyles.archivosGroupLabel}>IMÁGENES</Text>
+          <View style={localStyles.archivosGrid}>
+            {images.map(a => (
+              <View key={`img-${a.id}`} style={localStyles.archivosGridItem}>
+                <InlineImageAttachment
+                  archivoId={a.id}
+                  nombre={typeof a.nombre === 'string' ? a.nombre : 'Imagen'}
+                  onOpen={(uri) => onOpenImage(a, uri)}
+                />
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
+      {files.length > 0 && (
+        <View style={{ gap: 8 }}>
+          <Text style={localStyles.archivosGroupLabel}>ARCHIVOS</Text>
+          {files.map(a => (
+            <FileAttachment
+              key={`file-${a.id}`}
+              file={buildFileItem(a)}
+              onOpen={() => onOpen(a)}
+            />
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
+// ─── Styles ────────────────────────────────────────────────────────────────────
+
 const localStyles = StyleSheet.create({
-  sectionHeaderActions: {
+  chatHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#f6f7f9',
+    borderWidth: 1,
+    borderColor: '#e8eaed',
+    borderRadius: 14,
+    padding: 11,
+    paddingHorizontal: 12,
+    gap: 12,
+  },
+  chatHeaderAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#cfe0f7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chatHeaderAvatarText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#3b6fd4',
+  },
+  chatHeaderTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1c2024',
+  },
+  chatHeaderSubtitle: {
+    fontSize: 12.5,
+    color: '#7a8087',
+    marginTop: 1,
+  },
+  filesPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#cfe0f7',
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  filesPillCount: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#3b6fd4',
+  },
+  archivosCard: {
+    width: '90%',
+    maxWidth: 450,
+    maxHeight: '78%',
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 24,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  archivosCardTitle: {
+    fontSize: 21,
+    fontWeight: '800',
+    color: '#1c2024',
+    marginBottom: 4,
+  },
+  archivosCardSubtitle: {
+    fontSize: 13,
+    color: '#7a8087',
+    marginBottom: 16,
+  },
+  archivosGroupLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#9aa3ab',
+    marginBottom: 8,
+    letterSpacing: 0.4,
+  },
+  archivosGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
   },
-  iconButton: {
-    padding: 4,
+  archivosGridItem: {
+    width: '47%',
+  },
+  archivosGridThumb: {
+    height: 104,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  archivosGridCaption: {
+    fontSize: 11.5,
+    color: '#7a8087',
+    marginTop: 4,
+  },
+  archivosEmpty: {
+    fontSize: 14,
+    color: '#9aa3ab',
+    textAlign: 'center',
+    paddingVertical: 16,
+  },
+  archivosCloseBtn: {
+    marginTop: 16,
+    alignSelf: 'flex-end',
+  },
+  archivosCloseBtnText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#e2543b',
   },
 });
 

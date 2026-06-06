@@ -2,7 +2,8 @@ import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { DocsList, PendingFile } from '@/features/docs/components/DocsList';
 import { Archivo, ArchivoUso } from '@/features/docs/models/Archivo';
-import { useGetArchivoUrlFirmada, useUploadArchivo } from '@/features/docs/viewmodels/useArchivos';
+import { FilePreview, useOpenFilePreview } from '@/components/filePreview';
+import { useUploadArchivo } from '@/features/docs/viewmodels/useArchivos';
 import { ApiOperationResult } from '@/shared/types/apiStatus';
 import { UserSummary } from '@/shared/users/User';
 import { adminRoles, allRoles } from '@/shared/users/roles';
@@ -13,7 +14,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
-    Linking,
     Modal,
     ScrollView,
     StyleSheet,
@@ -60,7 +60,7 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
     const editMutation = useEditObjetivo();
     const archivoMutation = useArchivoObjetivo();
     const invitadosMutation = useInvitadosObjetivo();
-    const { getArchivoUrlFirmada } = useGetArchivoUrlFirmada();
+    const { previewFile, openFile, closePreview } = useOpenFilePreview();
 
     const users = searchResults || [];
     const isLoadingUsers = isSearchingUsers || isLoadingRole;
@@ -290,13 +290,13 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
         }
     };
 
-    const handleOpenArchivo = async (archivoId: number) => {
-        try {
-            const url = await getArchivoUrlFirmada(archivoId);
-            Linking.openURL(url).catch(() => Alert.alert('Error', 'No se pudo abrir el archivo'));
-        } catch {
-            Alert.alert('Error', 'No se pudo obtener el enlace del archivo');
+    const handleOpenArchivo = (archivoId: number) => {
+        const archivo = (currentObjetivo.archivos ?? []).find(a => a.id === archivoId);
+        if (!archivo) {
+            Alert.alert('Error', 'No se pudo encontrar el archivo');
+            return;
         }
+        void openFile(archivo);
     };
 
     const handleRemoveArchivo = (archivoId: number) => {
@@ -529,6 +529,8 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
                     />
                 </View>
             </View >
+
+            <FilePreview file={previewFile} onClose={closePreview} />
         </Modal >
     );
 }

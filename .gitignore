@@ -59,3 +59,8 @@ app-example
 
 # venv
 .venv*
+
+# carpetas spec
+app interna italo
+app_interna_italo_files
+app_interna_italo_files_upload

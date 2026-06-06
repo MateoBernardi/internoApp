@@ -1,10 +1,11 @@
+import { FilePreview, useOpenFilePreview } from '@/components/filePreview';
 import { ThemedText } from '@/components/themed-text';
 import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
 import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
 import { Colors } from '@/constants/theme';
 import { DocsList, PendingFile } from '@/features/docs/components/DocsList';
 import { Archivo, ArchivoUso } from '@/features/docs/models/Archivo';
-import { useGetArchivoUrlFirmada, useUploadArchivo } from '@/features/docs/viewmodels/useArchivos';
+import { useUploadArchivo } from '@/features/docs/viewmodels/useArchivos';
 import { ApiOperationResult } from '@/shared/types/apiStatus';
 import { UserSummary } from '@/shared/users/User';
 import { allRoles } from '@/shared/users/roles';
@@ -17,7 +18,6 @@ import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
-  Linking,
   Modal,
   Platform,
   ScrollView,
@@ -126,7 +126,7 @@ export function ActividadDetalle({
   const { mutateAsync: uploadArchivo } = useUploadArchivo();
   const archivoMutation = useArchivoActividad();
   const participantesMutation = useInvitadosActividad();
-  const { getArchivoUrlFirmada } = useGetArchivoUrlFirmada();
+  const { previewFile, openFile, closePreview } = useOpenFilePreview();
 
   // ─── Estado: archivos ─────────────────────────────────────────────────────
 
@@ -309,13 +309,13 @@ export function ActividadDetalle({
     }
   };
 
-  const handleOpenArchivo = async (archivoId: number) => {
-    try {
-      const url = await getArchivoUrlFirmada(archivoId);
-      Linking.openURL(url).catch(() => Alert.alert('Error', 'No se pudo abrir el archivo'));
-    } catch {
-      Alert.alert('Error', 'No se pudo obtener el enlace del archivo');
+  const handleOpenArchivo = (archivoId: number) => {
+    const archivo = localArchivos.find(a => a.id === archivoId);
+    if (!archivo) {
+      Alert.alert('Error', 'No se pudo encontrar el archivo');
+      return;
     }
+    void openFile(archivo);
   };
 
   const handleRemoveArchivo = (archivoId: number) => {
@@ -884,6 +884,8 @@ export function ActividadDetalle({
           </View>
         </KeyboardAvoidingView>
       </View>
+
+      <FilePreview file={previewFile} onClose={closePreview} />
     </Modal>
   );
 }

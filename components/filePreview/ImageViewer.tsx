@@ -8,6 +8,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFileActions } from './useFileActions';
 import type { FileItem } from './types';
@@ -17,6 +19,84 @@ interface Props {
   onClose: () => void;
 }
 
+const MIN_SCALE = 1;
+const MAX_SCALE = 5;
+const DOUBLE_TAP_SCALE = 2.5;
+
+function ZoomableImage({ uri }: { uri: string }) {
+  const scale = useSharedValue(1);
+  const savedScale = useSharedValue(1);
+  const tx = useSharedValue(0);
+  const ty = useSharedValue(0);
+  const savedTx = useSharedValue(0);
+  const savedTy = useSharedValue(0);
+
+  const reset = () => {
+    'worklet';
+    scale.value = withTiming(MIN_SCALE);
+    savedScale.value = MIN_SCALE;
+    tx.value = withTiming(0);
+    ty.value = withTiming(0);
+    savedTx.value = 0;
+    savedTy.value = 0;
+  };
+
+  const pinch = Gesture.Pinch()
+    .onUpdate((e) => {
+      scale.value = Math.min(Math.max(savedScale.value * e.scale, 0.8), MAX_SCALE);
+    })
+    .onEnd(() => {
+      if (scale.value <= MIN_SCALE) {
+        reset();
+      } else {
+        savedScale.value = scale.value;
+      }
+    });
+
+  const pan = Gesture.Pan()
+    .averageTouches(true)
+    .onUpdate((e) => {
+      if (scale.value <= MIN_SCALE) return;
+      tx.value = savedTx.value + e.translationX;
+      ty.value = savedTy.value + e.translationY;
+    })
+    .onEnd(() => {
+      savedTx.value = tx.value;
+      savedTy.value = ty.value;
+    });
+
+  const doubleTap = Gesture.Tap()
+    .numberOfTaps(2)
+    .onEnd(() => {
+      if (scale.value > MIN_SCALE) {
+        reset();
+      } else {
+        scale.value = withTiming(DOUBLE_TAP_SCALE);
+        savedScale.value = DOUBLE_TAP_SCALE;
+      }
+    });
+
+  const gesture = Gesture.Race(doubleTap, Gesture.Simultaneous(pinch, pan));
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: tx.value },
+      { translateY: ty.value },
+      { scale: scale.value },
+    ],
+  }));
+
+  return (
+    <GestureDetector gesture={gesture}>
+      <Animated.View style={styles.imageWrap}>
+        <Animated.View style={[styles.imageInner, animatedStyle]}>
+          <Image source={{ uri }} style={styles.image} contentFit="contain" transition={200} />
+        </Animated.View>
+      </Animated.View>
+    </GestureDetector>
+  );
+}
+
 export function ImageViewer({ file, onClose }: Props) {
   const { share, download, print, busy } = useFileActions(file);
   const { top, bottom } = useSafeAreaInsets();
@@ -24,7 +104,7 @@ export function ImageViewer({ file, onClose }: Props) {
   const subtitle = [file.sender, file.date].filter(Boolean).join(' · ');
 
   return (
-    <View style={styles.root}>
+    <GestureHandlerRootView style={styles.root}>
       {/* Top bar */}
       <View style={[styles.topBar, { paddingTop: top }]}>
         <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
@@ -40,15 +120,10 @@ export function ImageViewer({ file, onClose }: Props) {
 
       {/* Image body */}
       <View style={styles.body}>
-        <Image
-          source={{ uri: file.uri }}
-          style={styles.image}
-          contentFit="contain"
-          transition={200}
-        />
-        <View style={styles.captionChip}>
+        <ZoomableImage uri={file.uri} />
+        <View style={styles.captionChip} pointerEvents="none">
           <Text style={styles.captionText}>
-            {file.ext.toUpperCase()}{file.size ? ` · ${file.size}` : ''}
+            {file.ext.toUpperCase()}{file.size ? ` · ${file.size}` : ''} · pellizcá o tocá 2× para zoom
           </Text>
         </View>
       </View>
@@ -59,7 +134,7 @@ export function ImageViewer({ file, onClose }: Props) {
         <ActionBtn icon="download-outline" label="Descargar" onPress={download} disabled={busy} />
         <ActionBtn icon="print-outline" label="Imprimir" onPress={print} disabled={busy} />
       </View>
-    </View>
+    </GestureHandlerRootView>
   );
 }
 
@@ -116,6 +191,17 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  imageWrap: {
+    flex: 1,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  imageInner: {
+    width: '100%',
+    height: '100%',
   },
   image: {
     width: '100%',

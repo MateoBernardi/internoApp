@@ -1,5 +1,5 @@
 import { AlertModal } from '@/components/AlertModal';
-import { FileAttachment, FilePreview, InlineImageAttachment, useOpenFilePreview } from '@/components/filePreview';
+import { FileAttachment, FilePreview, InlineImageAttachment, getExt, isImageFile, useOpenFilePreview } from '@/components/filePreview';
 import type { FileItem } from '@/components/filePreview';
 import { ThemedText } from '@/components/themed-text';
 import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
@@ -837,7 +837,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                                 {archivos.length > 0 && (
                                   <View style={styles.messageAttachments}>
                                     {archivos.map((a: any) => (
-                                      isImageType(a.tipo) ? (
+                                      isImageFile(a.tipo, a.nombre) ? (
                                         <InlineImageAttachment
                                           key={`archivo-${a.id}`}
                                           archivoId={a.id}
@@ -1296,27 +1296,6 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function isImageType(tipo: unknown): boolean {
-  return typeof tipo === 'string' && tipo.startsWith('image/');
-}
-
-function getSolicitudExtFromMime(mime: string, nombre: string): string {
-  if (mime && mime.includes('/')) {
-    const sub = mime.split('/')[1];
-    const map: Record<string, string> = {
-      jpeg: 'jpg',
-      'vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
-      'vnd.ms-excel': 'xls',
-      'vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
-    };
-    const mapped = map[sub];
-    if (mapped) return mapped;
-    if (sub !== 'octet-stream') return sub;
-  }
-  const dot = nombre.lastIndexOf('.');
-  return dot !== -1 ? nombre.slice(dot + 1).toLowerCase() : 'bin';
-}
-
 function formatSolicitudBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -1326,12 +1305,11 @@ function formatSolicitudBytes(bytes: number): string {
 function buildSolicitudFileItem(archivo: any): FileItem {
   const tipo: string = typeof archivo.tipo === 'string' ? archivo.tipo : '';
   const nombre: string = typeof archivo.nombre === 'string' ? archivo.nombre : 'Archivo';
-  const ext = getSolicitudExtFromMime(tipo, nombre);
   return {
     id: String(archivo.id),
-    kind: isImageType(tipo) ? 'image' : 'file',
+    kind: isImageFile(tipo, nombre) ? 'image' : 'file',
     name: nombre,
-    ext,
+    ext: getExt(tipo, nombre),
     size: archivo.tamaño ? formatSolicitudBytes(archivo.tamaño) : undefined,
     uri: typeof archivo._resolvedUri === 'string' ? archivo._resolvedUri : '',
   };

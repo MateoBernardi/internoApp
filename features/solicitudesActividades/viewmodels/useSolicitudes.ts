@@ -17,51 +17,6 @@ export const solicitudesQueryKeys = {
 const BITACORA_PAGE_SIZE = 20;
 
 /**
- * Hook para obtener las solicitudes creadas por el usuario
- */
-export function useSolicitudesCreadas(enabled: boolean = true) {
-  const { tokens } = useAuth();
-  return useQuery({
-    queryKey: solicitudesQueryKeys.creadas(),
-    enabled,
-    queryFn: async () => {
-      const token = tokens?.accessToken;
-      if (!token) {
-        throw new Error('No access token available');
-      }
-      return solicitudesApi.getSolicitudesCreadas(token);
-    },
-    staleTime: 1000 * 60 * 5, // 5 minutos
-    gcTime: 1000 * 60 * 10, // 10 minutos (anteriormente cacheTime)
-    retry: 3,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-  });
-}
-
-/**
- * Hook para obtener las invitaciones recibidas por el usuario
- */
-export function useInvitaciones(enabled: boolean = true) {
-  const { tokens } = useAuth();
-
-  return useQuery({
-    queryKey: solicitudesQueryKeys.invitaciones(),
-    enabled,
-    queryFn: async () => {
-      const accessToken = tokens?.accessToken;
-      if (!accessToken) {
-        throw new Error('No access token available');
-      }
-      return solicitudesApi.obtenerMisInvitaciones(accessToken);
-    },
-    staleTime: 1000 * 60 * 5, // 5 minutos
-    gcTime: 1000 * 60 * 10, // 10 minutos
-    retry: 3,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-  });
-}
-
-/**
  * Hook para obtener la bitácora de cambios de una solicitud.
  * Paginado por cursor: cada página trae las más recientes y `nextCursor`
  * apunta a las más antiguas. El `select` invierte el orden de las páginas

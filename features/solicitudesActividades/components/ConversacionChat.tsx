@@ -1,5 +1,5 @@
 import { AlertModal } from '@/components/AlertModal';
-import { FileAttachment, FilePreview, InlineImageAttachment, useOpenFilePreview } from '@/components/filePreview';
+import { FileAttachment, FilePreview, InlineImageAttachment, getExt, isImageFile, useOpenFilePreview } from '@/components/filePreview';
 import type { FileItem } from '@/components/filePreview';
 import { ThemedText } from '@/components/themed-text';
 import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
@@ -405,7 +405,7 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
                                 {archivos.length > 0 && (
                                   <View style={styles.messageAttachments}>
                                     {archivos.map((a: any) => (
-                                      isImageType(a.tipo) ? (
+                                      isImageFile(a.tipo, a.nombre) ? (
                                         <InlineImageAttachment
                                           key={`archivo-${a.id}`}
                                           archivoId={a.id}
@@ -617,27 +617,6 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function isImageType(tipo: unknown): boolean {
-  return typeof tipo === 'string' && tipo.startsWith('image/');
-}
-
-function getExtFromMime(mime: string, nombre: string): string {
-  if (mime && mime.includes('/')) {
-    const sub = mime.split('/')[1];
-    const map: Record<string, string> = {
-      jpeg: 'jpg',
-      'vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
-      'vnd.ms-excel': 'xls',
-      'vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
-    };
-    const mapped = map[sub];
-    if (mapped) return mapped;
-    if (sub !== 'octet-stream') return sub;
-  }
-  const dot = nombre.lastIndexOf('.');
-  return dot !== -1 ? nombre.slice(dot + 1).toLowerCase() : 'bin';
-}
-
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -647,12 +626,11 @@ function formatBytes(bytes: number): string {
 function buildFileItem(archivo: any): FileItem {
   const tipo: string = typeof archivo.tipo === 'string' ? archivo.tipo : '';
   const nombre: string = typeof archivo.nombre === 'string' ? archivo.nombre : 'Archivo';
-  const ext = getExtFromMime(tipo, nombre);
   return {
     id: String(archivo.id),
-    kind: isImageType(tipo) ? 'image' : 'file',
+    kind: isImageFile(tipo, nombre) ? 'image' : 'file',
     name: nombre,
-    ext,
+    ext: getExt(tipo, nombre),
     size: archivo.tamaño ? formatBytes(archivo.tamaño) : undefined,
     uri: typeof archivo._resolvedUri === 'string' ? archivo._resolvedUri : '',
   };
@@ -661,7 +639,7 @@ function buildFileItem(archivo: any): FileItem {
 function countByKind(archivos: any[]): { images: number; files: number } {
   let images = 0, files = 0;
   for (const a of archivos) {
-    if (isImageType(a.tipo)) images++;
+    if (isImageFile(a.tipo, a.nombre)) images++;
     else files++;
   }
   return { images, files };
@@ -731,8 +709,8 @@ function ArchivosModalContent({
   onOpen: (a: any) => void;
   onOpenImage: (a: any, uri: string) => void;
 }) {
-  const images = archivos.filter(a => isImageType(a.tipo));
-  const files = archivos.filter(a => !isImageType(a.tipo));
+  const images = archivos.filter(a => isImageFile(a.tipo, a.nombre));
+  const files = archivos.filter(a => !isImageFile(a.tipo, a.nombre));
 
   if (archivos.length === 0) {
     return <Text style={localStyles.archivosEmpty}>No hay archivos en esta conversación</Text>;

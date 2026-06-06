@@ -109,32 +109,6 @@ export async function getChatArchivos(accessToken: string, solicitudId: number):
     return data.map(mapArchivoDTOToArchivo);
 }
 
-export async function getSolicitudesCreadas(accessToken: string): Promise<solicitudes.SolicitudEnviada[]> {
-    const response = await apiRequest({ method: 'GET', endpoint: '/solicitudes-actividades/solicitudes/creador', token: accessToken });
-
-    if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Error en getSolicitudesCreadas:', response.status, errorText);
-        throwApiError(errorText, response);
-    }
-
-    const data: SolicitudInfoDTO[] = await response.json();
-    return data.map(mapSolicitudInfoDTOToSolicitudEnviada);
-}
-
-export async function obtenerMisInvitaciones(accessToken: string): Promise<solicitudes.SolicitudEnviada[]> {
-    const response = await apiRequest({ method: 'GET', endpoint: '/solicitudes-actividades/solicitudes/invitados', token: accessToken });
-
-    if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Error en obtenerMisInvitaciones:', response.status, errorText);
-        throwApiError(errorText, response);
-    }
-
-    const data: SolicitudInfoDTO[] = await response.json();
-    return data.map(mapSolicitudInfoDTOToSolicitudEnviada);
-}
-
 export async function actualizarEstadoInvitacion(accessToken: string, data: solicitudes.ActualizarEstadoInvitacionRequest, idempotencyKey?: string): Promise<solicitudes.ActualizarEstadoInvitacionResponse> {
     const payload = mapUpdateSolicitudRequestToPayload(data);
     const response = await apiRequest({ method: 'PUT', endpoint: `/solicitudes-actividades/solicitudes/update`, token: accessToken, body: payload, headers: idempotencyHeaders(idempotencyKey) });

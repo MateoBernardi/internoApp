@@ -47,9 +47,6 @@ export async function prefetchCoreRealtimeData(
     })
   );
 
-  
-
-  
   tasks.push(
     queryClient.prefetchQuery({
       queryKey: RealtimeQueryKeys.licenciasAdmin,

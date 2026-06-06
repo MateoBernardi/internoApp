@@ -9,7 +9,9 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { isPdfFile } from './fileKind';
 import { fileTypeColor } from './fileTypeColor';
+import { PdfBody } from './PdfBody';
 import { useFileActions } from './useFileActions';
 import type { FileItem } from './types';
 
@@ -23,6 +25,7 @@ export function FileViewer({ file, onClose }: Props) {
   const { top, bottom } = useSafeAreaInsets();
 
   const subtitle = [file.ext.toUpperCase(), file.size, file.sender].filter(Boolean).join(' · ');
+  const canRenderPdf = !!file.uri && isPdfFile(file.ext, file.name);
 
   return (
     <View style={styles.root}>
@@ -40,13 +43,18 @@ export function FileViewer({ file, onClose }: Props) {
       </View>
 
       {/* Body */}
-      <View style={styles.body}>
-        {file.textPreview ? (
-          <ScrollView style={styles.textCard} contentContainerStyle={styles.textCardContent}>
-            <Text style={styles.textPreview}>{file.textPreview}</Text>
-          </ScrollView>
-        ) : (
-          <View style={styles.hero}>
+      {canRenderPdf ? (
+        <View style={styles.pdfBody}>
+          <PdfBody uri={file.uri} name={file.name} />
+        </View>
+      ) : (
+        <View style={styles.body}>
+          {file.textPreview ? (
+            <ScrollView style={styles.textCard} contentContainerStyle={styles.textCardContent}>
+              <Text style={styles.textPreview}>{file.textPreview}</Text>
+            </ScrollView>
+          ) : (
+            <View style={styles.hero}>
             <View style={[styles.heroBadge, { backgroundColor: fileTypeColor(file.ext) }]}>
               <Text style={styles.heroBadgeText}>{file.ext.toUpperCase().slice(0, 4)}</Text>
             </View>
@@ -55,9 +63,10 @@ export function FileViewer({ file, onClose }: Props) {
               {file.ext.toUpperCase()}{file.size ? ` · ${file.size}` : ''}
             </Text>
             <Text style={styles.heroNote}>Vista previa no disponible para este tipo</Text>
-          </View>
-        )}
-      </View>
+            </View>
+          )}
+        </View>
+      )}
 
       {/* Action bar */}
       <View style={[styles.actionBar, { paddingBottom: Math.max(bottom, 16) }]}>
@@ -123,6 +132,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 20,
+  },
+  pdfBody: {
+    flex: 1,
+    backgroundColor: '#0e1216',
   },
   textCard: {
     width: '100%',

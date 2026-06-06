@@ -4,10 +4,6 @@ import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { useReportes } from '@/features/reportes/viewmodels/useReportes';
 import {
-  useInvitaciones,
-  useSolicitudesCreadas,
-} from '@/features/solicitudesActividades/viewmodels/useSolicitudes';
-import {
   useGetSolicitudesLicencias,
   useGetSolicitudesUsuario,
 } from '@/features/solicitudesLicencias/viewmodels/useSolicitudes';
@@ -72,8 +68,6 @@ export default function TabLayout() {
   const isDesktopWeb = Platform.OS === 'web' && responsiveLayout.isDesktop;
   const currentTab = useMemo(() => (segments[1] as string) || 'index', [segments]);
 
-  const { data: invitaciones = [] } = useInvitaciones(canSeeActivityRequests && hasSessionContext);
-  const { data: solicitudesEnviadas = [] } = useSolicitudesCreadas(canSeeActivityRequests && hasSessionContext);
   const { data: solicitudesLicenciasAdmin = [] } = useGetSolicitudesLicencias(
     canSeeLicenciasAdmin && hasSessionContext ? {} : undefined
   );
@@ -89,18 +83,6 @@ export default function TabLayout() {
     canSeeReportesPersonal && hasSessionContext
   );
 
-  const hasSolicitudesActividadesPendientesRecibidas = invitaciones.some((item) =>
-    ['SENT', 'MODIFIED_BY_HOST', 'ACCEPTED_BY_HOST'].includes(item.estado)
-  );
-
-  const hasSolicitudesActividadesPendientesEnviadas = solicitudesEnviadas.some(
-    (item) => item.estado === 'MODIFIED'
-  );
-
-  const hasSolicitudesActividadesPendientes =
-    hasSolicitudesActividadesPendientesRecibidas ||
-    hasSolicitudesActividadesPendientesEnviadas;
-
   const hasSolicitudesLicenciasPendientesAdmin = solicitudesLicenciasAdmin.some((item) =>
     ['PENDIENTE', 'PENDIENTE_DOCUMENTACION', 'PENDIENTE_APROBACION'].includes(item.estado)
   );
@@ -111,9 +93,6 @@ export default function TabLayout() {
 
   const hasReportesPendientesAdmin = reportesAdmin.some((item) => item.estado === 'PENDIENTE');
   const hasReportesPendientesPersonal = reportesPersonal.some((item) => item.estado === 'PENDIENTE');
-
-  const hasSolicitudesBadgeInTab = hasSolicitudesTab && hasSolicitudesActividadesPendientes;
-  const hasSolicitudesBadgeInHome = !hasSolicitudesTab && hasSolicitudesActividadesPendientes;
 
   const hasAdminBadge =
     hasAdminTab &&
@@ -215,7 +194,6 @@ export default function TabLayout() {
             onPress={() => navigateToTab('/(tabs)' as Href)}
           >
             <Text style={[styles.desktopTopButtonText, currentTab === 'index' && styles.desktopTopButtonTextActive]}>Inicio</Text>
-            {hasSolicitudesBadgeInHome && <View style={styles.desktopNavPendingDot} />}
           </TouchableOpacity>
 
           {!hideExplore && (
@@ -224,7 +202,6 @@ export default function TabLayout() {
               onPress={() => navigateToTab('/(tabs)/explore' as Href)}
             >
               <Text style={[styles.desktopTopButtonText, currentTab === 'explore' && styles.desktopTopButtonTextActive]}>Solicitudes</Text>
-              {hasSolicitudesBadgeInTab && <View style={styles.desktopNavPendingDot} />}
             </TouchableOpacity>
           )}
 
@@ -393,7 +370,6 @@ export default function TabLayout() {
             tabBarIcon: ({ color }) => (
               <View style={styles.tabIconContainer}>
                 <IconSymbol size={24} name="house.fill" color={color} />
-                {hasSolicitudesBadgeInHome && <View style={styles.tabPendingDot} />}
               </View>
             ),
           }}
@@ -408,7 +384,6 @@ export default function TabLayout() {
             tabBarIcon: ({ color }) => (
               <View style={styles.tabIconContainer}>
                 <IconSymbol size={24} name="paperplane.fill" color={color} />
-                {hasSolicitudesBadgeInTab && <View style={styles.tabPendingDot} />}
               </View>
             ),
           }}

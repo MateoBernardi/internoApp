@@ -7,7 +7,6 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { CrearEncuesta } from '../components/CrearEncuesta';
 import { VerResultadosEncuestas } from '../components/VerResultadoEncuestas';
 
@@ -38,7 +37,7 @@ export const Encuestas: React.FC = () => {
 
   // Pantalla de selección de opciones
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <View style={styles.container}>
       <View style={styles.content}>
         <TouchableOpacity
           style={styles.optionCard}
@@ -82,7 +81,7 @@ export const Encuestas: React.FC = () => {
           </View>
         </TouchableOpacity>
       </View>
-    </SafeAreaView>
+    </View>
   );
 };
 

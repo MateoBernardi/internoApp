@@ -14,7 +14,6 @@ import {
     Alert,
     KeyboardAvoidingView,
     Modal,
-    Platform,
     ScrollView,
     StyleSheet,
     Switch,
@@ -22,6 +21,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { KEYBOARD_BEHAVIOR } from '@/shared/ui/keyboard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CreateSolicitudDTO } from '../models/SolicitudLicencia';
 import {
@@ -351,14 +351,14 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
     return (
         <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={handleClose}>
             <View style={styles.overlay}>
-                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.keyboardContainer}>
-                    <View style={styles.container}>
-                        <View style={styles.modalHeader}>
+                <KeyboardAvoidingView behavior={KEYBOARD_BEHAVIOR} style={styles.keyboardContainer}>
+                    <View style={[styles.container, { paddingBottom: insets.bottom }]}>
+                        <View style={[styles.modalHeader, { paddingTop: insets.top + 10 }]}>
                             <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
                                 <Ionicons name="close" size={24} color="#999" />
                             </TouchableOpacity>
                         </View>
-                        <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: 120 + insets.bottom }}>
+                        <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: 120 }}>
 
                             {/* ── Tipo de Licencia ── */}
                             <View style={styles.sectionCard}>
@@ -688,7 +688,7 @@ const styles = StyleSheet.create({
     },
     container: {
         flex: 1,
-        marginTop: '5%',
+        marginTop: '10%',
         backgroundColor: colors.componentBackground,
         borderTopLeftRadius: 16,
         borderTopRightRadius: 16,

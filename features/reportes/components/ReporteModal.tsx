@@ -14,7 +14,6 @@ import {
 	ActivityIndicator,
 	KeyboardAvoidingView,
 	Modal,
-	Platform,
 	ScrollView,
 	StyleSheet,
 	Text,
@@ -22,6 +21,8 @@ import {
 	TouchableOpacity,
 	View,
 } from 'react-native';
+import { KEYBOARD_BEHAVIOR } from '@/shared/ui/keyboard';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EstadoReporte, Reporte, ReporteImagen } from '../models/Reporte';
 import { useReporteImagenes, useUnlinkReporteImage, useUpdateReporte, useUploadReporteImage } from '../viewmodels/useReportes';
 
@@ -45,6 +46,7 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 	const { mutate: updateReporte, isPending } = useUpdateReporte();
 	const { hasRole } = useRoleCheck();
 	const { user } = useAuth();
+	const insets = useSafeAreaInsets();
 	const { previewFile, openWithUri, closePreview } = useOpenFilePreview();
 
 	// ── Estado: formulario de actualización ──────────────────────────────────
@@ -294,10 +296,10 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 			<View style={styles.overlay}>
 				<KeyboardAvoidingView
 					style={styles.modalKeyboardAvoiding}
-					behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+					behavior={KEYBOARD_BEHAVIOR}
 					keyboardVerticalOffset={0}
 				>
-					<View style={styles.modalContainer}>
+					<View style={[styles.modalContainer, { paddingBottom: insets.bottom }]}>
 						{/* Header */}
 						<View style={styles.modalHeader}>
 							<View style={styles.modalHeaderActions}>
@@ -433,7 +435,7 @@ const styles = StyleSheet.create({
 	},
 	modalContainer: {
 		flex: 1,
-		marginTop: '5%',
+		marginTop: '10%',
 		backgroundColor: '#fff',
 		borderTopLeftRadius: 16,
 		borderTopRightRadius: 16,

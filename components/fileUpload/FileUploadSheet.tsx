@@ -22,6 +22,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // ─── Design tokens ──────────────────────────────────────────────────────────────
 
@@ -129,6 +130,7 @@ export function FileUploadSheet({
   initialFiles,
   idempotencyKey: _idempotencyKey,
 }: FileUploadSheetProps) {
+  const insets = useSafeAreaInsets();
   const { tokens } = useAuth();
   const { alertModal, showModal, closeAlert } = useAlertModal();
 
@@ -346,7 +348,7 @@ export function FileUploadSheet({
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={s.overlay}>
-        <View style={s.sheet}>
+        <View style={[s.sheet, { paddingBottom: insets.bottom + 16 }]}>
 
           {/* Header */}
           <View style={s.header}>

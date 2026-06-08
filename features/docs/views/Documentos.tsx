@@ -10,6 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, BackHandler, KeyboardAvoidingView, Modal, Platform, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { KEYBOARD_BEHAVIOR } from '@/shared/ui/keyboard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CrearDocumento } from '../components/CrearDocumento';
 import { DocumentOptionAction, DocumentOptionsModal } from '../components/DocumentOptionsModal';
@@ -492,7 +493,7 @@ export default function Documentos() {
       >
         <View style={styles.modalBackdrop}>
           <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'position' : undefined}
+            behavior={KEYBOARD_BEHAVIOR}
             keyboardVerticalOffset={insets.top + 12}
             style={styles.modalKavWrapper}
           >

@@ -14,6 +14,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { KEYBOARD_BEHAVIOR } from '@/shared/ui/keyboard';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NewActivityState } from '../agenda/dateUtils';
 
 const colors = Colors['light'];
@@ -71,6 +73,7 @@ export function CrearActividadModal({
   onDateConfirm,
   onDateCancel,
 }: CrearActividadModalProps) {
+  const insets = useSafeAreaInsets();
   return (
     <Modal
       visible={visible}
@@ -80,11 +83,11 @@ export function CrearActividadModal({
     >
       <View style={styles.overlay}>
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={KEYBOARD_BEHAVIOR}
           keyboardVerticalOffset={0}
           style={styles.modalKavWrapper}
         >
-          <View style={styles.modalContainer}>
+          <View style={[styles.modalContainer, { paddingBottom: insets.bottom }]}>
             <ScrollView
               contentContainerStyle={styles.modalScrollContent}
               keyboardShouldPersistTaps="handled"
@@ -236,7 +239,7 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     flex: 1,
-    marginTop: '5%',
+    marginTop: '10%',
     backgroundColor: colors.componentBackground,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,

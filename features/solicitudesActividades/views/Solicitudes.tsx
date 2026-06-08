@@ -132,7 +132,7 @@ export default function SolicitudesView({ onRefresh, refreshing }: SolicitudesVi
   return (
     <ThemedView style={styles.container}>
       {/* BUSCADOR */}
-      <View style={[styles.searchContainer, { paddingTop: insets.top + 10 }]}>
+      <View style={[styles.searchContainer, { paddingTop: 10 }]}>
         <View style={styles.searchBar}>
           <Ionicons name="search" size={18} color="#999" />
           <TextInput

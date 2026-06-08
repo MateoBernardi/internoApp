@@ -220,12 +220,19 @@ export function useOcultarSolicitudInvitado() {
 /**
  * Hook para actualizar el estado de una invitación (aceptar, rechazar, etc.)
  */
-export function useActualizarEstadoInvitacion(idempotencyKey?: string) {
+export function useActualizarEstadoInvitacion(opts?: { retry?: number }) {
   const { tokens } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: solicitudModels.ActualizarEstadoInvitacionRequest) => {
+    // La idempotency key viaja por variable (no por argumento del hook) para que
+    // quede fijada a ESTA operación: estable entre los reintentos automáticos,
+    // pero distinta de otras mutaciones concurrentes (p. ej. el "SEEN" automático
+    // que dispara useMarcarVisto en paralelo a una acción del usuario).
+    mutationFn: async ({
+      idempotencyKey,
+      ...data
+    }: solicitudModels.ActualizarEstadoInvitacionRequest & { idempotencyKey?: string }) => {
       const accessToken = tokens?.accessToken;
       if (!accessToken) {
         throw new Error('No access token available');
@@ -242,7 +249,11 @@ export function useActualizarEstadoInvitacion(idempotencyKey?: string) {
       });
     },
     // Reintentos seguros: el mismo X-Idempotency-Key viaja en cada intento.
+    // `retry` se puede sobreescribir por instancia (p. ej. retry:0 en el envío
+    // de chat, donde el optimista + refetch en onSettled ya reconcilian y los
+    // reintentos solo desperdician red sobre falsos negativos de red nativos).
     ...IDEMPOTENT_MUTATION_RETRY,
+    retry: opts?.retry ?? IDEMPOTENT_MUTATION_RETRY.retry,
   });
 }
 

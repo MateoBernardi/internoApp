@@ -4,6 +4,7 @@ import { useAuth } from '@/features/auth/context/AuthContext';
 import { ArchivoUso } from '@/features/docs/models/Archivo';
 import { useUploadArchivo } from '@/features/docs/viewmodels/useArchivos';
 import { ApiOperationResult } from '@/shared/types/apiStatus';
+import { KEYBOARD_BEHAVIOR } from '@/shared/ui/keyboard';
 import { UserSummary } from '@/shared/users/User';
 import { adminRoles, allRoles } from '@/shared/users/roles';
 import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
@@ -23,6 +24,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { UserSelector } from '../../../components/UserSelector';
 import { RoleUserSelectionModal } from '../../solicitudesActividades/components/RoleUserSelectionModal';
 import { useCreateObjetivo, useUpdateObjetivo } from '../hooks/useObjetivos';
@@ -55,6 +57,7 @@ export function FormObjetivoModal({
     onResumeDraftHandled,
     resetDraftSignal = 0,
 }: FormObjetivoModalProps) {
+    const insets = useSafeAreaInsets();
     const { user } = useAuth();
     const [titulo, setTitulo] = useState(objetivo?.titulo || '');
     const [descripcion, setDescripcion] = useState(objetivo?.descripcion || '');
@@ -384,11 +387,11 @@ export function FormObjetivoModal({
             <View style={styles.overlay}>
                 <KeyboardAvoidingView
                     style={styles.modalKeyboardAvoiding}
-                    behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                    behavior={KEYBOARD_BEHAVIOR}
                     keyboardVerticalOffset={0}
                 >
                     <View style={styles.modalContainer}>
-                        <View style={styles.modalHeader}>
+                        <View style={[styles.modalHeader, { paddingTop: insets.top + 12 }]}>
                             <View style={styles.modalHeaderActions}>
                                 {!isEditing && (
                                     <TouchableOpacity onPress={handleMinimize} style={styles.modalIconButton} disabled={isLoading}>
@@ -593,7 +596,7 @@ export function FormObjetivoModal({
                         />
                     </View>
 
-                    <View style={[styles.uploadButtonContainer]}>
+                    <View style={[styles.uploadButtonContainer, { paddingBottom: insets.bottom || 10 }]}>
                         <TouchableOpacity
                             onPress={handleSubmit}
                             style={[styles.uploadButton, { backgroundColor: isLoading ? '#d1d5db' : Colors['light'].componentBackground }]}
@@ -621,7 +624,7 @@ const styles = StyleSheet.create({
     modalContainer: {
         // Quita el flex: 1, o usa un alto fijo/porcentaje
         flex: 1,
-        marginTop: '5%', // Empuja el modal hacia abajo
+        marginTop: '10%', // Empuja el modal hacia abajo
         backgroundColor: Colors['light'].componentBackground,
         borderTopLeftRadius: 16,
         borderTopRightRadius: 16,

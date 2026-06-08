@@ -22,6 +22,7 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ParticipantesBlock } from '@/features/solicitudesActividades/components/ParticipantesBlock';
 import { UserSelector } from '../../../components/UserSelector';
 import { RoleUserSelectionModal } from '../../solicitudesActividades/components/RoleUserSelectionModal';
@@ -40,6 +41,7 @@ const ROLE_LABELS: Record<Invitado['rol'], string> = {
 };
 
 export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) {
+    const insets = useSafeAreaInsets();
     const { user } = useAuth();
     const { mutateAsync: uploadArchivo } = useUploadArchivo();
     const [localObjetivo, setLocalObjetivo] = useState<Objetivo | null>(null);
@@ -330,7 +332,7 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
             onRequestClose={handleClose}
         >
             <View style={styles.overlay}>
-                <View style={styles.container}>
+                <View style={[styles.container, { paddingBottom: insets.bottom }]}>
                     <View style={styles.header}>
                         <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
                             <Ionicons name="chevron-down" size={24} color="#6b7280" />
@@ -579,7 +581,7 @@ const styles = StyleSheet.create({
     container: {
         // Quita el flex: 1, o usa un alto fijo/porcentaje
         flex: 1,
-        marginTop: '5%', // Empuja el modal hacia abajo
+        marginTop: '10%', // Empuja el modal hacia abajo
         backgroundColor: Colors['light'].componentBackground,
         borderTopLeftRadius: 16,
         borderTopRightRadius: 16,

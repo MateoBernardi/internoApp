@@ -24,6 +24,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { KEYBOARD_BEHAVIOR } from '@/shared/ui/keyboard';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { UserSelector } from '../../../components/UserSelector';
 import { useAlertModal } from '../conversacion/hooks/useAlertModal';
 import { useFilePicker } from '../conversacion/hooks/useFilePicker';
@@ -45,6 +47,7 @@ interface CrearSolicitudProps {
 
 export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: CrearSolicitudProps) {
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
 
   const [titulo, setTitulo] = useState('');
   const [descripcion, setDescripcion] = useState('');
@@ -397,9 +400,9 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
       <View style={styles.overlay}>
         <KeyboardAvoidingView
           style={styles.keyboardContainer}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={KEYBOARD_BEHAVIOR}
         >
-          <View style={styles.container}>
+          <View style={[styles.container, { paddingBottom: insets.bottom }]}>
             {/* Header */}
             <View style={styles.modalHeader}>
               <TouchableOpacity onPress={handleClose} style={styles.closeButton}>

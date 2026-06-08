@@ -19,13 +19,14 @@ import {
   Alert,
   KeyboardAvoidingView,
   Modal,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { KEYBOARD_BEHAVIOR } from '@/shared/ui/keyboard';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ParticipantesBlock } from './ParticipantesBlock';
 import { UserSelector } from '../../../components/UserSelector';
 import { RoleUserSelectionModal } from '../../solicitudesActividades/components/RoleUserSelectionModal';
@@ -98,6 +99,7 @@ export function ActividadDetalle({
   onClose,
 }: ActividadDetalleProps) {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const {
     actividadId: actividadIdParam,
     id: idParam,
@@ -538,10 +540,10 @@ export function ActividadDetalle({
     <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={handleClose}>
       <View style={styles.overlay}>
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={KEYBOARD_BEHAVIOR}
           style={styles.keyboardContainer}
         >
-          <View style={styles.container}>
+          <View style={[styles.container, { paddingBottom: insets.bottom }]}>
 
             {/* ── Header ──────────────────────────────────────────────────── */}
             <View style={styles.modalHeader}>
@@ -903,7 +905,7 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    marginTop: '5%',
+    marginTop: '10%',
     backgroundColor: colors.componentBackground,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,

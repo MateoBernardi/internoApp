@@ -1,9 +1,29 @@
 import { ConfigContext, ExpoConfig } from "expo/config";
+import { config as loadDotenv } from "dotenv";
+import { resolve } from "path";
+
+// EAS no carga los archivos .env durante `eas update` (a diferencia de `expo start`),
+// por lo que las variables quedaban undefined y se publicaban bundles sin API_BASE_URL.
+// Los cargamos explícitamente acá. dotenv no pisa variables ya definidas, así que las
+// inyectadas por EAS Build / `--environment` siguen teniendo prioridad.
+loadDotenv({ path: resolve(__dirname, ".env.local") });
+loadDotenv({ path: resolve(__dirname, ".env") });
+
+function requireEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(
+      `[app.config] Falta la variable de entorno ${name}. ` +
+        `Definila en .env o en el entorno de EAS antes de publicar/buildear.`,
+    );
+  }
+  return value;
+}
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   name: "Italo Argentina",
   slug: "internoApp",
-  version: "1.0.4",
+  version: "1.0.5",
   orientation: "portrait",
   icon: "./assets/images/icon-1024.png",
   scheme: "internoapp",
@@ -83,13 +103,15 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     "expo-secure-store",
     "@react-native-community/datetimepicker",
     "expo-image-picker",
+    "./plugins/withBlockedAndroidMediaPermissions",
   ],
   experiments: {
     typedRoutes: true,
     reactCompiler: true,
   },
   extra: {
-    API_BASE_URL: process.env.API_BASE_URL,
+    API_BASE_URL: requireEnv("API_BASE_URL"),
+    // Secret en EAS (solo disponible en build, no en update) → opcional. Solo se usa para web push.
     VAPID_PUBLIC_KEY: process.env.FIREBASE_VAPID_PUBLIC_KEY,
     router: {},
     eas: {

@@ -2,6 +2,7 @@ import { Colors } from "@/constants/theme";
 import { Ionicons } from '@expo/vector-icons';
 import React from "react";
 import { Alert, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Bitacora, Objetivo } from "../models/Objetivo";
 
 interface DetailModalProps {
@@ -15,6 +16,7 @@ interface DetailModalProps {
 }
 
 export function DetailModal({ visible, objetivo, onClose, onDelete, onInfo, currentUserId }: DetailModalProps) {
+    const insets = useSafeAreaInsets();
     if (!objetivo) return null;
 
     const isOwner = currentUserId === objetivo.created_by;
@@ -22,7 +24,7 @@ export function DetailModal({ visible, objetivo, onClose, onDelete, onInfo, curr
     return (
         <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
             <View style={styles.overlay}>
-                <View style={styles.modalContainer}>
+                <View style={[styles.modalContainer, { paddingBottom: insets.bottom }]}>
                     <View style={styles.infoBtnFloatingContainer}>
                         <TouchableOpacity onPress={() => onInfo?.(objetivo)} style={styles.infoBtnFloating}>
                             <Text style={styles.infoBtnText}>ⓘ</Text>
@@ -210,7 +212,7 @@ const styles = StyleSheet.create({
     },
     modalContainer: {
         flex: 1,
-        marginTop: '5%',
+        marginTop: '10%',
         backgroundColor: Colors['light'].componentBackground,
         borderTopLeftRadius: 16,
         borderTopRightRadius: 16,

@@ -13,7 +13,7 @@ import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { Href, Redirect, Tabs, useRouter, useSegments } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { LayoutChangeEvent, Platform, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const TAB_BAR_BASE_HEIGHT = 56;
 const DESKTOP_NAV_HEIGHT = 54;
@@ -344,8 +344,9 @@ export default function TabLayout() {
   }
 
   return (
-    <View
-      style={{ flex: 1 }}
+    <SafeAreaView
+      style={{ flex: 1, backgroundColor: colors.background }}
+      edges={['top']}
       onLayout={(event: LayoutChangeEvent) => setContainerWidth(event.nativeEvent.layout.width)}
     >
       {renderDesktopNavigation()}
@@ -446,7 +447,7 @@ export default function TabLayout() {
           }}
         />
       </Tabs>
-    </View>
+    </SafeAreaView>
   );
 }
 

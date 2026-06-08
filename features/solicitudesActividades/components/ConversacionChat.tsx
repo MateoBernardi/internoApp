@@ -1,19 +1,22 @@
 import { AlertModal } from '@/components/AlertModal';
-import { FileAttachment, FilePreview, InlineImageAttachment, getExt, isImageFile, useOpenFilePreview } from '@/components/filePreview';
 import type { FileItem } from '@/components/filePreview';
+import { FileAttachment, FilePreview, InlineImageAttachment, getExt, isImageFile, useOpenFilePreview } from '@/components/filePreview';
 import { ThemedText } from '@/components/themed-text';
 import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
-import { ParticipantesBlock } from './ParticipantesBlock';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
+import { generateIdempotencyKey } from '@/shared/idempotency';
+import { KEYBOARD_BEHAVIOR } from '@/shared/ui/keyboard';
 import { adminRoles, allRoles } from '@/shared/users/roles';
 import { Ionicons } from '@expo/vector-icons';
+import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -25,6 +28,7 @@ import {
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { UserSelector } from '../../../components/UserSelector';
 import { MESSAGE_STATES, formatDateDDMMYYYY, formatTimeHHMM } from '../conversacion/constants';
 import { useAdjuntos } from '../conversacion/hooks/useAdjuntos';
@@ -41,15 +45,33 @@ import {
   estadoInvitacionMapping,
 } from '../models/Solicitud';
 import {
+  solicitudesQueryKeys,
   useActualizarEstadoInvitacion,
   useActualizarInvitadosSolicitud,
   useChatArchivos,
   useReenviarSolicitud,
   useSolicitudBitacora,
 } from '../viewmodels/useSolicitudes';
+import { ParticipantesBlock } from './ParticipantesBlock';
 import { RoleUserSelectionModal } from './RoleUserSelectionModal';
 
 const colors = Colors['light'];
+
+/** Entrada optimista de la bitácora: misma forma que un mensaje real más un id
+ * temporal y la marca `__optimistic` para pintar el estado "Enviando…". */
+interface OptimisticMessage {
+  id: string;
+  usuario_id: number | null;
+  usuario_nombre: string;
+  usuario_apellido: string;
+  created_at: string;
+  observacion: string | null;
+  estado: 'MESSAGE';
+  fecha_inicio_nueva: null;
+  fecha_fin_nueva: null;
+  archivos: never[];
+  __optimistic: true;
+}
 
 interface ConversacionChatProps {
   solicitud: SolicitudEnviada;
@@ -59,6 +81,7 @@ interface ConversacionChatProps {
 
 export function ConversacionChat({ solicitud, visible, onClose }: ConversacionChatProps) {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { hasRole } = useRoleCheck();
 
@@ -79,11 +102,22 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
     () => (bitacoraData?.pages ?? []).flatMap(p => p.data),
     [bitacoraData],
   );
-  const { mutate: actualizarEstado, isPending: isUpdatingEstado } = useActualizarEstadoInvitacion();
+  // retry:0 → 1 PUT por envío. El optimista + el refetch en onSettled reconcilian;
+  // los reintentos solo duplican peticiones sobre falsos negativos de red.
+  const { mutate: actualizarEstadoRaw } = useActualizarEstadoInvitacion({ retry: 0 });
+
+  const actualizarEstado = useCallback<typeof actualizarEstadoRaw>(
+    (variables, options) =>
+      actualizarEstadoRaw({ ...variables, idempotencyKey: generateIdempotencyKey() }, options),
+    [actualizarEstadoRaw],
+  );
   const { mutate: reenviarSolicitud, isPending: isSharing } = useReenviarSolicitud();
   const { mutate: actualizarInvitados } = useActualizarInvitadosSolicitud();
 
-  const isMutating = isUpdatingEstado || isSharing;
+  // El modal de bloqueo a pantalla completa se reserva SOLO para acciones
+  // críticas/irreversibles (compartir). El envío usa feedback local
+  // (isSendingMessage + spinner del botón), nunca el overlay global.
+  const isBlockingOperation = isSharing;
 
   // ─── Rol / permisos ───────────────────────────────────────────────────────
   const isConsejo = hasRole('consejo');
@@ -96,6 +130,12 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
   const [showFullBitacora, setShowFullBitacora] = useState(false);
   const [messageDraft, setMessageDraft] = useState('');
   const [isSendingMessage, setIsSendingMessage] = useState(false);
+  // Outbox optimista: mensajes que mostramos al instante mientras la mutación
+  // viaja. No hacemos rollback en error porque en native el mensaje suele
+  // entregarse aunque el fetch reporte "network request failed"; en su lugar
+  // reconciliamos contra el servidor (refetch de la bitácora) en onSettled.
+  const [pendingMessages, setPendingMessages] = useState<OptimisticMessage[]>([]);
+  const queryClient = useQueryClient();
   const { alertModal, showModal, closeAlert } = useAlertModal();
   const {
     pickedFiles, setPickedFiles, handleAgregarAdjunto, handleOpenArchivo, uploadPickedFiles,
@@ -130,6 +170,21 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
   const { messagesScrollRef, handleMessagesScroll, handleMessagesContentSizeChange } = useMessagesScroll({
     hasNextPage, isFetchingNextPage, fetchNextPage,
   });
+
+  const contentScrollRef = useRef<ScrollView>(null);
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const sub = Keyboard.addListener('keyboardDidHide', () => {
+      // rAF lets KeyboardAvoidingView remove its padding and the layout settle
+      // before we scroll, so scrollToEnd resolves against the full viewport and
+      // re-clamps the stale offset.
+      requestAnimationFrame(() => {
+        contentScrollRef.current?.scrollToEnd({ animated: false });
+      });
+    });
+    return () => sub.remove();
+  }, []);
 
   // ─── Derivados del prop solicitud ─────────────────────────────────────────
 
@@ -200,8 +255,9 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
       archivos: [], isSystem: true,
     });
 
-    return [...base, ...sistema];
-  }, [bitacoraVisible, solicitud, isExpiredState, hasNextPage]);
+    // Los mensajes optimistas son siempre los más nuevos (van al final).
+    return [...base, ...sistema, ...pendingMessages];
+  }, [bitacoraVisible, solicitud, isExpiredState, hasNextPage, pendingMessages]);
 
   const canSendMessage = useMemo(() => {
     if (isExpiredState) return false;
@@ -220,10 +276,31 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
     if (!canSendMessage) return;
 
     setIsSendingMessage(true);
-    const archivosIds = await uploadPickedFiles();
+    const archivosIds = pickedFiles.length > 0 ? await uploadPickedFiles() : [];
 
     const trimmed = messageDraft.trim();
     if (!trimmed && archivosIds.length === 0) { setIsSendingMessage(false); return; }
+
+    // Mensaje optimista: lo pintamos al instante y limpiamos el input. El id
+    // temporal sirve para quitarlo cuando reconciliamos con el servidor.
+    const tempId = `pending-${generateIdempotencyKey()}`;
+    const optimistic: OptimisticMessage = {
+      id: tempId,
+      usuario_id: user?.user_context_id ?? null,
+      usuario_nombre: user?.nombre ?? '',
+      usuario_apellido: user?.apellido ?? '',
+      created_at: new Date().toISOString(),
+      observacion: trimmed || (archivosIds.length > 0 ? '📎 Adjunto' : null),
+      estado: 'MESSAGE',
+      fecha_inicio_nueva: null,
+      fecha_fin_nueva: null,
+      archivos: [],
+      __optimistic: true,
+    };
+    setPendingMessages(prev => [...prev, optimistic]);
+    setMessageDraft('');
+    setPickedFiles([]);
+    setIsSendingMessage(false);
 
     actualizarEstado(
       {
@@ -233,11 +310,16 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
         ...(archivosIds.length > 0 ? { archivosIds } : {}),
       },
       {
-        onSuccess: () => { setMessageDraft(''); setPickedFiles([]); setIsSendingMessage(false); },
-        onError: e => { setIsSendingMessage(false); Alert.alert('Error', e instanceof Error ? e.message : 'Intenta nuevamente'); },
+        // Sin Alert ni rollback: en native el mensaje suele entregarse aunque el
+        // fetch falle. Reconciliamos contra el servidor (refetch) y recién ahí
+        // quitamos el optimista, para que la copia real ya esté en pantalla.
+        onSettled: async () => {
+          await queryClient.invalidateQueries({ queryKey: solicitudesQueryKeys.bitacora(solicitudId) });
+          setPendingMessages(prev => prev.filter(m => m.id !== tempId));
+        },
       },
     );
-  }, [canSendMessage, uploadPickedFiles, messageDraft, actualizarEstado, solicitudId, isHost, setPickedFiles]);
+  }, [canSendMessage, uploadPickedFiles, messageDraft, pickedFiles, actualizarEstado, solicitudId, isHost, setPickedFiles, user, queryClient]);
 
   // ─── Preview de archivos ──────────────────────────────────────────────────
 
@@ -266,8 +348,8 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
   return (
     <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={handleClose}>
       <View style={styles.overlay}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.keyboardContainer}>
-          <View style={styles.container}>
+        <KeyboardAvoidingView behavior={KEYBOARD_BEHAVIOR} style={styles.keyboardContainer}>
+          <View style={[styles.container, { paddingBottom: insets.bottom }]}>
 
             {/* Header */}
             <View style={styles.modalHeader}>
@@ -277,6 +359,7 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
             </View>
 
             <ScrollView
+              ref={contentScrollRef}
               style={styles.content}
               contentContainerStyle={styles.contentContainer}
               showsVerticalScrollIndicator={false}
@@ -357,7 +440,6 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
                       scrollEventThrottle={16}
                       onScroll={handleMessagesScroll}
                       onContentSizeChange={handleMessagesContentSizeChange}
-                      onLayout={() => messagesScrollRef.current?.scrollToEnd({ animated: false })}
                     >
                       {isFetchingNextPage && (
                         <View style={styles.loadingMoreContainer}>
@@ -407,7 +489,7 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
                                     {archivos.map((a: any) => (
                                       // En web no usamos el preview inline de imágenes (abre la
                                       // página de Cloudflare): las mostramos como adjunto de archivo.
-                                      isImageFile(a.tipo, a.nombre) && Platform.OS !== 'web' ? (
+                                      isImageFile(a.tipo, a.nombre, rutaR2(a)) && Platform.OS !== 'web' ? (
                                         <InlineImageAttachment
                                           key={`archivo-${a.id}`}
                                           archivoId={a.id}
@@ -423,6 +505,9 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
                                       )
                                     ))}
                                   </View>
+                                )}
+                                {b.__optimistic && (
+                                  <ThemedText style={styles.pendingStatusText}>Enviando…</ThemedText>
                                 )}
                               </View>
                             </View>
@@ -502,7 +587,7 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
 
             {/* Modal Compartir */}
             <Modal visible={showShareModal} transparent animationType="fade" onRequestClose={() => setShowShareModal(false)}>
-              <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+              <KeyboardAvoidingView behavior={KEYBOARD_BEHAVIOR} style={{ flex: 1 }}>
                 <TouchableWithoutFeedback onPress={() => setShowShareModal(false)}>
                   <View style={styles.modalOverlay}>
                     <TouchableWithoutFeedback onPress={e => e.stopPropagation()}>
@@ -607,7 +692,7 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
               onClose={closeAlert}
             />
 
-            <OperacionPendienteModal visible={isMutating} />
+            <OperacionPendienteModal visible={isBlockingOperation} />
           </View>
         </KeyboardAvoidingView>
       </View>
@@ -625,14 +710,19 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+// Stored R2 object key; recovers the real extension when the display name was
+// renamed or stripped. Raw DTOs expose it as `ruta_r2`, mapped models as `url`.
+const rutaR2 = (a: any): unknown => a?.ruta_r2 ?? a?.url;
+
 function buildFileItem(archivo: any): FileItem {
   const tipo: string = typeof archivo.tipo === 'string' ? archivo.tipo : '';
   const nombre: string = typeof archivo.nombre === 'string' ? archivo.nombre : 'Archivo';
+  const ruta = rutaR2(archivo);
   return {
     id: String(archivo.id),
-    kind: isImageFile(tipo, nombre) ? 'image' : 'file',
+    kind: isImageFile(tipo, nombre, ruta) ? 'image' : 'file',
     name: nombre,
-    ext: getExt(tipo, nombre),
+    ext: getExt(tipo, nombre, ruta),
     size: archivo.tamaño ? formatBytes(archivo.tamaño) : undefined,
     uri: typeof archivo._resolvedUri === 'string' ? archivo._resolvedUri : '',
   };
@@ -641,7 +731,7 @@ function buildFileItem(archivo: any): FileItem {
 function countByKind(archivos: any[]): { images: number; files: number } {
   let images = 0, files = 0;
   for (const a of archivos) {
-    if (isImageFile(a.tipo, a.nombre)) images++;
+    if (isImageFile(a.tipo, a.nombre, rutaR2(a))) images++;
     else files++;
   }
   return { images, files };
@@ -714,8 +804,8 @@ function ArchivosModalContent({
   // En web no usamos el preview inline de imágenes (abre la página de
   // Cloudflare): se listan como archivos junto al resto.
   const isWeb = Platform.OS === 'web';
-  const images = isWeb ? [] : archivos.filter(a => isImageFile(a.tipo, a.nombre));
-  const files = isWeb ? archivos : archivos.filter(a => !isImageFile(a.tipo, a.nombre));
+  const images = isWeb ? [] : archivos.filter(a => isImageFile(a.tipo, a.nombre, rutaR2(a)));
+  const files = isWeb ? archivos : archivos.filter(a => !isImageFile(a.tipo, a.nombre, rutaR2(a)));
 
   if (archivos.length === 0) {
     return <Text style={localStyles.archivosEmpty}>No hay archivos en esta conversación</Text>;
@@ -870,6 +960,13 @@ const localStyles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#e2543b',
+  },
+  pendingStatusText: {
+    fontSize: 11,
+    fontStyle: 'italic',
+    color: '#9aa3ab',
+    marginTop: 4,
+    alignSelf: 'flex-end',
   },
 });
 

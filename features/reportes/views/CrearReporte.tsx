@@ -9,7 +9,9 @@ import { Image } from 'expo-image';
 import type * as ImagePickerTypes from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { KEYBOARD_BEHAVIOR } from '@/shared/ui/keyboard';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { uploadReporteImage } from '../services/reportesApi';
 import { useCreateReporte } from '../viewmodels/useReportes';
 
@@ -39,6 +41,7 @@ interface PendingImage {
 
 export default function CrearReporte(props?: CrearReporteProps) {
 	const router = useRouter();
+	const insets = useSafeAreaInsets();
 	const params = useLocalSearchParams();
 	const { tokens } = useAuth();
 	const { mutateAsync: crearReporte, isPending: isCreating } = useCreateReporte();
@@ -85,7 +88,7 @@ export default function CrearReporte(props?: CrearReporteProps) {
 	}, [usuarioId, titulo, descripcion, categoria, fechaIncidente]);
 
 	const showModal = useCallback((title: string, message?: string, actions?: AlertModalAction[]) => {
-		const normalizedActions = actions && actions.length > 0
+		const normalizedActions: AlertModalAction[] = actions && actions.length > 0
 			? actions
 			: [{ key: 'ok', label: 'Aceptar', onPress: () => { }, variant: 'primary' }];
 
@@ -263,10 +266,10 @@ export default function CrearReporte(props?: CrearReporteProps) {
 		<Modal visible={modalVisible} transparent animationType="slide" onRequestClose={handleClose}>
 			<View style={styles.overlay}>
 				<KeyboardAvoidingView
-					behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+					behavior={KEYBOARD_BEHAVIOR}
 					style={styles.keyboardContainer}
 				>
-					<View style={styles.container}>
+					<View style={[styles.container, { paddingBottom: insets.bottom }]}>
 						<View style={styles.modalHeader}>
 							<TouchableOpacity onPress={handleClose} style={styles.closeButton}>
 								<Ionicons name="close" size={24} color="#999" />
@@ -464,7 +467,7 @@ const styles = StyleSheet.create({
 	},
 	container: {
 		flex: 1,
-		marginTop: '5%',
+		marginTop: '10%',
 		backgroundColor: colors.componentBackground,
 		borderTopLeftRadius: 16,
 		borderTopRightRadius: 16,

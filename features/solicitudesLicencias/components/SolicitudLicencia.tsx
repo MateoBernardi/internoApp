@@ -20,6 +20,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EstadoSolicitud } from '../models/SolicitudLicencia';
 import { formatCantidadLicencia } from '../utils/formatCantidad';
 import {
@@ -74,6 +75,7 @@ interface SolicitudLicenciaProps {
 
 export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ id?: string; type?: string }>();
   const { user } = useAuth();
   const resolvedId = props?.solicitudId ?? Number.parseInt(params.id ?? '', 10);
@@ -293,7 +295,7 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
       <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={handleClose}>
         <View style={styles.overlay}>
           <View style={styles.keyboardContainer}>
-            <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+            <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', paddingBottom: insets.bottom }]}>
               <View style={styles.modalHeader}>
                 <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
                   <Ionicons name="chevron-down" size={24} color="#999" />
@@ -339,7 +341,7 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
     <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={handleClose}>
       <View style={styles.overlay}>
         <View style={styles.keyboardContainer}>
-          <View style={styles.container}>
+          <View style={[styles.container, { paddingBottom: insets.bottom }]}>
             <View style={styles.modalHeader}>
               <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
                 <Ionicons name="chevron-down" size={24} color="#999" />
@@ -641,7 +643,7 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
   },
   container: {
     flex: 1,
-    marginTop: '5%',
+    marginTop: '10%',
     backgroundColor: colors.componentBackground,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,

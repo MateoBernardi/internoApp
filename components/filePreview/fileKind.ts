@@ -19,33 +19,46 @@ function safeStr(v: unknown): string {
   return typeof v === 'string' ? v : '';
 }
 
-/** Lowercase extension derived from the MIME subtype, falling back to the file name. */
-export function getExt(tipo: unknown, nombre: unknown): string {
+/** Lowercase extension from a file name or storage path (strips query/hash and folders). */
+function extFromPath(v: unknown): string {
+  const raw = safeStr(v).split(/[?#]/)[0];
+  const seg = raw.slice(raw.lastIndexOf('/') + 1);
+  const dot = seg.lastIndexOf('.');
+  return dot !== -1 ? seg.slice(dot + 1).toLowerCase() : '';
+}
+
+/**
+ * Lowercase extension for an archivo. Detection order:
+ *  1. the MIME subtype, when the backend sent a real one
+ *  2. the stored R2 object path (`ruta_r2`) — keeps the original extension even
+ *     when the display name was renamed or stripped
+ *  3. the display name
+ * Falls back to 'bin' when nothing is usable.
+ */
+export function getExt(tipo: unknown, nombre: unknown, ruta?: unknown): string {
   const mime = safeStr(tipo);
-  const name = safeStr(nombre);
   if (mime.includes('/')) {
     const sub = mime.split('/')[1]?.toLowerCase() ?? '';
     const mapped = MIME_EXT_MAP[sub];
     if (mapped) return mapped;
     if (sub && sub !== 'octet-stream') return sub;
   }
-  const dot = name.lastIndexOf('.');
-  return dot !== -1 ? name.slice(dot + 1).toLowerCase() : 'bin';
+  return extFromPath(ruta) || extFromPath(nombre) || 'bin';
 }
 
 /** True when the archivo should be rendered as an image (MIME or extension based). */
-export function isImageFile(tipo: unknown, nombre?: unknown): boolean {
+export function isImageFile(tipo: unknown, nombre?: unknown, ruta?: unknown): boolean {
   if (safeStr(tipo).toLowerCase().startsWith('image/')) return true;
-  return IMAGE_EXTS.has(getExt(tipo, nombre));
+  return IMAGE_EXTS.has(getExt(tipo, nombre, ruta));
 }
 
 /** True when the archivo is a PDF (MIME or extension based). */
-export function isPdfFile(tipo: unknown, nombre?: unknown): boolean {
+export function isPdfFile(tipo: unknown, nombre?: unknown, ruta?: unknown): boolean {
   if (safeStr(tipo).toLowerCase().includes('pdf')) return true;
-  return getExt(tipo, nombre) === 'pdf';
+  return getExt(tipo, nombre, ruta) === 'pdf';
 }
 
 /** True when the archivo has an inline-renderable text body. */
-export function isTextFile(tipo: unknown, nombre?: unknown): boolean {
-  return TEXT_EXTS.has(getExt(tipo, nombre));
+export function isTextFile(tipo: unknown, nombre?: unknown, ruta?: unknown): boolean {
+  return TEXT_EXTS.has(getExt(tipo, nombre, ruta));
 }

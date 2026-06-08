@@ -8,13 +8,15 @@ import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { useValidacionFechas } from '@/features/solicitudesActividades/viewmodels/useValidacionFechas';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
+import { generateIdempotencyKey } from '@/shared/idempotency';
 import { adminRoles, allRoles } from '@/shared/users/roles';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -26,6 +28,8 @@ import {
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
+import { KEYBOARD_BEHAVIOR } from '@/shared/ui/keyboard';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { UserSelector } from '../../../components/UserSelector';
 import { useCreateObjetivo } from '../../kanban/hooks/useObjetivos';
 import type { CreateObjetivo, Invitado } from '../../kanban/models/Objetivo';
@@ -83,6 +87,7 @@ interface SolicitudProps {
 
 export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { hasRole } = useRoleCheck();
 
@@ -104,7 +109,15 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
     () => (bitacoraData?.pages ?? []).flatMap(p => p.data),
     [bitacoraData],
   );
-  const { mutate: actualizarEstado, isPending: isUpdatingEstado } = useActualizarEstadoInvitacion();
+  const { mutate: actualizarEstadoRaw, isPending: isUpdatingEstado } = useActualizarEstadoInvitacion();
+  // Inyecta una X-Idempotency-Key nueva por cada operación. Queda fijada a esa
+  // mutación (estable entre reintentos automáticos) y no se pisa con otras
+  // mutaciones concurrentes que comparten esta misma función `actualizarEstado`.
+  const actualizarEstado = useCallback<typeof actualizarEstadoRaw>(
+    (variables, options) =>
+      actualizarEstadoRaw({ ...variables, idempotencyKey: generateIdempotencyKey() }, options),
+    [actualizarEstadoRaw],
+  );
   const { mutate: reenviarSolicitud, isPending: isSharing } = useReenviarSolicitud();
   const { mutate: crearActividad, isPending: isCreatingActividad } = useCrearActividad();
   const { mutateAsync: crearObjetivo, isPending: isCreatingObjetivo } = useCreateObjetivo();
@@ -185,6 +198,21 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
   const { messagesScrollRef, handleMessagesScroll, handleMessagesContentSizeChange } = useMessagesScroll({
     hasNextPage, isFetchingNextPage, fetchNextPage,
   });
+
+  const contentScrollRef = useRef<ScrollView>(null);
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const sub = Keyboard.addListener('keyboardDidHide', () => {
+      // rAF lets KeyboardAvoidingView remove its padding and the layout settle
+      // before we scroll, so scrollToEnd resolves against the full viewport and
+      // re-clamps the stale offset.
+      requestAnimationFrame(() => {
+        contentScrollRef.current?.scrollToEnd({ animated: false });
+      });
+    });
+    return () => sub.remove();
+  }, []);
 
   // ─── Derivados del prop solicitud ─────────────────────────────────────────
 
@@ -661,8 +689,8 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
   return (
     <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={handleClose}>
       <View style={styles.overlay}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.keyboardContainer}>
-          <View style={styles.container}>
+        <KeyboardAvoidingView behavior={KEYBOARD_BEHAVIOR} style={styles.keyboardContainer}>
+          <View style={[styles.container, { paddingBottom: insets.bottom }]}>
 
             {/* Header */}
             <View style={styles.modalHeader}>
@@ -672,6 +700,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
             </View>
 
             <ScrollView
+              ref={contentScrollRef}
               style={styles.content}
               contentContainerStyle={styles.contentContainer}
               showsVerticalScrollIndicator={false}
@@ -787,7 +816,6 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                       scrollEventThrottle={16}
                       onScroll={handleMessagesScroll}
                       onContentSizeChange={handleMessagesContentSizeChange}
-                      onLayout={() => messagesScrollRef.current?.scrollToEnd({ animated: false })}
                     >
                       {isFetchingNextPage && (
                         <View style={styles.loadingMoreContainer}>
@@ -839,7 +867,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                                     {archivos.map((a: any) => (
                                       // En web no usamos el preview inline de imágenes (abre la
                                       // página de Cloudflare): las mostramos como adjunto de archivo.
-                                      isImageFile(a.tipo, a.nombre) && Platform.OS !== 'web' ? (
+                                      isImageFile(a.tipo, a.nombre, rutaR2(a)) && Platform.OS !== 'web' ? (
                                         <InlineImageAttachment
                                           key={`archivo-${a.id}`}
                                           archivoId={a.id}
@@ -1038,7 +1066,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
 
             {/* Modal Aceptar */}
             <Modal visible={showAcceptModal} transparent animationType="fade">
-              <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.keyboardContainer}>
+              <KeyboardAvoidingView behavior={KEYBOARD_BEHAVIOR} style={styles.keyboardContainer}>
                 <TouchableWithoutFeedback onPress={closeAcceptModal}>
                   <View style={styles.modalOverlay}>
                     <TouchableWithoutFeedback onPress={e => e.stopPropagation()}>
@@ -1082,7 +1110,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
 
             {/* Modal Rechazar */}
             <Modal visible={showRejectModal} transparent animationType="fade">
-              <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.keyboardContainer}>
+              <KeyboardAvoidingView behavior={KEYBOARD_BEHAVIOR} style={styles.keyboardContainer}>
                 <TouchableWithoutFeedback onPress={closeRejectModal}>
                   <View style={styles.modalOverlay}>
                     <TouchableWithoutFeedback onPress={e => e.stopPropagation()}>
@@ -1120,7 +1148,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
 
             {/* Modal Compartir */}
             <Modal visible={showShareModal} transparent animationType="fade" onRequestClose={() => setShowShareModal(false)}>
-              <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+              <KeyboardAvoidingView behavior={KEYBOARD_BEHAVIOR} style={{ flex: 1 }}>
                 <TouchableWithoutFeedback onPress={() => setShowShareModal(false)}>
                   <View style={styles.modalOverlay}>
                     <TouchableWithoutFeedback onPress={e => e.stopPropagation()}>
@@ -1177,7 +1205,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
 
             {/* Modal Agregar a la Agenda */}
             <Modal visible={showAddToAgendaModal} transparent animationType="fade" onRequestClose={() => setShowAddToAgendaModal(false)}>
-              <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+              <KeyboardAvoidingView behavior={KEYBOARD_BEHAVIOR} style={{ flex: 1 }}>
                 <TouchableWithoutFeedback onPress={() => setShowAddToAgendaModal(false)}>
                   <View style={styles.modalOverlay}>
                     <TouchableWithoutFeedback onPress={e => e.stopPropagation()}>
@@ -1304,14 +1332,19 @@ function formatSolicitudBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+// Stored R2 object key; recovers the real extension when the display name was
+// renamed or stripped. Raw DTOs expose it as `ruta_r2`, mapped models as `url`.
+const rutaR2 = (a: any): unknown => a?.ruta_r2 ?? a?.url;
+
 function buildSolicitudFileItem(archivo: any): FileItem {
   const tipo: string = typeof archivo.tipo === 'string' ? archivo.tipo : '';
   const nombre: string = typeof archivo.nombre === 'string' ? archivo.nombre : 'Archivo';
+  const ruta = rutaR2(archivo);
   return {
     id: String(archivo.id),
-    kind: isImageFile(tipo, nombre) ? 'image' : 'file',
+    kind: isImageFile(tipo, nombre, ruta) ? 'image' : 'file',
     name: nombre,
-    ext: getExt(tipo, nombre),
+    ext: getExt(tipo, nombre, ruta),
     size: archivo.tamaño ? formatSolicitudBytes(archivo.tamaño) : undefined,
     uri: typeof archivo._resolvedUri === 'string' ? archivo._resolvedUri : '',
   };

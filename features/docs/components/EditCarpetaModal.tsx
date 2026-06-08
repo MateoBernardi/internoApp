@@ -13,13 +13,13 @@ import {
   Alert,
   KeyboardAvoidingView,
   Modal,
-  Platform,
   ScrollView,
   StyleSheet,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { KEYBOARD_BEHAVIOR } from '@/shared/ui/keyboard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Carpeta, UpdateCarpetaPayload } from '../models/Carpeta';
 import { useCarpetaPermisos } from '../viewmodels/useArchivos';
@@ -298,7 +298,7 @@ export function EditCarpetaModal({
 
           <KeyboardAvoidingView
             style={styles.flex}
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            behavior={KEYBOARD_BEHAVIOR}
             keyboardVerticalOffset={0}
           >
             <ScrollView
@@ -494,7 +494,7 @@ const styles = StyleSheet.create({
   container: {
     // Quita el flex: 1, o usa un alto fijo/porcentaje
     flex: 1,
-    marginTop: '5%', // Empuja el modal hacia abajo
+    marginTop: '10%', // Empuja el modal hacia abajo
     backgroundColor: Colors['light'].componentBackground,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,

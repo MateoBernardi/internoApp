@@ -19,6 +19,8 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
+import { KEYBOARD_BEHAVIOR } from '@/shared/ui/keyboard';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ESTADOS, Objetivo } from "../models/Objetivo";
 
 interface MoveDraft {
@@ -58,6 +60,7 @@ export function MoveModal({
     onResumeDraftHandled,
     resetDraftSignal = 0,
 }: MoveModalProps) {
+    const insets = useSafeAreaInsets();
     const [nuevoEstado, setNuevoEstado] = useState('');
     const [observacion, setObservacion] = useState('');
     const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -134,10 +137,10 @@ export function MoveModal({
             <View style={styles.overlay}>
                 <KeyboardAvoidingView
                     style={styles.modalKeyboardAvoiding}
-                    behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                    behavior={KEYBOARD_BEHAVIOR}
                     keyboardVerticalOffset={0}
                 >
-                    <View style={styles.modalContainer}>
+                    <View style={[styles.modalContainer, { paddingBottom: insets.bottom }]}>
                         <View style={styles.modalHeader}>
                             <View style={styles.modalHeaderActions}>
                                 <TouchableOpacity onPress={handleClose} style={styles.modalIconButton} disabled={isLoading}>
@@ -233,7 +236,7 @@ const styles = StyleSheet.create({
     },
     modalContainer: {
         flex: 1,
-        marginTop: '5%', // Empuja el modal hacia abajo
+        marginTop: '10%', // Empuja el modal hacia abajo
         backgroundColor: Colors['light'].componentBackground,
         borderTopLeftRadius: 16,
         borderTopRightRadius: 16,

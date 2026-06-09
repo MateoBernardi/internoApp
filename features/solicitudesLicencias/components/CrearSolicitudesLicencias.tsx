@@ -21,6 +21,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { generateIdempotencyKey } from '@/shared/idempotency';
 import { KEYBOARD_BEHAVIOR } from '@/shared/ui/keyboard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CreateSolicitudDTO } from '../models/SolicitudLicencia';
@@ -93,6 +94,7 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
     const [archivoAdjunto, setArchivoAdjunto] = useState<{ name: string; uri: string; type: string; size?: number } | null>(null);
     const [isUploadingFile, setIsUploadingFile] = useState(false);
     const isSubmittingRef = useRef(false);
+    const idempotencyKeyRef = useRef(generateIdempotencyKey());
 
     // --- Hooks de Datos ---
     const { data: tiposLicencias, isLoading: isLoadingTipos, isError: isErrorTipos } = useGetTiposLicencias();
@@ -264,8 +266,9 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
             payload.cantidad_horas = horas > 0 ? horas : null;
         }
 
-        crearSolicitud(payload, {
+        crearSolicitud({ ...payload, idempotencyKey: idempotencyKeyRef.current }, {
             onSuccess: async (nuevaSolicitud: any) => {
+                idempotencyKeyRef.current = generateIdempotencyKey();
                 if (archivoAdjunto && nuevaSolicitud?.id) {
                     setIsUploadingFile(true);
                     try {

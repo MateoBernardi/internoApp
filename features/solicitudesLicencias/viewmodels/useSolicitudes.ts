@@ -136,12 +136,12 @@ export function useCreateSolicitudLicencia() {
     const { tokens } = useAuth();
 
     return useMutation({
-        mutationFn: async (data: solicitudesLicencias.CreateSolicitudDTO) => {
+        mutationFn: async ({ idempotencyKey, ...data }: solicitudesLicencias.CreateSolicitudDTO & { idempotencyKey?: string }) => {
             const token = tokens?.accessToken;
             if (!token) {
                 throw new Error('No hay token de acceso');
             }
-            return createSolicitudLicencia(token, data);
+            return createSolicitudLicencia(token, data, idempotencyKey);
         },
         onSuccess: (newSolicitud) => {
             // Actualizar el cache agregando la nueva solicitud

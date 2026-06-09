@@ -1,4 +1,5 @@
 import { fileTypeColor, getExt, isImageFile } from '@/components/filePreview';
+import { deriveIdempotencyKey, generateIdempotencyKey } from '@/shared/idempotency';
 import { showGlobalToast } from '@/shared/ui/toast';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
@@ -124,6 +125,7 @@ export function CrearDocumento({ visible, onClose, initialFiles, initialFolderId
   const [files, setFiles] = useState<SelFile[]>([]);
   const [uploading, setUploading] = useState(false);
   const batchSizeRef = useRef(0);
+  const uploadBaseKeyRef = useRef(generateIdempotencyKey());
   const timersRef = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map());
 
   // Seed from the files picked by the caller; reset everything when the sheet closes.
@@ -276,7 +278,7 @@ export function CrearDocumento({ visible, onClose, initialFiles, initialFolderId
             tamaño: file.bytes,
             tipo: file.mimeType,
             ...(initialFolderId !== undefined ? { id_carpeta: initialFolderId } : {}),
-          });
+          }, deriveIdempotencyKey(uploadBaseKeyRef.current, file.id));
 
           setFiles(prev => prev.map(f =>
             f.id === file.id

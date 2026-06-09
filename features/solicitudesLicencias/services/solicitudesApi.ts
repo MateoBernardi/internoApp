@@ -1,4 +1,5 @@
 import { apiRequest } from '../../../shared/apiRequest';
+import { idempotencyHeaders } from '@/shared/idempotency';
 import * as solicitudLicencia from '../models/SolicitudLicencia';
 
 export const getTiposLicencia = async (accessToken: string): Promise<solicitudLicencia.TipoLicencia[]> => {
@@ -88,8 +89,8 @@ export const getSolicitudesUsuario = async (accessToken: string): Promise<solici
     return data;
 };
 
-export const createSolicitudLicencia = async (accessToken: string, data: solicitudLicencia.CreateSolicitudDTO): Promise<solicitudLicencia.SolicitudLicencia> => {
-    const response = await apiRequest({ method: 'POST', endpoint: '/licencias/solicitudes', token: accessToken, body: data });
+export const createSolicitudLicencia = async (accessToken: string, data: solicitudLicencia.CreateSolicitudDTO, idempotencyKey?: string): Promise<solicitudLicencia.SolicitudLicencia> => {
+    const response = await apiRequest({ method: 'POST', endpoint: '/licencias/solicitudes', token: accessToken, body: data, headers: idempotencyHeaders(idempotencyKey) });
 
     const body = await response.json();
 

@@ -103,6 +103,24 @@ function buildRequestInit(
 }
 
 /**
+ * Envuelve una Response para que `.json()` tolere body vacío o no-JSON:
+ * en una respuesta YA recibida (cualquier status), un body vacío hace que
+ * `response.json()` tire "JSON Parse error" y un 200 se reciba como error.
+ * Acá devolvemos {} en ese caso. No toca `.ok/.status/.text()/.headers`.
+ */
+function withTolerantJson(response: Response): Response {
+  const originalJson = response.json.bind(response);
+  (response as any).json = async () => {
+    try {
+      return await originalJson();
+    } catch {
+      return {};
+    }
+  };
+  return response;
+}
+
+/**
  * Factory funtion for API requests.
  * @param method HTTP Method (GET, POST, PUT, DELETE, etc.)
  * @param endpoint The URL endpoint (e.g., "/novedades"). Should start with /.
@@ -123,7 +141,8 @@ export async function apiRequest({
 
   const executeFetch = async (activeToken: string): Promise<Response> => {
     const options = buildRequestInit(method, activeToken, body, signal, entorno, headers);
-    return fetch(fullUrl, options);
+    const response = await fetch(fullUrl, options);
+    return withTolerantJson(response);
   };
 
   try {
@@ -160,7 +179,7 @@ export async function apiRequest({
     return retryResponse;
   } catch (error: any) {
     if (error?.message?.toLowerCase().includes('network request failed')) {
-      throw new Error('Error desconocido. Intentá nuevamente en unos minutos.');
+      throw new Error('La conexión es inestable. Chequeá que la petición se haya completado.');
     }
     throw error;
   }

@@ -21,6 +21,7 @@ import {
 	TouchableOpacity,
 	View,
 } from 'react-native';
+import { generateIdempotencyKey } from '@/shared/idempotency';
 import { KEYBOARD_BEHAVIOR } from '@/shared/ui/keyboard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EstadoReporte, Reporte, ReporteImagen } from '../models/Reporte';
@@ -109,6 +110,9 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 				mimeType,
 				description: 'Imagen de reporte',
 				orden: imagenes.length,
+				// Key por subida: vive en las variables de la mutación, así los
+				// reintentos automáticos reusan exactamente la misma.
+				idempotencyKey: generateIdempotencyKey(),
 			});
 		} catch (error: any) {
 			Alert.alert('Error', error?.message ?? 'No se pudo subir la imagen.');

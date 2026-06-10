@@ -5,6 +5,7 @@ import { NovedadModal } from '@/components/NovedadModal';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
+import { useIdempotencyKey } from '@/shared/useIdempotencyKey';
 import React, { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { Novedad } from '../models/Novedades';
@@ -52,6 +53,7 @@ const DEFAULT_NOVEDAD_DRAFT: NovedadCreateDraft = {
 
 export default function TablonNovedades({ refreshTrigger, enabled = true }: TablonNovedadesProps) {
   const { user } = useAuth();
+  const { idempotencyKey, regenerateIdempotencyKey } = useIdempotencyKey();
   const { obtenerNovedades, crearNovedad, actualizarNovedad, eliminarNovedad, isLoading, error } =
     useNovedad();
 
@@ -175,11 +177,11 @@ export default function TablonNovedades({ refreshTrigger, enabled = true }: Tabl
 
   const handleFormSubmit = async (data: Omit<Novedad, 'id' | 'createdAt'>) => {
     if (formMode === 'create') {
-      const result = await crearNovedad({
-        ...data,
-      });
+      const result = await crearNovedad({ ...data }, idempotencyKey);
 
       if (result.success && result.data) {
+        // La novedad ya existe: la próxima creación es una operación nueva.
+        regenerateIdempotencyKey();
         const newNovedadView: NovedadView = {
           ...result.data,
           categoria: getTipoString(result.data.id_etiqueta || 1),

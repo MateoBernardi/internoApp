@@ -10,7 +10,9 @@ import type * as ImagePickerTypes from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { deriveIdempotencyKey } from '@/shared/idempotency';
 import { KEYBOARD_BEHAVIOR } from '@/shared/ui/keyboard';
+import { useIdempotencyKey } from '@/shared/useIdempotencyKey';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { uploadReporteImage } from '../services/reportesApi';
 import { useCreateReporte } from '../viewmodels/useReportes';
@@ -44,6 +46,7 @@ export default function CrearReporte(props?: CrearReporteProps) {
 	const insets = useSafeAreaInsets();
 	const params = useLocalSearchParams();
 	const { tokens } = useAuth();
+	const { idempotencyKey, regenerateIdempotencyKey } = useIdempotencyKey();
 	const { mutateAsync: crearReporte, isPending: isCreating } = useCreateReporte();
 	const modalVisible = props?.visible ?? true;
 	const handleClose = props?.onClose ?? (() => router.back());
@@ -178,13 +181,20 @@ export default function CrearReporte(props?: CrearReporteProps) {
 		}
 
 		try {
+			// La key base queda fijada a ESTE intento de creación: el reporte la usa
+			// directa y cada imagen una sub-key derivada, estables entre reintentos.
+			const baseKey = idempotencyKey;
 			const nuevoReporte = await crearReporte({
 				usuario_reportado_id: Number(usuarioId),
 				titulo: titulo.trim(),
 				descripcion: descripcion.trim(),
 				categoria,
 				fecha_incidente: fechaIncidente.toISOString(),
+				idempotencyKey: baseKey,
 			});
+			// El reporte ya existe: rotar la key para que un próximo envío desde este
+			// mismo formulario sea una operación nueva y no un replay del backend.
+			regenerateIdempotencyKey();
 
 			// Subir imágenes pendientes una por una
 			if (pendingImages.length > 0 && !nuevoReporte?.id) {
@@ -211,6 +221,7 @@ export default function CrearReporte(props?: CrearReporteProps) {
 							img.mimeType,
 							img.description || 'Imagen de reporte',
 							i,
+							deriveIdempotencyKey(baseKey, `img-${i}`),
 						);
 					}
 				} catch (uploadError: any) {
@@ -240,7 +251,7 @@ export default function CrearReporte(props?: CrearReporteProps) {
 		} catch (error: any) {
 			showModal('Error', error?.message || 'Intenta nuevamente');
 		}
-	}, [isFormValid, tokens, crearReporte, usuarioId, titulo, descripcion, categoria, fechaIncidente, pendingImages, handleClose, showModal, router]);
+	}, [isFormValid, tokens, crearReporte, usuarioId, titulo, descripcion, categoria, fechaIncidente, pendingImages, handleClose, showModal, router, idempotencyKey, regenerateIdempotencyKey]);
 
 	const handleDateConfirm = useCallback((selectedDate: Date) => {
 		setFechaIncidente((prev) => {

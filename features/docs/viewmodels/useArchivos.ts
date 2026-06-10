@@ -175,14 +175,16 @@ export function useCreateCarpeta() {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: async (payload: CreateCarpetaPayload) => {
+        mutationFn: async ({ idempotencyKey, ...payload }: CreateCarpetaPayload & { idempotencyKey?: string }) => {
             const token = tokens?.accessToken;
             if (!token) throw new Error('No authentification token found');
-            return carpetasApi.createCarpeta(token, payload);
+            return carpetasApi.createCarpeta(token, payload, idempotencyKey);
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ARCHIVOS_KEYS.all });
         },
+        // Reintentos seguros: el mismo X-Idempotency-Key viaja en cada intento.
+        ...IDEMPOTENT_MUTATION_RETRY,
     });
 }
 

@@ -1,4 +1,5 @@
 import { useAuth } from '@/features/auth/context/AuthContext';
+import { IDEMPOTENT_MUTATION_RETRY } from '@/shared/idempotency';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     archivoReporte,
@@ -67,17 +68,19 @@ export function useCreateReporte() {
     const { tokens } = useAuth();
 
     return useMutation({
-        mutationFn: async (data: any) => {
+        mutationFn: async ({ idempotencyKey, ...data }: any) => {
             const token = tokens?.accessToken;
             if (!token) {
                 throw new Error('No hay token de acceso');
             }
-            return createReporte(token, data);
+            return createReporte(token, data, idempotencyKey);
         },
-        onSuccess: (newReporte) => {
+        onSuccess: () => {
             // Actualizar el cache agregando el nuevo reporte
             queryClient.invalidateQueries({ queryKey: REPORTES_QUERY_KEY });
         },
+        // Reintentos seguros: el mismo X-Idempotency-Key viaja en cada intento.
+        ...IDEMPOTENT_MUTATION_RETRY,
     });
 }
 
@@ -205,6 +208,7 @@ export function useUploadReporteImage() {
             mimeType,
             description,
             orden,
+            idempotencyKey,
         }: {
             reporteId: number | string;
             fileUri: string;
@@ -212,10 +216,11 @@ export function useUploadReporteImage() {
             mimeType: string;
             description: string;
             orden: number;
+            idempotencyKey?: string;
         }) => {
             const token = tokens?.accessToken;
             if (!token) throw new Error('No hay token de acceso');
-            return uploadReporteImage(token, reporteId, fileUri, fileName, mimeType, description, orden);
+            return uploadReporteImage(token, reporteId, fileUri, fileName, mimeType, description, orden, idempotencyKey);
         },
         onSuccess: (_data, variables) => {
             queryClient.invalidateQueries({ queryKey: REPORTES_QUERY_KEY });
@@ -223,6 +228,8 @@ export function useUploadReporteImage() {
                 queryKey: REPORTE_IMAGENES_QUERY_KEY(variables.reporteId),
             });
         },
+        // Reintentos seguros: la key por imagen viaja en cada intento.
+        ...IDEMPOTENT_MUTATION_RETRY,
     });
 }
 

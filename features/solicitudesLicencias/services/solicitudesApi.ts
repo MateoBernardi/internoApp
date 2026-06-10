@@ -101,8 +101,8 @@ export const createSolicitudLicencia = async (accessToken: string, data: solicit
     return body;
 };
 
-export const adjuntarArchivo = async (accessToken: string, solicitudId: number, archivoId: number): Promise<{ message: string }> => {
-    const response = await apiRequest({ method: 'POST', endpoint: `/licencias/solicitudes/${solicitudId}/archivo`, token: accessToken, body: { archivo_id: archivoId } });
+export const adjuntarArchivo = async (accessToken: string, solicitudId: number, archivoId: number, idempotencyKey?: string): Promise<{ message: string }> => {
+    const response = await apiRequest({ method: 'POST', endpoint: `/licencias/solicitudes/${solicitudId}/archivo`, token: accessToken, body: { archivo_id: archivoId }, headers: idempotencyHeaders(idempotencyKey) });
 
     const body = await response.json().catch(() => ({}));
 

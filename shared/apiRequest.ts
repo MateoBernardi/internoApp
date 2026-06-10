@@ -72,6 +72,8 @@ function buildRequestInit(
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
     'x-app-entorno': entorno,
+    'Accept': 'application/json',
+    'Connection': 'close', // Para evitar problemas con conexiones keep-alive en React Native
   };
 
   // Headers extra provistos por el servicio (p. ej. idempotencia). Se aplican
@@ -103,24 +105,6 @@ function buildRequestInit(
 }
 
 /**
- * Envuelve una Response para que `.json()` tolere body vacío o no-JSON:
- * en una respuesta YA recibida (cualquier status), un body vacío hace que
- * `response.json()` tire "JSON Parse error" y un 200 se reciba como error.
- * Acá devolvemos {} en ese caso. No toca `.ok/.status/.text()/.headers`.
- */
-function withTolerantJson(response: Response): Response {
-  const originalJson = response.json.bind(response);
-  (response as any).json = async () => {
-    try {
-      return await originalJson();
-    } catch {
-      return {};
-    }
-  };
-  return response;
-}
-
-/**
  * Factory funtion for API requests.
  * @param method HTTP Method (GET, POST, PUT, DELETE, etc.)
  * @param endpoint The URL endpoint (e.g., "/novedades"). Should start with /.
@@ -140,9 +124,12 @@ export async function apiRequest({
   const fullUrl = `${API_BASE_URL}${endpoint}`;
 
   const executeFetch = async (activeToken: string): Promise<Response> => {
+    if (method !== 'GET') {
+      console.log(`[apiRequest] ${method} ${endpoint} - time: ${new Date().toISOString()}`);
+    } 
     const options = buildRequestInit(method, activeToken, body, signal, entorno, headers);
     const response = await fetch(fullUrl, options);
-    return withTolerantJson(response);
+    return response;
   };
 
   try {
@@ -178,6 +165,7 @@ export async function apiRequest({
 
     return retryResponse;
   } catch (error: any) {
+    console.error('[apiRequest] caught error:', error, error?.stack);
     if (error?.message?.toLowerCase().includes('network request failed')) {
       throw new Error('La conexión es inestable. Chequeá que la petición se haya completado.');
     }

@@ -130,10 +130,6 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
   const [showFullBitacora, setShowFullBitacora] = useState(false);
   const [messageDraft, setMessageDraft] = useState('');
   const [isSendingMessage, setIsSendingMessage] = useState(false);
-  // Outbox optimista: mensajes que mostramos al instante mientras la mutación
-  // viaja. No hacemos rollback en error porque en native el mensaje suele
-  // entregarse aunque el fetch reporte "network request failed"; en su lugar
-  // reconciliamos contra el servidor (refetch de la bitácora) en onSettled.
   const [pendingMessages, setPendingMessages] = useState<OptimisticMessage[]>([]);
   const queryClient = useQueryClient();
   const { alertModal, showModal, closeAlert } = useAlertModal();
@@ -176,9 +172,6 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
   useEffect(() => {
     if (Platform.OS !== 'android') return;
     const sub = Keyboard.addListener('keyboardDidHide', () => {
-      // rAF lets KeyboardAvoidingView remove its padding and the layout settle
-      // before we scroll, so scrollToEnd resolves against the full viewport and
-      // re-clamps the stale offset.
       requestAnimationFrame(() => {
         contentScrollRef.current?.scrollToEnd({ animated: false });
       });
@@ -194,19 +187,9 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
   );
 
   const todosArchivos = useMemo(() => {
-    const archivosBase = solicitud.archivos ?? [];
-    const archivosBitacora = bitacoraItems.flatMap((b: any) => b.archivos ?? []);
-    const map = new Map<number, any>();
-    [...archivosBase, ...archivosBitacora].forEach(a => { if (a?.id) map.set(a.id, a); });
-    return Array.from(map.values());
-  }, [solicitud.archivos, bitacoraItems]);
-
-  const todosArchivosChat = useMemo(() => {
-    const map = new Map<number, any>();
-    (chatArchivos ?? []).forEach(a => { if (a?.id) map.set(a.id, a); });
-    todosArchivos.forEach(a => { if (a?.id && !map.has(a.id)) map.set(a.id, a); });
-    return Array.from(map.values());
-  }, [chatArchivos, todosArchivos]);
+    const archivosBase = chatArchivos ?? [];
+    return archivosBase;
+  }, [chatArchivos]);
 
   // ─── Flags de estado ──────────────────────────────────────────────────────
 
@@ -328,9 +311,12 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
   // ─── Compartir ────────────────────────────────────────────────────────────
 
   const ejecutarCompartir = useCallback(() => {
-    const payload: ReenviarSolicitudRequest = {
+    // Key por intento de compartir: vive en las variables de la mutación, así
+    // los reintentos automáticos reusan exactamente la misma.
+    const payload: ReenviarSolicitudRequest & { idempotencyKey?: string } = {
       solicitudId,
       nuevosInvitadosIds: selectedUsersToShare.map(u => u.user_context_id),
+      idempotencyKey: generateIdempotencyKey(),
     };
     reenviarSolicitud(payload, {
       onSuccess: () => { setShowShareModal(false); Alert.alert('Éxito', 'Conversación compartida'); },
@@ -370,7 +356,6 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
                 solicitud={solicitud}
                 displayParticipantes={displayParticipantes}
                 getParticipanteDisplayName={getParticipanteDisplayName}
-                archivosCount={todosArchivos.length}
                 currentUserId={user?.user_context_id}
                 onPress={() => setShowArchivosModal(true)}
               />
@@ -655,11 +640,11 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
                       ) : (
                         <>
                           <Text style={localStyles.archivosCardSubtitle}>
-                            {countByKind(todosArchivosChat).images} imágenes · {countByKind(todosArchivosChat).files} archivos
+                            {countByKind(todosArchivos).images} imágenes · {countByKind(todosArchivos).files} archivos
                           </Text>
                           <ScrollView style={{ maxHeight: 420 }} showsVerticalScrollIndicator={false}>
                             <ArchivosModalContent
-                              archivos={todosArchivosChat}
+                              archivos={todosArchivos}
                               onOpen={archivo => {
                                 setShowArchivosModal(false);
                                 handleOpenAsPreview(archivo);
@@ -743,7 +728,7 @@ interface ChatHeaderRowProps {
   solicitud: SolicitudEnviada;
   displayParticipantes: any[];
   getParticipanteDisplayName: (p: any) => string;
-  archivosCount: number;
+  archivosCount?: number;
   currentUserId?: number;
   onPress: () => void;
 }
@@ -781,10 +766,6 @@ function ChatHeaderRow({ solicitud, displayParticipantes, getParticipanteDisplay
       <View style={{ flex: 1 }}>
         <Text style={localStyles.chatHeaderTitle} numberOfLines={1}>{title}</Text>
         <Text style={localStyles.chatHeaderSubtitle} numberOfLines={1}>{subtitle}</Text>
-      </View>
-      <View style={localStyles.filesPill}>
-        <Ionicons name="attach" size={14} color="#3b6fd4" />
-        <Text style={localStyles.filesPillCount}>{archivosCount}</Text>
       </View>
     </TouchableOpacity>
   );

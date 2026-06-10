@@ -20,6 +20,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { generateIdempotencyKey } from '@/shared/idempotency';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EstadoSolicitud } from '../models/SolicitudLicencia';
 import { formatCantidadLicencia } from '../utils/formatCantidad';
@@ -266,6 +267,9 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
           {
             solicitudId,
             archivoId,
+            // Key por adjunto: vive en las variables de la mutación, así los
+            // reintentos automáticos reusan exactamente la misma.
+            idempotencyKey: generateIdempotencyKey(),
           },
           {
             onSuccess: () => {

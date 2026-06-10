@@ -12,6 +12,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { useIdempotencyKey } from '@/shared/useIdempotencyKey';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Encuesta, Pregunta, Respuesta } from '../models/Encuesta';
 import { useEnviarRespuestasEncuesta } from '../viewmodels/useEncuestas';
@@ -27,6 +28,7 @@ export const ResponderEncuesta: React.FC<ResponderEncuestaProps> = ({ encuesta, 
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [respuestas, setRespuestas] = useState<Map<number, Respuesta>>(new Map());
+  const { idempotencyKey } = useIdempotencyKey();
   const { mutateAsync: enviarRespuestas, isPending } = useEnviarRespuestasEncuesta();
 
   const handleRatingChange = (preguntaId: number, valor: number) => {
@@ -109,7 +111,7 @@ export const ResponderEncuesta: React.FC<ResponderEncuestaProps> = ({ encuesta, 
     if (!validarRespuestas()) return;
 
     try {
-      const result = await enviarRespuestas({ respuestas: Array.from(respuestas.values()) });
+      const result = await enviarRespuestas({ respuestas: Array.from(respuestas.values()), idempotencyKey });
       Alert.alert('¡Éxito!', result?.message || 'Tu respuesta ha sido enviada correctamente', [
         {
           text: 'OK',

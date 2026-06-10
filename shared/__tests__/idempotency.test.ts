@@ -4,6 +4,7 @@ import {
   idempotencyHeaders,
   IDEMPOTENCY_HEADER,
   IDEMPOTENT_MUTATION_RETRY,
+  isTransportError,
 } from '../idempotency';
 
 const UUID_V4_REGEX =
@@ -48,9 +49,41 @@ describe('deriveIdempotencyKey', () => {
   });
 });
 
+describe('isTransportError', () => {
+  it.each([
+    'La conexión es inestable. Chequeá que la petición se haya completado.',
+    'Network request failed',
+    'TypeError: Failed to fetch',
+    'Load failed',
+    'NetworkError when attempting to fetch resource.',
+  ])('detects transport failures: %s', (message) => {
+    expect(isTransportError(new Error(message))).toBe(true);
+  });
+
+  it('rejects errors with a server response (the backend already decided)', () => {
+    expect(isTransportError(new Error('usuario_id inválido.'))).toBe(false);
+    expect(isTransportError(new Error('Acceso denegado'))).toBe(false);
+    expect(isTransportError(new Error('No se pudo completar. Intentá de nuevo en unos minutos.'))).toBe(false);
+    expect(isTransportError('not-an-error')).toBe(false);
+    expect(isTransportError(undefined)).toBe(false);
+  });
+});
+
 describe('IDEMPOTENT_MUTATION_RETRY', () => {
-  it('retries twice with exponential backoff capped at 30s', () => {
-    expect(IDEMPOTENT_MUTATION_RETRY.retry).toBe(2);
+  const transportError = new Error('Network request failed');
+  const serverError = new Error('Acceso denegado');
+
+  it('retries transport errors up to 2 times', () => {
+    expect(IDEMPOTENT_MUTATION_RETRY.retry(0, transportError)).toBe(true);
+    expect(IDEMPOTENT_MUTATION_RETRY.retry(1, transportError)).toBe(true);
+    expect(IDEMPOTENT_MUTATION_RETRY.retry(2, transportError)).toBe(false);
+  });
+
+  it('never retries errors the server answered (4xx/5xx ya respondidos)', () => {
+    expect(IDEMPOTENT_MUTATION_RETRY.retry(0, serverError)).toBe(false);
+  });
+
+  it('uses exponential backoff capped at 30s', () => {
     expect(IDEMPOTENT_MUTATION_RETRY.retryDelay(0)).toBe(1000);
     expect(IDEMPOTENT_MUTATION_RETRY.retryDelay(1)).toBe(2000);
     expect(IDEMPOTENT_MUTATION_RETRY.retryDelay(10)).toBe(30000);

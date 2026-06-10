@@ -56,8 +56,8 @@ export async function cancelarSolicitud(accessToken: string, data: solicitudes.C
     }
 }
 
-export async function reenviarSolicitud(accessToken: string, data: solicitudes.ReenviarSolicitudRequest): Promise<solicitudes.ReenviarSolicitudResponse> {
-    const response = await apiRequest({ method: 'POST', endpoint: `/solicitudes-actividades/solicitudes/reenviar`, token: accessToken, body: data });
+export async function reenviarSolicitud(accessToken: string, data: solicitudes.ReenviarSolicitudRequest, idempotencyKey?: string): Promise<solicitudes.ReenviarSolicitudResponse> {
+    const response = await apiRequest({ method: 'POST', endpoint: `/solicitudes-actividades/solicitudes/reenviar`, token: accessToken, body: data, headers: idempotencyHeaders(idempotencyKey) });
 
     if (!response.ok) {
         const errorText = await response.text();

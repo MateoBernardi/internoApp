@@ -1,12 +1,13 @@
 import { apiRequest, throwApiError } from '@/shared/apiRequest';
+import { IDEMPOTENCY_HEADER, idempotencyHeaders } from '@/shared/idempotency';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import * as reporte from '../models/Reporte';
 
 const API_BASE_URL = Constants.expoConfig?.extra?.API_BASE_URL;
 
-export async function createReporte (accessToken: string, payload: reporte.CreateReportePayload): Promise<reporte.Reporte> {
-    const response = await apiRequest({  method: 'POST', endpoint: '/reportes', token: accessToken, body: payload});
+export async function createReporte (accessToken: string, payload: reporte.CreateReportePayload, idempotencyKey?: string): Promise<reporte.Reporte> {
+    const response = await apiRequest({  method: 'POST', endpoint: '/reportes', token: accessToken, body: payload, headers: idempotencyHeaders(idempotencyKey)});
 
     if (!response.ok) {
         const errorText = await response.text();
@@ -160,6 +161,7 @@ export async function uploadReporteImage (
     mimeType: string,
     description: string,
     orden: number,
+    idempotencyKey?: string,
 ): Promise<reporte.UploadReporteImageResponse> {
     const formData = new FormData();
 
@@ -192,6 +194,7 @@ export async function uploadReporteImage (
         headers: {
             Authorization: `Bearer ${accessToken}`,
             'x-app-entorno': 'interno',
+            ...(idempotencyKey ? { [IDEMPOTENCY_HEADER]: idempotencyKey } : {}),
             // NO establecer Content-Type — fetch lo agrega automáticamente con el boundary correcto
         },
         body: formData,

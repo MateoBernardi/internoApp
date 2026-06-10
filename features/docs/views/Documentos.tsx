@@ -6,6 +6,7 @@ import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { confirmAction } from '@/shared/ui/confirmAction';
 import { showGlobalToast } from '@/shared/ui/toast';
+import { useIdempotencyKey } from '@/shared/useIdempotencyKey';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -38,6 +39,7 @@ export default function Documentos() {
   const createCarpeta = useCreateCarpeta();
   const updateCarpeta = useUpdateCarpeta();
   const deleteCarpeta = useDeleteCarpeta();
+  const { idempotencyKey, regenerateIdempotencyKey } = useIdempotencyKey();
   const [tab, setTab] = useState<TabType>('empresa');
   const [modalVisible, setModalVisible] = useState(false);
   const [pickedFiles, setPickedFiles] = useState<any[]>([]);
@@ -334,9 +336,12 @@ export default function Documentos() {
       {
         nombre: trimmed,
         ...(currentFolderId !== null ? { id_carpeta_padre: currentFolderId } : {}),
+        idempotencyKey,
       },
       {
         onSuccess: () => {
+          // La carpeta ya existe: la próxima creación es una operación nueva.
+          regenerateIdempotencyKey();
           setFolderModalVisible(false);
           setFolderName('');
           Alert.alert('Carpeta creada', 'La carpeta se creo correctamente');

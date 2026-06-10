@@ -93,11 +93,8 @@ export function useSolicitudesUnseen(enabled = true) {
       }
       return solicitudesApi.getSolicitudesUnseen(accessToken);
     },
-    staleTime: 1000 * 30,
+    staleTime: 1000 * 45,
     gcTime: 1000 * 60 * 5,
-    refetchInterval: 1000 * 60,
-    refetchOnWindowFocus: true,
-    retry: 1,
   });
 }
 
@@ -159,12 +156,15 @@ export function useReenviarSolicitud() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: solicitudModels.ReenviarSolicitudRequest) => {
+    mutationFn: async ({
+      idempotencyKey,
+      ...data
+    }: solicitudModels.ReenviarSolicitudRequest & { idempotencyKey?: string }) => {
       const accessToken = tokens?.accessToken;
       if (!accessToken) {
         throw new Error('No access token available');
       }
-      return solicitudesApi.reenviarSolicitud(accessToken, data);
+      return solicitudesApi.reenviarSolicitud(accessToken, data, idempotencyKey);
     },
     onSuccess: () => {
       // Invalidar las solicitudes creadas
@@ -172,6 +172,8 @@ export function useReenviarSolicitud() {
         queryKey: solicitudesQueryKeys.all,
       });
     },
+    // Reintentos seguros: el mismo X-Idempotency-Key viaja en cada intento.
+    ...IDEMPOTENT_MUTATION_RETRY,
   });
 }
 

@@ -1,4 +1,5 @@
 import { useAuth } from '@/features/auth/context/AuthContext';
+import { IDEMPOTENT_MUTATION_RETRY } from '@/shared/idempotency';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as solicitudesLicencias from '../models/SolicitudLicencia';
 import {
@@ -141,13 +142,14 @@ export function useCreateSolicitudLicencia() {
             if (!token) {
                 throw new Error('No hay token de acceso');
             }
-            return createSolicitudLicencia(token, data, idempotencyKey);
+            return await createSolicitudLicencia(token, data, idempotencyKey);
         },
-        onSuccess: (newSolicitud) => {
-            // Actualizar el cache agregando la nueva solicitud
+        onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['solicitudes-licencias'] });
         },
-    }); 
+        // Reintentos seguros: el mismo X-Idempotency-Key viaja en cada intento.
+        ...IDEMPOTENT_MUTATION_RETRY,
+    });
 }
 
 export function useAdjuntarArchivo() {
@@ -155,18 +157,20 @@ export function useAdjuntarArchivo() {
     const { tokens } = useAuth();
 
     return useMutation({
-        mutationFn: async ({ solicitudId, archivoId }: { solicitudId: number; archivoId: number }) => {
+        mutationFn: async ({ solicitudId, archivoId, idempotencyKey }: { solicitudId: number; archivoId: number; idempotencyKey?: string }) => {
             const token = tokens?.accessToken;
             if (!token) {
                 throw new Error('No hay token de acceso');
             }
             // Adjuntar el archivo ya subido a la solicitud
-            return adjuntarArchivo(token, solicitudId, archivoId);
+            return adjuntarArchivo(token, solicitudId, archivoId, idempotencyKey);
         },
         onSuccess: () => {
             // Invalidar las solicitudes para refrescar los datos
             queryClient.invalidateQueries({ queryKey: ['solicitudes-licencias'] });
         },
+        // Reintentos seguros: el mismo X-Idempotency-Key viaja en cada intento.
+        ...IDEMPOTENT_MUTATION_RETRY,
     });
 }
 

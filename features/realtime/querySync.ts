@@ -247,8 +247,7 @@ export function syncPushPayloadToCache(
 }
 
 export const RealtimeQueryKeys = {
-  solicitudesCreadas: ['solicitudes', 'creadas'] as const,
-  invitaciones: ['solicitudes', 'invitaciones'] as const,
+  solicitudesUnseen: ['solicitudes', 'unseen'] as const,
   actividadesSemanales: ['actividades', 'semanales'] as const,
   objetivos: ['objetivos'] as const,
   reportes: (usuarioId?: string) => ['reportes', usuarioId ?? 'all'] as const,

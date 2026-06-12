@@ -27,7 +27,6 @@ import {
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { UserSelector } from '../../../components/UserSelector';
 import { MESSAGE_STATES, formatDateDDMMYYYY, formatTimeHHMM } from '../conversacion/constants';
 import { useAdjuntos } from '../conversacion/hooks/useAdjuntos';
@@ -80,7 +79,6 @@ interface ConversacionChatProps {
 
 export function ConversacionChat({ solicitud, visible, onClose }: ConversacionChatProps) {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { hasRole } = useRoleCheck();
 
@@ -334,7 +332,7 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
     <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={handleClose}>
       <View style={styles.overlay}>
         <ModalKeyboardView style={styles.keyboardContainer}>
-          <View style={[styles.container, { paddingBottom: insets.bottom }]}>
+          <View style={styles.container}>
 
             {/* Header */}
             <View style={styles.modalHeader}>

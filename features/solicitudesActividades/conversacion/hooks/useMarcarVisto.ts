@@ -24,16 +24,17 @@ export function useMarcarVisto({
 
   useEffect(() => {
     if (!solicitud) return;
-    const hasModifiedInvitados = invitadosSinCreador.some(inv => inv.estado === 'MODIFIED');
+
+    // Para el host usamos su propio estado (solicitud_invitado del creador).
+    // Antes se chequeaban los estados de los invitados, pero el backend no los
+    // actualiza al marcar SEEN → la condición seguía siendo true en cada apertura.
     const shouldMarkSeen = isHost
-      ? hasModifiedInvitados
+      ? solicitud.estado === 'MODIFIED'
       : ['SENT', 'MODIFIED_BY_HOST', 'ACCEPTED_BY_HOST'].includes(solicitud.estado);
 
     if (!shouldMarkSeen) { seenAutoMarkKeyRef.current = null; return; }
 
-    const key = isHost
-      ? `${solicitudId}:host:${hasModifiedInvitados}`
-      : `${solicitudId}:${solicitud.estado}`;
+    const key = `${solicitudId}:${solicitud.estado}`;
     if (seenAutoMarkKeyRef.current === key) return;
     seenAutoMarkKeyRef.current = key;
 

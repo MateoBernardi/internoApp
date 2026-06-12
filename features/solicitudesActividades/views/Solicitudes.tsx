@@ -75,6 +75,11 @@ export default function SolicitudesView({ onRefresh, refreshing }: SolicitudesVi
     debouncedSearch,
     tipoConversacion,
   );
+  // Queries de badge: siempre activas, page 1, para mostrar el dot en la tab inactiva.
+  // Sin type → solicitudes tab badge. Con CHAT → chats tab badge.
+  // Cuando coincide con la display query (mismo key) React Query reutiliza cache → sin llamadas extra.
+  const { data: solBadgeSource } = useSolicitudes(1, 20, !isSearching, undefined);
+  const { data: chatBadgeSource } = useSolicitudes(1, 20, !isSearching, 'CHAT');
 
   const solicitudesRaw = isSearching ? (searchResults ?? []) : (data?.data ?? []);
   const solicitudes = useMemo(
@@ -84,7 +89,7 @@ export default function SolicitudesView({ onRefresh, refreshing }: SolicitudesVi
   const totalSolicitudesGlobal = isSearching ? 0 : (data?.total ?? 0);
   const totalPages = isSearching ? 0 : Math.ceil(totalSolicitudesGlobal / 20);
 
-  // Mapeo de datos y contador de pendientes en la página actual
+  // Contador de pendientes en la página actual (para el info bar)
   const { sinVerCount } = useMemo(() => {
     const count = solicitudes.reduce((acc, sol) => {
       const estadoUI = getEstadoRelevanteUI(sol);
@@ -95,6 +100,28 @@ export default function SolicitudesView({ onRefresh, refreshing }: SolicitudesVi
     }, 0);
     return { sinVerCount: count };
   }, [solicitudes]);
+
+  // Badges de tabs: cada query alimenta su propia tab.
+  const solicitudesTabBadge = useMemo(() =>
+    (solBadgeSource?.data ?? [])
+      .filter(s => s.tipo_actividad !== 'CHAT')
+      .some(sol => {
+        const estadoUI = getEstadoRelevanteUI(sol);
+        return sol.is_host
+          ? estadoUI === 'Modificado'
+          : ['Pendiente', 'Modificado por creador'].includes(estadoUI);
+      }),
+    [solBadgeSource],
+  );
+
+  const chatsTabBadge = useMemo(() =>
+    (chatBadgeSource?.data ?? []).some(s =>
+      s.is_host
+        ? s.estado === 'MODIFIED'
+        : s.estado === 'SENT' || s.estado === 'MODIFIED_BY_HOST',
+    ),
+    [chatBadgeSource],
+  );
 
   // --- HANDLERS ---
   const handleOpenSolicitud = useCallback((solicitud: SolicitudEnviada) => setSelectedSolicitud(solicitud), []);
@@ -151,13 +178,19 @@ export default function SolicitudesView({ onRefresh, refreshing }: SolicitudesVi
             style={[styles.tabItem, !isChatsTab && styles.tabItemActive]}
             onPress={() => handleChangeTab('solicitudes')}
           >
-            <Text style={[styles.tabText, !isChatsTab && styles.tabTextActive]}>Solicitudes</Text>
+            <View style={styles.tabLabelRow}>
+              <Text style={[styles.tabText, !isChatsTab && styles.tabTextActive]}>Solicitudes</Text>
+              {solicitudesTabBadge && <View style={styles.tabBadgeDot} />}
+            </View>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.tabItem, isChatsTab && styles.tabItemActive]}
             onPress={() => handleChangeTab('chats')}
           >
-            <Text style={[styles.tabText, isChatsTab && styles.tabTextActive]}>Chats</Text>
+            <View style={styles.tabLabelRow}>
+              <Text style={[styles.tabText, isChatsTab && styles.tabTextActive]}>Chats</Text>
+              {chatsTabBadge && <View style={styles.tabBadgeDot} />}
+            </View>
           </TouchableOpacity>
         </View>
       </View>
@@ -293,6 +326,18 @@ const styles = StyleSheet.create({
   },
   tabTextActive: {
     color: colors.tint,
+  },
+  tabLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  tabBadgeDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: colors.error,
+    flexShrink: 0,
   },
   headerInfo: {
     flexDirection: 'row',

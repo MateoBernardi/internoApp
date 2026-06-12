@@ -15,7 +15,6 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Keyboard,
-  KeyboardAvoidingView,
   Modal,
   Platform,
   ScrollView,
@@ -24,7 +23,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { KEYBOARD_BEHAVIOR } from '@/shared/ui/keyboard';
+import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { UserSelector } from '../../../components/UserSelector';
 import { useAlertModal } from '../conversacion/hooks/useAlertModal';
@@ -398,10 +397,7 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
       <View style={styles.overlay}>
-        <KeyboardAvoidingView
-          style={styles.keyboardContainer}
-          behavior={KEYBOARD_BEHAVIOR}
-        >
+        <ModalKeyboardView style={styles.keyboardContainer}>
           <View style={[styles.container, { paddingBottom: insets.bottom }]}>
             {/* Header */}
             <View style={styles.modalHeader}>
@@ -667,7 +663,7 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
               onClose={closeAlert}
             />
           </View>
-        </KeyboardAvoidingView>
+        </ModalKeyboardView>
 
         <RoleUserSelectionModal
           visible={showRoleModal}

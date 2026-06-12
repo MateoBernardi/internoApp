@@ -4,7 +4,7 @@ import { useAuth } from '@/features/auth/context/AuthContext';
 import { ArchivoUso } from '@/features/docs/models/Archivo';
 import { useUploadArchivo } from '@/features/docs/viewmodels/useArchivos';
 import { ApiOperationResult } from '@/shared/types/apiStatus';
-import { KEYBOARD_BEHAVIOR } from '@/shared/ui/keyboard';
+import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { UserSummary } from '@/shared/users/User';
 import { adminRoles, allRoles } from '@/shared/users/roles';
 import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
@@ -14,7 +14,6 @@ import React, { useEffect, useState } from 'react';
 import {
     Alert,
     Keyboard,
-    KeyboardAvoidingView,
     Modal,
     Platform,
     ScrollView,
@@ -385,11 +384,7 @@ export function FormObjetivoModal({
             onRequestClose={isEditing ? handleClose : (onMinimize ? handleMinimize : handleClose)}
         >
             <View style={styles.overlay}>
-                <KeyboardAvoidingView
-                    style={styles.modalKeyboardAvoiding}
-                    behavior={KEYBOARD_BEHAVIOR}
-                    keyboardVerticalOffset={0}
-                >
+                <ModalKeyboardView style={styles.modalKeyboardAvoiding}>
                     <View style={styles.modalContainer}>
                         <View style={[styles.modalHeader, { paddingTop: insets.top + 12 }]}>
                             <View style={styles.modalHeaderActions}>
@@ -606,7 +601,7 @@ export function FormObjetivoModal({
 
                         </TouchableOpacity>
                     </View>
-                </KeyboardAvoidingView>
+                </ModalKeyboardView>
             </View>
         </Modal>
     );

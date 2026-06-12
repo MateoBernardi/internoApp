@@ -6,6 +6,7 @@ import {
     createReporte,
     fetchReportes,
     getReporteImagenes,
+    getReportesPendingCount,
     getReporteStats,
     getTopEmployee,
     getUpgradedEmployee,
@@ -31,6 +32,21 @@ function normalizeUsuarioId(usuarioId?: string): string | undefined {
     }
 
     return trimmed;
+}
+
+export function useReportesPendingCount(enabled: boolean = true) {
+    const { tokens } = useAuth();
+
+    return useQuery({
+        queryKey: ['reportes', 'pending-count'],
+        queryFn: async () => {
+            const token = tokens?.accessToken;
+            if (!token) throw new Error('No hay token de acceso');
+            return getReportesPendingCount(token);
+        },
+        enabled: enabled && !!tokens?.accessToken,
+        staleTime: 1000 * 45,
+    });
 }
 
 /**

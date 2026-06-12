@@ -1,4 +1,5 @@
-import { KeyboardAvoidingViewProps } from 'react-native';
+import React from 'react';
+import { Keyboard, KeyboardAvoidingViewProps } from 'react-native';
 
 /**
  * Comportamiento estándar para KeyboardAvoidingView en toda la app.
@@ -17,3 +18,23 @@ import { KeyboardAvoidingViewProps } from 'react-native';
  * `undefined` para Android.
  */
 export const KEYBOARD_BEHAVIOR: KeyboardAvoidingViewProps['behavior'] = 'padding';
+
+/**
+ * Retorna true mientras el teclado esté visible.
+ * Usado por ModalKeyboardView para el workaround del bug de KAV en Android con
+ * edge-to-edge (ver shared/ui/ModalKeyboardView.tsx, RN#52596, #52626).
+ */
+export function useKeyboardVisible(): boolean {
+    const [visible, setVisible] = React.useState(() => Keyboard.isVisible());
+
+    React.useEffect(() => {
+        const show = Keyboard.addListener('keyboardDidShow', () => setVisible(true));
+        const hide = Keyboard.addListener('keyboardDidHide', () => setVisible(false));
+        return () => {
+            show.remove();
+            hide.remove();
+        };
+    }, []);
+
+    return visible;
+}

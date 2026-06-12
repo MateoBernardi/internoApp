@@ -17,7 +17,6 @@ import {
   ActivityIndicator,
   Alert,
   Keyboard,
-  KeyboardAvoidingView,
   Modal,
   Platform,
   ScrollView,
@@ -28,7 +27,7 @@ import {
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
-import { KEYBOARD_BEHAVIOR } from '@/shared/ui/keyboard';
+import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { UserSelector } from '../../../components/UserSelector';
 import { useCreateObjetivo } from '../../kanban/hooks/useObjetivos';
@@ -689,7 +688,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
   return (
     <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={handleClose}>
       <View style={styles.overlay}>
-        <KeyboardAvoidingView behavior={KEYBOARD_BEHAVIOR} style={styles.keyboardContainer}>
+        <ModalKeyboardView style={styles.keyboardContainer}>
           <View style={[styles.container, { paddingBottom: insets.bottom }]}>
 
             {/* Header */}
@@ -1066,7 +1065,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
 
             {/* Modal Aceptar */}
             <Modal visible={showAcceptModal} transparent animationType="fade">
-              <KeyboardAvoidingView behavior={KEYBOARD_BEHAVIOR} style={styles.keyboardContainer}>
+              <ModalKeyboardView style={styles.keyboardContainer}>
                 <TouchableWithoutFeedback onPress={closeAcceptModal}>
                   <View style={styles.modalOverlay}>
                     <TouchableWithoutFeedback onPress={e => e.stopPropagation()}>
@@ -1105,12 +1104,12 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                     </TouchableWithoutFeedback>
                   </View>
                 </TouchableWithoutFeedback>
-              </KeyboardAvoidingView>
+              </ModalKeyboardView>
             </Modal>
 
             {/* Modal Rechazar */}
             <Modal visible={showRejectModal} transparent animationType="fade">
-              <KeyboardAvoidingView behavior={KEYBOARD_BEHAVIOR} style={styles.keyboardContainer}>
+              <ModalKeyboardView style={styles.keyboardContainer}>
                 <TouchableWithoutFeedback onPress={closeRejectModal}>
                   <View style={styles.modalOverlay}>
                     <TouchableWithoutFeedback onPress={e => e.stopPropagation()}>
@@ -1143,12 +1142,12 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                     </TouchableWithoutFeedback>
                   </View>
                 </TouchableWithoutFeedback>
-              </KeyboardAvoidingView>
+              </ModalKeyboardView>
             </Modal>
 
             {/* Modal Compartir */}
             <Modal visible={showShareModal} transparent animationType="fade" onRequestClose={() => setShowShareModal(false)}>
-              <KeyboardAvoidingView behavior={KEYBOARD_BEHAVIOR} style={{ flex: 1 }}>
+              <ModalKeyboardView style={{ flex: 1 }}>
                 <TouchableWithoutFeedback onPress={() => setShowShareModal(false)}>
                   <View style={styles.modalOverlay}>
                     <TouchableWithoutFeedback onPress={e => e.stopPropagation()}>
@@ -1177,7 +1176,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                     </TouchableWithoutFeedback>
                   </View>
                 </TouchableWithoutFeedback>
-              </KeyboardAvoidingView>
+              </ModalKeyboardView>
             </Modal>
 
             {/* Modal Selección por Rol */}
@@ -1205,7 +1204,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
 
             {/* Modal Agregar a la Agenda */}
             <Modal visible={showAddToAgendaModal} transparent animationType="fade" onRequestClose={() => setShowAddToAgendaModal(false)}>
-              <KeyboardAvoidingView behavior={KEYBOARD_BEHAVIOR} style={{ flex: 1 }}>
+              <ModalKeyboardView style={{ flex: 1 }}>
                 <TouchableWithoutFeedback onPress={() => setShowAddToAgendaModal(false)}>
                   <View style={styles.modalOverlay}>
                     <TouchableWithoutFeedback onPress={e => e.stopPropagation()}>
@@ -1276,7 +1275,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                     onCancel={() => setShowAgendaDatePicker(p => ({ ...p, show: false }))}
                   />
                 )}
-              </KeyboardAvoidingView>
+              </ModalKeyboardView>
             </Modal>
 
             {/* Validación de fechas */}
@@ -1316,7 +1315,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
 
             <OperacionPendienteModal visible={isMutating} />
           </View>
-        </KeyboardAvoidingView>
+        </ModalKeyboardView>
       </View>
 
       <FilePreview file={previewFile} onClose={closePreview} />

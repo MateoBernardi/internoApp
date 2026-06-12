@@ -17,7 +17,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
   Modal,
   ScrollView,
   StyleSheet,
@@ -25,7 +24,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { KEYBOARD_BEHAVIOR } from '@/shared/ui/keyboard';
+import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ParticipantesBlock } from './ParticipantesBlock';
 import { UserSelector } from '../../../components/UserSelector';
@@ -539,10 +538,7 @@ export function ActividadDetalle({
   return (
     <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={handleClose}>
       <View style={styles.overlay}>
-        <KeyboardAvoidingView
-          behavior={KEYBOARD_BEHAVIOR}
-          style={styles.keyboardContainer}
-        >
+        <ModalKeyboardView style={styles.keyboardContainer}>
           <View style={[styles.container, { paddingBottom: insets.bottom }]}>
 
             {/* ── Header ──────────────────────────────────────────────────── */}
@@ -884,7 +880,7 @@ export function ActividadDetalle({
               }
             />
           </View>
-        </KeyboardAvoidingView>
+        </ModalKeyboardView>
       </View>
 
       <FilePreview file={previewFile} onClose={closePreview} />

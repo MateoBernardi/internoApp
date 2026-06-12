@@ -4,7 +4,6 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
   Keyboard,
-  KeyboardAvoidingView,
   Modal,
   Platform,
   ScrollView,
@@ -14,7 +13,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { KEYBOARD_BEHAVIOR } from '@/shared/ui/keyboard';
+import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Dropdown } from 'react-native-element-dropdown';
 import { ThemedText } from './themed-text';
@@ -176,11 +175,7 @@ export function NovedadFormModal({
       onRequestClose={mode === 'create' && onMinimize ? handleMinimize : onClose}
     >
       <View style={styles.overlay}>
-        <KeyboardAvoidingView
-          style={styles.modalKeyboardAvoiding}
-          behavior={KEYBOARD_BEHAVIOR}
-          keyboardVerticalOffset={0}
-        >
+        <ModalKeyboardView style={styles.modalKeyboardAvoiding}>
           <View style={[styles.modalContainer, { paddingBottom: insets.bottom }]}>
             <View style={styles.modalHeader}>
               <View style={styles.modalHeaderActions}>
@@ -287,7 +282,7 @@ export function NovedadFormModal({
               </TouchableOpacity>
             </View>
           </View>
-        </KeyboardAvoidingView>
+        </ModalKeyboardView>
       </View>
     </Modal>
   );

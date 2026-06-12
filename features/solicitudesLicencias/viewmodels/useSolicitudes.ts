@@ -7,12 +7,28 @@ import {
     aprobarSolicitudLicencia,
     cancelarSolicitudLicencia,
     createSolicitudLicencia,
+    getLicenciasUnseenCount,
     getSaldosLicencia,
     getSolicitudesLicencias,
     getSolicitudesUsuario,
     getTiposLicencia,
     rechazarSolicitudLicencia
 } from "../services/solicitudesApi";
+
+export function useLicenciasUnseenCount(enabled: boolean = true) {
+    const { tokens } = useAuth();
+
+    return useQuery({
+        queryKey: ['solicitudes-licencias', 'unseen-count'],
+        queryFn: async () => {
+            const token = tokens?.accessToken;
+            if (!token) throw new Error('No hay token de acceso');
+            return getLicenciasUnseenCount(token);
+        },
+        enabled: enabled && !!tokens?.accessToken,
+        staleTime: 1000 * 45,
+    });
+}
 
 export function useGetTiposLicencias() {
     const { tokens } = useAuth();

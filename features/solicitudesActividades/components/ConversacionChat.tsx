@@ -7,7 +7,7 @@ import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { generateIdempotencyKey } from '@/shared/idempotency';
-import { KEYBOARD_BEHAVIOR } from '@/shared/ui/keyboard';
+import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { adminRoles, allRoles } from '@/shared/users/roles';
 import { Ionicons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
@@ -17,7 +17,6 @@ import {
   ActivityIndicator,
   Alert,
   Keyboard,
-  KeyboardAvoidingView,
   Modal,
   Platform,
   ScrollView,
@@ -334,7 +333,7 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
   return (
     <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={handleClose}>
       <View style={styles.overlay}>
-        <KeyboardAvoidingView behavior={KEYBOARD_BEHAVIOR} style={styles.keyboardContainer}>
+        <ModalKeyboardView style={styles.keyboardContainer}>
           <View style={[styles.container, { paddingBottom: insets.bottom }]}>
 
             {/* Header */}
@@ -572,7 +571,7 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
 
             {/* Modal Compartir */}
             <Modal visible={showShareModal} transparent animationType="fade" onRequestClose={() => setShowShareModal(false)}>
-              <KeyboardAvoidingView behavior={KEYBOARD_BEHAVIOR} style={{ flex: 1 }}>
+              <ModalKeyboardView style={{ flex: 1 }}>
                 <TouchableWithoutFeedback onPress={() => setShowShareModal(false)}>
                   <View style={styles.modalOverlay}>
                     <TouchableWithoutFeedback onPress={e => e.stopPropagation()}>
@@ -601,7 +600,7 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
                     </TouchableWithoutFeedback>
                   </View>
                 </TouchableWithoutFeedback>
-              </KeyboardAvoidingView>
+              </ModalKeyboardView>
             </Modal>
 
             {/* Modal Selección por Rol (compartir) */}
@@ -679,7 +678,7 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
 
             <OperacionPendienteModal visible={isBlockingOperation} />
           </View>
-        </KeyboardAvoidingView>
+        </ModalKeyboardView>
       </View>
 
       <FilePreview file={previewFile} onClose={closePreview} />

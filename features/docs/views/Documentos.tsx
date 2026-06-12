@@ -10,8 +10,8 @@ import { useIdempotencyKey } from '@/shared/useIdempotencyKey';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, BackHandler, KeyboardAvoidingView, Modal, Platform, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
-import { KEYBOARD_BEHAVIOR } from '@/shared/ui/keyboard';
+import { Alert, BackHandler, Modal, Platform, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CrearDocumento } from '../components/CrearDocumento';
 import { DocumentOptionAction, DocumentOptionsModal } from '../components/DocumentOptionsModal';
@@ -497,8 +497,7 @@ export default function Documentos() {
         onRequestClose={() => setFolderModalVisible(false)}
       >
         <View style={styles.modalBackdrop}>
-          <KeyboardAvoidingView
-            behavior={KEYBOARD_BEHAVIOR}
+          <ModalKeyboardView
             keyboardVerticalOffset={insets.top + 12}
             style={styles.modalKavWrapper}
           >
@@ -523,7 +522,7 @@ export default function Documentos() {
                 </TouchableOpacity>
               </View>
             </View>
-          </KeyboardAvoidingView>
+          </ModalKeyboardView>
         </View>
       </Modal>
 

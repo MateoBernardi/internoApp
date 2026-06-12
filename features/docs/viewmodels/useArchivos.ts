@@ -9,6 +9,7 @@ import * as carpetasApi from '../services/carpetasApi';
 
 export const ARCHIVOS_KEYS = {
     all: ['archivos'] as const,
+    unseenCount: () => [...ARCHIVOS_KEYS.all, 'unseen-count'] as const,
     lists: () => [...ARCHIVOS_KEYS.all, 'list'] as const,
     personales: () => [...ARCHIVOS_KEYS.all, 'personales'] as const,
     usuario: (id: number) => [...ARCHIVOS_KEYS.all, 'usuario', id] as const,
@@ -21,6 +22,21 @@ export const ARCHIVOS_KEYS = {
     carpetas: (view: CarpetaView = 'tree', includeSinCarpeta = true) =>
         [...ARCHIVOS_KEYS.all, 'carpetas', view, includeSinCarpeta ? 'with-sin-carpeta' : 'no-sin-carpeta'] as const,
 };
+
+export function useArchivosUnseenCount(enabled: boolean = true) {
+    const { tokens } = useAuth();
+
+    return useQuery({
+        queryKey: ARCHIVOS_KEYS.unseenCount(),
+        queryFn: async () => {
+            const token = tokens?.accessToken;
+            if (!token) throw new Error('No authentification token found');
+            return archivosApi.getArchivosUnseenCount(token);
+        },
+        enabled: enabled && !!tokens?.accessToken,
+        staleTime: 1000 * 45,
+    });
+}
 
 export function useArchivos() {
     const { tokens } = useAuth();

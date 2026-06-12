@@ -12,7 +12,6 @@ import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
-    KeyboardAvoidingView,
     Modal,
     ScrollView,
     StyleSheet,
@@ -22,7 +21,7 @@ import {
     View,
 } from 'react-native';
 import { generateIdempotencyKey } from '@/shared/idempotency';
-import { KEYBOARD_BEHAVIOR } from '@/shared/ui/keyboard';
+import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CreateSolicitudDTO } from '../models/SolicitudLicencia';
 import {
@@ -354,7 +353,7 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
     return (
         <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={handleClose}>
             <View style={styles.overlay}>
-                <KeyboardAvoidingView behavior={KEYBOARD_BEHAVIOR} style={styles.keyboardContainer}>
+                <ModalKeyboardView style={styles.keyboardContainer}>
                     <View style={[styles.container, { paddingBottom: insets.bottom }]}>
                         <View style={[styles.modalHeader, { paddingTop: insets.top + 10 }]}>
                             <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
@@ -673,7 +672,7 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
                             />
                         )}
                     </View>
-                </KeyboardAvoidingView>
+                </ModalKeyboardView>
                 <OperacionPendienteModal visible={isPending} />
             </View>
         </Modal>

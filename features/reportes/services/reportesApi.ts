@@ -6,6 +6,18 @@ import * as reporte from '../models/Reporte';
 
 const API_BASE_URL = Constants.expoConfig?.extra?.API_BASE_URL;
 
+export async function getReportesPendingCount(accessToken: string): Promise<number> {
+    const response = await apiRequest({ method: 'GET', endpoint: '/reportes/pending', token: accessToken });
+
+    if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.message || errData.error || response.statusText);
+    }
+
+    const data = await response.json();
+    return typeof data?.pendingReportes === 'number' ? data.pendingReportes : 0;
+}
+
 export async function createReporte (accessToken: string, payload: reporte.CreateReportePayload, idempotencyKey?: string): Promise<reporte.Reporte> {
     const response = await apiRequest({  method: 'POST', endpoint: '/reportes', token: accessToken, body: payload, headers: idempotencyHeaders(idempotencyKey)});
 

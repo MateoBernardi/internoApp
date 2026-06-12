@@ -9,7 +9,6 @@ import React, { useEffect, useState } from 'react';
 import {
     Alert,
     Keyboard,
-    KeyboardAvoidingView,
     Modal,
     Platform,
     ScrollView,
@@ -19,7 +18,7 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
-import { KEYBOARD_BEHAVIOR } from '@/shared/ui/keyboard';
+import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ESTADOS, Objetivo } from "../models/Objetivo";
 
@@ -135,11 +134,7 @@ export function MoveModal({
             onRequestClose={handleClose}
         >
             <View style={styles.overlay}>
-                <KeyboardAvoidingView
-                    style={styles.modalKeyboardAvoiding}
-                    behavior={KEYBOARD_BEHAVIOR}
-                    keyboardVerticalOffset={0}
-                >
+                <ModalKeyboardView style={styles.modalKeyboardAvoiding}>
                     <View style={[styles.modalContainer, { paddingBottom: insets.bottom }]}>
                         <View style={styles.modalHeader}>
                             <View style={styles.modalHeaderActions}>
@@ -219,7 +214,7 @@ export function MoveModal({
                             </TouchableOpacity>
                         </View>
                     </View>
-                </KeyboardAvoidingView>
+                </ModalKeyboardView>
             </View>
         </Modal>
     );

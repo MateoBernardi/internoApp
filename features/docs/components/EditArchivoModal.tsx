@@ -12,7 +12,6 @@ import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
   Modal,
   ScrollView,
   StyleSheet,
@@ -20,7 +19,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { KEYBOARD_BEHAVIOR } from '@/shared/ui/keyboard';
+import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Archivo, UpdateArchivoPayload } from '../models/Archivo';
 import { formatPartialWarnings } from '../utils/partialWarnings';
@@ -413,11 +412,7 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
           </View>
 
           {/* KAV solo envuelve el scroll */}
-          <KeyboardAvoidingView
-            style={styles.modalKeyboardAvoiding}
-            behavior={KEYBOARD_BEHAVIOR}
-            keyboardVerticalOffset={0}
-          >
+          <ModalKeyboardView style={styles.modalKeyboardAvoiding}>
             <ScrollView
               style={styles.content}
               contentContainerStyle={[styles.contentContainer, { paddingBottom: bottomBarHeight + 8 }]}
@@ -642,7 +637,7 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
                 onDeselectAll={handleDeselectAllRoleUsers}
               />
             </ScrollView>
-          </KeyboardAvoidingView>
+          </ModalKeyboardView>
 
           {/* Botón fijo fuera del KAV — con safe-area bottom */}
           <View style={[styles.updateButtonContainer, { paddingBottom: insets.bottom || BUTTON_MARGIN }]}>

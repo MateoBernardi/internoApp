@@ -2,6 +2,18 @@ import { apiRequest } from '../../../shared/apiRequest';
 import { idempotencyHeaders } from '@/shared/idempotency';
 import * as solicitudLicencia from '../models/SolicitudLicencia';
 
+export const getLicenciasUnseenCount = async (accessToken: string): Promise<number> => {
+    const response = await apiRequest({ method: 'GET', endpoint: '/licencias/solicitudes/unseen', token: accessToken });
+
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.message || response.statusText);
+    }
+
+    const data = await response.json();
+    return typeof data?.unseenCount === 'number' ? data.unseenCount : 0;
+};
+
 export const getTiposLicencia = async (accessToken: string): Promise<solicitudLicencia.TipoLicencia[]> => {
     const response = await apiRequest({ method: 'GET', endpoint: '/licencias/tipos', token: accessToken });
 

@@ -73,7 +73,6 @@ function buildRequestInit(
     'Content-Type': 'application/json',
     'x-app-entorno': entorno,
     'Accept': 'application/json',
-    'Connection': 'close', // Para evitar problemas con conexiones keep-alive en React Native
   };
 
   // Headers extra provistos por el servicio (p. ej. idempotencia). Se aplican
@@ -124,9 +123,6 @@ export async function apiRequest({
   const fullUrl = `${API_BASE_URL}${endpoint}`;
 
   const executeFetch = async (activeToken: string): Promise<Response> => {
-    if (method !== 'GET') {
-      console.log(`[apiRequest] ${method} ${endpoint} - time: ${new Date().toISOString()}`);
-    } 
     const options = buildRequestInit(method, activeToken, body, signal, entorno, headers);
     const response = await fetch(fullUrl, options);
     return response;

@@ -146,6 +146,18 @@ const getMimeType = (fileName: string, providedType?: string): string => {
     return mimeTypes[extension] || 'application/octet-stream';
 };
 
+export async function getArchivosUnseenCount(accessToken: string): Promise<number> {
+    const response = await apiRequest({ method: 'GET', endpoint: '/archivos/unseen-count', token: accessToken });
+
+    if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.message || errData.error || response.statusText);
+    }
+
+    const data = await response.json();
+    return typeof data?.unseenCount === 'number' ? data.unseenCount : 0;
+}
+
 export async function fetchArchivos(accessToken: string): Promise<archivos.Archivo[]> {
     const response = await apiRequest({ method: 'GET', endpoint: '/archivos', token: accessToken })
 

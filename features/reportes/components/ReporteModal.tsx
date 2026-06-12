@@ -4,15 +4,16 @@ import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
+import { generateIdempotencyKey } from '@/shared/idempotency';
+import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 import { Image } from 'expo-image';
 import type * as ImagePickerTypes from 'expo-image-picker';
 import React, { useCallback, useState } from 'react';
 import {
-	Alert,
 	ActivityIndicator,
-	KeyboardAvoidingView,
+	Alert,
 	Modal,
 	ScrollView,
 	StyleSheet,
@@ -21,8 +22,6 @@ import {
 	TouchableOpacity,
 	View,
 } from 'react-native';
-import { generateIdempotencyKey } from '@/shared/idempotency';
-import { KEYBOARD_BEHAVIOR } from '@/shared/ui/keyboard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EstadoReporte, Reporte, ReporteImagen } from '../models/Reporte';
 import { useReporteImagenes, useUnlinkReporteImage, useUpdateReporte, useUploadReporteImage } from '../viewmodels/useReportes';
@@ -242,19 +241,15 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 							style={styles.picker}
 						>
 							<Picker.Item label="Selecciona un estado..." value="" color="#999" />
-							{isMisReportes ? (
-								<>
-									<Picker.Item label="Aceptar (Asentado)" value="ASENTADO" />
-									<Picker.Item label="Responder (En disputa)" value="DISPUTA" />
-								</>
-							) : (
-								<>
-									<Picker.Item label="Pendiente" value="PENDIENTE" />
-									<Picker.Item label="En disputa" value="DISPUTA" />
-									<Picker.Item label="Asentado" value="ASENTADO" />
-									<Picker.Item label="Desestimar" value="DESESTIMADO" />
-								</>
-							)}
+							{isMisReportes ? [
+								<Picker.Item key="ASENTADO" label="Aceptar" value="ASENTADO" />,
+								<Picker.Item key="DISPUTA" label="Responder" value="DISPUTA" />,
+							] : [
+								<Picker.Item key="PENDIENTE" label="Pendiente" value="PENDIENTE" />,
+								<Picker.Item key="DISPUTA" label="En disputa" value="DISPUTA" />,
+								<Picker.Item key="ASENTADO" label="Asentado" value="ASENTADO" />,
+								<Picker.Item key="DESESTIMADO" label="Desestimar" value="DESESTIMADO" />,
+							]}
 						</Picker>
 					</View>
 				</View>
@@ -298,11 +293,7 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 			onRequestClose={onClose}
 		>
 			<View style={styles.overlay}>
-				<KeyboardAvoidingView
-					style={styles.modalKeyboardAvoiding}
-					behavior={KEYBOARD_BEHAVIOR}
-					keyboardVerticalOffset={0}
-				>
+				<ModalKeyboardView style={styles.modalKeyboardAvoiding}>
 					<View style={[styles.modalContainer, { paddingBottom: insets.bottom }]}>
 						{/* Header */}
 						<View style={styles.modalHeader}>
@@ -420,7 +411,7 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 							onClose={() => setAlertModal((prev) => ({ ...prev, visible: false }))}
 						/>
 					</View>
-				</KeyboardAvoidingView>
+				</ModalKeyboardView>
 			</View>
 
 			<FilePreview file={previewFile} onClose={closePreview} />

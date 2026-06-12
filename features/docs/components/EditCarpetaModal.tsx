@@ -11,7 +11,6 @@ import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
   Modal,
   ScrollView,
   StyleSheet,
@@ -19,7 +18,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { KEYBOARD_BEHAVIOR } from '@/shared/ui/keyboard';
+import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Carpeta, UpdateCarpetaPayload } from '../models/Carpeta';
 import { useCarpetaPermisos } from '../viewmodels/useArchivos';
@@ -296,11 +295,7 @@ export function EditCarpetaModal({
             </TouchableOpacity>
           </View>
 
-          <KeyboardAvoidingView
-            style={styles.flex}
-            behavior={KEYBOARD_BEHAVIOR}
-            keyboardVerticalOffset={0}
-          >
+          <ModalKeyboardView style={styles.flex}>
             <ScrollView
               style={styles.content}
               contentContainerStyle={[styles.contentContainer, { paddingBottom: 120 + insets.bottom }]}
@@ -462,7 +457,7 @@ export function EditCarpetaModal({
                 onDeselectAll={handleDeselectAllRoleUsers}
               />
             </ScrollView>
-          </KeyboardAvoidingView>
+          </ModalKeyboardView>
 
           <View style={[styles.bottomBar, { paddingBottom: insets.bottom || 16 }]}>
             <TouchableOpacity

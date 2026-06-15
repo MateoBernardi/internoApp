@@ -115,6 +115,15 @@ export function ReportesEmpleado({ userId, userNombre = '', userApellido = '', f
 				<View style={styles.centerContainer}>
 					<ThemedText type="subtitle">No hay reportes para este usuario</ThemedText>
 				</View>
+				{createModalVisible && (
+					<CrearReporte
+						visible={createModalVisible}
+						onClose={handleCloseCreateModal}
+						user_context_id={userId}
+						user_nombre={userNombre}
+						user_apellido={userApellido}
+					/>
+				)}
 				{renderCreateButton()}
 			</View>
 		);

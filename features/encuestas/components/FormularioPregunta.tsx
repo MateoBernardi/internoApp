@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { KEYBOARD_BEHAVIOR } from '@/shared/ui/keyboard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Pregunta, TipoPregunta } from '../models/Encuesta';
 import { styles } from './crearEncuestaStyles';
@@ -74,7 +75,7 @@ export const FormularioPregunta: React.FC<FormularioPreguntaProps> = ({
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={KEYBOARD_BEHAVIOR}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
     >
       <ThemedText type="title" style={styles.pageTitle}>Nueva Pregunta</ThemedText>

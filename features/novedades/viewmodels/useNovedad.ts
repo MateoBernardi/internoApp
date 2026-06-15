@@ -46,14 +46,14 @@ export function useNovedad() {
    * Crear una nueva novedad
    */
   const crearNovedad = useCallback(
-    async (novedadData: Novedad): Promise<{ success: boolean; data?: Novedad; error?: string }> => {
+    async (novedadData: Novedad, idempotencyKey?: string): Promise<{ success: boolean; data?: Novedad; error?: string }> => {
       setIsLoading(true);
       setError(null);
 
       try {
         const token = tokens?.accessToken;
         if(!token) throw new Error('No hay token de acceso');
-        const nuevaNovedad = await novedadesApi.crearNovedad(novedadData, token);
+        const nuevaNovedad = await novedadesApi.crearNovedad(novedadData, token, idempotencyKey);
         
         setIsLoading(false);
         return { success: true, data: nuevaNovedad };

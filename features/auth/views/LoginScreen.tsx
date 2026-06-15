@@ -2,11 +2,8 @@ import { LoginForm } from '@/components/LoginForm';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import React, { useRef } from "react";
+import { KEYBOARD_BEHAVIOR } from "@/shared/ui/keyboard";
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, useWindowDimensions } from "react-native";
-
-// behavior y offset dinámicos según plataforma
-const KEYBOARD_BEHAVIOR = Platform.OS === 'ios' ? 'padding' : 'height';
-const KEYBOARD_OFFSET = Platform.OS === 'ios' ? 0 : 20;
 
 export default function Login() {
   // Refs para optimizar KeyboardAvoidingView
@@ -17,7 +14,6 @@ export default function Login() {
     <KeyboardAvoidingView
       style={styles.background}
       behavior={KEYBOARD_BEHAVIOR}
-      keyboardVerticalOffset={KEYBOARD_OFFSET}
     >
       <ScrollView
         ref={scrollViewRef}

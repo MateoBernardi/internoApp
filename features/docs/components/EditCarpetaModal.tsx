@@ -11,15 +11,14 @@ import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   ScrollView,
   StyleSheet,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Carpeta, UpdateCarpetaPayload } from '../models/Carpeta';
 import { useCarpetaPermisos } from '../viewmodels/useArchivos';
@@ -296,11 +295,7 @@ export function EditCarpetaModal({
             </TouchableOpacity>
           </View>
 
-          <KeyboardAvoidingView
-            style={styles.flex}
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            keyboardVerticalOffset={0}
-          >
+          <ModalKeyboardView style={styles.flex}>
             <ScrollView
               style={styles.content}
               contentContainerStyle={[styles.contentContainer, { paddingBottom: 120 + insets.bottom }]}
@@ -462,7 +457,7 @@ export function EditCarpetaModal({
                 onDeselectAll={handleDeselectAllRoleUsers}
               />
             </ScrollView>
-          </KeyboardAvoidingView>
+          </ModalKeyboardView>
 
           <View style={[styles.bottomBar, { paddingBottom: insets.bottom || 16 }]}>
             <TouchableOpacity
@@ -494,7 +489,7 @@ const styles = StyleSheet.create({
   container: {
     // Quita el flex: 1, o usa un alto fijo/porcentaje
     flex: 1,
-    marginTop: '5%', // Empuja el modal hacia abajo
+    marginTop: '10%', // Empuja el modal hacia abajo
     backgroundColor: Colors['light'].componentBackground,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,

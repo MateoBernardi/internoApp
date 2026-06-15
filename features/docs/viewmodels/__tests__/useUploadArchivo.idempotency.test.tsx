@@ -52,7 +52,7 @@ function installFetchRouter(opts: { failFirstUpload?: boolean } = {}) {
     if (u.endsWith('/archivos/upload') && method === 'POST') {
       uploadCalls += 1;
       if (opts.failFirstUpload && uploadCalls === 1) {
-        throw new Error('boom'); // blip de red -> dispara el retry de la mutación
+        throw new Error('Network request failed'); // blip de red -> dispara el retry de la mutación
       }
       return {
         ok: true,
@@ -93,7 +93,7 @@ function getMetadataKeys(fetchMock: jest.Mock): (string | undefined)[] {
 }
 
 describe('useUploadArchivo — per-file derived idempotency keys', () => {
-  // El servicio loguea el fallo forzado ("boom") del test de reintento; lo
+  // El servicio loguea el fallo de red forzado del test de reintento; lo
   // silenciamos para no ensuciar la salida (es un error esperado).
   beforeEach(() => jest.spyOn(console, 'error').mockImplementation(() => {}));
   afterEach(() => jest.restoreAllMocks());

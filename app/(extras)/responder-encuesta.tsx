@@ -11,6 +11,7 @@ import {
     View,
 } from 'react-native';
 
+import { KEYBOARD_BEHAVIOR } from '@/shared/ui/keyboard';
 const colors = Colors['light'];
 
 export default function ResponderEncuestaScreen() {
@@ -40,7 +41,7 @@ export default function ResponderEncuestaScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={KEYBOARD_BEHAVIOR}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
     >
       <Stack.Screen options={{ title: encuesta.titulo }} />

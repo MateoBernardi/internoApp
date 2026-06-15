@@ -1,4 +1,6 @@
 import { AlertModal } from '@/components/AlertModal';
+import { FileAttachment, FilePreview, InlineImageAttachment, getExt, isImageFile, useOpenFilePreview } from '@/components/filePreview';
+import type { FileItem } from '@/components/filePreview';
 import { ThemedText } from '@/components/themed-text';
 import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
 import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
@@ -6,17 +8,17 @@ import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { useValidacionFechas } from '@/features/solicitudesActividades/viewmodels/useValidacionFechas';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
+import { generateIdempotencyKey } from '@/shared/idempotency';
 import { adminRoles, allRoles } from '@/shared/users/roles';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
+  Keyboard,
   Modal,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -25,9 +27,19 @@ import {
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
+import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { UserSelector } from '../../../components/UserSelector';
 import { useCreateObjetivo } from '../../kanban/hooks/useObjetivos';
 import type { CreateObjetivo, Invitado } from '../../kanban/models/Objetivo';
+import { MESSAGE_STATES, formatDateDDMMYYYY, formatTimeHHMM } from '../conversacion/constants';
+import { useAdjuntos } from '../conversacion/hooks/useAdjuntos';
+import { useAlertModal } from '../conversacion/hooks/useAlertModal';
+import { useCompartirSelection } from '../conversacion/hooks/useCompartirSelection';
+import { useMarcarVisto } from '../conversacion/hooks/useMarcarVisto';
+import { useMessagesScroll } from '../conversacion/hooks/useMessagesScroll';
+import { useParticipantesManager } from '../conversacion/hooks/useParticipantesManager';
+import { conversacionStyles } from '../conversacion/styles';
 import {
   EstadoInvitacionDB,
   RangoOcupado,
@@ -43,14 +55,7 @@ import {
   useReenviarSolicitud,
   useSolicitudBitacora,
 } from '../viewmodels/useSolicitudes';
-import { MESSAGE_STATES, formatDateDDMMYYYY, formatTimeHHMM } from '../conversacion/constants';
-import { useAdjuntos } from '../conversacion/hooks/useAdjuntos';
-import { useAlertModal } from '../conversacion/hooks/useAlertModal';
-import { useCompartirSelection } from '../conversacion/hooks/useCompartirSelection';
-import { useMarcarVisto } from '../conversacion/hooks/useMarcarVisto';
-import { useMessagesScroll } from '../conversacion/hooks/useMessagesScroll';
-import { useParticipantesManager } from '../conversacion/hooks/useParticipantesManager';
-import { conversacionStyles } from '../conversacion/styles';
+import { ParticipantesBlock } from './ParticipantesBlock';
 import { RoleUserSelectionModal } from './RoleUserSelectionModal';
 import { ValidacionFechasModal } from './ValidacionFechasModal';
 
@@ -81,6 +86,7 @@ interface SolicitudProps {
 
 export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { hasRole } = useRoleCheck();
 
@@ -102,7 +108,15 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
     () => (bitacoraData?.pages ?? []).flatMap(p => p.data),
     [bitacoraData],
   );
-  const { mutate: actualizarEstado, isPending: isUpdatingEstado } = useActualizarEstadoInvitacion();
+  const { mutate: actualizarEstadoRaw, isPending: isUpdatingEstado } = useActualizarEstadoInvitacion();
+  // Inyecta una X-Idempotency-Key nueva por cada operación. Queda fijada a esa
+  // mutación (estable entre reintentos automáticos) y no se pisa con otras
+  // mutaciones concurrentes que comparten esta misma función `actualizarEstado`.
+  const actualizarEstado = useCallback<typeof actualizarEstadoRaw>(
+    (variables, options) =>
+      actualizarEstadoRaw({ ...variables, idempotencyKey: generateIdempotencyKey() }, options),
+    [actualizarEstadoRaw],
+  );
   const { mutate: reenviarSolicitud, isPending: isSharing } = useReenviarSolicitud();
   const { mutate: crearActividad, isPending: isCreatingActividad } = useCrearActividad();
   const { mutateAsync: crearObjetivo, isPending: isCreatingObjetivo } = useCreateObjetivo();
@@ -117,6 +131,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
   const rolesForSelector = isConsejo ? adminRoles : allRoles;
 
   // ─── Estado UI ────────────────────────────────────────────────────────────
+  const { previewFile, openFile, openWithUri, closePreview } = useOpenFilePreview();
   const [showAcceptModal, setShowAcceptModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showAddToAgendaModal, setShowAddToAgendaModal] = useState(false);
@@ -170,7 +185,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
     setParticipantesSearchQuery,
     participantesActiveRole, setParticipantesActiveRole,
     showParticipantesRoleModal, setShowParticipantesRoleModal,
-    participantesExpanded, setParticipantesExpanded,
+
     participantesSearchResults, isSearchingParticipantes,
     participantesRoleUsersData, isLoadingParticipantesRole,
     displayParticipantes,
@@ -183,6 +198,21 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
     hasNextPage, isFetchingNextPage, fetchNextPage,
   });
 
+  const contentScrollRef = useRef<ScrollView>(null);
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const sub = Keyboard.addListener('keyboardDidHide', () => {
+      // rAF lets KeyboardAvoidingView remove its padding and the layout settle
+      // before we scroll, so scrollToEnd resolves against the full viewport and
+      // re-clamps the stale offset.
+      requestAnimationFrame(() => {
+        contentScrollRef.current?.scrollToEnd({ animated: false });
+      });
+    });
+    return () => sub.remove();
+  }, []);
+
   // ─── Derivados del prop solicitud ─────────────────────────────────────────
 
   // Invitados sin el creador (para "Para:")
@@ -190,16 +220,6 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
     solicitud.invitados.filter(inv => inv.user_id !== solicitud.created_by),
     [solicitud.invitados, solicitud.created_by],
   );
-
-  const participantesTexto = useMemo(() => {
-    const nombres = solicitud.invitados
-      .map(inv => [inv.invitado_nombre, inv.invitado_apellido].filter(Boolean).join(' ').trim())
-      .filter(Boolean);
-    const unicos = Array.from(new Set(nombres));
-    if (unicos.length === 0) return 'Sin participantes';
-    if (unicos.length <= 3) return unicos.join(', ');
-    return `${unicos.slice(0, 3).join(', ')} +${unicos.length - 3} personas`;
-  }, [solicitud.invitados]);
 
   const todosParticipantesIds = useMemo(() => {
     const ids = solicitud.invitados.map(inv => inv.user_id);
@@ -422,6 +442,8 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
       showModal('Error', e instanceof Error ? e.message : 'Intenta nuevamente');
     }
   }, [solicitud, solicitudId, todosArchivos, buildObjetivoInvitadosTodos, crearObjetivo, showModal]);
+
+  const handleOpenAsPreview = useCallback((archivo: any) => openFile(archivo), [openFile]);
 
   const confirmAceptar = useCallback(() => {
     actualizarEstado(
@@ -666,8 +688,8 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
   return (
     <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={handleClose}>
       <View style={styles.overlay}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.keyboardContainer}>
-          <View style={styles.container}>
+        <ModalKeyboardView style={styles.keyboardContainer}>
+          <View style={[styles.container, { paddingBottom: insets.bottom }]}>
 
             {/* Header */}
             <View style={styles.modalHeader}>
@@ -677,46 +699,24 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
             </View>
 
             <ScrollView
+              ref={contentScrollRef}
               style={styles.content}
               contentContainerStyle={styles.contentContainer}
               showsVerticalScrollIndicator={false}
               nestedScrollEnabled
             >
               {/* Participantes */}
-              <View style={styles.contentBlock}>
-                <ThemedText style={[styles.label, { marginTop: 4 }]}>
-                  Participantes: {participantesTexto}
-                </ThemedText>
-              </View>
-
-              {/* Título */}
-              <View style={styles.contentBlock}>
-                <ThemedText style={styles.label}>Asunto</ThemedText>
-                <ThemedText style={styles.sectionValue}>{solicitud.titulo}</ThemedText>
-                <View style={styles.badgeRow}>
-                  <View style={styles.chip}>
-                    <ThemedText style={styles.chipText}>
-                      {formatTipoActividad(solicitud.tipo_actividad)}
-                    </ThemedText>
-                  </View>
-                </View>
-              </View>
-
-              {/* Participantes */}
-              {isHost && (
-                <View style={styles.participantesSection}>
-                  <View style={styles.sectionHeaderRow}>
-                    <ThemedText style={styles.label}>Participantes</ThemedText>
-                    <TouchableOpacity
-                      style={styles.actionButton}
-                      onPress={() => setShowParticipantesSelector(p => !p)}
-                    >
-                      <Ionicons name="add" size={16} color={colors.tint} />
-                      <ThemedText style={styles.actionButtonText}>Agregar</ThemedText>
-                    </TouchableOpacity>
-                  </View>
-
-                  {showParticipantesSelector && (
+              <ParticipantesBlock
+                titulo={solicitud.titulo}
+                participantes={displayParticipantes.map(inv => ({
+                  id: inv.user_id,
+                  nombre: getParticipanteDisplayName(inv),
+                }))}
+                onRemove={isHost ? handleQuitarParticipante : undefined}
+                onAgregar={isHost ? () => setShowParticipantesSelector(p => !p) : undefined}
+                canManage={isHost}
+                extraContent={
+                  isHost && showParticipantesSelector ? (
                     <View style={styles.selectorCard}>
                       <UserSelector
                         selectedUsers={participantesSelectedUsers}
@@ -729,48 +729,20 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                         showSelectedChips={false}
                       />
                     </View>
-                  )}
+                  ) : null
+                }
+              />
 
-                  {displayParticipantes.length === 0 ? (
-                    <ThemedText style={{ color: colors.secondaryText, fontSize: 14 }}>Sin participantes</ThemedText>
-                  ) : (
-                    <>
-                      {(participantesExpanded ? displayParticipantes : displayParticipantes.slice(0, 2)).map((inv, idx) => (
-                        <View key={`${inv.user_id ?? idx}-${idx}`} style={styles.inviteRow}>
-                          <View style={styles.participanteAvatar}>
-                            <ThemedText style={styles.participanteAvatarText}>
-                              {getParticipanteDisplayName(inv).charAt(0).toUpperCase()}
-                            </ThemedText>
-                          </View>
-                          <ThemedText style={[styles.inviteName, { flex: 1 }]}>
-                            {getParticipanteDisplayName(inv)}
-                          </ThemedText>
-                          <TouchableOpacity onPress={() => handleQuitarParticipante(inv.user_id)}>
-                            <Ionicons name="close-circle" size={20} color="#9ca3af" />
-                          </TouchableOpacity>
-                        </View>
-                      ))}
-                      {displayParticipantes.length > 2 && (
-                        <TouchableOpacity
-                          onPress={() => setParticipantesExpanded(p => !p)}
-                          style={styles.collapsibleToggle}
-                        >
-                          <ThemedText style={styles.collapsibleToggleText}>
-                            {participantesExpanded
-                              ? 'Ver menos'
-                              : `+${displayParticipantes.length - 2} más`}
-                          </ThemedText>
-                          <Ionicons
-                            name={participantesExpanded ? 'chevron-up' : 'chevron-down'}
-                            size={14}
-                            color={colors.tint}
-                          />
-                        </TouchableOpacity>
-                      )}
-                    </>
-                  )}
+              {/* Título */}
+              <View style={styles.contentBlock}>
+                <View style={styles.badgeRow}>
+                  <View style={styles.chip}>
+                    <ThemedText style={styles.chipText}>
+                      {formatTipoActividad(solicitud.tipo_actividad)}
+                    </ThemedText>
+                  </View>
                 </View>
-              )}
+              </View>
 
               {/* Banner expirada */}
               {isExpiredState && (
@@ -843,7 +815,6 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                       scrollEventThrottle={16}
                       onScroll={handleMessagesScroll}
                       onContentSizeChange={handleMessagesContentSizeChange}
-                      onLayout={() => messagesScrollRef.current?.scrollToEnd({ animated: false })}
                     >
                       {isFetchingNextPage && (
                         <View style={styles.loadingMoreContainer}>
@@ -893,10 +864,22 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                                 {archivos.length > 0 && (
                                   <View style={styles.messageAttachments}>
                                     {archivos.map((a: any) => (
-                                      <Pressable key={`archivo-${a.id}`} style={styles.messageAttachmentRow} onPress={() => handleOpenArchivo(a.id)}>
-                                        <Ionicons name="document-outline" size={16} color={colors.secondaryText} />
-                                        <ThemedText style={[styles.messageAttachmentName, styles.linkText]} numberOfLines={1}>{a.nombre}</ThemedText>
-                                      </Pressable>
+                                      // En web no usamos el preview inline de imágenes (abre la
+                                      // página de Cloudflare): las mostramos como adjunto de archivo.
+                                      isImageFile(a.tipo, a.nombre, rutaR2(a)) && Platform.OS !== 'web' ? (
+                                        <InlineImageAttachment
+                                          key={`archivo-${a.id}`}
+                                          archivoId={a.id}
+                                          nombre={typeof a.nombre === 'string' ? a.nombre : 'Imagen'}
+                                          onOpen={(uri) => openWithUri(buildSolicitudFileItem({ ...a, _resolvedUri: uri }))}
+                                        />
+                                      ) : (
+                                        <FileAttachment
+                                          key={`archivo-${a.id}`}
+                                          file={buildSolicitudFileItem(a)}
+                                          onOpen={() => handleOpenAsPreview(a)}
+                                        />
+                                      )
                                     ))}
                                   </View>
                                 )}
@@ -1082,7 +1065,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
 
             {/* Modal Aceptar */}
             <Modal visible={showAcceptModal} transparent animationType="fade">
-              <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.keyboardContainer}>
+              <ModalKeyboardView style={styles.keyboardContainer}>
                 <TouchableWithoutFeedback onPress={closeAcceptModal}>
                   <View style={styles.modalOverlay}>
                     <TouchableWithoutFeedback onPress={e => e.stopPropagation()}>
@@ -1121,12 +1104,12 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                     </TouchableWithoutFeedback>
                   </View>
                 </TouchableWithoutFeedback>
-              </KeyboardAvoidingView>
+              </ModalKeyboardView>
             </Modal>
 
             {/* Modal Rechazar */}
             <Modal visible={showRejectModal} transparent animationType="fade">
-              <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.keyboardContainer}>
+              <ModalKeyboardView style={styles.keyboardContainer}>
                 <TouchableWithoutFeedback onPress={closeRejectModal}>
                   <View style={styles.modalOverlay}>
                     <TouchableWithoutFeedback onPress={e => e.stopPropagation()}>
@@ -1159,12 +1142,12 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                     </TouchableWithoutFeedback>
                   </View>
                 </TouchableWithoutFeedback>
-              </KeyboardAvoidingView>
+              </ModalKeyboardView>
             </Modal>
 
             {/* Modal Compartir */}
             <Modal visible={showShareModal} transparent animationType="fade" onRequestClose={() => setShowShareModal(false)}>
-              <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+              <ModalKeyboardView style={{ flex: 1 }}>
                 <TouchableWithoutFeedback onPress={() => setShowShareModal(false)}>
                   <View style={styles.modalOverlay}>
                     <TouchableWithoutFeedback onPress={e => e.stopPropagation()}>
@@ -1193,7 +1176,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                     </TouchableWithoutFeedback>
                   </View>
                 </TouchableWithoutFeedback>
-              </KeyboardAvoidingView>
+              </ModalKeyboardView>
             </Modal>
 
             {/* Modal Selección por Rol */}
@@ -1221,7 +1204,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
 
             {/* Modal Agregar a la Agenda */}
             <Modal visible={showAddToAgendaModal} transparent animationType="fade" onRequestClose={() => setShowAddToAgendaModal(false)}>
-              <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+              <ModalKeyboardView style={{ flex: 1 }}>
                 <TouchableWithoutFeedback onPress={() => setShowAddToAgendaModal(false)}>
                   <View style={styles.modalOverlay}>
                     <TouchableWithoutFeedback onPress={e => e.stopPropagation()}>
@@ -1292,7 +1275,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                     onCancel={() => setShowAgendaDatePicker(p => ({ ...p, show: false }))}
                   />
                 )}
-              </KeyboardAvoidingView>
+              </ModalKeyboardView>
             </Modal>
 
             {/* Validación de fechas */}
@@ -1332,11 +1315,41 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
 
             <OperacionPendienteModal visible={isMutating} />
           </View>
-        </KeyboardAvoidingView>
+        </ModalKeyboardView>
       </View>
+
+      <FilePreview file={previewFile} onClose={closePreview} />
     </Modal>
   );
 }
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function formatSolicitudBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+// Stored R2 object key; recovers the real extension when the display name was
+// renamed or stripped. Raw DTOs expose it as `ruta_r2`, mapped models as `url`.
+const rutaR2 = (a: any): unknown => a?.ruta_r2 ?? a?.url;
+
+function buildSolicitudFileItem(archivo: any): FileItem {
+  const tipo: string = typeof archivo.tipo === 'string' ? archivo.tipo : '';
+  const nombre: string = typeof archivo.nombre === 'string' ? archivo.nombre : 'Archivo';
+  const ruta = rutaR2(archivo);
+  return {
+    id: String(archivo.id),
+    kind: isImageFile(tipo, nombre, ruta) ? 'image' : 'file',
+    name: nombre,
+    ext: getExt(tipo, nombre, ruta),
+    size: archivo.tamaño ? formatSolicitudBytes(archivo.tamaño) : undefined,
+    uri: typeof archivo._resolvedUri === 'string' ? archivo._resolvedUri : '',
+  };
+}
+
+// ─── localStyles ───────────────────────────────────────────────────────────────
 
 const localStyles = StyleSheet.create({
   agendaVerdeBanner: {

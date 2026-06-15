@@ -4,7 +4,6 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
   Keyboard,
-  KeyboardAvoidingView,
   Modal,
   Platform,
   ScrollView,
@@ -14,6 +13,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Dropdown } from 'react-native-element-dropdown';
 import { ThemedText } from './themed-text';
 
@@ -81,6 +82,7 @@ export function NovedadFormModal({
   const [loading, setLoading] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const isKeyboardOpen = keyboardHeight > 0;
+  const insets = useSafeAreaInsets();
 
   const syncCreateDraft = (partial: Partial<{ titulo: string; descripcion: string; tipo: number; prioridad: number }>) => {
     if (mode !== 'create' || !onDraftChange) return;
@@ -173,12 +175,8 @@ export function NovedadFormModal({
       onRequestClose={mode === 'create' && onMinimize ? handleMinimize : onClose}
     >
       <View style={styles.overlay}>
-        <KeyboardAvoidingView
-          style={styles.modalKeyboardAvoiding}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={0}
-        >
-          <View style={styles.modalContainer}>
+        <ModalKeyboardView style={styles.modalKeyboardAvoiding}>
+          <View style={[styles.modalContainer, { paddingBottom: insets.bottom }]}>
             <View style={styles.modalHeader}>
               <View style={styles.modalHeaderActions}>
                 {mode === 'create' && (
@@ -284,7 +282,7 @@ export function NovedadFormModal({
               </TouchableOpacity>
             </View>
           </View>
-        </KeyboardAvoidingView>
+        </ModalKeyboardView>
       </View>
     </Modal>
   );
@@ -302,7 +300,7 @@ const styles = StyleSheet.create({
   modalContainer: {
     // Quita el flex: 1, o usa un alto fijo/porcentaje
     flex: 1,
-    marginTop: '5%', // Empuja el modal hacia abajo
+    marginTop: '10%', // Empuja el modal hacia abajo
     backgroundColor: Colors['light'].componentBackground,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,

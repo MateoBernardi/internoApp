@@ -56,8 +56,8 @@ export async function cancelarSolicitud(accessToken: string, data: solicitudes.C
     }
 }
 
-export async function reenviarSolicitud(accessToken: string, data: solicitudes.ReenviarSolicitudRequest): Promise<solicitudes.ReenviarSolicitudResponse> {
-    const response = await apiRequest({ method: 'POST', endpoint: `/solicitudes-actividades/solicitudes/reenviar`, token: accessToken, body: data });
+export async function reenviarSolicitud(accessToken: string, data: solicitudes.ReenviarSolicitudRequest, idempotencyKey?: string): Promise<solicitudes.ReenviarSolicitudResponse> {
+    const response = await apiRequest({ method: 'POST', endpoint: `/solicitudes-actividades/solicitudes/reenviar`, token: accessToken, body: data, headers: idempotencyHeaders(idempotencyKey) });
 
     if (!response.ok) {
         const errorText = await response.text();
@@ -109,30 +109,31 @@ export async function getChatArchivos(accessToken: string, solicitudId: number):
     return data.map(mapArchivoDTOToArchivo);
 }
 
-export async function getSolicitudesCreadas(accessToken: string): Promise<solicitudes.SolicitudEnviada[]> {
-    const response = await apiRequest({ method: 'GET', endpoint: '/solicitudes-actividades/solicitudes/creador', token: accessToken });
+/**
+ * Devuelve la cantidad de solicitudes sin ver del usuario actual.
+ * Endpoint liviano pensado para prefetch / badge de "Mensajes".
+ * GET /solicitudes-actividades/solicitudes/unseen
+ */
+export async function getSolicitudesUnseen(accessToken: string): Promise<number> {
+    const response = await apiRequest({
+        method: 'GET',
+        endpoint: '/solicitudes-actividades/solicitudes/unseen',
+        token: accessToken,
+    });
 
     if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Error en getSolicitudesCreadas:', response.status, errorText);
-        throwApiError(errorText, response);
+        const errorMsg = await extractErrorText(response);
+        console.error('Error en getSolicitudesUnseen:', response.status, errorMsg);
+        throw new Error(errorMsg);
     }
 
-    const data: SolicitudInfoDTO[] = await response.json();
-    return data.map(mapSolicitudInfoDTOToSolicitudEnviada);
-}
-
-export async function obtenerMisInvitaciones(accessToken: string): Promise<solicitudes.SolicitudEnviada[]> {
-    const response = await apiRequest({ method: 'GET', endpoint: '/solicitudes-actividades/solicitudes/invitados', token: accessToken });
-
-    if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Error en obtenerMisInvitaciones:', response.status, errorText);
-        throwApiError(errorText, response);
-    }
-
-    const data: SolicitudInfoDTO[] = await response.json();
-    return data.map(mapSolicitudInfoDTOToSolicitudEnviada);
+    // El backend puede responder un número crudo o un objeto envolvente
+    // ({ unseen } | { count } | { total } | { cantidad }). Normalizamos a number.
+    const data = await response.json();
+    if (typeof data === 'number') return Number.isFinite(data) ? data : 0;
+    const raw = data?.unseen ?? data?.count ?? data?.total ?? data?.cantidad ?? 0;
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
 }
 
 export async function actualizarEstadoInvitacion(accessToken: string, data: solicitudes.ActualizarEstadoInvitacionRequest, idempotencyKey?: string): Promise<solicitudes.ActualizarEstadoInvitacionResponse> {

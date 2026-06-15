@@ -146,6 +146,18 @@ const getMimeType = (fileName: string, providedType?: string): string => {
     return mimeTypes[extension] || 'application/octet-stream';
 };
 
+export async function getArchivosUnseenCount(accessToken: string): Promise<number> {
+    const response = await apiRequest({ method: 'GET', endpoint: '/archivos/unseen-count', token: accessToken });
+
+    if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.message || errData.error || response.statusText);
+    }
+
+    const data = await response.json();
+    return typeof data?.unseenCount === 'number' ? data.unseenCount : 0;
+}
+
 export async function fetchArchivos(accessToken: string): Promise<archivos.Archivo[]> {
     const response = await apiRequest({ method: 'GET', endpoint: '/archivos', token: accessToken })
 
@@ -268,7 +280,7 @@ export async function getUrlCargaArchivo(accessToken: string, data: archivos.Ped
         let errorDetails = '';
         try {
             const errorData = await response.json();
-            errorDetails = errorData.message || JSON.stringify(errorData);
+            errorDetails = errorData.message || errorData.error || JSON.stringify(errorData);
         } catch {
             errorDetails = response.statusText || `Error ${response.status}`;
         }
@@ -323,8 +335,8 @@ export async function uploadArchivoR2(uploadUrl: string, fileUri: string, mimeTy
     }
 }
 
-export async function confirmarUploadArchivo(accessToken: string, archivoData: archivos.UploadArchivoPayload): Promise<archivos.Archivo> {
-    const response = await apiRequest({ method: 'POST', endpoint: '/archivos/metadata', token: accessToken, body: archivoData });
+export async function confirmarUploadArchivo(accessToken: string, archivoData: archivos.UploadArchivoPayload, idempotencyKey?: string): Promise<archivos.Archivo> {
+    const response = await apiRequest({ method: 'POST', endpoint: '/archivos/metadata', token: accessToken, body: archivoData, headers: idempotencyHeaders(idempotencyKey) });
 
     if (!response.ok) {
         const body = await parseBody(response);

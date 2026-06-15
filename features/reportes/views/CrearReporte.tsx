@@ -9,7 +9,11 @@ import { Image } from 'expo-image';
 import type * as ImagePickerTypes from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { deriveIdempotencyKey } from '@/shared/idempotency';
+import { KEYBOARD_BEHAVIOR } from '@/shared/ui/keyboard';
+import { useIdempotencyKey } from '@/shared/useIdempotencyKey';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { uploadReporteImage } from '../services/reportesApi';
 import { useCreateReporte } from '../viewmodels/useReportes';
 
@@ -39,8 +43,10 @@ interface PendingImage {
 
 export default function CrearReporte(props?: CrearReporteProps) {
 	const router = useRouter();
+	const insets = useSafeAreaInsets();
 	const params = useLocalSearchParams();
 	const { tokens } = useAuth();
+	const { idempotencyKey, regenerateIdempotencyKey } = useIdempotencyKey();
 	const { mutateAsync: crearReporte, isPending: isCreating } = useCreateReporte();
 	const modalVisible = props?.visible ?? true;
 	const handleClose = props?.onClose ?? (() => router.back());
@@ -85,7 +91,7 @@ export default function CrearReporte(props?: CrearReporteProps) {
 	}, [usuarioId, titulo, descripcion, categoria, fechaIncidente]);
 
 	const showModal = useCallback((title: string, message?: string, actions?: AlertModalAction[]) => {
-		const normalizedActions = actions && actions.length > 0
+		const normalizedActions: AlertModalAction[] = actions && actions.length > 0
 			? actions
 			: [{ key: 'ok', label: 'Aceptar', onPress: () => { }, variant: 'primary' }];
 
@@ -175,15 +181,31 @@ export default function CrearReporte(props?: CrearReporteProps) {
 		}
 
 		try {
+			// La key base queda fijada a ESTE intento de creación: el reporte la usa
+			// directa y cada imagen una sub-key derivada, estables entre reintentos.
+			const baseKey = idempotencyKey;
 			const nuevoReporte = await crearReporte({
 				usuario_reportado_id: Number(usuarioId),
 				titulo: titulo.trim(),
 				descripcion: descripcion.trim(),
 				categoria,
 				fecha_incidente: fechaIncidente.toISOString(),
+				idempotencyKey: baseKey,
 			});
+			// El reporte ya existe: rotar la key para que un próximo envío desde este
+			// mismo formulario sea una operación nueva y no un replay del backend.
+			regenerateIdempotencyKey();
 
 			// Subir imágenes pendientes una por una
+			if (pendingImages.length > 0 && !nuevoReporte?.id) {
+				showModal(
+					'Reporte creado',
+					'El reporte se creó, pero no se pudo identificar para adjuntar las imágenes.',
+					[{ key: 'ok', label: 'Aceptar', onPress: () => handleClose(), variant: 'primary' }],
+				);
+				return;
+			}
+
 			if (pendingImages.length > 0) {
 				setIsUploading(true);
 				setUploadProgress({ current: 0, total: pendingImages.length });
@@ -199,6 +221,7 @@ export default function CrearReporte(props?: CrearReporteProps) {
 							img.mimeType,
 							img.description || 'Imagen de reporte',
 							i,
+							deriveIdempotencyKey(baseKey, `img-${i}`),
 						);
 					}
 				} catch (uploadError: any) {
@@ -228,7 +251,7 @@ export default function CrearReporte(props?: CrearReporteProps) {
 		} catch (error: any) {
 			showModal('Error', error?.message || 'Intenta nuevamente');
 		}
-	}, [isFormValid, tokens, crearReporte, usuarioId, titulo, descripcion, categoria, fechaIncidente, pendingImages, handleClose, showModal, router]);
+	}, [isFormValid, tokens, crearReporte, usuarioId, titulo, descripcion, categoria, fechaIncidente, pendingImages, handleClose, showModal, router, idempotencyKey, regenerateIdempotencyKey]);
 
 	const handleDateConfirm = useCallback((selectedDate: Date) => {
 		setFechaIncidente((prev) => {
@@ -254,10 +277,10 @@ export default function CrearReporte(props?: CrearReporteProps) {
 		<Modal visible={modalVisible} transparent animationType="slide" onRequestClose={handleClose}>
 			<View style={styles.overlay}>
 				<KeyboardAvoidingView
-					behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+					behavior={KEYBOARD_BEHAVIOR}
 					style={styles.keyboardContainer}
 				>
-					<View style={styles.container}>
+					<View style={[styles.container, { paddingBottom: insets.bottom }]}>
 						<View style={styles.modalHeader}>
 							<TouchableOpacity onPress={handleClose} style={styles.closeButton}>
 								<Ionicons name="close" size={24} color="#999" />
@@ -455,7 +478,7 @@ const styles = StyleSheet.create({
 	},
 	container: {
 		flex: 1,
-		marginTop: '5%',
+		marginTop: '10%',
 		backgroundColor: colors.componentBackground,
 		borderTopLeftRadius: 16,
 		borderTopRightRadius: 16,

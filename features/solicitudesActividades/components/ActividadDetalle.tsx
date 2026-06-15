@@ -1,9 +1,11 @@
+import { FilePreview, useOpenFilePreview } from '@/components/filePreview';
 import { ThemedText } from '@/components/themed-text';
 import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
 import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
 import { Colors } from '@/constants/theme';
+import { DocsList, PendingFile } from '@/features/docs/components/DocsList';
 import { Archivo, ArchivoUso } from '@/features/docs/models/Archivo';
-import { useGetArchivoUrlFirmada, useUploadArchivo } from '@/features/docs/viewmodels/useArchivos';
+import { useUploadArchivo } from '@/features/docs/viewmodels/useArchivos';
 import { ApiOperationResult } from '@/shared/types/apiStatus';
 import { UserSummary } from '@/shared/users/User';
 import { allRoles } from '@/shared/users/roles';
@@ -15,16 +17,16 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
-  Linking,
   Modal,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ParticipantesBlock } from './ParticipantesBlock';
 import { UserSelector } from '../../../components/UserSelector';
 import { RoleUserSelectionModal } from '../../solicitudesActividades/components/RoleUserSelectionModal';
 import { ValidacionFechasModal } from '../components/ValidacionFechasModal';
@@ -39,13 +41,6 @@ import {
 } from '../viewmodels/useActividades';
 
 const colors = Colors['light'];
-
-interface PendingFile {
-  name: string;
-  uri: string;
-  type: string;
-  size?: number;
-}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -103,6 +98,7 @@ export function ActividadDetalle({
   onClose,
 }: ActividadDetalleProps) {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const {
     actividadId: actividadIdParam,
     id: idParam,
@@ -131,7 +127,7 @@ export function ActividadDetalle({
   const { mutateAsync: uploadArchivo } = useUploadArchivo();
   const archivoMutation = useArchivoActividad();
   const participantesMutation = useInvitadosActividad();
-  const { getArchivoUrlFirmada } = useGetArchivoUrlFirmada();
+  const { previewFile, openFile, closePreview } = useOpenFilePreview();
 
   // ─── Estado: archivos ─────────────────────────────────────────────────────
 
@@ -314,13 +310,13 @@ export function ActividadDetalle({
     }
   };
 
-  const handleOpenArchivo = async (archivoId: number) => {
-    try {
-      const url = await getArchivoUrlFirmada(archivoId);
-      Linking.openURL(url).catch(() => Alert.alert('Error', 'No se pudo abrir el archivo'));
-    } catch {
-      Alert.alert('Error', 'No se pudo obtener el enlace del archivo');
+  const handleOpenArchivo = (archivoId: number) => {
+    const archivo = localArchivos.find(a => a.id === archivoId);
+    if (!archivo) {
+      Alert.alert('Error', 'No se pudo encontrar el archivo');
+      return;
     }
+    void openFile(archivo);
   };
 
   const handleRemoveArchivo = (archivoId: number) => {
@@ -542,11 +538,8 @@ export function ActividadDetalle({
   return (
     <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={handleClose}>
       <View style={styles.overlay}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.keyboardContainer}
-        >
-          <View style={styles.container}>
+        <ModalKeyboardView style={styles.keyboardContainer}>
+          <View style={[styles.container, { paddingBottom: insets.bottom }]}>
 
             {/* ── Header ──────────────────────────────────────────────────── */}
             <View style={styles.modalHeader}>
@@ -759,64 +752,38 @@ export function ActividadDetalle({
                 </View>
 
                 {/* ── Participantes ────────────────────────────────────────── */}
-                <View style={styles.inviteSection}>
-                  <View style={styles.sectionHeaderRow}>
-                    <View style={styles.sectionTitleRow}>
-                      <Ionicons name="people-outline" size={16} color={colors.lightTint} />
-                      <Text style={[styles.label, styles.labelInline]}>Participantes</Text>
-                    </View>
-                    {isHost && (
-                      <TouchableOpacity
-                        style={styles.actionButton}
-                        onPress={() => setShowSelector((prev) => !prev)}
-                      >
-                        <Ionicons name="add" size={14} color={Colors.light.tint} />
-                        <Text style={styles.actionButtonText}>Agregar</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-
-                  {showSelector && (
-                    <View style={styles.selectorCard}>
-                      <UserSelector
-                        selectedUsers={selectedUsers}
-                        onSelectUsers={handleSelectUsers}
-                        users={users}
-                        roles={allRoles}
-                        isLoadingUsers={isLoadingUsers}
-                        isLoadingRoles={false}
-                        onSearch={setSearchQuery}
-                        onSelectRole={handleSelectRole}
-                        showSelectedChips={false}
-                      />
-                    </View>
-                  )}
-
-                  {localParticipantes.length === 0 ? (
-                    <Text style={styles.sectionValueMuted}>Sin participantes registrados</Text>
-                  ) : (
-                    <View style={styles.inviteList}>
-                      {localParticipantes.map((p) => (
-                        <View key={p.user_context_id} style={styles.inviteRow}>
-                          <View style={styles.avatar}>
-                            <Text style={styles.avatarText}>
-                              {getDisplayName(p.user_context_id).charAt(0).toUpperCase()}
-                            </Text>
-                          </View>
-                          <View style={styles.inviteInfo}>
-                            <Text style={styles.inviteName}>{getDisplayName(p.user_context_id)}</Text>
-                            <Text style={styles.inviteMeta}>{formatParticipantRole(p.rol)}</Text>
-                          </View>
-                          {isHost && p.rol !== 'host' && (
-                            <TouchableOpacity onPress={() => handleRemoveParticipante(p.user_context_id)}>
-                              <Ionicons name="close-circle" size={20} color="#9ca3af" />
-                            </TouchableOpacity>
-                          )}
-                        </View>
-                      ))}
-                    </View>
-                  )}
-                </View>
+                <ParticipantesBlock
+                  titulo={actividad.titulo}
+                  participantes={localParticipantes.map(p => ({
+                    id: p.user_context_id,
+                    nombre: getDisplayName(p.user_context_id),
+                    subtitulo: formatParticipantRole(p.rol),
+                  }))}
+                  onRemove={isHost ? handleRemoveParticipante : undefined}
+                  onAgregar={isHost ? () => setShowSelector(prev => !prev) : undefined}
+                  canManage={isHost}
+                  isRemovable={(id) => {
+                    const p = localParticipantes.find(pp => pp.user_context_id === id);
+                    return !p || p.rol !== 'host';
+                  }}
+                  extraContent={
+                    isHost && showSelector ? (
+                      <View style={styles.selectorCard}>
+                        <UserSelector
+                          selectedUsers={selectedUsers}
+                          onSelectUsers={handleSelectUsers}
+                          users={users}
+                          roles={allRoles}
+                          isLoadingUsers={isLoadingUsers}
+                          isLoadingRoles={false}
+                          onSearch={setSearchQuery}
+                          onSelectRole={handleSelectRole}
+                          showSelectedChips={false}
+                        />
+                      </View>
+                    ) : null
+                  }
+                />
 
                 {/* ── Archivos ─────────────────────────────────────────────── */}
                 <View style={styles.section}>
@@ -833,41 +800,12 @@ export function ActividadDetalle({
                     </TouchableOpacity>
                   </View>
 
-                  <View style={styles.inviteList}>
-                    {localArchivos.length === 0 && pendingFiles.length === 0 ? (
-                      <Text style={styles.sectionValueMuted}>Sin archivos enlazados</Text>
-                    ) : (
-                      <>
-                        {localArchivos.map((archivo) => (
-                          <View key={archivo.id} style={styles.inviteRow}>
-                            <View style={styles.inviteInfo}>
-                              <Text style={styles.inviteName}>{archivo.nombre}</Text>
-                              <Text style={styles.inviteMeta}>{archivo.tipo}</Text>
-                            </View>
-                            <View style={styles.inviteRowActions}>
-                              <TouchableOpacity onPress={() => handleOpenArchivo(archivo.id)}>
-                                <Ionicons name="open-outline" size={20} color={Colors.light.tint} />
-                              </TouchableOpacity>
-                              <TouchableOpacity onPress={() => handleRemoveArchivo(archivo.id)}>
-                                <Ionicons name="trash-outline" size={20} color="#9ca3af" />
-                              </TouchableOpacity>
-                            </View>
-                          </View>
-                        ))}
-                        {pendingFiles.map((archivo, index) => (
-                          <View key={`${archivo.uri}-${index}`} style={styles.inviteRow}>
-                            <View style={styles.inviteInfo}>
-                              <Text style={styles.inviteName}>{archivo.name}</Text>
-                              <Text style={styles.inviteMeta}>Subiendo...</Text>
-                            </View>
-                            <View style={styles.inviteRowActions}>
-                              <ActivityIndicator size="small" color={Colors.light.tint} />
-                            </View>
-                          </View>
-                        ))}
-                      </>
-                    )}
-                  </View>
+                  <DocsList
+                    archivos={localArchivos}
+                    pendingFiles={pendingFiles}
+                    onOpen={handleOpenArchivo}
+                    onRemove={handleRemoveArchivo}
+                  />
                 </View>
 
                 {/* ── Botón eliminar (host) ─────────────────────────────────── */}
@@ -942,8 +880,10 @@ export function ActividadDetalle({
               }
             />
           </View>
-        </KeyboardAvoidingView>
+        </ModalKeyboardView>
       </View>
+
+      <FilePreview file={previewFile} onClose={closePreview} />
     </Modal>
   );
 }
@@ -961,7 +901,7 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    marginTop: '5%',
+    marginTop: '10%',
     backgroundColor: colors.componentBackground,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,

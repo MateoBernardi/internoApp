@@ -1,14 +1,10 @@
-import { fetchArchivos } from '@/features/docs/services/archivosApi';
+import { getArchivosUnseenCount } from '@/features/docs/services/archivosApi';
 import { fetchObjetivos } from '@/features/kanban/services/kanbanApi';
-import { fetchReportes } from '@/features/reportes/services/reportesApi';
+import { getReportesPendingCount } from '@/features/reportes/services/reportesApi';
+import { getSolicitudesUnseen } from '@/features/solicitudesActividades/services/solicitudesApi';
 import {
-  getSolicitudesCreadas,
-  obtenerMisInvitaciones,
-} from '@/features/solicitudesActividades/services/solicitudesApi';
-import {
+  getLicenciasUnseenCount,
   getSaldosLicencia,
-  getSolicitudesLicencias,
-  getSolicitudesUsuario,
   getTiposLicencia,
 } from '@/features/solicitudesLicencias/services/solicitudesApi';
 import { QueryClient } from '@tanstack/react-query';
@@ -41,90 +37,36 @@ export async function prefetchCoreRealtimeData(
     return;
   }
 
-  const tasks: Promise<unknown>[] = [];
+  // Priority 1: home screen data — await these before returning so the UI can render
+  const priority1: { name: string; run: () => Promise<unknown> }[] = [
+    { name: 'objetivos',         run: () => queryClient.prefetchQuery({ queryKey: RealtimeQueryKeys.objetivos,         queryFn: () => fetchObjetivos(context.accessToken),           staleTime: 1000 * 45 }) },
+    { name: 'solicitudesUnseen', run: () => queryClient.prefetchQuery({ queryKey: RealtimeQueryKeys.solicitudesUnseen, queryFn: () => getSolicitudesUnseen(context.accessToken),     staleTime: 1000 * 45 }) },
+  ];
 
-  tasks.push(
-    queryClient.prefetchQuery({
-      queryKey: RealtimeQueryKeys.archivosEmpresa,
-      queryFn: () => fetchArchivos(context.accessToken),
-      staleTime: 1000 * 60,
-    })
-  );
-
-  tasks.push(
-    queryClient.prefetchQuery({
-      queryKey: RealtimeQueryKeys.invitaciones,
-      queryFn: () => obtenerMisInvitaciones(context.accessToken),
-      staleTime: 1000 * 45,
-    })
-  );
-
-  tasks.push(
-    queryClient.prefetchQuery({
-      queryKey: RealtimeQueryKeys.solicitudesCreadas,
-      queryFn: () => getSolicitudesCreadas(context.accessToken),
-      staleTime: 1000 * 45,
-    })
-  );
-
-  tasks.push(
-    queryClient.prefetchQuery({
-      queryKey: RealtimeQueryKeys.licenciasAdmin,
-      queryFn: () => getSolicitudesLicencias(context.accessToken, {}),
-      staleTime: 1000 * 45,
-    })
-  );
-
-  tasks.push(
-    queryClient.prefetchQuery({
-      queryKey: RealtimeQueryKeys.licenciasUsuario,
-      queryFn: () => getSolicitudesUsuario(context.accessToken),
-      staleTime: 1000 * 45,
-    })
-  );
-
-  if (userId) {
-    tasks.push(
-      queryClient.prefetchQuery({
-        queryKey: RealtimeQueryKeys.reportes(userId),
-        queryFn: () => fetchReportes(context.accessToken, userId),
-        staleTime: 1000 * 45,
-      })
-    );
+  const failed: string[] = [];
+  for (const task of priority1) {
+    try {
+      await task.run();
+    } catch {
+      failed.push(task.name);
+    }
   }
 
-  tasks.push(
-    queryClient.prefetchQuery({
-      queryKey: RealtimeQueryKeys.objetivos,
-      queryFn: () => fetchObjetivos(context.accessToken),
-      staleTime: 1000 * 45,
-    })
-  );
+  // Priority 2: badge counts and form data — fire in background without blocking render
+  const background: { name: string; run: () => Promise<unknown> }[] = [
+    { name: 'archivosUnseenCount',  run: () => queryClient.prefetchQuery({ queryKey: RealtimeQueryKeys.archivosUnseenCount,  queryFn: () => getArchivosUnseenCount(context.accessToken),  staleTime: 1000 * 45 }) },
+    { name: 'licenciasUnseenCount', run: () => queryClient.prefetchQuery({ queryKey: RealtimeQueryKeys.licenciasUnseenCount, queryFn: () => getLicenciasUnseenCount(context.accessToken), staleTime: 1000 * 45 }) },
+    { name: 'reportesPendingCount', run: () => queryClient.prefetchQuery({ queryKey: RealtimeQueryKeys.reportesPendingCount, queryFn: () => getReportesPendingCount(context.accessToken), staleTime: 1000 * 45 }) },
+    { name: 'saldosLicencias',      run: () => queryClient.prefetchQuery({ queryKey: RealtimeQueryKeys.saldosLicencias,      queryFn: () => getSaldosLicencia(context.accessToken),        staleTime: 1000 * 60 }) },
+    { name: 'tiposLicencias',       run: () => queryClient.prefetchQuery({ queryKey: RealtimeQueryKeys.tiposLicencias,       queryFn: () => getTiposLicencia(context.accessToken),         staleTime: 1000 * 60 }) },
+  ];
 
-  tasks.push(
-    queryClient.prefetchQuery({
-      queryKey: RealtimeQueryKeys.saldosLicencias,
-      queryFn: () => getSaldosLicencia(context.accessToken),
-      staleTime: 1000 * 60,
-    })
-  );
-
-  tasks.push(
-    queryClient.prefetchQuery({
-      queryKey: RealtimeQueryKeys.tiposLicencias,
-      queryFn: () => getTiposLicencia(context.accessToken),
-      staleTime: 1000 * 60,
-    })
-  );
-
-  const results = await Promise.allSettled(tasks);
-  const rejected = results.filter((result) => result.status === 'rejected');
-
-  if (rejected.length > 0) {
-    console.warn('[Prefetch] Some prefetch tasks failed', {
-      reason: context.reason ?? 'unspecified',
-      failedTasks: rejected.length,
-      totalTasks: results.length,
-    });
-  }
+  Promise.all(background.map((task) => task.run().catch(() => { failed.push(task.name); }))).then(() => {
+    if (failed.length > 0) {
+      console.warn('[Prefetch] Some prefetch tasks failed', {
+        reason: context.reason ?? 'unspecified',
+        failedTasks: failed,
+      });
+    }
+  });
 }

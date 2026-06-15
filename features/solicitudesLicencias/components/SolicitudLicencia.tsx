@@ -2,6 +2,7 @@ import { ThemedText } from '@/components/themed-text';
 import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
+import { DocsList } from '@/features/docs/components/DocsList';
 import { ArchivoUso } from '@/features/docs/models/Archivo';
 import { useArchivoUrl, useUploadArchivo } from '@/features/docs/viewmodels/useArchivos';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,6 +20,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { generateIdempotencyKey } from '@/shared/idempotency';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EstadoSolicitud } from '../models/SolicitudLicencia';
 import { formatCantidadLicencia } from '../utils/formatCantidad';
 import {
@@ -73,6 +76,7 @@ interface SolicitudLicenciaProps {
 
 export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ id?: string; type?: string }>();
   const { user } = useAuth();
   const resolvedId = props?.solicitudId ?? Number.parseInt(params.id ?? '', 10);
@@ -263,6 +267,9 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
           {
             solicitudId,
             archivoId,
+            // Key por adjunto: vive en las variables de la mutación, así los
+            // reintentos automáticos reusan exactamente la misma.
+            idempotencyKey: generateIdempotencyKey(),
           },
           {
             onSuccess: () => {
@@ -292,7 +299,7 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
       <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={handleClose}>
         <View style={styles.overlay}>
           <View style={styles.keyboardContainer}>
-            <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+            <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', paddingBottom: insets.bottom }]}>
               <View style={styles.modalHeader}>
                 <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
                   <Ionicons name="chevron-down" size={24} color="#999" />
@@ -338,7 +345,7 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
     <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={handleClose}>
       <View style={styles.overlay}>
         <View style={styles.keyboardContainer}>
-          <View style={styles.container}>
+          <View style={[styles.container, { paddingBottom: insets.bottom }]}>
             <View style={styles.modalHeader}>
               <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
                 <Ionicons name="chevron-down" size={24} color="#999" />
@@ -471,27 +478,10 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
                     <ThemedText style={styles.sectionTitle}>Archivos Adjuntos</ThemedText>
                   </View>
                   <View style={styles.filesContainer}>
-                    {solicitud.archivos.map((archivo) => (
-                      <TouchableOpacity
-                        key={archivo.id}
-                        style={styles.fileItem}
-                        onPress={() => handleOpenFile(archivo.id)}
-                        disabled={isLoadingUrl && selectedArchivoId === archivo.id}
-                      >
-                        {isLoadingUrl && selectedArchivoId === archivo.id ? (
-                          <ActivityIndicator size="small" color={colors.lightTint} />
-                        ) : (
-                          <Ionicons name="document-outline" size={20} color={colors.lightTint} />
-                        )}
-                        <View style={{ flex: 1, marginHorizontal: 8 }}>
-                          <ThemedText numberOfLines={1}>{archivo.nombre}</ThemedText>
-                          <ThemedText style={[styles.smallText, { color: colors.secondaryText }]}>
-                            {(archivo.tamaño / 1024).toFixed(2)} KB
-                          </ThemedText>
-                        </View>
-                        <Ionicons name="open-outline" size={18} color={colors.secondaryText} />
-                      </TouchableOpacity>
-                    ))}
+                    <DocsList
+                      archivos={solicitud.archivos}
+                      onOpen={handleOpenFile}
+                    />
                   </View>
                 </>
               )}
@@ -657,7 +647,7 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
   },
   container: {
     flex: 1,
-    marginTop: '5%',
+    marginTop: '10%',
     backgroundColor: colors.componentBackground,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
@@ -815,13 +805,6 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
   },
   filesContainer: {
     padding: 16,
-  },
-  fileItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.background,
   },
   smallText: {
     fontSize: 11,

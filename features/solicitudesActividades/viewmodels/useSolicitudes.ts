@@ -12,54 +12,10 @@ export const solicitudesQueryKeys = {
   invitaciones: () => [...solicitudesQueryKeys.all, 'invitaciones'] as const,
   bitacora: (solicitudId: number) => [...solicitudesQueryKeys.all, 'bitacora', solicitudId] as const,
   chatArchivos: (solicitudId: number) => [...solicitudesQueryKeys.all, 'chatArchivos', solicitudId] as const,
+  unseen: () => [...solicitudesQueryKeys.all, 'unseen'] as const,
 };
 
 const BITACORA_PAGE_SIZE = 20;
-
-/**
- * Hook para obtener las solicitudes creadas por el usuario
- */
-export function useSolicitudesCreadas(enabled: boolean = true) {
-  const { tokens } = useAuth();
-  return useQuery({
-    queryKey: solicitudesQueryKeys.creadas(),
-    enabled,
-    queryFn: async () => {
-      const token = tokens?.accessToken;
-      if (!token) {
-        throw new Error('No access token available');
-      }
-      return solicitudesApi.getSolicitudesCreadas(token);
-    },
-    staleTime: 1000 * 60 * 5, // 5 minutos
-    gcTime: 1000 * 60 * 10, // 10 minutos (anteriormente cacheTime)
-    retry: 3,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-  });
-}
-
-/**
- * Hook para obtener las invitaciones recibidas por el usuario
- */
-export function useInvitaciones(enabled: boolean = true) {
-  const { tokens } = useAuth();
-
-  return useQuery({
-    queryKey: solicitudesQueryKeys.invitaciones(),
-    enabled,
-    queryFn: async () => {
-      const accessToken = tokens?.accessToken;
-      if (!accessToken) {
-        throw new Error('No access token available');
-      }
-      return solicitudesApi.obtenerMisInvitaciones(accessToken);
-    },
-    staleTime: 1000 * 60 * 5, // 5 minutos
-    gcTime: 1000 * 60 * 10, // 10 minutos
-    retry: 3,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-  });
-}
 
 /**
  * Hook para obtener la bitácora de cambios de una solicitud.
@@ -121,6 +77,28 @@ export function useChatArchivos(solicitudId: number, enabled: boolean) {
 }
 
 /**
+ * Hook para el contador de solicitudes sin ver (badge de "Mensajes").
+ * Refresca periódicamente y al volver el foco para mantener el badge al día.
+ */
+export function useSolicitudesUnseen(enabled = true) {
+  const { tokens } = useAuth();
+
+  return useQuery({
+    queryKey: solicitudesQueryKeys.unseen(),
+    enabled: enabled && !!tokens?.accessToken,
+    queryFn: async () => {
+      const accessToken = tokens?.accessToken;
+      if (!accessToken) {
+        throw new Error('No access token available');
+      }
+      return solicitudesApi.getSolicitudesUnseen(accessToken);
+    },
+    staleTime: 1000 * 45,
+    gcTime: 1000 * 60 * 5,
+  });
+}
+
+/**
  * Hook para crear una nueva solicitud
  */
 export function useCrearSolicitud(idempotencyKey?: string) {
@@ -178,12 +156,15 @@ export function useReenviarSolicitud() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: solicitudModels.ReenviarSolicitudRequest) => {
+    mutationFn: async ({
+      idempotencyKey,
+      ...data
+    }: solicitudModels.ReenviarSolicitudRequest & { idempotencyKey?: string }) => {
       const accessToken = tokens?.accessToken;
       if (!accessToken) {
         throw new Error('No access token available');
       }
-      return solicitudesApi.reenviarSolicitud(accessToken, data);
+      return solicitudesApi.reenviarSolicitud(accessToken, data, idempotencyKey);
     },
     onSuccess: () => {
       // Invalidar las solicitudes creadas
@@ -191,6 +172,8 @@ export function useReenviarSolicitud() {
         queryKey: solicitudesQueryKeys.all,
       });
     },
+    // Reintentos seguros: el mismo X-Idempotency-Key viaja en cada intento.
+    ...IDEMPOTENT_MUTATION_RETRY,
   });
 }
 
@@ -239,12 +222,19 @@ export function useOcultarSolicitudInvitado() {
 /**
  * Hook para actualizar el estado de una invitación (aceptar, rechazar, etc.)
  */
-export function useActualizarEstadoInvitacion(idempotencyKey?: string) {
+export function useActualizarEstadoInvitacion(opts?: { retry?: number }) {
   const { tokens } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: solicitudModels.ActualizarEstadoInvitacionRequest) => {
+    // La idempotency key viaja por variable (no por argumento del hook) para que
+    // quede fijada a ESTA operación: estable entre los reintentos automáticos,
+    // pero distinta de otras mutaciones concurrentes (p. ej. el "SEEN" automático
+    // que dispara useMarcarVisto en paralelo a una acción del usuario).
+    mutationFn: async ({
+      idempotencyKey,
+      ...data
+    }: solicitudModels.ActualizarEstadoInvitacionRequest & { idempotencyKey?: string }) => {
       const accessToken = tokens?.accessToken;
       if (!accessToken) {
         throw new Error('No access token available');
@@ -261,7 +251,11 @@ export function useActualizarEstadoInvitacion(idempotencyKey?: string) {
       });
     },
     // Reintentos seguros: el mismo X-Idempotency-Key viaja en cada intento.
+    // `retry` se puede sobreescribir por instancia (p. ej. retry:0 en el envío
+    // de chat, donde el optimista + refetch en onSettled ya reconcilian y los
+    // reintentos solo desperdician red sobre falsos negativos de red nativos).
     ...IDEMPOTENT_MUTATION_RETRY,
+    retry: opts?.retry ?? IDEMPOTENT_MUTATION_RETRY.retry,
   });
 }
 

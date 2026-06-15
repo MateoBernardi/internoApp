@@ -15,8 +15,6 @@ import { EstadoInvitacionDB, SolicitudEnviada } from '../models/Solicitud';
 
 const colors = Colors['light'];
 
-const CHAT_BADGE_STATES: EstadoInvitacionDB[] = ['MODIFIED', 'MODIFIED_BY_HOST', 'SENT', 'ACCEPTED_BY_HOST'];
-
 function getChatDisplayName(solicitud: SolicitudEnviada, currentUserId?: number): string {
     if (!solicitud.es_grupo) {
         const otro = solicitud.invitados.find(inv => inv.user_id !== currentUserId);
@@ -29,14 +27,11 @@ function getChatDisplayName(solicitud: SolicitudEnviada, currentUserId?: number)
 }
 
 function getChatBadgeState(solicitud: SolicitudEnviada): EstadoInvitacionDB | null {
-    if (solicitud.is_host) {
-        const invitados = solicitud.invitados.filter(inv => inv.user_id !== solicitud.created_by);
-        const estados = invitados.map(inv => inv.estado).filter(Boolean) as EstadoInvitacionDB[];
-        return estados.includes('MODIFIED') ? 'MODIFIED' : null;
-    }
-
     const estado = solicitud.estado as EstadoInvitacionDB;
-    return CHAT_BADGE_STATES.includes(estado) ? estado : null;
+    if (solicitud.is_host) {
+        return estado === 'MODIFIED' ? estado : null;
+    }
+    return (estado === 'SENT' || estado === 'MODIFIED_BY_HOST') ? estado : null;
 }
 
 interface ChatsListProps {
@@ -205,6 +200,7 @@ const styles = StyleSheet.create({
         height: 8,
         borderRadius: 4,
         backgroundColor: colors.error,
+        flexShrink: 0,
     },
     invitadoName: {
         marginTop: 4,

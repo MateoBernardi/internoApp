@@ -2,21 +2,16 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
-import { useReportes } from '@/features/reportes/viewmodels/useReportes';
-import {
-  useInvitaciones,
-  useSolicitudesCreadas,
-} from '@/features/solicitudesActividades/viewmodels/useSolicitudes';
-import {
-  useGetSolicitudesLicencias,
-  useGetSolicitudesUsuario,
-} from '@/features/solicitudesLicencias/viewmodels/useSolicitudes';
+import { useArchivosUnseenCount } from '@/features/docs/viewmodels/useArchivos';
+import { useReportesPendingCount } from '@/features/reportes/viewmodels/useReportes';
+import { useSolicitudesUnseen } from '@/features/solicitudesActividades/viewmodels/useSolicitudes';
+import { useLicenciasUnseenCount } from '@/features/solicitudesLicencias/viewmodels/useSolicitudes';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { Href, Redirect, Tabs, useRouter, useSegments } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { LayoutChangeEvent, Platform, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const TAB_BAR_BASE_HEIGHT = 56;
 const DESKTOP_NAV_HEIGHT = 54;
@@ -63,7 +58,6 @@ export default function TabLayout() {
   const canSeeReportesAdmin = hasAdminTab && canSeeAdminReportesButton;
   const canSeeLicenciasPersonal = !hasAdminTab;
   const canSeeReportesPersonal = !hasAdminTab;
-  const userContextId = user?.user_context_id?.toString();
   const colors = Colors['light'];
   const [activeMenu, setActiveMenu] = useState<'personal' | 'admin' | null>(null);
   const [containerWidth, setContainerWidth] = useState(0);
@@ -72,48 +66,28 @@ export default function TabLayout() {
   const isDesktopWeb = Platform.OS === 'web' && responsiveLayout.isDesktop;
   const currentTab = useMemo(() => (segments[1] as string) || 'index', [segments]);
 
-  const { data: invitaciones = [] } = useInvitaciones(canSeeActivityRequests && hasSessionContext);
-  const { data: solicitudesEnviadas = [] } = useSolicitudesCreadas(canSeeActivityRequests && hasSessionContext);
-  const { data: solicitudesLicenciasAdmin = [] } = useGetSolicitudesLicencias(
-    canSeeLicenciasAdmin && hasSessionContext ? {} : undefined
+  // Contador de solicitudes ('Mensajes') sin ver → badge rojo en la tab.
+  const { data: unseenSolicitudes = 0 } = useSolicitudesUnseen(
+    hasSolicitudesTab && hasSessionContext
   );
-  const { data: solicitudesLicenciasPersonal = [] } = useGetSolicitudesUsuario(
-    canSeeLicenciasPersonal && hasSessionContext
-  );
-  const { data: reportesAdmin = [] } = useReportes(
-    userContextId,
-    canSeeReportesAdmin && hasSessionContext
-  );
-  const { data: reportesPersonal = [] } = useReportes(
-    userContextId,
-    canSeeReportesPersonal && hasSessionContext
-  );
+  const hasMensajesBadge = unseenSolicitudes > 0;
+  const mensajesBadgeLabel = unseenSolicitudes > 99 ? '99+' : String(unseenSolicitudes);
 
-  const hasSolicitudesActividadesPendientesRecibidas = invitaciones.some((item) =>
-    ['SENT', 'MODIFIED_BY_HOST', 'ACCEPTED_BY_HOST'].includes(item.estado)
+  const { data: licenciasUnseenCount = 0 } = useLicenciasUnseenCount(
+    (canSeeLicenciasAdmin || canSeeLicenciasPersonal) && hasSessionContext
   );
-
-  const hasSolicitudesActividadesPendientesEnviadas = solicitudesEnviadas.some(
-    (item) => item.estado === 'MODIFIED'
+  const { data: reportesPendingCount = 0 } = useReportesPendingCount(
+    (canSeeReportesAdmin || canSeeReportesPersonal) && hasSessionContext
   );
+  const { data: archivosUnseenCount = 0 } = useArchivosUnseenCount(hasSessionContext);
 
-  const hasSolicitudesActividadesPendientes =
-    hasSolicitudesActividadesPendientesRecibidas ||
-    hasSolicitudesActividadesPendientesEnviadas;
+  const hasArchivosBadge = archivosUnseenCount > 0;
+  const archivosBadgeLabel = archivosUnseenCount > 99 ? '99+' : String(archivosUnseenCount);
 
-  const hasSolicitudesLicenciasPendientesAdmin = solicitudesLicenciasAdmin.some((item) =>
-    ['PENDIENTE', 'PENDIENTE_DOCUMENTACION', 'PENDIENTE_APROBACION'].includes(item.estado)
-  );
-
-  const hasSolicitudesLicenciasPendientesPersonal = solicitudesLicenciasPersonal.some((item) =>
-    ['PENDIENTE_DOCUMENTACION'].includes(item.estado)
-  );
-
-  const hasReportesPendientesAdmin = reportesAdmin.some((item) => item.estado === 'PENDIENTE');
-  const hasReportesPendientesPersonal = reportesPersonal.some((item) => item.estado === 'PENDIENTE');
-
-  const hasSolicitudesBadgeInTab = hasSolicitudesTab && hasSolicitudesActividadesPendientes;
-  const hasSolicitudesBadgeInHome = !hasSolicitudesTab && hasSolicitudesActividadesPendientes;
+  const hasSolicitudesLicenciasPendientesAdmin = canSeeLicenciasAdmin && licenciasUnseenCount > 0;
+  const hasSolicitudesLicenciasPendientesPersonal = canSeeLicenciasPersonal && licenciasUnseenCount > 0;
+  const hasReportesPendientesAdmin = canSeeReportesAdmin && reportesPendingCount > 0;
+  const hasReportesPendientesPersonal = canSeeReportesPersonal && reportesPendingCount > 0;
 
   const hasAdminBadge =
     hasAdminTab &&
@@ -215,7 +189,6 @@ export default function TabLayout() {
             onPress={() => navigateToTab('/(tabs)' as Href)}
           >
             <Text style={[styles.desktopTopButtonText, currentTab === 'index' && styles.desktopTopButtonTextActive]}>Inicio</Text>
-            {hasSolicitudesBadgeInHome && <View style={styles.desktopNavPendingDot} />}
           </TouchableOpacity>
 
           {!hideExplore && (
@@ -224,7 +197,7 @@ export default function TabLayout() {
               onPress={() => navigateToTab('/(tabs)/explore' as Href)}
             >
               <Text style={[styles.desktopTopButtonText, currentTab === 'explore' && styles.desktopTopButtonTextActive]}>Solicitudes</Text>
-              {hasSolicitudesBadgeInTab && <View style={styles.desktopNavPendingDot} />}
+              {hasMensajesBadge && <View style={styles.desktopNavPendingDot} />}
             </TouchableOpacity>
           )}
 
@@ -233,6 +206,7 @@ export default function TabLayout() {
             onPress={() => navigateToTab('/(tabs)/documentos' as Href)}
           >
             <Text style={[styles.desktopTopButtonText, currentTab === 'documentos' && styles.desktopTopButtonTextActive]}>Documentos</Text>
+            {hasArchivosBadge && <View style={styles.desktopNavPendingDot} />}
           </TouchableOpacity>
         </View>
 
@@ -358,8 +332,9 @@ export default function TabLayout() {
   }
 
   return (
-    <View
-      style={{ flex: 1 }}
+    <SafeAreaView
+      style={{ flex: 1, backgroundColor: colors.background }}
+      edges={['top']}
       onLayout={(event: LayoutChangeEvent) => setContainerWidth(event.nativeEvent.layout.width)}
     >
       {renderDesktopNavigation()}
@@ -393,7 +368,6 @@ export default function TabLayout() {
             tabBarIcon: ({ color }) => (
               <View style={styles.tabIconContainer}>
                 <IconSymbol size={24} name="house.fill" color={color} />
-                {hasSolicitudesBadgeInHome && <View style={styles.tabPendingDot} />}
               </View>
             ),
           }}
@@ -408,7 +382,11 @@ export default function TabLayout() {
             tabBarIcon: ({ color }) => (
               <View style={styles.tabIconContainer}>
                 <IconSymbol size={24} name="paperplane.fill" color={color} />
-                {hasSolicitudesBadgeInTab && <View style={styles.tabPendingDot} />}
+                {hasMensajesBadge && (
+                  <View style={styles.tabBadge}>
+                    <Text style={styles.tabBadgeText}>{mensajesBadgeLabel}</Text>
+                  </View>
+                )}
               </View>
             ),
           }}
@@ -417,7 +395,19 @@ export default function TabLayout() {
         <Tabs.Screen
           name="documentos"
           listeners={{ tabPress: () => setActiveMenu(null) }}
-          options={{ title: 'Documentos', tabBarIcon: ({ color }) => <IconSymbol size={24} name="doc.text.fill" color={color} /> }}
+          options={{
+            title: 'Documentos',
+            tabBarIcon: ({ color }) => (
+              <View style={styles.tabIconContainer}>
+                <IconSymbol size={24} name="doc.text.fill" color={color} />
+                {hasArchivosBadge && (
+                  <View style={styles.tabBadge}>
+                    <Text style={styles.tabBadgeText}>{archivosBadgeLabel}</Text>
+                  </View>
+                )}
+              </View>
+            ),
+          }}
         />
 
         <Tabs.Screen
@@ -457,7 +447,7 @@ export default function TabLayout() {
           }}
         />
       </Tabs>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -541,6 +531,25 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     backgroundColor: '#FF3B30',
+  },
+  tabBadge: {
+    position: 'absolute',
+    top: -6,
+    right: -10,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    paddingHorizontal: 4,
+    backgroundColor: '#FF3B30',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '700',
+    textAlign: 'center',
+    lineHeight: 14,
   },
   desktopTopBar: {
     flexDirection: 'row',

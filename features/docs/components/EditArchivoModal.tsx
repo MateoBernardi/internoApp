@@ -12,15 +12,14 @@ import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   ScrollView,
   StyleSheet,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Archivo, UpdateArchivoPayload } from '../models/Archivo';
 import { formatPartialWarnings } from '../utils/partialWarnings';
@@ -28,6 +27,15 @@ import { useArchivoPermisos, useUpdateArchivo } from '../viewmodels/useArchivos'
 import { PartialSaveBanner } from './PartialSaveBanner';
 
 const colors = Colors['light'];
+
+/** Splits a full file name into editable base and its (dotted) extension. */
+const splitName = (full: string) => {
+  const dot = full.lastIndexOf('.');
+  return dot > 0 ? { base: full.slice(0, dot), ext: full.slice(dot) } : { base: full, ext: '' };
+};
+
+/** Last path segment of an R2 key / URL (strips folders and query/hash). */
+const baseName = (full: string) => full.split(/[?#]/)[0].split('/').pop() ?? '';
 
 interface EditArchivoModalProps {
   visible: boolean;
@@ -38,7 +46,14 @@ interface EditArchivoModalProps {
 export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModalProps) {
   const insets = useSafeAreaInsets();
 
-  const [nombre, setNombre] = useState(archivo.nombre);
+  // Canonical extension comes from the display name; fall back to the stored
+  // URL when the name was saved without one. Empty string => never invent one.
+  const fileExt = useMemo(
+    () => splitName(archivo.nombre).ext || splitName(baseName(archivo.url ?? '')).ext,
+    [archivo.nombre, archivo.url]
+  );
+
+  const [nombreBase, setNombreBase] = useState(splitName(archivo.nombre).base);
   const [descripcion, setDescripcion] = useState(archivo.titulo ?? '');
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -102,7 +117,7 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
   React.useEffect(() => {
     if (!visible) return;
 
-    setNombre(archivo.nombre);
+    setNombreBase(splitName(archivo.nombre).base);
     setDescripcion(archivo.titulo ?? '');
     setAllowedRoles(archivo.allowed_roles || []);
     setUsuariosCompartidos(
@@ -288,7 +303,7 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
     setUsuariosAsociados((prev) => prev.filter((user) => user.user_context_id !== userId));
   }, []);
 
-  const isFormValid = useMemo(() => nombre.trim().length > 0, [nombre]);
+  const isFormValid = useMemo(() => nombreBase.trim().length > 0, [nombreBase]);
   const selectedRolesForDisplay = useMemo(
     () => allRoles.filter((r) => allowedRoles.includes(r.value)),
     [allowedRoles]
@@ -296,7 +311,7 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
   const isRoleSelected = useMemo(() => allowedRoles.includes(activeRole), [allowedRoles, activeRole]);
 
   const resetForm = useCallback(() => {
-    setNombre(archivo.nombre);
+    setNombreBase(splitName(archivo.nombre).base);
     setDescripcion(archivo.titulo ?? '');
     setUsuariosCompartidos(
       (archivo.usuarios_compartidos || []).map((id) => ({
@@ -338,7 +353,7 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
     const usuariosAsociadosIds = usuariosAsociados.map((u) => u.user_context_id);
 
     const payload: UpdateArchivoPayload = {
-      nombre: nombre.trim(),
+      nombre: `${nombreBase.trim()}${fileExt}`,
       titulo: descripcion.trim() || undefined,
       usuarios_compartidos: usuariosCompartidosIds,
       ...(isSupervisor ? { usuarios_asociados: usuariosAsociadosIds } : {}),
@@ -363,11 +378,11 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
         },
       }
     );
-  }, [didPartialSuccess, isFormValid, archivo.id, nombre, descripcion, usuariosCompartidos, usuariosAsociados, allowedRoles, isSupervisor, updateArchivo, onClose, resetForm]);
+  }, [didPartialSuccess, isFormValid, archivo.id, nombreBase, fileExt, descripcion, usuariosCompartidos, usuariosAsociados, allowedRoles, isSupervisor, updateArchivo, onClose, resetForm]);
 
   const handleCancel = useCallback(() => {
     const hasChanges =
-      nombre !== archivo.nombre ||
+      nombreBase !== splitName(archivo.nombre).base ||
       descripcion !== (archivo.titulo ?? '') ||
       usuariosCompartidos.length > 0;
     if (hasChanges) {
@@ -378,7 +393,7 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
     } else {
       onClose();
     }
-  }, [nombre, descripcion, archivo.nombre, archivo.titulo, usuariosCompartidos, onClose, resetForm]);
+  }, [nombreBase, descripcion, archivo.nombre, archivo.titulo, usuariosCompartidos, onClose, resetForm]);
 
   return (
     <Modal
@@ -397,11 +412,7 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
           </View>
 
           {/* KAV solo envuelve el scroll */}
-          <KeyboardAvoidingView
-            style={styles.modalKeyboardAvoiding}
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            keyboardVerticalOffset={0}
-          >
+          <ModalKeyboardView style={styles.modalKeyboardAvoiding}>
             <ScrollView
               style={styles.content}
               contentContainerStyle={[styles.contentContainer, { paddingBottom: bottomBarHeight + 8 }]}
@@ -415,14 +426,19 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
               {/* Título */}
               <View style={styles.inputSection}>
                 <ThemedText style={styles.label}>Título del archivo</ThemedText>
-                <TextInput
-                  style={[styles.input, { color: colors.text }]}
-                  placeholder="Título"
-                  placeholderTextColor={colors.secondaryText}
-                  value={nombre}
-                  onChangeText={setNombre}
-                  maxLength={100}
-                />
+                <View style={styles.nameRow}>
+                  <TextInput
+                    style={[styles.input, styles.nameInput, { color: colors.text }]}
+                    placeholder="Título"
+                    placeholderTextColor={colors.secondaryText}
+                    value={nombreBase}
+                    onChangeText={setNombreBase}
+                    maxLength={100}
+                  />
+                  {fileExt !== '' ? (
+                    <ThemedText style={styles.extSuffix}>{fileExt}</ThemedText>
+                  ) : null}
+                </View>
               </View>
 
               {/* Descripción */}
@@ -621,7 +637,7 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
                 onDeselectAll={handleDeselectAllRoleUsers}
               />
             </ScrollView>
-          </KeyboardAvoidingView>
+          </ModalKeyboardView>
 
           {/* Botón fijo fuera del KAV — con safe-area bottom */}
           <View style={[styles.updateButtonContainer, { paddingBottom: insets.bottom || BUTTON_MARGIN }]}>
@@ -656,7 +672,7 @@ const styles = StyleSheet.create({
   modalContainer: {
     // Quita el flex: 1, o usa un alto fijo/porcentaje
     flex: 1,
-    marginTop: '5%', // Empuja el modal hacia abajo
+    marginTop: '10%', // Empuja el modal hacia abajo
     backgroundColor: Colors['light'].componentBackground,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
@@ -724,6 +740,19 @@ const styles = StyleSheet.create({
   inputMultiline: {
     minHeight: 80,
     paddingTop: 10,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  nameInput: {
+    flex: 1,
+  },
+  extSuffix: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.secondaryText,
   },
   rolesButton: {
     flexDirection: 'row',

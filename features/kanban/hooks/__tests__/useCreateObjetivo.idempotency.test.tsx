@@ -51,8 +51,8 @@ describe('useCreateObjetivo — idempotency invariant', () => {
   it('reuses the SAME X-Idempotency-Key across all retry attempts', async () => {
     // Falla dos veces (blip de red) y luego responde OK al tercer intento.
     fetchMock
-      .mockRejectedValueOnce(new Error('boom'))
-      .mockRejectedValueOnce(new Error('boom'))
+      .mockRejectedValueOnce(new Error('Network request failed'))
+      .mockRejectedValueOnce(new Error('Network request failed'))
       .mockResolvedValueOnce({
         ok: true,
         status: 200,

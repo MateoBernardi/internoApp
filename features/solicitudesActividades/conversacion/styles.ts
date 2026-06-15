@@ -19,7 +19,7 @@ export const conversacionStyles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    marginTop: '5%',
+    marginTop: '10%',
     backgroundColor: colors.componentBackground,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
@@ -27,7 +27,7 @@ export const conversacionStyles = StyleSheet.create({
   },
   modalHeader: {
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingVertical: 5,
     borderBottomWidth: 1,
     borderBottomColor: colors.background,
     alignItems: 'flex-end',
@@ -57,7 +57,7 @@ export const conversacionStyles = StyleSheet.create({
     borderColor: colors.neutralBorder,
   },
   badgeRow: {
-    marginTop: 8,
+    marginTop: 0,
   },
   label: {
     fontSize: 12,
@@ -68,7 +68,7 @@ export const conversacionStyles = StyleSheet.create({
   chip: {
     alignSelf: 'flex-start',
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 0,
     borderRadius: 999,
     borderWidth: 1,
     borderColor: colors.lightTint,

@@ -14,6 +14,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { KEYBOARD_BEHAVIOR } from '@/shared/ui/keyboard';
+import { useIdempotencyKey } from '@/shared/useIdempotencyKey';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Encuesta, Pregunta } from '../models/Encuesta';
 import { useCreateEncuestaCompleta } from '../viewmodels/useEncuestas';
@@ -39,6 +41,7 @@ export const CrearEncuesta: React.FC<CrearEncuestaProps> = ({ onEncuestaCreada, 
   const [preguntas, setPreguntas] = useState<Pregunta[]>([]);
   const [mostrandoFormularioPregunta, setMostrandoFormularioPregunta] = useState(false);
 
+  const { idempotencyKey, regenerateIdempotencyKey } = useIdempotencyKey();
   const { mutate: crearEncuesta, isPending } = useCreateEncuestaCompleta();
 
   const onDateCancel = () => setShowDatePicker(false);
@@ -95,9 +98,12 @@ export const CrearEncuesta: React.FC<CrearEncuestaProps> = ({ onEncuestaCreada, 
     };
 
     crearEncuesta(
-      { encuesta: encuestaData as Encuesta, preguntas: preguntas as any },
+      { encuesta: encuestaData as Encuesta, preguntas: preguntas as any, idempotencyKey },
       {
         onSuccess: () => {
+          // La encuesta ya existe: una próxima creación desde este formulario es
+          // una operación nueva, no un replay.
+          regenerateIdempotencyKey();
           Alert.alert(
             '¡Éxito!',
             'La encuesta ha sido creada correctamente',
@@ -124,7 +130,7 @@ export const CrearEncuesta: React.FC<CrearEncuestaProps> = ({ onEncuestaCreada, 
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={KEYBOARD_BEHAVIOR}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
     >
       <EncuestasScreenHeader title="Crear Encuesta" />

@@ -91,14 +91,37 @@ export function deriveIdempotencyKey(
 }
 
 /**
- * Política de reintentos recomendada para mutaciones idempotentes: 2 reintentos
- * con backoff exponencial. Pensada para tolerar blips de red y errores 5xx
- * transitorios sin riesgo de duplicar datos (gracias a la idempotency key).
+ * Mensajes que identifican un fallo de TRANSPORTE: la respuesta nunca llegó al
+ * cliente (conexión h2/keep-alive muerta con el request en vuelo, blip de red).
+ * Es el único caso donde el backend pudo haber procesado el write sin que el
+ * cliente lo sepa; con idempotency key el reintento es seguro porque el backend
+ * deduplica y replaya la respuesta perdida.
+ */
+const TRANSPORT_ERROR_FRAGMENTS = [
+  'conexión es inestable', // apiRequest reescribe 'network request failed' a esto
+  'network request failed', // fetch nativo (RN/OkHttp) sin reescribir
+  'failed to fetch', // fetch web (Chromium)
+  'load failed', // fetch web (WebKit/Safari)
+  'networkerror', // fetch web (Firefox)
+];
+
+/** Devuelve true si el error es un fallo de transporte (respuesta perdida). */
+export function isTransportError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message.toLowerCase() : '';
+  return TRANSPORT_ERROR_FRAGMENTS.some((fragment) => message.includes(fragment));
+}
+
+/**
+ * Política de reintentos recomendada para mutaciones idempotentes: hasta 2
+ * reintentos con backoff exponencial, SOLO ante errores de transporte. Los
+ * errores con respuesta del servidor (400 validación, 403, 409, 5xx) no se
+ * reintentan: el backend ya respondió y reintentar solo demora el feedback.
  *
  * Se puede esparcir directamente en las opciones de `useMutation`:
  *   useMutation({ ..., ...IDEMPOTENT_MUTATION_RETRY })
  */
 export const IDEMPOTENT_MUTATION_RETRY = {
-  retry: 2,
+  retry: (failureCount: number, error: unknown) =>
+    failureCount < 2 && isTransportError(error),
   retryDelay: (attemptIndex: number) => Math.min(1000 * 2 ** attemptIndex, 30000),
 } as const;

@@ -10,6 +10,7 @@ import { useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
+import { KEYBOARD_BEHAVIOR } from '@/shared/ui/keyboard';
 const colors = Colors['light'];
 
 // Regex para validaciones
@@ -190,7 +191,7 @@ export default function CrearUsuario() {
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={KEYBOARD_BEHAVIOR}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
     >
       <ScrollView

@@ -6,10 +6,12 @@ import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { confirmAction } from '@/shared/ui/confirmAction';
 import { showGlobalToast } from '@/shared/ui/toast';
+import { useIdempotencyKey } from '@/shared/useIdempotencyKey';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, BackHandler, KeyboardAvoidingView, Modal, Platform, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, BackHandler, Modal, Platform, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CrearDocumento } from '../components/CrearDocumento';
 import { DocumentOptionAction, DocumentOptionsModal } from '../components/DocumentOptionsModal';
@@ -37,6 +39,7 @@ export default function Documentos() {
   const createCarpeta = useCreateCarpeta();
   const updateCarpeta = useUpdateCarpeta();
   const deleteCarpeta = useDeleteCarpeta();
+  const { idempotencyKey, regenerateIdempotencyKey } = useIdempotencyKey();
   const [tab, setTab] = useState<TabType>('empresa');
   const [modalVisible, setModalVisible] = useState(false);
   const [pickedFiles, setPickedFiles] = useState<any[]>([]);
@@ -333,9 +336,12 @@ export default function Documentos() {
       {
         nombre: trimmed,
         ...(currentFolderId !== null ? { id_carpeta_padre: currentFolderId } : {}),
+        idempotencyKey,
       },
       {
         onSuccess: () => {
+          // La carpeta ya existe: la próxima creación es una operación nueva.
+          regenerateIdempotencyKey();
           setFolderModalVisible(false);
           setFolderName('');
           Alert.alert('Carpeta creada', 'La carpeta se creo correctamente');
@@ -491,8 +497,7 @@ export default function Documentos() {
         onRequestClose={() => setFolderModalVisible(false)}
       >
         <View style={styles.modalBackdrop}>
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'position' : undefined}
+          <ModalKeyboardView
             keyboardVerticalOffset={insets.top + 12}
             style={styles.modalKavWrapper}
           >
@@ -517,7 +522,7 @@ export default function Documentos() {
                 </TouchableOpacity>
               </View>
             </View>
-          </KeyboardAvoidingView>
+          </ModalKeyboardView>
         </View>
       </Modal>
 

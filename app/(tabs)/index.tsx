@@ -6,10 +6,6 @@ import { EncuestasPendientes } from '@/features/encuestas/components/EncuestasPe
 import { useGetEncuestas } from '@/features/encuestas/viewmodels/useEncuestas';
 import { KanbanBoard } from '@/features/kanban/views/KanbanBoard';
 import TablonNovedades from '@/features/novedades/views/TablonNovedades';
-import {
-  useInvitaciones,
-  useSolicitudesCreadas,
-} from '@/features/solicitudesActividades/viewmodels/useSolicitudes';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { useQueryClient } from '@tanstack/react-query';
 import React, { useCallback, useState } from 'react';
@@ -29,12 +25,8 @@ export default function HomeScreen() {
   const top = useSafeTopInset();
 
   const { isLoading: isLoadingEncuestas } = useGetEncuestas(shouldEnableHomeQueries);
-  const { isLoading: isLoadingInvitaciones } = useInvitaciones(shouldEnableHomeQueries);
-  const { isLoading: isLoadingEnviadas } = useSolicitudesCreadas(shouldEnableHomeQueries);
 
-  const showHomeSkeleton =
-    shouldEnableHomeQueries &&
-    (isLoadingEncuestas || isLoadingInvitaciones || isLoadingEnviadas);
+  const showHomeSkeleton = shouldEnableHomeQueries && isLoadingEncuestas;
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);

@@ -72,6 +72,7 @@ function buildRequestInit(
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
     'x-app-entorno': entorno,
+    'Accept': 'application/json',
   };
 
   // Headers extra provistos por el servicio (p. ej. idempotencia). Se aplican
@@ -123,7 +124,8 @@ export async function apiRequest({
 
   const executeFetch = async (activeToken: string): Promise<Response> => {
     const options = buildRequestInit(method, activeToken, body, signal, entorno, headers);
-    return fetch(fullUrl, options);
+    const response = await fetch(fullUrl, options);
+    return response;
   };
 
   try {
@@ -159,8 +161,9 @@ export async function apiRequest({
 
     return retryResponse;
   } catch (error: any) {
+    console.error('[apiRequest] caught error:', error, error?.stack);
     if (error?.message?.toLowerCase().includes('network request failed')) {
-      throw new Error('Error desconocido. Intentá nuevamente en unos minutos.');
+      throw new Error('La conexión es inestable. Chequeá que la petición se haya completado.');
     }
     throw error;
   }

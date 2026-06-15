@@ -6,14 +6,13 @@ import { ArchivoUso } from '@/features/docs/models/Archivo';
 import { useUploadArchivo } from '@/features/docs/viewmodels/useArchivos';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
+import type * as ImagePickerTypes from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
-    KeyboardAvoidingView,
     Modal,
-    Platform,
     ScrollView,
     StyleSheet,
     Switch,
@@ -21,6 +20,8 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { generateIdempotencyKey } from '@/shared/idempotency';
+import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CreateSolicitudDTO } from '../models/SolicitudLicencia';
 import {
@@ -31,6 +32,15 @@ import {
 } from '../viewmodels/useSolicitudes';
 
 const colors = Colors['light'];
+
+// expo-image-picker se carga de forma perezosa: en algunos entornos (web/SSR)
+// el módulo nativo no está disponible y `require` lanza.
+let ImagePicker: typeof ImagePickerTypes | null = null;
+try {
+    ImagePicker = require('expo-image-picker');
+} catch {
+    console.warn('expo-image-picker no disponible. La cámara estará deshabilitada.');
+}
 
 function normalizeToMinute(date: Date): Date {
     const normalized = new Date(date);
@@ -83,6 +93,7 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
     const [archivoAdjunto, setArchivoAdjunto] = useState<{ name: string; uri: string; type: string; size?: number } | null>(null);
     const [isUploadingFile, setIsUploadingFile] = useState(false);
     const isSubmittingRef = useRef(false);
+    const idempotencyKeyRef = useRef(generateIdempotencyKey());
 
     // --- Hooks de Datos ---
     const { data: tiposLicencias, isLoading: isLoadingTipos, isError: isErrorTipos } = useGetTiposLicencias();
@@ -198,6 +209,39 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
         }
     }, []);
 
+    // --- Tomar Foto (cámara) ---
+    const handleTomarFoto = useCallback(async () => {
+        if (!ImagePicker) {
+            Alert.alert('No disponible', 'La cámara no está disponible en este dispositivo.');
+            return;
+        }
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') {
+            Alert.alert('Permiso denegado', 'Se necesita acceso a la cámara para tomar fotos.');
+            return;
+        }
+        const result = await ImagePicker.launchCameraAsync({ mediaTypes: 'images', quality: 0.8 });
+        if (!result.canceled && result.assets.length > 0) {
+            const asset = result.assets[0];
+            const ext = asset.uri.split('.').pop() ?? 'jpg';
+            setArchivoAdjunto({
+                name: asset.fileName ?? `foto_${Date.now()}.${ext}`,
+                uri: asset.uri,
+                type: asset.mimeType ?? `image/${ext}`,
+                size: asset.fileSize,
+            });
+        }
+    }, []);
+
+    // --- Menú de adjunto (cámara / archivo), igual que en Chats ---
+    const handleAgregarAdjunto = useCallback(() => {
+        Alert.alert('Adjuntar documentación', 'Elegí una opción', [
+            { text: 'Tomar foto', onPress: handleTomarFoto },
+            { text: 'Elegir archivo', onPress: handleSeleccionarArchivo },
+            { text: 'Cancelar', style: 'cancel' },
+        ]);
+    }, [handleTomarFoto, handleSeleccionarArchivo]);
+
     // --- Crear Solicitud ---
     const procederCrearSolicitud = useCallback(() => {
         if (isPending || isSubmittingRef.current) return;
@@ -221,8 +265,9 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
             payload.cantidad_horas = horas > 0 ? horas : null;
         }
 
-        crearSolicitud(payload, {
+        crearSolicitud({ ...payload, idempotencyKey: idempotencyKeyRef.current }, {
             onSuccess: async (nuevaSolicitud: any) => {
+                idempotencyKeyRef.current = generateIdempotencyKey();
                 if (archivoAdjunto && nuevaSolicitud?.id) {
                     setIsUploadingFile(true);
                     try {
@@ -308,14 +353,14 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
     return (
         <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={handleClose}>
             <View style={styles.overlay}>
-                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.keyboardContainer}>
-                    <View style={styles.container}>
-                        <View style={styles.modalHeader}>
+                <ModalKeyboardView style={styles.keyboardContainer}>
+                    <View style={[styles.container, { paddingBottom: insets.bottom }]}>
+                        <View style={[styles.modalHeader, { paddingTop: insets.top + 10 }]}>
                             <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
                                 <Ionicons name="close" size={24} color="#999" />
                             </TouchableOpacity>
                         </View>
-                        <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: 120 + insets.bottom }}>
+                        <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: 120 }}>
 
                             {/* ── Tipo de Licencia ── */}
                             <View style={styles.sectionCard}>
@@ -556,7 +601,7 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
                                     {!archivoAdjunto ? (
                                         <TouchableOpacity
                                             style={styles.adjuntoButton}
-                                            onPress={handleSeleccionarArchivo}
+                                            onPress={handleAgregarAdjunto}
                                             disabled={isUploadingFile}
                                         >
                                             <Ionicons name="cloud-upload-outline" size={32} color={colors.lightTint} style={{ marginBottom: 8 }} />
@@ -564,7 +609,7 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
                                                 Cargar archivo requerido
                                             </ThemedText>
                                             <ThemedText style={{ color: colors.secondaryText, fontSize: 12, marginTop: 4, textAlign: 'center' }}>
-                                                PDF, DOC, DOCX, JPG o PNG
+                                                Tomá una foto o elegí un PDF, DOC, DOCX, JPG o PNG
                                             </ThemedText>
                                         </TouchableOpacity>
                                     ) : (
@@ -627,7 +672,7 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
                             />
                         )}
                     </View>
-                </KeyboardAvoidingView>
+                </ModalKeyboardView>
                 <OperacionPendienteModal visible={isPending} />
             </View>
         </Modal>
@@ -645,7 +690,7 @@ const styles = StyleSheet.create({
     },
     container: {
         flex: 1,
-        marginTop: '5%',
+        marginTop: '10%',
         backgroundColor: colors.componentBackground,
         borderTopLeftRadius: 16,
         borderTopRightRadius: 16,

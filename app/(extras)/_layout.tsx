@@ -1,11 +1,16 @@
 import { Colors, UI } from '@/constants/theme';
 import { AppBackButton } from '@/shared/ui/AppBackButton';
 import { Stack, useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ExtrasLayout() {
   const router = useRouter();
 
   return (
+    <SafeAreaView
+      style={{ flex: 1, backgroundColor: Colors.light.background }}
+      edges={['bottom']}
+    >
     <Stack
       screenOptions={{
         headerShown: true,
@@ -42,5 +47,6 @@ export default function ExtrasLayout() {
       <Stack.Screen name="responder-encuesta" options={{ title: 'Responder Encuesta' }} />
       <Stack.Screen name="solicitudes-licencias" options={{ title: 'Solicitudes de Licencias' }} />
     </Stack>
+    </SafeAreaView>
   );
 }

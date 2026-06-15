@@ -1,31 +1,43 @@
 import { AlertModal, type AlertModalAction } from '@/components/AlertModal';
+import { FilePreview, getExt, useOpenFilePreview } from '@/components/filePreview';
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
+import { generateIdempotencyKey } from '@/shared/idempotency';
+import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
+import { Image } from 'expo-image';
+import type * as ImagePickerTypes from 'expo-image-picker';
 import React, { useCallback, useState } from 'react';
 import {
 	ActivityIndicator,
-	KeyboardAvoidingView,
+	Alert,
 	Modal,
-	Platform,
 	ScrollView,
 	StyleSheet,
+	Text,
 	TextInput,
 	TouchableOpacity,
-	View
+	View,
 } from 'react-native';
-import { EstadoReporte, Reporte } from '../models/Reporte';
-import { useUpdateReporte } from '../viewmodels/useReportes';
-import { ImagenesReporte } from './ImagenesReporte';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { EstadoReporte, Reporte, ReporteImagen } from '../models/Reporte';
+import { useReporteImagenes, useUnlinkReporteImage, useUpdateReporte, useUploadReporteImage } from '../viewmodels/useReportes';
+
+let ImagePicker: typeof ImagePickerTypes | null = null;
+try {
+	ImagePicker = require('expo-image-picker');
+} catch {
+	console.warn('expo-image-picker native module not available. Image picking will be disabled.');
+}
 
 interface ReporteModalProps {
 	visible: boolean;
 	onClose: () => void;
 	reporte: Reporte;
-	origen: 'mis' | 'empleado'; // 'mis' = MisReportes, 'empleado' = ReportesEmpleado
+	origen: 'mis' | 'empleado';
 }
 
 const colors = Colors['light'];
@@ -34,8 +46,10 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 	const { mutate: updateReporte, isPending } = useUpdateReporte();
 	const { hasRole } = useRoleCheck();
 	const { user } = useAuth();
+	const insets = useSafeAreaInsets();
+	const { previewFile, openWithUri, closePreview } = useOpenFilePreview();
 
-	// Estado para controles
+	// ── Estado: formulario de actualización ──────────────────────────────────
 	const [nuevoEstado, setNuevoEstado] = useState<EstadoReporte | null>(null);
 	const [observacion, setObservacion] = useState('');
 	const [alertModal, setAlertModal] = useState<{
@@ -45,24 +59,25 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 		actions: AlertModalAction[];
 	}>({ visible: false, title: '', message: undefined, actions: [] });
 
-	// Verificar si el reporte está en un estado final (no editable)
+	// ── Estado: imágenes ─────────────────────────────────────────────────────
+	const { data: imagenes = [], isLoading: imagenesLoading } = useReporteImagenes(visible ? reporte.id : undefined);
+	const { mutateAsync: uploadImagen } = useUploadReporteImage();
+	const { mutateAsync: unlinkImagen } = useUnlinkReporteImage();
+	const [isUploadingImage, setIsUploadingImage] = useState(false);
+
+	// ── Permisos ─────────────────────────────────────────────────────────────
 	const isReporteFinal = reporte.estado === 'ASENTADO' || reporte.estado === 'DESESTIMADO';
-
-	// Verificar si el usuario tiene rol 'gerencia'
 	const isGerencia = hasRole('gerencia');
-
-	// Solo gerencia puede modificar si está en estado final
 	const canModify = !isReporteFinal || isGerencia;
-
-	// Roles supervisores que pueden gestionar imágenes
 	const hasSupervisorRole = hasRole(['gerencia', 'personasRelaciones', 'encargado']);
 	const isCreator = !!(user?.user_context_id && reporte.creador_id && user.user_context_id === reporte.creador_id);
-	const canManageImages = hasSupervisorRole && isCreator;
+	const canManageFiles = hasSupervisorRole && isCreator;
 
+	// ── Helpers ───────────────────────────────────────────────────────────────
 	const showModal = useCallback((title: string, message?: string, actions?: AlertModalAction[]) => {
 		const normalizedActions = actions && actions.length > 0
 			? actions
-			: [{ key: 'ok', label: 'Aceptar', onPress: () => { }, variant: 'primary' }];
+			: [{ key: 'ok', label: 'Aceptar', onPress: () => { }, variant: 'primary' as const }];
 
 		setAlertModal({
 			visible: true,
@@ -77,6 +92,98 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 			})),
 		});
 	}, []);
+
+	// ── Imágenes ─────────────────────────────────────────────────────────────
+	// Solo imágenes (por decisión); se suben/listan vía el sistema reportesImagenes.
+
+	const uploadAsset = useCallback(async (asset: ImagePickerTypes.ImagePickerAsset) => {
+		const ext = asset.uri.split('.').pop() ?? 'jpg';
+		const name = asset.fileName ?? `imagen_${Date.now()}.${ext}`;
+		const mimeType = asset.mimeType ?? `image/${ext}`;
+		setIsUploadingImage(true);
+		try {
+			await uploadImagen({
+				reporteId: reporte.id,
+				fileUri: asset.uri,
+				fileName: name,
+				mimeType,
+				description: 'Imagen de reporte',
+				orden: imagenes.length,
+				// Key por subida: vive en las variables de la mutación, así los
+				// reintentos automáticos reusan exactamente la misma.
+				idempotencyKey: generateIdempotencyKey(),
+			});
+		} catch (error: any) {
+			Alert.alert('Error', error?.message ?? 'No se pudo subir la imagen.');
+		} finally {
+			setIsUploadingImage(false);
+		}
+	}, [uploadImagen, reporte.id, imagenes.length]);
+
+	const handlePickFromGallery = useCallback(async () => {
+		if (!ImagePicker) {
+			Alert.alert('No disponible', 'El selector de imágenes no está disponible.');
+			return;
+		}
+		const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+		if (status !== 'granted') {
+			Alert.alert('Permiso denegado', 'Se necesita acceso a la galería para adjuntar imágenes.');
+			return;
+		}
+		const result = await ImagePicker.launchImageLibraryAsync({
+			mediaTypes: 'images',
+			allowsMultipleSelection: false,
+			quality: 0.8,
+		});
+		if (!result.canceled && result.assets.length > 0) {
+			await uploadAsset(result.assets[0]);
+		}
+	}, [uploadAsset]);
+
+	const handleTakePhoto = useCallback(async () => {
+		if (!ImagePicker) {
+			Alert.alert('No disponible', 'La cámara no está disponible.');
+			return;
+		}
+		const { status } = await ImagePicker.requestCameraPermissionsAsync();
+		if (status !== 'granted') {
+			Alert.alert('Permiso denegado', 'Se necesita acceso a la cámara para tomar fotos.');
+			return;
+		}
+		const result = await ImagePicker.launchCameraAsync({
+			mediaTypes: 'images',
+			quality: 0.8,
+		});
+		if (!result.canceled && result.assets.length > 0) {
+			await uploadAsset(result.assets[0]);
+		}
+	}, [uploadAsset]);
+
+	const handleOpenImagen = useCallback((img: ReporteImagen) => {
+		openWithUri({
+			id: String(img.image_id),
+			kind: 'image',
+			name: img.imagen_descripcion || `Imagen ${img.orden + 1}`,
+			ext: getExt(undefined, img.url),
+			uri: img.url,
+		});
+	}, [openWithUri]);
+
+	const handleRemoveImagen = useCallback((img: ReporteImagen) => {
+		Alert.alert('Eliminar imagen', '¿Querés quitar esta imagen?', [
+			{ text: 'Cancelar', style: 'cancel' },
+			{
+				text: 'Eliminar',
+				style: 'destructive',
+				onPress: () => {
+					unlinkImagen({ reporteId: reporte.id, imageId: img.image_id, orden: img.orden })
+						.catch((error: any) => Alert.alert('Error', error?.message ?? 'No se pudo eliminar la imagen.'));
+				},
+			},
+		]);
+	}, [unlinkImagen, reporte.id]);
+
+	// ── Actualización de estado ───────────────────────────────────────────────
 
 	const handleAccion = () => {
 		if (!nuevoEstado) {
@@ -134,19 +241,15 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 							style={styles.picker}
 						>
 							<Picker.Item label="Selecciona un estado..." value="" color="#999" />
-							{isMisReportes ? (
-								<>
-									<Picker.Item label="Aceptar (Asentado)" value="ASENTADO" />
-									<Picker.Item label="Responder (En disputa)" value="DISPUTA" />
-								</>
-							) : (
-								<>
-									<Picker.Item label="Pendiente" value="PENDIENTE" />
-									<Picker.Item label="En disputa" value="DISPUTA" />
-									<Picker.Item label="Asentado" value="ASENTADO" />
-									<Picker.Item label="Desestimar" value="DESESTIMADO" />
-								</>
-							)}
+							{isMisReportes ? [
+								<Picker.Item key="ASENTADO" label="Aceptar" value="ASENTADO" />,
+								<Picker.Item key="DISPUTA" label="Responder" value="DISPUTA" />,
+							] : [
+								<Picker.Item key="PENDIENTE" label="Pendiente" value="PENDIENTE" />,
+								<Picker.Item key="DISPUTA" label="En disputa" value="DISPUTA" />,
+								<Picker.Item key="ASENTADO" label="Asentado" value="ASENTADO" />,
+								<Picker.Item key="DESESTIMADO" label="Desestimar" value="DESESTIMADO" />,
+							]}
 						</Picker>
 					</View>
 				</View>
@@ -190,13 +293,9 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 			onRequestClose={onClose}
 		>
 			<View style={styles.overlay}>
-				<KeyboardAvoidingView
-					style={styles.modalKeyboardAvoiding}
-					behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-					keyboardVerticalOffset={0}
-				>
-					<View style={styles.modalContainer}>
-						{/* Header con botón cerrar */}
+				<ModalKeyboardView style={styles.modalKeyboardAvoiding}>
+					<View style={[styles.modalContainer, { paddingBottom: insets.bottom }]}>
+						{/* Header */}
 						<View style={styles.modalHeader}>
 							<View style={styles.modalHeaderActions}>
 								<TouchableOpacity onPress={onClose} style={styles.modalIconButton}>
@@ -240,13 +339,63 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 								<ThemedText style={styles.descriptionText}>{reporte.descripcion}</ThemedText>
 							</View>
 
-							{/* Imágenes */}
+							{/* Imágenes del reporte */}
 							<View style={styles.section}>
-								<ImagenesReporte
-									reporteId={reporte.id}
-									imagenesUrl={reporte.imagenes}
-									canManage={canManageImages}
-								/>
+								<View style={styles.sectionHeaderRow}>
+									<ThemedText style={styles.sectionLabel}>Imágenes</ThemedText>
+									{canManageFiles && (
+										<View style={styles.imagePickerRow}>
+											<TouchableOpacity
+												style={styles.actionButton}
+												onPress={handlePickFromGallery}
+												disabled={isUploadingImage}
+											>
+												<Ionicons name="image-outline" size={14} color={colors.lightTint} />
+												<Text style={styles.actionButtonText}>Galería</Text>
+											</TouchableOpacity>
+											<TouchableOpacity
+												style={styles.actionButton}
+												onPress={handleTakePhoto}
+												disabled={isUploadingImage}
+											>
+												<Ionicons name="camera-outline" size={14} color={colors.lightTint} />
+												<Text style={styles.actionButtonText}>Cámara</Text>
+											</TouchableOpacity>
+										</View>
+									)}
+								</View>
+
+								{imagenesLoading ? (
+									<ActivityIndicator color={colors.lightTint} style={{ marginVertical: 12 }} />
+								) : imagenes.length === 0 ? (
+									<ThemedText style={styles.emptyText}>No hay imágenes.</ThemedText>
+								) : (
+									<View style={styles.imageGrid}>
+										{imagenes.map((img) => (
+											<View key={img.id} style={styles.imageThumbWrap}>
+												<TouchableOpacity onPress={() => handleOpenImagen(img)} activeOpacity={0.85}>
+													<Image source={{ uri: img.url }} style={styles.imageThumb} contentFit="cover" />
+												</TouchableOpacity>
+												{canManageFiles && (
+													<TouchableOpacity
+														style={styles.imageRemoveBtn}
+														onPress={() => handleRemoveImagen(img)}
+														disabled={isUploadingImage}
+													>
+														<Ionicons name="close-circle" size={22} color={colors.error} />
+													</TouchableOpacity>
+												)}
+											</View>
+										))}
+									</View>
+								)}
+
+								{isUploadingImage && (
+									<View style={styles.uploadingRow}>
+										<ActivityIndicator size="small" color={colors.lightTint} />
+										<ThemedText style={styles.uploadingText}>Subiendo imagen...</ThemedText>
+									</View>
+								)}
 							</View>
 
 							{/* Acciones del formulario */}
@@ -262,16 +411,15 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 							onClose={() => setAlertModal((prev) => ({ ...prev, visible: false }))}
 						/>
 					</View>
-				</KeyboardAvoidingView>
+				</ModalKeyboardView>
 			</View>
+
+			<FilePreview file={previewFile} onClose={closePreview} />
 		</Modal>
 	);
 }
 
 const styles = StyleSheet.create({
-	// ============================================
-	// Layout Principal (Bottom Sheet)
-	// ============================================
 	overlay: {
 		flex: 1,
 		backgroundColor: 'rgba(0,0,0,0.5)',
@@ -282,7 +430,7 @@ const styles = StyleSheet.create({
 	},
 	modalContainer: {
 		flex: 1,
-		marginTop: '5%',
+		marginTop: '10%',
 		backgroundColor: '#fff',
 		borderTopLeftRadius: 16,
 		borderTopRightRadius: 16,
@@ -307,12 +455,8 @@ const styles = StyleSheet.create({
 	},
 	modalFormContentContainer: {
 		padding: 20,
-		paddingBottom: 60, // Espacio extra al final
+		paddingBottom: 60,
 	},
-
-	// ============================================
-	// Tipografía e Información
-	// ============================================
 	title: {
 		fontSize: 24,
 		fontWeight: 'bold',
@@ -364,23 +508,77 @@ const styles = StyleSheet.create({
 		fontSize: 12,
 		fontWeight: '700',
 	},
-
-	// ============================================
-	// Secciones y Formularios
-	// ============================================
 	section: {
 		marginTop: 24,
 		paddingTop: 24,
 		borderTopWidth: 1,
 		borderTopColor: '#f3f4f6',
+		gap: 12,
 	},
 	sectionHeaderRow: {
-		marginBottom: 16,
+		flexDirection: 'row',
+		alignItems: 'center',
+		justifyContent: 'space-between',
 	},
 	sectionLabel: {
 		fontSize: 16,
 		fontWeight: '700',
 		color: '#111827',
+	},
+	actionButton: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 4,
+		paddingHorizontal: 10,
+		paddingVertical: 6,
+		borderRadius: 999,
+		borderWidth: 1,
+		borderColor: colors.lightTint,
+		backgroundColor: colors.lightTint + '12',
+	},
+	actionButtonText: {
+		fontSize: 12,
+		fontWeight: '700',
+		color: colors.lightTint,
+	},
+	imagePickerRow: {
+		flexDirection: 'row',
+		gap: 8,
+	},
+	emptyText: {
+		fontSize: 13,
+		color: colors.secondaryText,
+	},
+	imageGrid: {
+		flexDirection: 'row',
+		flexWrap: 'wrap',
+		gap: 10,
+	},
+	imageThumbWrap: {
+		position: 'relative',
+	},
+	imageThumb: {
+		width: 90,
+		height: 90,
+		borderRadius: 8,
+		backgroundColor: '#f3f4f6',
+	},
+	imageRemoveBtn: {
+		position: 'absolute',
+		top: -8,
+		right: -8,
+		backgroundColor: '#fff',
+		borderRadius: 11,
+	},
+	uploadingRow: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 8,
+		marginTop: 10,
+	},
+	uploadingText: {
+		fontSize: 13,
+		color: colors.secondaryText,
 	},
 	formGroup: {
 		marginBottom: 16,
@@ -416,10 +614,6 @@ const styles = StyleSheet.create({
 		height: 50,
 		color: '#111827',
 	},
-
-	// ============================================
-	// Botones
-	// ============================================
 	confirmBtn: {
 		backgroundColor: colors.lightTint,
 		borderRadius: 10,

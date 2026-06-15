@@ -9,7 +9,6 @@ import React, { useEffect, useState } from 'react';
 import {
     Alert,
     Keyboard,
-    KeyboardAvoidingView,
     Modal,
     Platform,
     ScrollView,
@@ -19,6 +18,8 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
+import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ESTADOS, Objetivo } from "../models/Objetivo";
 
 interface MoveDraft {
@@ -58,6 +59,7 @@ export function MoveModal({
     onResumeDraftHandled,
     resetDraftSignal = 0,
 }: MoveModalProps) {
+    const insets = useSafeAreaInsets();
     const [nuevoEstado, setNuevoEstado] = useState('');
     const [observacion, setObservacion] = useState('');
     const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -132,12 +134,8 @@ export function MoveModal({
             onRequestClose={handleClose}
         >
             <View style={styles.overlay}>
-                <KeyboardAvoidingView
-                    style={styles.modalKeyboardAvoiding}
-                    behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-                    keyboardVerticalOffset={0}
-                >
-                    <View style={styles.modalContainer}>
+                <ModalKeyboardView style={styles.modalKeyboardAvoiding}>
+                    <View style={[styles.modalContainer, { paddingBottom: insets.bottom }]}>
                         <View style={styles.modalHeader}>
                             <View style={styles.modalHeaderActions}>
                                 <TouchableOpacity onPress={handleClose} style={styles.modalIconButton} disabled={isLoading}>
@@ -216,7 +214,7 @@ export function MoveModal({
                             </TouchableOpacity>
                         </View>
                     </View>
-                </KeyboardAvoidingView>
+                </ModalKeyboardView>
             </View>
         </Modal>
     );
@@ -233,7 +231,7 @@ const styles = StyleSheet.create({
     },
     modalContainer: {
         flex: 1,
-        marginTop: '5%', // Empuja el modal hacia abajo
+        marginTop: '10%', // Empuja el modal hacia abajo
         backgroundColor: Colors['light'].componentBackground,
         borderTopLeftRadius: 16,
         borderTopRightRadius: 16,

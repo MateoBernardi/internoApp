@@ -1,4 +1,5 @@
 import { apiRequest } from '@/shared/apiRequest';
+import { idempotencyHeaders } from '@/shared/idempotency';
 import type { ApiOperationResult, ApiOperationStatus, ApiWarningDetail } from '@/shared/types/apiStatus';
 import {
     Carpeta,
@@ -143,8 +144,8 @@ export async function fetchCarpetas(
   };
 }
 
-export async function createCarpeta(accessToken: string, payload: CreateCarpetaPayload): Promise<Carpeta> {
-  const response = await apiRequest({ method: 'POST', endpoint: '/carpetas', token: accessToken, body: payload });
+export async function createCarpeta(accessToken: string, payload: CreateCarpetaPayload, idempotencyKey?: string): Promise<Carpeta> {
+  const response = await apiRequest({ method: 'POST', endpoint: '/carpetas', token: accessToken, body: payload, headers: idempotencyHeaders(idempotencyKey) });
 
   if (!response.ok) {
     await parseApiError(response);

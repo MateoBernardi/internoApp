@@ -4,7 +4,6 @@ import { Colors, UI } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import {
-  KeyboardAvoidingView,
   Modal,
   Platform,
   ScrollView,
@@ -14,6 +13,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NewActivityState } from '../agenda/dateUtils';
 
 const colors = Colors['light'];
@@ -71,6 +72,7 @@ export function CrearActividadModal({
   onDateConfirm,
   onDateCancel,
 }: CrearActividadModalProps) {
+  const insets = useSafeAreaInsets();
   return (
     <Modal
       visible={visible}
@@ -79,12 +81,8 @@ export function CrearActividadModal({
       onRequestClose={onMinimize}
     >
       <View style={styles.overlay}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={0}
-          style={styles.modalKavWrapper}
-        >
-          <View style={styles.modalContainer}>
+        <ModalKeyboardView style={styles.modalKavWrapper}>
+          <View style={[styles.modalContainer, { paddingBottom: insets.bottom }]}>
             <ScrollView
               contentContainerStyle={styles.modalScrollContent}
               keyboardShouldPersistTaps="handled"
@@ -219,7 +217,7 @@ export function CrearActividadModal({
               onCancel={onDateCancel}
             />
           )}
-        </KeyboardAvoidingView>
+        </ModalKeyboardView>
       </View>
     </Modal>
   );
@@ -236,7 +234,7 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     flex: 1,
-    marginTop: '5%',
+    marginTop: '10%',
     backgroundColor: colors.componentBackground,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,

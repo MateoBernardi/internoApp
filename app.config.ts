@@ -1,5 +1,5 @@
-import { ConfigContext, ExpoConfig } from "expo/config";
 import { config as loadDotenv } from "dotenv";
+import { ConfigContext, ExpoConfig } from "expo/config";
 import { resolve } from "path";
 
 // EAS no carga los archivos .env durante `eas update` (a diferencia de `expo start`),
@@ -100,9 +100,27 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         },
       },
     ],
+    [
+      "expo-camera",
+      {
+        "cameraPermission": "Esta aplicación requiere acceso a la cámara para que los usuarios puedan escanear códigos QR o capturar imágenes de remitos, productos, o reportes por ejemplo, al registrar un control de stock en el depósito de la empresa.",
+        "microphonePermission": "Esta aplicación necesita acceso al micrófono para grabar videos de reportes laborales."
+      }
+    ],
+    [
+      "expo-location",
+      {
+        "locationWhenInUsePermission": "Esta aplicación requiere acceso a tu ubicación para verificar que te encontrás dentro del predio de Italo Argentina, por ejemplo, al momento de registrar de forma válida tu asistencia, entrada o salida laboral."
+      }
+    ],
     "expo-secure-store",
     "@react-native-community/datetimepicker",
-    "expo-image-picker",
+    [
+      "expo-image-picker",
+      {
+        "photoLibraryPermission": "Esta aplicación requiere acceso a tu biblioteca de fotos para que los usuarios puedan seleccionar y subir imágenes de comprobantes, recibos o reportes de daños guardados en el dispositivo hacia el sistema de la empresa.",
+      }
+    ],
     "./plugins/withBlockedAndroidMediaPermissions",
   ],
   experiments: {

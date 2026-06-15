@@ -67,7 +67,8 @@ export async function registerUser(
   const data: CreateUserResponse = await response.json();
 
   if (!response.ok) {
-    throw new Error(data.message || 'Intenta nuevamente');
+    const errBody = data as { message?: string; error?: string };
+    throw new Error(errBody.message || errBody.error || 'Intenta nuevamente');
   }
 
   return data;

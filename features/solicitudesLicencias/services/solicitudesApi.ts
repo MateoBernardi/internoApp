@@ -7,7 +7,7 @@ export const getLicenciasUnseenCount = async (accessToken: string): Promise<numb
 
     if (!response.ok) {
         const error = await response.json().catch(() => ({}));
-        throw new Error(error.message || response.statusText);
+        throw new Error(error.message || error.error || response.statusText);
     }
 
     const data = await response.json();
@@ -82,7 +82,7 @@ export const getSolicitudesLicencias = async (accessToken: string, filters?: sol
 
     if (!response.ok) {
         const error = await response.json().catch(() => ({}));
-        throw new Error(error.message || response.statusText);
+        throw new Error(error.message || error.error || response.statusText);
     }
 
     const data = await response.json();
@@ -94,7 +94,7 @@ export const getSolicitudesUsuario = async (accessToken: string): Promise<solici
 
     if (!response.ok) {
         const error = await response.json().catch(() => ({}));
-        throw new Error(error.message || response.statusText);
+        throw new Error(error.message || error.error || response.statusText);
     }
 
     const data = await response.json();
@@ -107,7 +107,7 @@ export const createSolicitudLicencia = async (accessToken: string, data: solicit
     const body = await response.json();
 
     if (!response.ok) {
-        throw new Error(body.message || response.statusText);
+        throw new Error(body.message || body.error || response.statusText);
     }
 
     return body;
@@ -119,7 +119,7 @@ export const adjuntarArchivo = async (accessToken: string, solicitudId: number, 
     const body = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-        throw new Error(body.message || response.statusText);
+        throw new Error(body.message || body.error || response.statusText);
     }
 
     return body;
@@ -131,7 +131,7 @@ export const cancelarSolicitudLicencia = async (accessToken: string, solicitudId
     const body = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-        throw new Error(body.message || response.statusText);
+        throw new Error(body.message || body.error || response.statusText);
     }
 
     return body;
@@ -144,7 +144,7 @@ export const aprobarSolicitudLicencia = async (accessToken: string, solicitudId:
     const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-        throw new Error(data.message || response.statusText);
+        throw new Error(data.message || data.error || response.statusText);
     }
 
     return data;
@@ -158,7 +158,7 @@ export const rechazarSolicitudLicencia = async (accessToken: string, solicitudId
     if (!response.ok) {
         const error = await response.json().catch(() => ({}));
         console.error('[rechazarSolicitudLicencia] Error en la respuesta:', error);
-        throw new Error(error.message || response.statusText);
+        throw new Error(error.message || error.error || response.statusText);
     }
 
     const data = await response.json();

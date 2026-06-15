@@ -280,7 +280,7 @@ export async function getUrlCargaArchivo(accessToken: string, data: archivos.Ped
         let errorDetails = '';
         try {
             const errorData = await response.json();
-            errorDetails = errorData.message || JSON.stringify(errorData);
+            errorDetails = errorData.message || errorData.error || JSON.stringify(errorData);
         } catch {
             errorDetails = response.statusText || `Error ${response.status}`;
         }

@@ -12,7 +12,7 @@ export const Colors = {
   light: {
     text: '#11181C',
     secondaryText: '#687076',
-    background: '#eeeeee',
+    background: '#f3f3f3',
     componentBackground: '#ffffff',
     tint: tintColorLight,
     icon: '#687076',
@@ -22,6 +22,12 @@ export const Colors = {
     success: '#4CAF50',
     error: '#F44336',
     warning: '#FF9800',
+    neutralSurface: '#EEF0F2',
+    neutralBorder: '#B0B5BA',
+    neutralTextStrong: '#4B4F54',
+    neutralText: '#5F6368',
+    neutralMuted: '#757575',
+    activityCreated: '#00897B',
   },
   dark: {
     text: '#dddedfff',
@@ -91,6 +97,58 @@ export const Breakpoints = {
   tablet: 640,
   desktop: 1024,
   desktopXl: 1440,
+} as const;
+
+export const UI = {
+  spacing: {
+    xs: 4,
+    sm: 8,
+    md: 12,
+    lg: 16,
+    xl: 24,
+    xxl: 32,
+  },
+  icon: {
+    sm: 16,
+    md: 20,
+    lg: 22,
+    xl: 24,
+  },
+  fontSize: {
+    xs: 12,
+    sm: 13,
+    md: 14,
+    lg: 16,
+    xl: 18,
+    xxl: 20,
+  },
+  lineHeight: {
+    title: 24,
+  },
+  radius: {
+    sm: 8,
+    md: 16,
+    pill: 20,
+    round: 28,
+  },
+  fab: {
+    size: 56,
+    offsetBottom: 80,
+    offsetRight: 24,
+  },
+  header: {
+    height: 56,
+    horizontalPadding: 16,
+    verticalPadding: 12,
+    leftPadding: 12,
+  },
+  shadow: {
+    color: '#000',
+    offset: { width: 0, height: 2 },
+    opacity: 0.25,
+    radius: 4,
+    elevation: 6,
+  },
 } as const;
 
 export function getWebLayoutMetrics(viewportWidth: number) {

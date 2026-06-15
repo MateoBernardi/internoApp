@@ -4,11 +4,11 @@ import { Colors } from '@/constants/theme';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useMemo } from 'react';
 import {
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    TouchableOpacity,
-    View
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { InvitadoResumen, SolicitudEnviada, SolicitudEnviadaAgrupada, estadoInvitacionMapping } from '../models/Solicitud';
 import { useSolicitudesCreadas } from '../viewmodels/useSolicitudes';
@@ -34,6 +34,7 @@ function agruparSolicitudes(solicitudes: SolicitudEnviada[]): SolicitudEnviadaAg
         created_by: s.created_by,
         fecha_inicio: s.fecha_inicio,
         fecha_fin: s.fecha_fin,
+        tipo_actividad: s.tipo_actividad,
         invitados: [invitado],
       });
     }
@@ -41,12 +42,55 @@ function agruparSolicitudes(solicitudes: SolicitudEnviada[]): SolicitudEnviadaAg
   return Array.from(map.values());
 }
 
+function formatTipoSolicitud(tipo?: string): string {
+  if (tipo === 'MANDATO') return 'Actividad';
+  if (tipo === 'REUNION') return 'Reunión';
+  if (tipo === 'CHAT') return 'Conversación';
+  return tipo ? tipo : 'Solicitud';
+}
+
+function getTipoBadgeStyle(tipo?: string): { borderColor: string; backgroundColor: string; textColor: string } {
+  switch (tipo) {
+    case 'MANDATO':
+      return { borderColor: '#2563eb', backgroundColor: '#2563eb12', textColor: '#2563eb' };
+    case 'REUNION':
+      return { borderColor: '#7c3aed', backgroundColor: '#7c3aed12', textColor: '#7c3aed' };
+    case 'CHAT':
+      return { borderColor: '#0ea5e9', backgroundColor: '#0ea5e912', textColor: '#0ea5e9' };
+    default:
+      return { borderColor: '#6b7280', backgroundColor: '#6b728012', textColor: '#6b7280' };
+  }
+}
+
+function getEstadoBadgeStyle(estado: string): { borderColor: string; backgroundColor: string; textColor: string } {
+  switch (estado) {
+    case 'Pendiente':
+      return { borderColor: '#9ca3af', backgroundColor: '#9ca3af12', textColor: '#6b7280' };
+    case 'Visto':
+      return { borderColor: '#2563eb', backgroundColor: '#2563eb12', textColor: '#2563eb' };
+    case 'Modificado':
+    case 'Modificado por creador':
+      return { borderColor: '#f59e0b', backgroundColor: '#f59e0b12', textColor: '#b45309' };
+    case 'Aceptado':
+      return { borderColor: '#16a34a', backgroundColor: '#16a34a12', textColor: '#15803d' };
+    case 'Rechazado':
+      return { borderColor: '#dc2626', backgroundColor: '#dc262612', textColor: '#b91c1c' };
+    case 'Actividad creada':
+      return { borderColor: '#0f766e', backgroundColor: '#0f766e12', textColor: '#0f766e' };
+    case 'Expirada':
+      return { borderColor: '#64748b', backgroundColor: '#64748b12', textColor: '#475569' };
+    default:
+      return { borderColor: '#6b7280', backgroundColor: '#6b728012', textColor: '#6b7280' };
+  }
+}
+
 interface SolicitudesEnviadasProps {
   onRefresh?: () => Promise<void>;
   refreshing?: boolean;
+  onOpenSolicitud?: (solicitudId: number) => void;
 }
 
-export function SolicitudesEnviadas({ onRefresh, refreshing }: SolicitudesEnviadasProps = {}) {
+export function SolicitudesEnviadas({ onRefresh, refreshing, onOpenSolicitud }: SolicitudesEnviadasProps = {}) {
   const router = useRouter();
   const { data: solicitudes, isLoading, error, refetch } = useSolicitudesCreadas();
 
@@ -56,18 +100,21 @@ export function SolicitudesEnviadas({ onRefresh, refreshing }: SolicitudesEnviad
   }, [solicitudes]);
 
   const handleOpenSolicitud = useCallback((solicitudId: number) => {
+    if (onOpenSolicitud) {
+      onOpenSolicitud(solicitudId);
+      return;
+    }
+
     router.push({
-      pathname: '/(extras)/solicitud',
-      params: { id: solicitudId.toString(), type: 'enviada' },
+      pathname: '/(tabs)/explore',
+      params: { solicitudId: solicitudId.toString(), type: 'enviada' },
     });
-  }, [router]);
+  }, [router, onOpenSolicitud]);
 
   const handleRefresh = useCallback(async () => {
     await refetch();
     if (onRefresh) await onRefresh();
   }, [refetch, onRefresh]);
-
-
 
   if (isLoading) {
     return (
@@ -135,38 +182,44 @@ interface SolicitudEnviadaItemProps {
 }
 
 function SolicitudEnviadaItem({ solicitud, onPress }: SolicitudEnviadaItemProps) {
-  const getEstadoColor = (estado: string): string => {
-    switch (estado) {
-      case 'Pendiente':
-        return '#FF9800';
-      case 'Visto':
-        return '#2196F3';
-      case 'Aceptado':
-        return '#4CAF50';
-      case 'Rechazado':
-        return '#F44336';
-      case 'Modificado':
-      case 'Modificado por creador':
-      case 'Aceptado por creador':
-        return '#9C27B0';
-      case 'Actividad creada':
-        return '#00897B';
-      case 'Expirada':
-        return '#757575';
-      default:
-        return colors.icon;
-    }
+  const destinatarios = useMemo(() => {
+    const nombres = solicitud.invitados
+      .map((inv) => [inv.nombre, inv.apellido].filter(Boolean).join(' ').trim())
+      .filter(Boolean);
+    return nombres.join(', ');
+  }, [solicitud.invitados]);
+
+  const getContainerColor = (): string => {
+    const estadoUIList = solicitud.invitados.map((inv) => estadoInvitacionMapping[inv.estado]);
+    const hasBackgroundState = estadoUIList.some((estado) =>
+      ['Visto', 'Modificado por creador', 'Aceptado', 'Rechazado', 'Actividad creada', 'Expirada'].includes(estado)
+    );
+    const hasOnlyPending = estadoUIList.length > 0 && estadoUIList.every((estado) => estado === 'Pendiente');
+    if (hasOnlyPending) return colors.background;
+    return hasBackgroundState ? colors.background : colors.componentBackground;
   };
+
+  const estadoUI = useMemo(() => {
+    const estadoUIList = solicitud.invitados.map((inv) => estadoInvitacionMapping[inv.estado]);
+    return estadoUIList.find((estado) => estado !== 'Pendiente') || estadoUIList[0] || 'Pendiente';
+  }, [solicitud.invitados]);
+
+  const tipoLabel = useMemo(() => formatTipoSolicitud(solicitud.tipo_actividad), [solicitud.tipo_actividad]);
+  const tipoBadgeStyle = useMemo(() => getTipoBadgeStyle(solicitud.tipo_actividad), [solicitud.tipo_actividad]);
+  const estadoBadgeStyle = useMemo(() => getEstadoBadgeStyle(estadoUI), [estadoUI]);
 
   return (
     <TouchableOpacity
       onPress={onPress}
       style={[
         styles.itemContainer,
-        { backgroundColor: colors.componentBackground },
+        { backgroundColor: getContainerColor() },
       ]}
     >
       <View style={styles.itemContent}>
+        <ThemedText style={[styles.destinatario, { color: colors.secondaryText }]} numberOfLines={1}>
+          Para: {destinatarios}
+        </ThemedText>
         <ThemedText type="defaultSemiBold" numberOfLines={1}>
           {solicitud.titulo}
         </ThemedText>
@@ -177,28 +230,31 @@ function SolicitudEnviadaItem({ solicitud, onPress }: SolicitudEnviadaItemProps)
           {solicitud.descripcion}
         </ThemedText>
 
-        {/* Lista de invitados con su estado */}
-        <View style={styles.invitadosContainer}>
-          {solicitud.invitados.map((inv, idx) => {
-            const estadoUI = estadoInvitacionMapping[inv.estado];
-            return (
-              <View key={`${inv.nombre}-${inv.apellido}-${idx}`} style={styles.invitadoRow}>
-                <ThemedText style={styles.invitadoName} numberOfLines={1}>
-                  {inv.nombre} {inv.apellido}
-                </ThemedText>
-                <View style={[styles.estadoBadge, { backgroundColor: getEstadoColor(estadoUI) + '20' }]}>
-                  <ThemedText style={[styles.estadoText, { color: getEstadoColor(estadoUI) }]}>
-                    {estadoUI}
-                  </ThemedText>
-                </View>
-              </View>
-            );
-          })}
+        <View style={styles.badgeRow}>
+          <View
+            style={[
+              styles.badge,
+              { borderColor: tipoBadgeStyle.borderColor, backgroundColor: tipoBadgeStyle.backgroundColor },
+            ]}
+          >
+            <ThemedText style={[styles.badgeText, { color: tipoBadgeStyle.textColor }]}>{tipoLabel}</ThemedText>
+          </View>
+          <View
+            style={[
+              styles.badge,
+              { borderColor: estadoBadgeStyle.borderColor, backgroundColor: estadoBadgeStyle.backgroundColor },
+            ]}
+          >
+            <ThemedText style={[styles.badgeText, { color: estadoBadgeStyle.textColor }]}>{estadoUI}</ThemedText>
+          </View>
         </View>
 
-        <ThemedText style={[styles.dateText, { color: colors.secondaryText }]}>
-          {solicitud.fecha_inicio ? new Date(solicitud.fecha_inicio).toLocaleDateString('es-AR') : 'Sin fecha'}
-        </ThemedText>
+        <View style={styles.footerContainer}>
+          <ThemedText style={[styles.dateText, { color: colors.secondaryText }]}
+          >
+            {solicitud.fecha_inicio ? solicitud.fecha_inicio.toLocaleDateString('es-AR') : 'Sin fecha'}
+          </ThemedText>
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -225,24 +281,14 @@ const styles = StyleSheet.create({
   itemContent: {
     flexDirection: 'column',
   },
+  destinatario: {
+    fontSize: 12,
+    marginTop: 2,
+    fontWeight: '500',
+  },
   description: {
     fontSize: 13,
     marginTop: 4,
-  },
-  invitadosContainer: {
-    marginTop: 8,
-    gap: 4,
-  },
-  invitadoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  invitadoName: {
-    fontSize: 13,
-    color: colors.secondaryText,
-    flex: 1,
-    marginRight: 8,
   },
   footerContainer: {
     flexDirection: 'row',
@@ -252,15 +298,24 @@ const styles = StyleSheet.create({
   },
   dateText: {
     fontSize: 12,
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
     marginTop: 8,
   },
-  estadoBadge: {
+  badge: {
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 4,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#f9fafb',
   },
-  estadoText: {
+  badgeText: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
+    color: '#374151',
   },
 });

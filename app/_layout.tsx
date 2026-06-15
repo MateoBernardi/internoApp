@@ -4,16 +4,17 @@ import { getQueryClient, QueryProvider } from '@/context/QueryProvider';
 import { AuthProvider, useAuth } from '@/features/auth/context/AuthContext';
 import { useRegisterDevice } from '@/features/devices/hooks/useRegisterDevice';
 import { prefetchCoreRealtimeData } from '@/features/realtime/prefetchOrchestrator';
-import { usePushCacheSync } from '@/features/realtime/usePushCacheSync';
+import { syncPushPayloadToCache } from '@/features/realtime/querySync';
+import '@/shared/silenceConsole';
 import { installWebAlertPolyfill } from '@/shared/ui/webAlertPolyfill';
 import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 import { Redirect, Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect } from 'react';
 import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
 import 'react-native-reanimated';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 installWebAlertPolyfill();
 
@@ -23,16 +24,6 @@ export const unstable_settings = {
 
 const colors = Colors['light']; // Usar siempre el tema claro
 
-function isPushCacheSyncEnabled(): boolean {
-  const rawValue = Constants.expoConfig?.extra?.ENABLE_PUSH_CACHE_SYNC;
-  if (typeof rawValue !== 'string') {
-    return true;
-  }
-
-  const normalized = rawValue.trim().toLowerCase();
-  return normalized !== 'false' && normalized !== '0' && normalized !== 'off';
-}
-
 function RootNavigator() {
   const { isAuthenticated, isLoading, requiresAssociation, tokens, user } = useAuth();
   const segments = useSegments();
@@ -41,9 +32,6 @@ function RootNavigator() {
   const authReadyAndEligible =
     !isLoading && isAuthenticated && !requiresAssociation && !!tokens?.accessToken;
   const authReadyWithUserContext = authReadyAndEligible && hasUserContext;
-  // Obtiene el push token y lo registra automáticamente cuando esté autenticado
-  useRegisterDevice({ enabled: authReadyAndEligible });
-  const pushCacheSyncEnabled = isPushCacheSyncEnabled();
   const navigateFromNotificationUrl = useCallback(
     (rawUrl: unknown): boolean => {
       if (typeof rawUrl !== 'string') {
@@ -69,51 +57,56 @@ function RootNavigator() {
         router.push(targetPath as any);
         return true;
       } catch {
-        if (trimmed.startsWith('/')) {
-          router.push(trimmed as any);
-          return true;
-        }
+        // URL malformada: no navegar a entradas sin validar.
         return false;
       }
     },
     [router]
   );
   const handleNotificationOpen = useCallback((rawPayload: unknown) => {
-      const payload = (rawPayload ?? {}) as Record<string, unknown>;
-      const dynamicUrl = payload.url ?? payload.link ?? payload.path ?? payload.deepLink;
+    const payload = (rawPayload ?? {}) as Record<string, unknown>;
+    const dynamicUrl = payload.url ?? payload.link ?? payload.path ?? payload.deepLink;
 
-      if (navigateFromNotificationUrl(dynamicUrl)) {
-        return;
-      }
+    if (navigateFromNotificationUrl(dynamicUrl)) {
+      return;
+    }
 
-      const eventType = String(payload.event ?? payload.type ?? '').toLowerCase();
-      const solicitudId = Number(payload.solicitud_id ?? payload.solicitudId ?? payload.request_id ?? payload.requestId);
-      const actividadId = Number(payload.actividad_id ?? payload.actividadId);
+    const eventType = String(payload.event ?? payload.type ?? '').toLowerCase();
+    const solicitudId = Number(payload.solicitud_id ?? payload.solicitudId ?? payload.request_id ?? payload.requestId);
+    const actividadId = Number(payload.actividad_id ?? payload.actividadId);
 
-      if (eventType !== 'estado_actualizado' && eventType !== 'status_changed') {
-        return;
-      }
+    if (eventType !== 'estado_actualizado' && eventType !== 'status_changed') {
+      return;
+    }
 
-      if (Number.isFinite(actividadId) && actividadId > 0) {
-        router.push({
-          pathname: '/(extras)/actividad-detalle' as any,
-          params: { actividadId: actividadId.toString() },
-        });
-        return;
-      }
+    if (Number.isFinite(actividadId) && actividadId > 0) {
+      const rol = String(payload.rol ?? payload.role ?? '');
+      router.push({
+        pathname: '/(extras)/agenda-personal' as any,
+        params: { actividadId: actividadId.toString(), rol },
+      });
+      return;
+    }
 
-      if (Number.isFinite(solicitudId) && solicitudId > 0) {
-        const esCreador = Boolean(payload.es_creador ?? payload.is_creator ?? payload.creator);
-        router.push({
-          pathname: '/(extras)/solicitud' as any,
-          params: { id: solicitudId.toString(), type: esCreador ? 'enviada' : 'recibida' },
-        });
-      }
-    },
+    if (Number.isFinite(solicitudId) && solicitudId > 0) {
+      const esCreador = Boolean(payload.es_creador ?? payload.is_creator ?? payload.creator);
+      router.push({
+        pathname: '/(tabs)/explore' as any,
+        params: { solicitudId: solicitudId.toString(), type: esCreador ? 'enviada' : 'recibida' },
+      });
+    }
+  },
     [navigateFromNotificationUrl, router]
   );
-
-  usePushCacheSync(pushCacheSyncEnabled && authReadyWithUserContext, {
+  // Obtiene el push token, registra el dispositivo y sincroniza cache de queries por eventos push.
+  useRegisterDevice({
+    enabled: authReadyAndEligible,
+    onPushPayload: (payload, source) => {
+      if (!authReadyWithUserContext) {
+        return;
+      }
+      syncPushPayloadToCache(getQueryClient(), payload, source);
+    },
     onNotificationOpen: handleNotificationOpen,
   });
 
@@ -179,7 +172,7 @@ function RootNavigator() {
         <Stack.Screen name="(association)" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>
-      <StatusBar style="auto" />
+      <StatusBar style="dark" />
     </ThemeProvider>
   );
 }
@@ -188,13 +181,15 @@ export default function RootLayout() {
   // Permitir que AuthProvider y el hook useRegisterDevice se encarguen de registrar el dispositivo
   // cuando el usuario esté autenticado
   return (
-    <DesktopGate>
-      <QueryProvider>
-        <AuthProvider>
-          <RootNavigator />
-        </AuthProvider>
-      </QueryProvider>
-    </DesktopGate>
+    <SafeAreaProvider>
+      <DesktopGate>
+        <QueryProvider>
+          <AuthProvider>
+            <RootNavigator />
+          </AuthProvider>
+        </QueryProvider>
+      </DesktopGate>
+    </SafeAreaProvider>
   );
 }
 

@@ -23,18 +23,18 @@ export function WebDesktopShell({ children }: { children: React.ReactNode }) {
     ? Layout.web.desktopHorizontalGutterWide
     : responsiveLayout.horizontalGutter;
   const shellMaxWidth = shouldUseDesktopShell ? Layout.web.desktopMaxWidth : responsiveLayout.maxWidth;
+  const isSmallScreen = viewportWidth < 1024;
 
   return (
     <View
       style={[
         styles.pageBackground,
-        { paddingHorizontal: shellHorizontalPadding },
       ]}
     >
       <View
         style={[
           styles.appColumn,
-          isStandaloneWebApp ? styles.appColumnStandalone : { maxWidth: shellMaxWidth },
+          isSmallScreen && { marginTop: '8%' },
         ]}
       >
         {children}
@@ -47,17 +47,12 @@ const styles = StyleSheet.create({
   pageBackground: {
     flex: 1,
     backgroundColor: colors.componentBackground,
-    paddingHorizontal: Layout.web.desktopHorizontalGutter,
     alignItems: 'center',
   },
   appColumn: {
     flex: 1,
     width: '100%',
-    maxWidth: Layout.web.containerMaxWidth,
     alignSelf: 'center',
     backgroundColor: colors.componentBackground,
-  },
-  appColumnStandalone: {
-    maxWidth: '100%',
   },
 });

@@ -9,10 +9,12 @@ type UserRole =
   | 'empleado-insumos'
   | 'empleado-mayorista'
   | 'empleado-super'
+  | 'empleado-transporte'
   | 'gerencia'
   | 'personasRelaciones'
   | 'consejo'
   | 'encargado'
+  | 'estudio-contable'
   | 'readonly'
   | 'presidencia';
 
@@ -22,6 +24,7 @@ const PERSONAL_ROLES: UserRole[] = [
   'empleado-insumos',
   'empleado-mayorista',
   'empleado-super',
+  'empleado-transporte',
 ];
 
 const CONTABLE_ROLES: UserRole[] = ['contable', 'sistemas'];
@@ -38,10 +41,12 @@ export const ALL_ROLES: UserRole[] = [
   'empleado-mayorista',
   'empleado-super',
   'empleado-limpieza',
+  'empleado-transporte',
   'gerencia',
   'personasRelaciones',
   'consejo',
   'encargado',
+  'estudio-contable',
   'readonly',
   'presidencia',
 ];
@@ -69,7 +74,7 @@ export function useRoleCheck() {
   const hasRole = (role: UserRole | UserRole[]): boolean => {
     const userRole = getUserRole();
     if (!userRole) return false;
-    
+
     if (Array.isArray(role)) {
       return role.some((expectedRole) => matchesRole(userRole, expectedRole));
     }

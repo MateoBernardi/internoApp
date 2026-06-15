@@ -1,28 +1,44 @@
+import { AlertModal, type AlertModalAction } from '@/components/AlertModal';
+import { FilePreview, getExt, useOpenFilePreview } from '@/components/filePreview';
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
+import { generateIdempotencyKey } from '@/shared/idempotency';
+import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
+import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
-import React, { useState } from 'react';
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { EstadoReporte, Reporte } from '../models/Reporte';
-import { useUpdateReporte } from '../viewmodels/useReportes';
-import { ImagenesReporte } from './ImagenesReporte';
+import { Image } from 'expo-image';
+import type * as ImagePickerTypes from 'expo-image-picker';
+import React, { useCallback, useState } from 'react';
+import {
+	ActivityIndicator,
+	Alert,
+	Modal,
+	ScrollView,
+	StyleSheet,
+	Text,
+	TextInput,
+	TouchableOpacity,
+	View,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { EstadoReporte, Reporte, ReporteImagen } from '../models/Reporte';
+import { useReporteImagenes, useUnlinkReporteImage, useUpdateReporte, useUploadReporteImage } from '../viewmodels/useReportes';
+
+let ImagePicker: typeof ImagePickerTypes | null = null;
+try {
+	ImagePicker = require('expo-image-picker');
+} catch {
+	console.warn('expo-image-picker native module not available. Image picking will be disabled.');
+}
 
 interface ReporteModalProps {
 	visible: boolean;
 	onClose: () => void;
 	reporte: Reporte;
-	origen: 'mis' | 'empleado'; // 'mis' = MisReportes, 'empleado' = ReportesEmpleado
+	origen: 'mis' | 'empleado';
 }
-
-const estadoOptions: { value: EstadoReporte; label: string }[] = [
-	{ value: 'PENDIENTE', label: 'Pendiente' },
-	{ value: 'DISPUTA', label: 'En disputa' },
-	{ value: 'ASENTADO', label: 'Asentado' },
-	{ value: 'DESESTIMADO', label: 'Desestimado' },
-];
 
 const colors = Colors['light'];
 
@@ -30,335 +46,594 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 	const { mutate: updateReporte, isPending } = useUpdateReporte();
 	const { hasRole } = useRoleCheck();
 	const { user } = useAuth();
+	const insets = useSafeAreaInsets();
+	const { previewFile, openWithUri, closePreview } = useOpenFilePreview();
 
-	// Estado para controles
+	// ── Estado: formulario de actualización ──────────────────────────────────
 	const [nuevoEstado, setNuevoEstado] = useState<EstadoReporte | null>(null);
 	const [observacion, setObservacion] = useState('');
+	const [alertModal, setAlertModal] = useState<{
+		visible: boolean;
+		title: string;
+		message?: string;
+		actions: AlertModalAction[];
+	}>({ visible: false, title: '', message: undefined, actions: [] });
 
-	// Verificar si el reporte está en un estado final (no editable)
+	// ── Estado: imágenes ─────────────────────────────────────────────────────
+	const { data: imagenes = [], isLoading: imagenesLoading } = useReporteImagenes(visible ? reporte.id : undefined);
+	const { mutateAsync: uploadImagen } = useUploadReporteImage();
+	const { mutateAsync: unlinkImagen } = useUnlinkReporteImage();
+	const [isUploadingImage, setIsUploadingImage] = useState(false);
+
+	// ── Permisos ─────────────────────────────────────────────────────────────
 	const isReporteFinal = reporte.estado === 'ASENTADO' || reporte.estado === 'DESESTIMADO';
-	
-	// Verificar si el usuario tiene rol 'gerencia'
 	const isGerencia = hasRole('gerencia');
-	
-	// Solo gerencia puede modificar si está en estado final
-	// En otros estados (DISPUTA, PENDIENTE), cualquiera puede modificar
 	const canModify = !isReporteFinal || isGerencia;
-
-	// Roles supervisores que pueden gestionar imágenes
 	const hasSupervisorRole = hasRole(['gerencia', 'personasRelaciones', 'encargado']);
-	// Solo el creador del reporte puede adjuntar/eliminar imágenes
 	const isCreator = !!(user?.user_context_id && reporte.creador_id && user.user_context_id === reporte.creador_id);
-	const canManageImages = hasSupervisorRole && isCreator;
+	const canManageFiles = hasSupervisorRole && isCreator;
 
-	// Para MisReportes: solo puede aceptar (ASENTADO, obs opcional) o responder (DISPUTA, obs obligatoria)
-	// Para ReportesEmpleado: puede cambiar a cualquier estado, obs obligatoria
+	// ── Helpers ───────────────────────────────────────────────────────────────
+	const showModal = useCallback((title: string, message?: string, actions?: AlertModalAction[]) => {
+		const normalizedActions = actions && actions.length > 0
+			? actions
+			: [{ key: 'ok', label: 'Aceptar', onPress: () => { }, variant: 'primary' as const }];
+
+		setAlertModal({
+			visible: true,
+			title,
+			message,
+			actions: normalizedActions.map((action) => ({
+				...action,
+				onPress: () => {
+					setAlertModal((prev) => ({ ...prev, visible: false }));
+					action.onPress();
+				},
+			})),
+		});
+	}, []);
+
+	// ── Imágenes ─────────────────────────────────────────────────────────────
+	// Solo imágenes (por decisión); se suben/listan vía el sistema reportesImagenes.
+
+	const uploadAsset = useCallback(async (asset: ImagePickerTypes.ImagePickerAsset) => {
+		const ext = asset.uri.split('.').pop() ?? 'jpg';
+		const name = asset.fileName ?? `imagen_${Date.now()}.${ext}`;
+		const mimeType = asset.mimeType ?? `image/${ext}`;
+		setIsUploadingImage(true);
+		try {
+			await uploadImagen({
+				reporteId: reporte.id,
+				fileUri: asset.uri,
+				fileName: name,
+				mimeType,
+				description: 'Imagen de reporte',
+				orden: imagenes.length,
+				// Key por subida: vive en las variables de la mutación, así los
+				// reintentos automáticos reusan exactamente la misma.
+				idempotencyKey: generateIdempotencyKey(),
+			});
+		} catch (error: any) {
+			Alert.alert('Error', error?.message ?? 'No se pudo subir la imagen.');
+		} finally {
+			setIsUploadingImage(false);
+		}
+	}, [uploadImagen, reporte.id, imagenes.length]);
+
+	const handlePickFromGallery = useCallback(async () => {
+		if (!ImagePicker) {
+			Alert.alert('No disponible', 'El selector de imágenes no está disponible.');
+			return;
+		}
+		const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+		if (status !== 'granted') {
+			Alert.alert('Permiso denegado', 'Se necesita acceso a la galería para adjuntar imágenes.');
+			return;
+		}
+		const result = await ImagePicker.launchImageLibraryAsync({
+			mediaTypes: 'images',
+			allowsMultipleSelection: false,
+			quality: 0.8,
+		});
+		if (!result.canceled && result.assets.length > 0) {
+			await uploadAsset(result.assets[0]);
+		}
+	}, [uploadAsset]);
+
+	const handleTakePhoto = useCallback(async () => {
+		if (!ImagePicker) {
+			Alert.alert('No disponible', 'La cámara no está disponible.');
+			return;
+		}
+		const { status } = await ImagePicker.requestCameraPermissionsAsync();
+		if (status !== 'granted') {
+			Alert.alert('Permiso denegado', 'Se necesita acceso a la cámara para tomar fotos.');
+			return;
+		}
+		const result = await ImagePicker.launchCameraAsync({
+			mediaTypes: 'images',
+			quality: 0.8,
+		});
+		if (!result.canceled && result.assets.length > 0) {
+			await uploadAsset(result.assets[0]);
+		}
+	}, [uploadAsset]);
+
+	const handleOpenImagen = useCallback((img: ReporteImagen) => {
+		openWithUri({
+			id: String(img.image_id),
+			kind: 'image',
+			name: img.imagen_descripcion || `Imagen ${img.orden + 1}`,
+			ext: getExt(undefined, img.url),
+			uri: img.url,
+		});
+	}, [openWithUri]);
+
+	const handleRemoveImagen = useCallback((img: ReporteImagen) => {
+		Alert.alert('Eliminar imagen', '¿Querés quitar esta imagen?', [
+			{ text: 'Cancelar', style: 'cancel' },
+			{
+				text: 'Eliminar',
+				style: 'destructive',
+				onPress: () => {
+					unlinkImagen({ reporteId: reporte.id, imageId: img.image_id, orden: img.orden })
+						.catch((error: any) => Alert.alert('Error', error?.message ?? 'No se pudo eliminar la imagen.'));
+				},
+			},
+		]);
+	}, [unlinkImagen, reporte.id]);
+
+	// ── Actualización de estado ───────────────────────────────────────────────
 
 	const handleAccion = () => {
 		if (!nuevoEstado) {
-			Alert.alert('Selecciona un estado');
+			showModal('Selecciona un estado');
 			return;
 		}
 		if ((origen === 'mis' && nuevoEstado === 'DISPUTA' && !observacion.trim()) ||
-				(origen === 'empleado' && !observacion.trim())) {
-			Alert.alert('La observación es obligatoria');
+			(origen === 'empleado' && !observacion.trim())) {
+			showModal('La observación es obligatoria');
 			return;
 		}
 		updateReporte(
 			{ id: reporte.id, data: { estado: nuevoEstado, observacion } },
 			{
 				onSuccess: () => {
-					Alert.alert('Éxito', 'Reporte actualizado');
-					setNuevoEstado(null);
-					setObservacion('');
-					onClose();
+					showModal('Éxito', 'Reporte actualizado', [
+						{
+							key: 'ok',
+							label: 'Aceptar',
+							onPress: () => {
+								setNuevoEstado(null);
+								setObservacion('');
+								onClose();
+							},
+							variant: 'primary',
+						},
+					]);
 				},
 				onError: (error: any) => {
-					Alert.alert('Error', error?.message || 'Intenta nuevamente');
+					showModal('Error', error?.message || 'Intenta nuevamente');
 				},
 			}
 		);
 	};
 
-	// Renderiza controles según origen
 	const renderControles = () => {
-		// Si está en estado final y el usuario no es gerencia, no mostrar controles
-		if (isReporteFinal && !isGerencia) {
-			return null;
-		}
+		if (isReporteFinal && !isGerencia) return null;
 
-		if (origen === 'mis') {
-			return (
-				<View style={styles.accionesContainer}>
-					<ThemedText style={styles.accionesTitle}>Acciones</ThemedText>
-					<View style={styles.selectorContainer}>
+		const isMisReportes = origen === 'mis';
+
+		return (
+			<View style={styles.section}>
+				<View style={styles.sectionHeaderRow}>
+					<ThemedText style={styles.sectionLabel}>
+						{isMisReportes ? 'Acciones' : 'Modificar estado'}
+					</ThemedText>
+				</View>
+
+				<View style={styles.formGroup}>
+					<ThemedText style={styles.label}>Estado</ThemedText>
+					<View style={styles.pickerContainer}>
 						<Picker
 							selectedValue={nuevoEstado || ''}
 							onValueChange={(value: string) => setNuevoEstado(value as EstadoReporte)}
 							style={styles.picker}
 						>
-							<Picker.Item label="Selecciona un estado..." value="" />
-							<Picker.Item label="Aceptar (Asentado)" value="ASENTADO" />
-							<Picker.Item label="Responder (En disputa)" value="DISPUTA" />
+							<Picker.Item label="Selecciona un estado..." value="" color="#999" />
+							{isMisReportes ? [
+								<Picker.Item key="ASENTADO" label="Aceptar" value="ASENTADO" />,
+								<Picker.Item key="DISPUTA" label="Responder" value="DISPUTA" />,
+							] : [
+								<Picker.Item key="PENDIENTE" label="Pendiente" value="PENDIENTE" />,
+								<Picker.Item key="DISPUTA" label="En disputa" value="DISPUTA" />,
+								<Picker.Item key="ASENTADO" label="Asentado" value="ASENTADO" />,
+								<Picker.Item key="DESESTIMADO" label="Desestimar" value="DESESTIMADO" />,
+							]}
 						</Picker>
 					</View>
+				</View>
+
+				<View style={styles.formGroup}>
+					<ThemedText style={styles.label}>
+						{(isMisReportes && nuevoEstado !== 'DISPUTA') ? 'Observación (opcional)' : 'Observación (obligatoria)'}
+					</ThemedText>
 					<TextInput
-						style={styles.input}
-						placeholder={nuevoEstado === 'DISPUTA' ? 'Observación (obligatoria)' : 'Observación (opcional)'}					placeholderTextColor={colors.text}						value={observacion}
+						style={[styles.input, styles.textArea]}
+						placeholder="Escribe aquí tu observación..."
+						placeholderTextColor="#999"
+						value={observacion}
 						onChangeText={setObservacion}
 						multiline
+						numberOfLines={4}
+						textAlignVertical="top"
 					/>
-					<TouchableOpacity style={styles.confirmBtn} onPress={handleAccion} disabled={isPending}>
-						{isPending ? <ActivityIndicator color={colors.componentBackground} /> : <ThemedText style={{ color: colors.componentBackground }}>Confirmar</ThemedText>}
-					</TouchableOpacity>
 				</View>
-			);
-		} else {
-			// origen === 'empleado'
-			return (
-				<View style={styles.accionesContainer}>
-					<ThemedText style={styles.accionesTitle}>Modificar estado</ThemedText>
-					<View style={styles.selectorContainer}>
-						<Picker
-							selectedValue={nuevoEstado || ''}
-							onValueChange={(value: string) => setNuevoEstado(value as EstadoReporte)}
-							style={styles.picker}
-						>
-							<Picker.Item label="Selecciona un estado..." value="" />
-							<Picker.Item label="Pendiente" value="PENDIENTE" />
-							<Picker.Item label="En disputa" value="DISPUTA" />
-							<Picker.Item label="Asentado" value="ASENTADO" />
-							<Picker.Item label="Desestimar" value="DESESTIMADO" />
-						</Picker>
-					</View>
-					<TextInput
-						style={styles.input}
-						placeholder="Observación (obligatoria)"					placeholderTextColor={colors.text}						value={observacion}
-						onChangeText={setObservacion}
-						multiline
-					/>
-					<TouchableOpacity style={styles.confirmBtn} onPress={handleAccion} disabled={isPending}>
-						{isPending ? <ActivityIndicator color={colors.componentBackground} /> : <ThemedText style={{ color: colors.secondaryText }}>Confirmar</ThemedText>}
-					</TouchableOpacity>
-				</View>
-			);
-		}
+
+				<TouchableOpacity
+					style={[styles.confirmBtn, isPending && styles.confirmBtnDisabled]}
+					onPress={handleAccion}
+					disabled={isPending}
+				>
+					{isPending ? (
+						<ActivityIndicator color="#fff" />
+					) : (
+						<ThemedText style={styles.confirmBtnText}>Confirmar Cambios</ThemedText>
+					)}
+				</TouchableOpacity>
+			</View>
+		);
 	};
 
 	return (
-		<Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-			<SafeAreaView style={styles.safeArea}>
-				<KeyboardAvoidingView
-					style={styles.overlay}
-					behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-				>
-					<View style={[styles.modal, { backgroundColor: colors.componentBackground }]}>  
-						<ScrollView contentContainerStyle={styles.scrollContent}>
-						<TouchableOpacity style={styles.closeBtn} onPress={onClose}>
-							<ThemedText style={{ fontSize: 18, color: colors.error }}>Cerrar</ThemedText>
-						</TouchableOpacity>
-						<ThemedText type="title" style={styles.title}>{reporte.titulo}</ThemedText>
-						<ThemedText style={styles.label}>Descripción</ThemedText>
-						<ThemedText style={styles.value}>{reporte.descripcion}</ThemedText>
-						<ThemedText style={styles.label}>Categoría</ThemedText>
-						<ThemedText style={styles.value}>{reporte.categoria}</ThemedText>
-						<ThemedText style={styles.label}>Estado</ThemedText>
-						<ThemedText style={styles.value}>{reporte.estado}</ThemedText>
-						<ThemedText style={styles.label}>Fecha incidente</ThemedText>
-						<ThemedText style={styles.value}>{new Date(reporte.fecha_incidente).toLocaleString()}</ThemedText>
-						<ThemedText style={styles.label}>Creado</ThemedText>
-						<ThemedText style={styles.value}>{new Date(reporte.created_at).toLocaleString()}</ThemedText>
-						<ThemedText style={styles.label}>Creador</ThemedText>
-						<ThemedText style={styles.value}>{reporte.creador_nombre} {reporte.creador_apellido}</ThemedText>
-						{/* Bitácora */}
-						<View style={styles.sectionHeader}>
-							<ThemedText style={styles.sectionTitle}>Bitácora</ThemedText>
+		<Modal
+			visible={visible}
+			transparent={true}
+			animationType="slide"
+			onRequestClose={onClose}
+		>
+			<View style={styles.overlay}>
+				<ModalKeyboardView style={styles.modalKeyboardAvoiding}>
+					<View style={[styles.modalContainer, { paddingBottom: insets.bottom }]}>
+						{/* Header */}
+						<View style={styles.modalHeader}>
+							<View style={styles.modalHeaderActions}>
+								<TouchableOpacity onPress={onClose} style={styles.modalIconButton}>
+									<Ionicons name="close" size={24} color="#999" />
+								</TouchableOpacity>
+							</View>
 						</View>
-						<View style={styles.bitacoraContainer}>
-							{reporte.bitacora && reporte.bitacora.length > 0 ? (
-								reporte.bitacora.map((b) => (
-									<View key={b.id} style={styles.bitacoraItem}>
-										<View style={styles.bitacoraHeader}>
-											<ThemedText style={styles.bitacoraUser}>{b.usuario_nombre} {b.usuario_apellido}</ThemedText>
-											<ThemedText style={styles.bitacoraDate}>{new Date(b.created_at).toLocaleString()}</ThemedText>
-										</View>
-										<View style={styles.bitacoraBody}>
-											<ThemedText style={styles.bitacoraAction}>{b.tipo_accion}</ThemedText>
-											{b.observacion && (
-												<View style={styles.bitacoraBubble}>
-													<ThemedText style={styles.bitacoraText}>{b.observacion}</ThemedText>
-												</View>
-											)}
-										</View>
+
+						<ScrollView
+							style={styles.modalFormContent}
+							contentContainerStyle={styles.modalFormContentContainer}
+							keyboardShouldPersistTaps="handled"
+							showsVerticalScrollIndicator={false}
+						>
+							{/* Información del Reporte */}
+							<ThemedText type="title" style={styles.title}>{reporte.titulo}</ThemedText>
+
+							<View style={styles.infoGrid}>
+								<View style={styles.infoItem}>
+									<ThemedText style={styles.infoLabel}>Categoría</ThemedText>
+									<ThemedText style={styles.infoValue}>{reporte.categoria}</ThemedText>
+								</View>
+								<View style={styles.infoItem}>
+									<ThemedText style={styles.infoLabel}>Estado</ThemedText>
+									<View style={styles.badge}>
+										<ThemedText style={styles.badgeText}>{reporte.estado}</ThemedText>
 									</View>
-								))
-							) : (
-								<ThemedText style={{ color: colors.icon, textAlign: 'center', marginTop: 20 }}>No hay actividad reciente</ThemedText>
-							)}
-						</View>
-						{/* Imágenes */}
-						<ImagenesReporte
-							reporteId={reporte.id}
-							imagenesUrl={reporte.imagenes}
-							canManage={canManageImages}
+								</View>
+								<View style={styles.infoItem}>
+									<ThemedText style={styles.infoLabel}>Fecha incidente</ThemedText>
+									<ThemedText style={styles.infoValue}>{new Date(reporte.fecha_incidente).toLocaleDateString()}</ThemedText>
+								</View>
+								<View style={styles.infoItem}>
+									<ThemedText style={styles.infoLabel}>Creador</ThemedText>
+									<ThemedText style={styles.infoValue}>{reporte.creador_nombre} {reporte.creador_apellido}</ThemedText>
+								</View>
+							</View>
+
+							<View style={styles.descriptionContainer}>
+								<ThemedText style={styles.infoLabel}>Mensaje</ThemedText>
+								<ThemedText style={styles.descriptionText}>{reporte.descripcion}</ThemedText>
+							</View>
+
+							{/* Imágenes del reporte */}
+							<View style={styles.section}>
+								<View style={styles.sectionHeaderRow}>
+									<ThemedText style={styles.sectionLabel}>Imágenes</ThemedText>
+									{canManageFiles && (
+										<View style={styles.imagePickerRow}>
+											<TouchableOpacity
+												style={styles.actionButton}
+												onPress={handlePickFromGallery}
+												disabled={isUploadingImage}
+											>
+												<Ionicons name="image-outline" size={14} color={colors.lightTint} />
+												<Text style={styles.actionButtonText}>Galería</Text>
+											</TouchableOpacity>
+											<TouchableOpacity
+												style={styles.actionButton}
+												onPress={handleTakePhoto}
+												disabled={isUploadingImage}
+											>
+												<Ionicons name="camera-outline" size={14} color={colors.lightTint} />
+												<Text style={styles.actionButtonText}>Cámara</Text>
+											</TouchableOpacity>
+										</View>
+									)}
+								</View>
+
+								{imagenesLoading ? (
+									<ActivityIndicator color={colors.lightTint} style={{ marginVertical: 12 }} />
+								) : imagenes.length === 0 ? (
+									<ThemedText style={styles.emptyText}>No hay imágenes.</ThemedText>
+								) : (
+									<View style={styles.imageGrid}>
+										{imagenes.map((img) => (
+											<View key={img.id} style={styles.imageThumbWrap}>
+												<TouchableOpacity onPress={() => handleOpenImagen(img)} activeOpacity={0.85}>
+													<Image source={{ uri: img.url }} style={styles.imageThumb} contentFit="cover" />
+												</TouchableOpacity>
+												{canManageFiles && (
+													<TouchableOpacity
+														style={styles.imageRemoveBtn}
+														onPress={() => handleRemoveImagen(img)}
+														disabled={isUploadingImage}
+													>
+														<Ionicons name="close-circle" size={22} color={colors.error} />
+													</TouchableOpacity>
+												)}
+											</View>
+										))}
+									</View>
+								)}
+
+								{isUploadingImage && (
+									<View style={styles.uploadingRow}>
+										<ActivityIndicator size="small" color={colors.lightTint} />
+										<ThemedText style={styles.uploadingText}>Subiendo imagen...</ThemedText>
+									</View>
+								)}
+							</View>
+
+							{/* Acciones del formulario */}
+							{renderControles()}
+
+						</ScrollView>
+
+						<AlertModal
+							visible={alertModal.visible}
+							title={alertModal.title}
+							message={alertModal.message}
+							actions={alertModal.actions}
+							onClose={() => setAlertModal((prev) => ({ ...prev, visible: false }))}
 						/>
-						{/* Acciones */}
-						{renderControles()}
-					</ScrollView>
 					</View>
-				</KeyboardAvoidingView>
-			</SafeAreaView>
+				</ModalKeyboardView>
+			</View>
+
+			<FilePreview file={previewFile} onClose={closePreview} />
 		</Modal>
 	);
 }
 
 const styles = StyleSheet.create({
-	safeArea: {
-		flex: 1,
-		backgroundColor: colors.componentBackground,
-	},
 	overlay: {
 		flex: 1,
-		justifyContent: 'center',
+		backgroundColor: 'rgba(0,0,0,0.5)',
+	},
+	modalKeyboardAvoiding: {
+		flex: 1,
+		width: '100%',
+	},
+	modalContainer: {
+		flex: 1,
+		marginTop: '10%',
+		backgroundColor: '#fff',
+		borderTopLeftRadius: 16,
+		borderTopRightRadius: 16,
+		overflow: 'hidden',
+	},
+	modalHeader: {
+		paddingHorizontal: 16,
+		paddingVertical: 12,
+		flexDirection: 'row',
+		justifyContent: 'flex-end',
 		alignItems: 'center',
 	},
-	modal: {
-		width: '92%',
-		maxHeight: '92%',
-		borderRadius: 16,
-		padding: '4%',
-		shadowColor: '#000',
-		shadowOffset: { width: 0, height: 2 },
-		shadowOpacity: 0.2,
-		shadowRadius: 8,
-		elevation: 5,
+	modalHeaderActions: {
+		flexDirection: 'row',
+		alignItems: 'center',
 	},
-	scrollContent: {
-		paddingBottom: '8%',
+	modalIconButton: {
+		padding: 4,
 	},
-	closeBtn: {
-		alignSelf: 'flex-end',
-		marginBottom: 8,
+	modalFormContent: {
+		flex: 1,
+	},
+	modalFormContentContainer: {
+		padding: 20,
+		paddingBottom: 60,
 	},
 	title: {
-		fontSize: 22,
+		fontSize: 24,
 		fontWeight: 'bold',
-		marginBottom: 8,
-		color: colors.text,
+		color: '#1a1a1a',
+		marginBottom: 20,
 	},
-	label: {
+	infoGrid: {
+		flexDirection: 'row',
+		flexWrap: 'wrap',
+		gap: 16,
+		marginBottom: 20,
+	},
+	infoItem: {
+		width: '45%',
+	},
+	infoLabel: {
+		fontSize: 14,
 		fontWeight: '600',
-		marginTop: 10,
+		color: '#1a1a1a',
+		marginBottom: 8,
+	},
+	infoValue: {
 		fontSize: 15,
+		color: '#111827',
+		fontWeight: '500',
+	},
+	descriptionContainer: {
+		marginBottom: 24,
+		padding: 16,
+		backgroundColor: '#f9fafb',
+		borderRadius: 12,
+		borderWidth: 1,
+		borderColor: '#e5e7eb',
+	},
+	descriptionText: {
+		fontSize: 15,
+		color: '#374151',
+		lineHeight: 22,
+	},
+	badge: {
+		alignSelf: 'flex-start',
+		backgroundColor: colors.lightTint + '15',
+		paddingHorizontal: 10,
+		paddingVertical: 4,
+		borderRadius: 999,
+	},
+	badgeText: {
+		color: colors.lightTint,
+		fontSize: 12,
+		fontWeight: '700',
+	},
+	section: {
+		marginTop: 24,
+		paddingTop: 24,
+		borderTopWidth: 1,
+		borderTopColor: '#f3f4f6',
+		gap: 12,
+	},
+	sectionHeaderRow: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		justifyContent: 'space-between',
+	},
+	sectionLabel: {
+		fontSize: 16,
+		fontWeight: '700',
+		color: '#111827',
+	},
+	actionButton: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 4,
+		paddingHorizontal: 10,
+		paddingVertical: 6,
+		borderRadius: 999,
+		borderWidth: 1,
+		borderColor: colors.lightTint,
+		backgroundColor: colors.lightTint + '12',
+	},
+	actionButtonText: {
+		fontSize: 12,
+		fontWeight: '700',
 		color: colors.lightTint,
 	},
-	value: {
-		fontSize: 15,
-		marginTop: 2,
-		color: colors.secondaryText
-	},
-	sectionHeader: {
-		marginTop: 18,
-		marginBottom: 4,
-	},
-	sectionTitle: {
-		fontSize: 17,
-		fontWeight: 'bold',
-		color: colors.text,
-	},
-	bitacoraContainer: {
-		marginBottom: 12,
-	},
-	bitacoraItem: {
-		marginBottom: 10,
-		backgroundColor: colors.componentBackground,
-		borderRadius: 8,
-		padding: '2%',
-	},
-	bitacoraHeader: {
+	imagePickerRow: {
 		flexDirection: 'row',
-		justifyContent: 'space-between',
-		alignItems: 'center',
+		gap: 8,
 	},
-	bitacoraUser: {
-		fontWeight: '600',
-		color: colors.text,
-	},
-	bitacoraDate: {
-		fontSize: 12,
+	emptyText: {
+		fontSize: 13,
 		color: colors.secondaryText,
 	},
-	bitacoraBody: {
-		marginTop: 4,
-	},
-	bitacoraAction: {
-		fontWeight: '500',
-		marginBottom: 2,
-		color: colors.lightTint,
-	},
-	bitacoraBubble: {
-		backgroundColor: colors.componentBackground,
-		borderRadius: 6,
-		padding: '1.5%',
-		marginTop: 2,
-	},
-	bitacoraText: {
-		fontSize: 14,
-		color: colors.text,
-	},
-	accionesContainer: {
-		marginTop: 18,
-		marginBottom: 8,
-	},
-	accionesTitle: {
-		fontSize: 16,
-		fontWeight: 'bold',
-		marginBottom: 8,
-	},
-	accionesRow: {
+	imageGrid: {
 		flexDirection: 'row',
-		gap: 12,
+		flexWrap: 'wrap',
+		gap: 10,
+	},
+	imageThumbWrap: {
+		position: 'relative',
+	},
+	imageThumb: {
+		width: 90,
+		height: 90,
+		borderRadius: 8,
+		backgroundColor: '#f3f4f6',
+	},
+	imageRemoveBtn: {
+		position: 'absolute',
+		top: -8,
+		right: -8,
+		backgroundColor: '#fff',
+		borderRadius: 11,
+	},
+	uploadingRow: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 8,
+		marginTop: 10,
+	},
+	uploadingText: {
+		fontSize: 13,
+		color: colors.secondaryText,
+	},
+	formGroup: {
+		marginBottom: 16,
+	},
+	label: {
+		fontSize: 14,
+		fontWeight: '600',
+		color: '#374151',
 		marginBottom: 8,
 	},
-	selectorContainer: {
+	input: {
+		backgroundColor: '#f9fafb',
+		borderRadius: 10,
+		paddingHorizontal: 14,
+		paddingVertical: 12,
+		fontSize: 15,
+		color: '#111827',
 		borderWidth: 1,
-		borderColor: colors.background,
-		borderRadius: 6,
-		marginBottom: 8,
+		borderColor: '#e5e7eb',
+	},
+	textArea: {
+		height: 100,
+		paddingTop: 12,
+	},
+	pickerContainer: {
+		backgroundColor: '#f9fafb',
+		borderRadius: 10,
+		borderWidth: 1,
+		borderColor: '#e5e7eb',
 		overflow: 'hidden',
 	},
 	picker: {
 		height: 50,
-		color: colors.text,
-	},
-	accionBtn: {
-		paddingHorizontal: 14,
-		paddingVertical: 8,
-		borderRadius: 6,
-		backgroundColor: colors.componentBackground,
-	},
-	accionBtnActive: {
-		backgroundColor: colors.lightTint,
-	},
-	accionBtnText: {
-		color: colors.text,
-		fontWeight: '600',
-	},
-	input: {
-		borderWidth: 1,
-		borderColor: colors.background,
-		borderRadius: 6,
-		padding: '2%',
-		minHeight: 40,
-		marginBottom: 8,
-		marginTop: 2,
-		fontSize: 15,
+		color: '#111827',
 	},
 	confirmBtn: {
-		backgroundColor: colors.success,
-		borderRadius: 6,
-		paddingVertical: 10,
+		backgroundColor: colors.lightTint,
+		borderRadius: 10,
+		paddingVertical: 14,
 		alignItems: 'center',
-		marginTop: 6,
+		marginTop: 12,
+		shadowColor: colors.lightTint,
+		shadowOffset: { width: 0, height: 4 },
+		shadowOpacity: 0.2,
+		shadowRadius: 8,
+		elevation: 4,
+	},
+	confirmBtnDisabled: {
+		backgroundColor: '#9ca3af',
+		shadowOpacity: 0,
+		elevation: 0,
+	},
+	confirmBtnText: {
+		color: '#fff',
+		fontSize: 16,
+		fontWeight: '700',
 	},
 });

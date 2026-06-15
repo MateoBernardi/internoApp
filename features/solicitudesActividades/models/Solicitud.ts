@@ -1,6 +1,9 @@
+import { ArchivoDTO } from '@/features/docs/dto/ArchivoDTO';
+import type { Archivo } from '@/features/docs/models/Archivo';
+
 // Estado de invitación (valores según el backend)
 export type EstadoInvitacionDB = 'SENT' | 'SEEN' | 'MODIFIED' | 'MODIFIED_BY_HOST' | 'ACCEPTED_BY_HOST' | 'ACCEPTED' | 'REJECTED' | 'ACTIVIDAD_CREADA' | 'EXPIRED';
-export type EstadoInvitacionUI = 'Pendiente' | 'Visto' | 'Modificado' | 'Modificado por creador' |'Aceptado por creador' | 'Aceptado' | 'Rechazado' | 'Actividad creada' | 'Expirada';
+export type EstadoInvitacionUI = 'Pendiente' | 'Visto' | 'Modificado' | 'Modificado por creador' | 'Aceptado por creador' | 'Aceptado' | 'Rechazado' | 'Actividad creada' | 'Expirada';
 
 // Mapeo de estados de DB a UI
 export const estadoInvitacionMapping: Record<EstadoInvitacionDB, EstadoInvitacionUI> = {
@@ -37,27 +40,43 @@ export interface Solicitud {
   titulo: string;
   descripcion: string;
   created_by: number;
-  fecha_inicio: string | null; // ISO 8601 UTC — null para MANDATOs sin fechas
-  fecha_fin: string | null; // ISO 8601 UTC — null para MANDATOs sin fechas
+  fecha_inicio: Date | null;
+  fecha_fin: Date | null;
   tipo_actividad?: TipoActividadDB;
   estado: EstadoInvitacionDB; // Estado de la invitación
   nombre: string; // Opcional: nombre del creador de la solicitud
   apellido: string; // Opcional: apellido del creador de la solicitud
+  nombre_creador?: string; // Nombre del creador (respuesta backend)
+  apellido_creador?: string; // Apellido del creador (respuesta backend)
+  id_usuario_invitado?: number;
+  nombre_invitado?: string;
+  apellido_invitado?: string;
+  archivos?: Archivo[];
+  es_grupo?: boolean;
 }
 
-export interface SolicitudEnviada{
+export interface SolicitudEnviada {
   solicitud_id: number;
   titulo: string;
   descripcion: string;
+  fecha_inicio: Date | null;
+  fecha_fin: Date | null;
+  nombre_creador: string;
+  apellido_creador: string;
   created_by: number;
-  fecha_inicio: string | null; // ISO 8601 UTC — null para MANDATOs sin fechas
-  fecha_fin: string | null; // ISO 8601 UTC — null para MANDATOs sin fechas
-  tipo_actividad?: TipoActividadDB;
-  estado: EstadoInvitacionDB; // Estado de la invitación
-  nombre_creador: string; // Nombre del creador de la solicitud
-  apellido_creador: string; // Apellido del creador de la solicitud
-  invitado_nombre: string; // Nombre del invitado
-  invitado_apellido: string; // Apellido del invitado
+  invitados: SolicitudInvitado[]; // todos los participantes, incluye al creador
+  tipo_actividad: string;
+  estado: string;
+  archivos: ArchivoDTO[];
+  is_host: boolean;
+  es_grupo: boolean;
+}
+
+export interface SolicitudInvitado {
+  user_id: number;
+  invitado_nombre?: string;
+  invitado_apellido?: string;
+  estado?: EstadoInvitacionDB;
 }
 
 export interface InvitadoResumen {
@@ -71,36 +90,72 @@ export interface SolicitudEnviadaAgrupada {
   titulo: string;
   descripcion: string;
   created_by: number;
-  fecha_inicio: string | null;
-  fecha_fin: string | null;
+  fecha_inicio: Date | null;
+  fecha_fin: Date | null;
   tipo_actividad?: TipoActividadDB;
   invitados: InvitadoResumen[];
+  archivos?: Archivo[];
 }
 
-export type TipoActividad = 'PETICION' | 'REUNION';
-export type TipoActividadDB = 'MANDATO' | 'REUNION';
+export type TipoActividad = 'PETICION' | 'REUNION' | 'CHAT';
+export type TipoActividadDB = 'MANDATO' | 'REUNION' | 'CHAT';
 
 export interface CrearSolicitudRequest {
   titulo: string;
   descripcion: string;
-  fecha_inicio?: string; // ISO 8601 UTC — obligatorio para REUNION, opcional para MANDATO
-  fecha_fin?: string; // ISO 8601 UTC — obligatorio para REUNION, opcional para MANDATO
+  fecha_inicio?: Date | null;
+  fecha_fin?: Date | null;
   tipo_actividad: TipoActividadDB;
   invitados: number[]; // Array de IDs de usuario_entidad
+  crear_de_todos_modos?: number;
+  archivosIds?: number[]; // Array de IDs de archivos adjuntos (opcional)
+  enviar_por_separado?: 0 | 1;
+  es_grupo?: boolean;
+}
+
+export interface RangoOcupado {
+  usuario: string;
+  tipo: 'solicitud' | 'actividad' | 'licencia';
+  desde: Date;
+  hasta: Date;
 }
 
 export interface CrearSolicitudResponse {
   success: boolean;
-  solicitudId: number;
+  solicitudId: number | null;
+  solicitudIds?: number[];
+  rangosOcupados?: RangoOcupado[];
 }
 
 export interface ActualizarEstadoInvitacionRequest {
-  solicitudId: number;
+  solicitud_id: number;
   estado: EstadoInvitacionDB;
+  fecha_inicio_nueva?: Date | null;
+  fecha_fin_nueva?: Date | null;
+  observacion?: string | null;
+  crear_de_todos_modos?: number;
+  archivosIds?: number[];
 }
 
 export interface ActualizarEstadoInvitacionResponse {
   success: boolean;
+  rangosOcupados?: RangoOcupado[];
+}
+
+export interface UpdateSolicitudRequest {
+  solicitud_id: number;
+  estado: EstadoInvitacionDB;
+  fecha_inicio_nueva?: Date | null;
+  fecha_fin_nueva?: Date | null;
+  observacion?: string | null;
+  crear_de_todos_modos?: number;
+  archivosIds?: number[];
+}
+
+export interface UpdateSolicitudResponse {
+  success: boolean;
+  rangosOcupados?: RangoOcupado[];
+  mensaje?: string;
 }
 
 /* ==================== SOLICITUDES ==================== */
@@ -111,6 +166,24 @@ export interface ReenviarSolicitudRequest {
 }
 
 export interface ReenviarSolicitudResponse {
+  success: boolean;
+}
+
+export interface ActualizarInvitadosSolicitudRequest {
+  solicitudId: number;
+  action: 'add' | 'remove';
+  invitados: number[];
+}
+
+export interface ActualizarInvitadosSolicitudResponse {
+  success: boolean;
+}
+
+export interface OcultarSolicitudInvitadoRequest {
+  solicitudId: number;
+}
+
+export interface OcultarSolicitudInvitadoResponse {
   success: boolean;
 }
 
@@ -134,60 +207,30 @@ export interface CancelarSolicitudRequest {
 
 export interface CancelarSolicitudResponse {
   success: boolean;
-}
-
-export interface ModificarSolicitudFechasRequest {
-  solicitudId: number;
-  nuevaFechaInicio: string; // ISO 8601 UTC
-  nuevaFechaFin: string; // ISO 8601 UTC
-  observacion?: string;
-}
-
-export interface ModificarSolicitudFechasResponse {
-  success: boolean;
   mensaje?: string;
 }
 
 export interface BitacoraSolicitud {
-  id: number;
+  id: number | null;
   solicitud_id?: number;
-  fecha_inicio_anterior?: string;
-  fecha_fin_anterior?: string;
-  fecha_inicio_nueva?: string | null;
-  fecha_fin_nueva?: string | null;
+  fecha_inicio_anterior?: Date;
+  fecha_fin_anterior?: Date;
+  fecha_inicio_nueva?: Date | null;
+  fecha_fin_nueva?: Date | null;
   observacion?: string | null;
   modificado_por?: number;
   modificado_por_nombre?: string;
   modificado_por_apellido?: string;
-  fecha_modificacion?: string;
-  created_at: string;
-  usuario_id: number;
+  fecha_modificacion?: Date;
+  created_at: Date;
+  usuario_id: number | null;
   usuario_nombre: string;
   usuario_apellido: string;
   estado: EstadoInvitacionDB;
+  archivos?: Archivo[];
 }
 
-/* ==================== VALIDACIÓN DE FECHAS ==================== */
-
-export interface ValidarFechasRequest {
-  fecha_inicio: string; // ISO 8601
-  fecha_fin: string; // ISO 8601
-  participantes: number[]; // IDs de usuario_entidad
-  tipo_actividad?: 'REUNION' | 'MANDATO'; // Permite al backend ajustar inclusión del creador en validación
-  tipoActividad?: 'REUNION' | 'MANDATO'; // Compatibilidad opcional si backend acepta camelCase
-  solicitudIdExcluir?: number; // Excluir esta solicitud de la validación (para modificaciones)
-  actividadIdExcluir?: number | null; // Excluir esta actividad de la validación (para modificaciones de actividades)
-}
-
-export interface RangoOcupado {
-  usuario: string;
-  tipo: string;
-  desde: string;
-  hasta: string;
-}
-
-export interface ValidarFechasResponse {
-  success: boolean;
-  avisos: string[];
-  rangosOcupados?: RangoOcupado[];
+export interface BitacoraPage {
+  data: BitacoraSolicitud[];
+  nextCursor: number | null;
 }

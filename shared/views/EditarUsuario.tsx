@@ -9,6 +9,7 @@ import { Feather } from '@expo/vector-icons';
 import React, { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
+import { KEYBOARD_BEHAVIOR } from '@/shared/ui/keyboard';
 const colors = Colors['light'];
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -179,7 +180,7 @@ export default function EditarUsuario() {
     <>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={KEYBOARD_BEHAVIOR}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
         <ScrollView
@@ -189,7 +190,6 @@ export default function EditarUsuario() {
           keyboardShouldPersistTaps="handled"
         >
           <ThemedView style={styles.formSection}>
-            <ThemedText style={styles.title}>Editar Perfil</ThemedText>
             <ThemedText style={styles.subtitle}>Modificá tus datos de cuenta</ThemedText>
 
             {/* Section 1: Account data */}
@@ -365,12 +365,6 @@ const styles = StyleSheet.create({
   formSection: {
     backgroundColor: 'transparent',
     alignItems: 'center',
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 8,
   },
   subtitle: {
     fontSize: 14,

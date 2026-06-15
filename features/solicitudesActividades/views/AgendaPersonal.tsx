@@ -1,216 +1,186 @@
-import { ThemedText } from '@/components/themed-text';
+import { CreateButton } from '@/components/ui/CreateButton';
 import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
 import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
-import { Colors } from '@/constants/theme';
-import { useAuth } from '@/features/auth/context/AuthContext';
+import { Colors, UI } from '@/constants/theme';
 import { confirmAction } from '@/shared/ui/confirmAction';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import React, { useCallback, useMemo, useState } from 'react';
+import { useLocalSearchParams } from 'expo-router';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
-  Dimensions,
-  KeyboardAvoidingView,
-  Modal,
   Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
-  TouchableWithoutFeedback,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ActividadDetalle } from '../components/ActividadDetalle';
 import { AgendaDiaria } from '../components/AgendaDiaria';
+import { AgendaMonthGrid } from '../components/AgendaMonthGrid';
 import { AgendaSemanal } from '../components/AgendaSemanal';
+import { AgendaToolbar } from '../components/AgendaToolbar';
+import { CrearActividadModal } from '../components/CrearActividadModal';
 import { ValidacionFechasModal } from '../components/ValidacionFechasModal';
-import type { Actividad, Licencia } from '../models/Actividad';
+import type { CrearActividadResponse } from '../models/Actividad';
+import type { RangoOcupado } from '../models/Solicitud';
 import type { Activity } from '../models/activityTypes';
 import {
-  useActividadesSemanales,
+  buildPeriodoVentanaFromMonth,
+  useActividadesPorPeriodo,
   useCancelarActividad,
   useCrearActividad,
 } from '../viewmodels/useActividades';
-import { useValidacionFechas } from '../viewmodels/useValidacionFechas';
+import { mapActivities, mapLicencias } from '../agenda/activityMappers';
+import {
+  addMonths,
+  buildDateTimeFromDateAndTime,
+  buildDefaultNewActivityState,
+  ceilToNextMinute,
+  formatDateKey,
+  generarGrillaMes,
+  normalizeToMinute,
+} from '../agenda/dateUtils';
 
 const colors = Colors['light'];
-const MODAL_MAX_HEIGHT = Math.min(640, Dimensions.get('window').height * 0.8);
-
-function normalizeToMinute(date: Date): Date {
-  const normalized = new Date(date);
-  normalized.setSeconds(0, 0);
-  return normalized;
-}
-
-function ceilToNextMinute(date: Date): Date {
-  const normalized = new Date(date);
-  if (normalized.getSeconds() > 0 || normalized.getMilliseconds() > 0) {
-    normalized.setMinutes(normalized.getMinutes() + 1);
-  }
-  normalized.setSeconds(0, 0);
-  return normalized;
-}
-
-function buildDateTimeFromDateAndTime(date: string, time: Date): Date {
-  const [year, month, day] = date.split('-').map(Number);
-  const merged = new Date(year, (month ?? 1) - 1, day ?? 1, time.getHours(), time.getMinutes(), 0, 0);
-  return normalizeToMinute(merged);
-}
-
 const AgendaPersonal: React.FC = () => {
-  // Queries
-  const actividadesSemanalesQuery = useActividadesSemanales();
   const insets = useSafeAreaInsets();
-  const { user } = useAuth();
-  const router = useRouter();
+  const { actividadId: actividadIdParam, id: idParam, rol: rolParam } = useLocalSearchParams<{
+    actividadId?: string | string[];
+    id?: string | string[];
+    rol?: string | string[];
+  }>();
+  const { height: windowHeight } = useWindowDimensions();
+  const [selectedActividadId, setSelectedActividadId] = useState<number | null>(null);
+  const [selectedActividadRol, setSelectedActividadRol] = useState<string | undefined>(undefined);
+  const handledParamRef = useRef<string | null>(null);
 
-  // Mutations
+  // FIX: today estabilizado con useState para que no cambie de referencia en cada render.
+  // Antes era `const today = new Date()` lo que generaba una nueva instancia
+  // en cada render, causando re-renders en cadena en los hijos.
+  const [today] = useState(() => new Date());
+
+  const [activeMonth, setActiveMonth] = useState(
+    () => new Date(today.getFullYear(), today.getMonth(), 1)
+  );
+  const [selectedDate, setSelectedDate] = useState(() => formatDateKey(today));
+  const periodo = useMemo(() => buildPeriodoVentanaFromMonth(activeMonth), [activeMonth]);
+  const actividadesPeriodoQuery = useActividadesPorPeriodo(periodo);
+
   const crearActividadMutation = useCrearActividad();
   const cancelarActividadMutation = useCancelarActividad();
-  const validacion = useValidacionFechas();
 
   const handleRefresh = useCallback(async () => {
-    await actividadesSemanalesQuery.refetch();
-  }, [actividadesSemanalesQuery]);
+    await actividadesPeriodoQuery.refetch();
+  }, [actividadesPeriodoQuery]);
 
-  const today = new Date();
-  const dayName = today.toLocaleDateString('es-ES', { weekday: 'long' });
-  const dateString = today.toLocaleDateString('es-ES', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
-
-  const [viewMode, setViewMode] = useState<'day' | 'week'>('day');
+  const [viewMode, setViewMode] = useState<'month' | 'day' | 'week'>('month');
   const [showAddForm, setShowAddForm] = useState(false);
-  const [showFloatingMenu, setShowFloatingMenu] = useState(false);
+  const [isAddFormMinimized, setIsAddFormMinimized] = useState(false);
+  const [showEndDateFields, setShowEndDateFields] = useState(false);
 
-  const [newActivity, setNewActivity] = useState({
-    date: today.toISOString().split('T')[0],
-    startTime: new Date(),
-    endTime: new Date(today.getTime() + 3600000),
-    title: '',
-    description: '',
-  });
+  const [newActivity, setNewActivity] = useState(() => buildDefaultNewActivityState('month', formatDateKey(new Date())));
 
-  // Date picker state
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [datePickerMode, setDatePickerMode] = useState<'date' | 'time'>('date');
-  const [activeDateType, setActiveDateType] = useState<'startDate' | 'startTime' | 'endTime' | null>(null);
+  const [activeDateType, setActiveDateType] = useState<'startDate' | 'startTime' | 'endDate' | 'endTime' | 'monthJump' | null>(null);
+  const [backendRangosOcupados, setBackendRangosOcupados] = useState<RangoOcupado[]>([]);
 
-  const isLoading = actividadesSemanalesQuery.isLoading;
+  const isLoading = actividadesPeriodoQuery.isLoading;
+  const isMutating = crearActividadMutation.isPending || cancelarActividadMutation.isPending;
 
-  const isMutating =
-    crearActividadMutation.isPending ||
-    cancelarActividadMutation.isPending;
-  const isValidationInProgress = validacion.state === 'validating' || validacion.state === 'warnings';
+  useEffect(() => {
+    const rawActividadId = Array.isArray(actividadIdParam) ? actividadIdParam[0] : actividadIdParam;
+    const rawId = rawActividadId ?? (Array.isArray(idParam) ? idParam[0] : idParam);
+    const rawRol = Array.isArray(rolParam) ? rolParam[0] : rolParam;
 
-  // Mapear actividades desde la API
-  const mapActivities = (apiActivities: Actividad[]): Activity[] => {
-    return (apiActivities || []).map((act) => {
-      const timeMatch = act.fecha_inicio.match(/[T ](\d{2}:\d{2})/);
-      const time = timeMatch ? timeMatch[1] : '00:00';
+    if (!rawId) return;
+    const key = `${rawId}:${rawRol ?? ''}`;
+    if (handledParamRef.current === key) return;
 
-      const dateMatch = act.fecha_inicio.match(/(\d{4}-\d{2}-\d{2})/);
-      const date = dateMatch ? dateMatch[1] : act.fecha_inicio.split(/[T ]/)[0];
+    const parsedId = Number(rawId);
+    if (!Number.isFinite(parsedId) || parsedId <= 0) return;
 
-      return {
-        id: act.id.toString(),
-        time,
-        title: act.titulo,
-        description: act.descripcion,
-        completed: false,
-        date,
-        rol: act.rol,
-        participantes: act.participantes,
-        solicitud_id: act.solicitud_id,
-        fecha_fin: act.fecha_fin,
-        tipo: 'actividad',
-        tipo_actividad: act.tipo_actividad,
-      };
-    });
-  };
+    setSelectedActividadId(parsedId);
+    setSelectedActividadRol(rawRol ?? undefined);
+    handledParamRef.current = key;
+  }, [actividadIdParam, idParam, rolParam]);
 
-  const mapLicencias = (licencias: Licencia[]): Activity[] => {
-    const expanded: Activity[] = [];
-
-    (licencias || []).forEach((lic) => {
-      const timeMatch = lic.fecha_inicio.match(/[T ](\d{2}:\d{2})/);
-      const time = timeMatch ? timeMatch[1] : '00:00';
-
-      const start = new Date(lic.fecha_inicio);
-      const end = new Date(lic.fecha_fin);
-      const cursor = new Date(start);
-      cursor.setHours(0, 0, 0, 0);
-
-      const endDay = new Date(end);
-      endDay.setHours(0, 0, 0, 0);
-
-      while (cursor.getTime() <= endDay.getTime()) {
-        const date = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}-${String(cursor.getDate()).padStart(2, '0')}`;
-        expanded.push({
-          id: `licencia-${lic.id}-${date}`,
-          time,
-          title: lic.tipo_licencia_nombre || 'Licencia',
-          description: lic.tipo_licencia_nombre || '',
-          completed: false,
-          date,
-          tipo: 'licencia',
-          tipo_licencia_id: lic.tipo_licencia_id,
-          tipo_licencia_nombre: lic.tipo_licencia_nombre,
-          usuario_id: lic.usuario_id,
-          fecha_fin: lic.fecha_fin,
-        });
-
-        cursor.setDate(cursor.getDate() + 1);
-      }
+  const avisosBackend = useMemo(() => {
+    const grouped = new Map<string, number>();
+    backendRangosOcupados.forEach((rango) => {
+      grouped.set(rango.usuario, (grouped.get(rango.usuario) ?? 0) + 1);
     });
 
-    return expanded;
-  };
+    return Array.from(grouped.entries()).map(([usuario, cantidad]) =>
+      `${usuario}: ${cantidad} solapamiento${cantidad > 1 ? 's' : ''}`
+    );
+  }, [backendRangosOcupados]);
 
-  // Combinar todas las actividades
   const allActivities = useMemo(() => {
-    const weekActivities = actividadesSemanalesQuery.data
-      ? [
-          ...mapActivities(actividadesSemanalesQuery.data.actividades || []),
-          ...mapLicencias(actividadesSemanalesQuery.data.licencias || []),
-        ]
-      : [];
-    return weekActivities;
-  }, [actividadesSemanalesQuery.data]);
+    if (!actividadesPeriodoQuery.data) return [];
+    return [
+      ...mapActivities(actividadesPeriodoQuery.data.actividades || []),
+      ...mapLicencias(actividadesPeriodoQuery.data.licencias || []),
+    ];
+  }, [actividadesPeriodoQuery.data]);
 
   const filteredActivities = useMemo(() => {
     if (viewMode === 'day') {
-      return allActivities.filter(
-        (a) => a.date === today.toISOString().split('T')[0]
-      );
+      return allActivities.filter((a) => a.date === selectedDate);
     }
     return allActivities;
-  }, [viewMode, allActivities, today]);
+  }, [viewMode, allActivities, selectedDate]);
 
-  const onDateChange = (event: any, selectedDate?: Date) => {
-    if (Platform.OS !== 'ios') {
-      setShowDatePicker(false);
-    }
+  const monthGridDates = useMemo(
+    () => generarGrillaMes(activeMonth.getFullYear(), activeMonth.getMonth()),
+    [activeMonth]
+  );
 
-    if (event.type === 'dismissed') {
-      setActiveDateType(null);
-      return;
-    }
+  const dayCellHeight = useMemo(() => {
+    const maxByHeight = (windowHeight - 260) / 6;
+    return Math.max(72, Math.min(108, maxByHeight));
+  }, [windowHeight]);
 
-    if (!selectedDate) return;
+  const activitiesByDate = useMemo(() => {
+    const map = new Map<string, Activity[]>();
+    allActivities.forEach((activity) => {
+      const current = map.get(activity.date) ?? [];
+      current.push(activity);
+      map.set(activity.date, current);
+    });
 
+    map.forEach((items, dateKey) => {
+      items.sort((a, b) => (a.time || '23:59').localeCompare(b.time || '23:59'));
+      map.set(dateKey, items);
+    });
+
+    return map;
+  }, [allActivities]);
+
+  const handleChangeMonth = useCallback((delta: number) => {
+    const nextMonth = addMonths(activeMonth, delta);
+    setActiveMonth(nextMonth);
+    setSelectedDate(formatDateKey(nextMonth));
+  }, [activeMonth]);
+
+  const onDateCancel = () => {
+    setShowDatePicker(false);
+    setActiveDateType(null);
+  };
+
+  const onDateConfirm = (selectedDate: Date) => {
     const normalizedSelectedDate = normalizeToMinute(selectedDate);
 
     if (activeDateType === 'startDate') {
       setNewActivity((prev) => ({
         ...prev,
-        date: normalizedSelectedDate.toISOString().split('T')[0],
+        date: formatDateKey(normalizedSelectedDate),
+        endDate: showEndDateFields ? prev.endDate : formatDateKey(normalizedSelectedDate),
         startTime: normalizedSelectedDate,
       }));
       setActiveDateType(null);
@@ -224,8 +194,14 @@ const AgendaPersonal: React.FC = () => {
         startTime: normalizeToMinute(updated),
       }));
       setActiveDateType(null);
+    } else if (activeDateType === 'endDate') {
+      setNewActivity((prev) => ({
+        ...prev,
+        endDate: formatDateKey(normalizedSelectedDate),
+      }));
+      setActiveDateType(null);
     } else if (activeDateType === 'endTime') {
-      const [date] = newActivity.date.split('T');
+      const [date] = newActivity.endDate.split('T');
       const hours = String(normalizedSelectedDate.getHours()).padStart(2, '0');
       const minutes = String(normalizedSelectedDate.getMinutes()).padStart(2, '0');
       const updated = new Date(`${date}T${hours}:${minutes}`);
@@ -234,55 +210,98 @@ const AgendaPersonal: React.FC = () => {
         endTime: normalizeToMinute(updated),
       }));
       setActiveDateType(null);
+    } else if (activeDateType === 'monthJump') {
+      const picked = new Date(normalizedSelectedDate);
+      setActiveMonth(new Date(picked.getFullYear(), picked.getMonth(), 1));
+      setSelectedDate(formatDateKey(picked));
+      setActiveDateType(null);
     }
+
+    setShowDatePicker(false);
   };
 
   const startDateTime = useMemo(
     () => buildDateTimeFromDateAndTime(newActivity.date, newActivity.startTime),
     [newActivity.date, newActivity.startTime]
   );
-  const endDateTime = useMemo(
-    () => buildDateTimeFromDateAndTime(newActivity.date, newActivity.endTime),
-    [newActivity.date, newActivity.endTime]
-  );
-  const now = useMemo(
-    () => ceilToNextMinute(new Date()),
-    [newActivity.date, newActivity.startTime, newActivity.endTime, showAddForm]
-  );
+
+  const endDateTime = useMemo(() => {
+    if (!showEndDateFields) {
+      return new Date(startDateTime.getTime() + 60 * 60 * 1000);
+    }
+    return buildDateTimeFromDateAndTime(newActivity.endDate, newActivity.endTime);
+  }, [showEndDateFields, newActivity.endDate, newActivity.endTime, startDateTime]);
+
+  // FIX: now ya no tiene dependencias del formulario. Antes dependía de
+  // newActivity.date, startTime, endTime y showAddForm, lo que lo recalculaba
+  // al tocar cualquier campo y generaba re-renders en cadena que podían
+  // re-disparar el query. `now` solo necesita calcularse al montar.
+  const now = useMemo(() => ceilToNextMinute(new Date()), []);
+
   const activityDateErrorMessage = useMemo(() => {
     if (startDateTime < now) return 'La fecha de inicio es menor a la actual.';
-    if (endDateTime <= startDateTime) return 'La fecha de fin debe ser mayor a la de inicio.';
+    if (showEndDateFields && endDateTime <= startDateTime) return 'La fecha de fin debe ser mayor a la de inicio.';
     return null;
-  }, [startDateTime, endDateTime, now]);
+  }, [startDateTime, endDateTime, now, showEndDateFields]);
 
   const handleStartDate = () => {
-    if (isValidationInProgress) return;
     setActiveDateType('startDate');
     setDatePickerMode('date');
     setShowDatePicker(true);
   };
 
   const handleStartTime = () => {
-    if (isValidationInProgress) return;
     setActiveDateType('startTime');
     setDatePickerMode('time');
     setShowDatePicker(true);
   };
 
   const handleEndTime = () => {
-    if (isValidationInProgress) return;
     setActiveDateType('endTime');
     setDatePickerMode('time');
     setShowDatePicker(true);
   };
 
-  const closeAddActivityModal = () => {
+  const handleEndDate = () => {
+    setActiveDateType('endDate');
+    setDatePickerMode('date');
+    setShowDatePicker(true);
+  };
+
+  const handleOpenMonthDatePicker = () => {
+    setActiveDateType('monthJump');
+    setDatePickerMode('date');
+    setShowDatePicker(true);
+  };
+
+  const closeAddActivityModal = useCallback(() => {
     setShowDatePicker(false);
     setActiveDateType(null);
     setShowAddForm(false);
+    setIsAddFormMinimized(false);
+    setNewActivity(buildDefaultNewActivityState(viewMode, selectedDate));
+    setShowEndDateFields(false);
+  }, [viewMode, selectedDate]);
+
+  const openAddActivityModal = () => {
+    if (!isAddFormMinimized) {
+      setNewActivity(buildDefaultNewActivityState(viewMode, selectedDate));
+      setShowEndDateFields(false);
+    }
+    setShowAddForm(true);
+    setIsAddFormMinimized(false);
   };
 
-  const handleDeleteActivity = async (id: string) => {
+  const minimizeAddActivityModal = () => {
+    setShowDatePicker(false);
+    setActiveDateType(null);
+    setShowAddForm(false);
+    setIsAddFormMinimized(true);
+  };
+
+  // FIX: handleDeleteActivity envuelto en useCallback para evitar que se
+  // recree en cada render y fuerze re-renders innecesarios en AgendaSemanal/AgendaDiaria.
+  const handleDeleteActivity = useCallback(async (id: string) => {
     const activity = allActivities.find((a) => a.id === id);
     if (!activity || activity.tipo === 'licencia') return;
 
@@ -297,147 +316,119 @@ const AgendaPersonal: React.FC = () => {
     if (!confirmed) return;
 
     try {
-      const actividadId = Number(activity.id);
+      const actividadId = activity.actividad_id ?? Number(activity.id);
       if (!Number.isFinite(actividadId)) {
         Alert.alert('Error', 'No se pudo identificar la actividad a eliminar.');
         return;
       }
-      await cancelarActividadMutation.mutateAsync({ actividadId });
+      await cancelarActividadMutation.mutateAsync({ id: actividadId });
       Alert.alert('Éxito', 'Actividad cancelada correctamente.');
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Intenta nuevamente');
     }
-  };
+  }, [allActivities, cancelarActividadMutation]);
 
   const handlePressActivity = useCallback((activity: Activity) => {
     if (activity.tipo === 'licencia') return;
-    router.push({
-      pathname: '/(extras)/actividad-detalle' as any,
-      params: { actividadId: activity.id },
-    });
-  }, [router]);
+
+    const actividadId = activity.actividad_id ?? Number(activity.id);
+    if (!Number.isFinite(actividadId)) return;
+
+    setSelectedActividadId(actividadId);
+    setSelectedActividadRol(activity.rol ?? undefined);
+  }, []);
+
+  const handleCloseActividad = useCallback(() => {
+    setSelectedActividadId(null);
+    setSelectedActividadRol(undefined);
+  }, []);
 
   const ejecutarCrearActividad = useCallback(async (payload: {
     titulo: string;
     descripcion: string;
-    fecha_inicio: string;
-    fecha_fin: string;
+    fecha_inicio: Date;
+    fecha_fin?: Date;
   }) => {
     try {
-      await crearActividadMutation.mutateAsync(payload);
+      const response: CrearActividadResponse = await crearActividadMutation.mutateAsync(payload);
 
-      setNewActivity({
-        date: today.toISOString().split('T')[0],
-        startTime: new Date(),
-        endTime: new Date(today.getTime() + 3600000),
-        title: '',
-        description: '',
-      });
+      if (!response.success && (response.rangosOcupados?.length ?? 0) > 0) {
+        setBackendRangosOcupados(response.rangosOcupados ?? []);
+        return;
+      }
+
+      setNewActivity(buildDefaultNewActivityState(viewMode, selectedDate));
       closeAddActivityModal();
       Alert.alert('Éxito', 'Actividad creada correctamente.');
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Intenta nuevamente');
     }
-  }, [crearActividadMutation, today]);
+  }, [crearActividadMutation, closeAddActivityModal, viewMode, selectedDate]);
 
   const handleAddActivity = async () => {
-    if (isValidationInProgress) return;
-
     if (!newActivity.title.trim()) {
       Alert.alert('Error', 'El título es requerido');
       return;
     }
 
-    if (activityDateErrorMessage) {
-      return;
-    }
+    if (activityDateErrorMessage) return;
 
-    const startHours = String(startDateTime.getHours()).padStart(2, '0');
-    const startMinutes = String(startDateTime.getMinutes()).padStart(2, '0');
-    const endHours = String(endDateTime.getHours()).padStart(2, '0');
-    const endMinutes = String(endDateTime.getMinutes()).padStart(2, '0');
-
-    const fechaInicio = `${newActivity.date}T${startHours}:${startMinutes}:00`;
-    const fechaFin = `${newActivity.date}T${endHours}:${endMinutes}:00`;
     const payload = {
       titulo: newActivity.title.trim(),
       descripcion: newActivity.description,
-      fecha_inicio: fechaInicio,
-      fecha_fin: fechaFin,
+      fecha_inicio: startDateTime,
+      ...(showEndDateFields ? { fecha_fin: endDateTime } : {}),
     };
 
-    const participantes: number[] = [];
-    if (user?.user_context_id) {
-      participantes.push(user.user_context_id);
-    }
-
-    validacion.validate(
-      {
-        fechaInicio,
-        fechaFin,
-        participantes,
-        actividadIdExcluir: null,
-      },
-      () => ejecutarCrearActividad(payload)
-    );
+    await ejecutarCrearActividad(payload);
   };
+
+  const handleToggleEndDateFields = () => {
+    setShowEndDateFields((prev) => {
+      if (prev) return false;
+      setNewActivity((current) => ({
+        ...current,
+        endDate: current.date,
+        endTime: new Date(startDateTime.getTime() + 60 * 60 * 1000),
+      }));
+      return true;
+    });
+  };
+
+  const handleChangeTitle = (text: string) => setNewActivity((prev) => ({ ...prev, title: text }));
+  const handleChangeDescription = (text: string) => setNewActivity((prev) => ({ ...prev, description: text }));
+
+  // Valor compartido por el picker de iOS (dentro del modal) y el de Android.
+  const datePickerValue = activeDateType === 'monthJump'
+    ? new Date(selectedDate + 'T00:00:00')
+    : activeDateType === 'startDate'
+      ? newActivity.startTime
+      : activeDateType === 'startTime'
+        ? newActivity.startTime
+        : activeDateType === 'endDate'
+          ? new Date(newActivity.endDate + 'T00:00:00')
+          : newActivity.endTime;
+  const pickerKey = `${activeDateType ?? 'none'}-${datePickerMode}`;
 
   return (
     <View style={styles.container}>
-      {/* Título */}
-      <ThemedText type="title" style={styles.pageTitle}>Agenda Personal</ThemedText>
-
       {/* Header */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.headerTitle}>{dayName}</Text>
-          <Text style={styles.headerSubtitle}>{dateString}</Text>
-        </View>
-
-        {/* Tabs */}
-        <View style={styles.tabs}>
-          <TouchableOpacity
-            onPress={() => setViewMode('day')}
-            style={[
-              styles.tab,
-              viewMode === 'day' && [styles.tabActive, { borderBottomColor: colors.lightTint }],
-            ]}
-          >
-            <Text
-              style={[
-                styles.tabText,
-                viewMode === 'day' && { color: colors.lightTint, fontWeight: 'bold' },
-              ]}
-            >
-              Día
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => setViewMode('week')}
-            style={[
-              styles.tab,
-              viewMode === 'week' && [styles.tabActive, { borderBottomColor: colors.lightTint }],
-            ]}
-          >
-            <Text
-              style={[
-                styles.tabText,
-                viewMode === 'week' && { color: colors.lightTint, fontWeight: 'bold' },
-              ]}
-            >
-              Semana
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+      <AgendaToolbar
+        activeMonth={activeMonth}
+        viewMode={viewMode}
+        onPrevMonth={() => handleChangeMonth(-1)}
+        onNextMonth={() => handleChangeMonth(1)}
+        onOpenMonthPicker={handleOpenMonthDatePicker}
+        onChangeViewMode={setViewMode}
+      />
 
       {/* Activities */}
       <ScrollView
         style={styles.activitiesContainer}
-        contentContainerStyle={{ paddingBottom: 80 }}
+        contentContainerStyle={{ paddingBottom: 80, flexGrow: viewMode === 'month' ? 1 : 0 }}
         refreshControl={
           <RefreshControl
-            refreshing={actividadesSemanalesQuery.isRefetching}
+            refreshing={actividadesPeriodoQuery.isRefetching}
             onRefresh={handleRefresh}
             colors={[colors.lightTint]}
             tintColor={colors.lightTint}
@@ -446,237 +437,120 @@ const AgendaPersonal: React.FC = () => {
       >
         {isLoading ? (
           <ScreenSkeleton rows={4} showHeader={false} />
-        ) : filteredActivities.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Ionicons name="calendar-outline" size={48} color="#D1D5DB" />
-            <Text style={styles.emptyText}>No hay actividades programadas</Text>
-          </View>
+        ) : viewMode === 'month' ? (
+          <AgendaMonthGrid
+            monthGridDates={monthGridDates}
+            selectedDate={selectedDate}
+            dayCellHeight={dayCellHeight}
+            activitiesByDate={activitiesByDate}
+            onSelectDay={(cell) => {
+              setSelectedDate(formatDateKey(cell.date));
+              setActiveMonth(new Date(cell.date.getFullYear(), cell.date.getMonth(), 1));
+              setViewMode('day');
+            }}
+          />
         ) : viewMode === 'week' ? (
           <AgendaSemanal
             activities={filteredActivities}
-            today={today}
+            today={new Date(selectedDate)}
             onDeleteActivity={handleDeleteActivity}
             onPressActivity={handlePressActivity}
+            onPressDay={(dateKey) => {
+              setSelectedDate(dateKey);
+              const nextDate = new Date(dateKey + 'T00:00:00');
+              setActiveMonth(new Date(nextDate.getFullYear(), nextDate.getMonth(), 1));
+              setViewMode('day');
+            }}
           />
         ) : (
           <AgendaDiaria
             activities={filteredActivities}
+            dateKey={selectedDate}
             onDeleteActivity={handleDeleteActivity}
             onPressActivity={handlePressActivity}
           />
         )}
       </ScrollView>
 
-      {/* Floating Menu Button */}
-      <View style={[styles.fabContainer, { bottom: insets.bottom + 16, right: 36 }]}>
-        {showFloatingMenu && (
-          <>
-            <TouchableOpacity
-              style={styles.fabMenuItem}
-              onPress={() => {
-                setShowAddForm(true);
-                setShowFloatingMenu(false);
-              }}
-            >
-              <Ionicons name="add" size={24} color="#FFFFFF" />
-            </TouchableOpacity>
-          </>
-        )}
+      {isAddFormMinimized && (
+        <View style={[styles.minimizedDraftContainer, { bottom: insets.bottom + UI.spacing.xxl + 68 }]}>
+          <TouchableOpacity style={styles.minimizedDraftMain} onPress={openAddActivityModal}>
+            <Ionicons name="chevron-up" size={18} color="#6b7280" />
+            <Text style={styles.minimizedDraftText}>Borrador de actividad</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.minimizedDraftClose} onPress={closeAddActivityModal}>
+            <Ionicons name="close" size={16} color={colors.secondaryText} />
+          </TouchableOpacity>
+        </View>
+      )}
 
-        <TouchableOpacity
-          style={styles.fab}
-          onPress={() => setShowFloatingMenu(!showFloatingMenu)}
-        >
-          <Ionicons
-            name={showFloatingMenu ? 'close' : 'ellipsis-vertical'}
-            size={24}
-            color="#FFFFFF"
-          />
-        </TouchableOpacity>
+      <View style={[styles.createButtonContainer, { bottom: insets.bottom + 8, right: 36 }]}>
+        <CreateButton
+          onPress={openAddActivityModal}
+          size={56}
+          accessibilityLabel="Crear nueva actividad"
+        />
       </View>
 
       {/* ==================== Add Activity Modal ==================== */}
-      <Modal
+      <CrearActividadModal
         visible={showAddForm}
-        transparent
-        animationType="fade"
-        onRequestClose={closeAddActivityModal}
-      >
-        <View style={styles.modalOverlay}>
-          <KeyboardAvoidingView
-            behavior="position"
-            keyboardVerticalOffset={insets.top + 12}
-            style={styles.modalKavWrapper}
-            contentContainerStyle={styles.modalKavContent}
-          >
-            <TouchableWithoutFeedback onPress={closeAddActivityModal}>
-              <View style={StyleSheet.absoluteFill} />
-            </TouchableWithoutFeedback>
+        newActivity={newActivity}
+        showEndDateFields={showEndDateFields}
+        activityDateErrorMessage={activityDateErrorMessage}
+        isLoading={isLoading}
+        onMinimize={minimizeAddActivityModal}
+        onClose={closeAddActivityModal}
+        onStartDate={handleStartDate}
+        onStartTime={handleStartTime}
+        onEndDate={handleEndDate}
+        onEndTime={handleEndTime}
+        onToggleEndDateFields={handleToggleEndDateFields}
+        onChangeTitle={handleChangeTitle}
+        onChangeDescription={handleChangeDescription}
+        onSubmit={handleAddActivity}
+        showDatePicker={showDatePicker}
+        datePickerMode={datePickerMode}
+        pickerKey={pickerKey}
+        datePickerValue={datePickerValue}
+        onDateConfirm={onDateConfirm}
+        onDateCancel={onDateCancel}
+      />
 
-            <View style={styles.modalContainer}>
-              <ScrollView
-                contentContainerStyle={styles.modalScrollContent}
-                keyboardShouldPersistTaps="handled"
-                showsVerticalScrollIndicator={false}
-              >
-                <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>Nueva Actividad</Text>
-                  <TouchableOpacity
-                    onPress={closeAddActivityModal}
-                    style={styles.closeButton}
-                  >
-                    <Ionicons name="close" size={24} color={colors.secondaryText} />
-                  </TouchableOpacity>
-                </View>
-
-                {activityDateErrorMessage && (
-                  <Text style={styles.errorTextInline}>{activityDateErrorMessage}</Text>
-                )}
-
-                {/* Fecha */}
-                <View style={styles.dateSection}>
-                  <TouchableOpacity onPress={handleStartDate} style={styles.dateRow}>
-                    <Ionicons name="calendar" size={20} color={colors.lightTint} />
-                    <View style={{ marginLeft: 12 }}>
-                      <Text style={styles.dateLabel}>Fecha</Text>
-                      <Text style={styles.dateValue}>
-                        {new Date(newActivity.date + 'T00:00:00').toLocaleDateString(
-                          'es-ES',
-                          { weekday: 'short', day: '2-digit', month: 'short' }
-                        )}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-
-                  {/* Hora inicio */}
-                  <TouchableOpacity onPress={handleStartTime} style={styles.dateRow}>
-                    <Ionicons name="time" size={20} color={colors.lightTint} />
-                    <View style={{ marginLeft: 12 }}>
-                      <Text style={styles.dateLabel}>Inicio</Text>
-                      <Text style={styles.dateValue}>
-                        {newActivity.startTime.toLocaleTimeString('es-ES', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-
-                  {/* Hora fin */}
-                  <TouchableOpacity onPress={handleEndTime} style={styles.dateRow}>
-                    <Ionicons name="time" size={20} color={colors.lightTint} />
-                    <View style={{ marginLeft: 12 }}>
-                      <Text style={styles.dateLabel}>Fin</Text>
-                      <Text style={styles.dateValue}>
-                        {newActivity.endTime.toLocaleTimeString('es-ES', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                </View>
-
-                {showDatePicker && Platform.OS === 'ios' && (
-                  <View style={styles.inlinePickerContainer}>
-                    <DateTimePicker
-                      testID="dateTimePicker"
-                      value={
-                        activeDateType === 'startDate'
-                          ? newActivity.startTime
-                          : activeDateType === 'startTime'
-                          ? newActivity.startTime
-                          : newActivity.endTime
-                      }
-                      mode={datePickerMode}
-                      is24Hour={true}
-                      display="spinner"
-                      onChange={onDateChange}
-                    />
-                  </View>
-                )}
-
-                {/* Título */}
-                <View style={styles.fieldContainer}>
-                  <Text style={styles.fieldLabel}>Título</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Título (requerido)"
-                    value={newActivity.title}
-                    onChangeText={(text) => setNewActivity({ ...newActivity, title: text })}
-                    placeholderTextColor="#9CA3AF"
-                  />
-                </View>
-
-                {/* Descripción */}
-                <View style={styles.fieldContainer}>
-                  <Text style={styles.fieldLabel}>Descripción</Text>
-                  <TextInput
-                    style={[styles.input, styles.descriptionInput]}
-                    placeholder="Descripción (opcional)"
-                    value={newActivity.description}
-                    onChangeText={(text) => setNewActivity({ ...newActivity, description: text })}
-                    placeholderTextColor="#9CA3AF"
-                    multiline
-                    numberOfLines={4}
-                  />
-                </View>
-
-                {/* Botones */}
-                <View style={styles.buttonContainer}>
-                  <TouchableOpacity style={styles.cancelButton} onPress={closeAddActivityModal}>
-                    <Text style={styles.cancelButtonText}>Cancelar</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.submitButton,
-                      (!newActivity.title.trim() || !!activityDateErrorMessage) && styles.submitButtonDisabled,
-                    ]}
-                    onPress={handleAddActivity}
-                    disabled={!newActivity.title.trim() || !!activityDateErrorMessage || isMutating || isValidationInProgress}
-                  >
-                    {isMutating ? (
-                      <ActivityIndicator color="#FFFFFF" size="small" />
-                    ) : (
-                      <Text style={styles.submitButtonText}>Guardar</Text>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              </ScrollView>
-            </View>
-          </KeyboardAvoidingView>
-        </View>
-      </Modal>
-
-      {/* Date Picker */}
-      {showDatePicker && Platform.OS !== 'ios' && (
+      {/* Date Picker (Android) */}
+      {showDatePicker && Platform.OS === 'android' && (
         <DateTimePicker
+          key={pickerKey}
+          visible={showDatePicker}
           testID="dateTimePicker"
-          value={
-            activeDateType === 'startDate'
-              ? newActivity.startTime
-              : activeDateType === 'startTime'
-              ? newActivity.startTime
-              : newActivity.endTime
-          }
+          value={datePickerValue}
           mode={datePickerMode}
           is24Hour={true}
-          display="default"
-          onChange={onDateChange}
+          onConfirm={onDateConfirm}
+          onCancel={onDateCancel}
         />
       )}
 
-      {/* Modal de validación de fechas */}
+      {selectedActividadId !== null && (
+        <ActividadDetalle
+          visible
+          actividadId={selectedActividadId}
+          rol={selectedActividadRol}
+          onClose={handleCloseActividad}
+        />
+      )}
+
       <ValidacionFechasModal
-        state={validacion.state}
-        avisos={validacion.avisos}
-        rangosOcupados={validacion.rangosOcupados}
-        errorMessage={validacion.errorMessage}
-        onConfirm={validacion.confirm}
-        onCancel={validacion.cancel}
+        state={backendRangosOcupados.length > 0 ? 'warnings' : 'idle'}
+        avisos={avisosBackend}
+        rangosOcupados={backendRangosOcupados}
+        onConfirm={() => setBackendRangosOcupados([])}
+        onCancel={() => setBackendRangosOcupados([])}
+        showConfirmAction={false}
+        cancelLabel="Modificar fechas"
+        questionText="Modificá las fechas y volvé a intentar."
       />
 
-      {/* Modal operación pendiente */}
       <OperacionPendienteModal visible={isMutating} />
     </View>
   );
@@ -687,250 +561,46 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
-  pageTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    backgroundColor: colors.componentBackground,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    marginHorizontal: 16,
-    marginTop: 16,
-    marginBottom: 12,
-    borderRadius: 8,
-    color: colors.text,
-  },
-  header: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e0e0e0',
-    marginBottom: 8,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#202124',
-    textTransform: 'capitalize',
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: '#5f6368',
-    marginTop: 4,
-  },
-  tabs: {
-    flexDirection: 'row',
-    marginHorizontal: -16,
-    paddingHorizontal: 16,
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  tabActive: {
-    borderBottomWidth: 2,
-  },
-  tabText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#5f6368',
-  },
   activitiesContainer: {
     flex: 1,
-    paddingHorizontal: 8,
-    paddingVertical: 8,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
   },
-  loadingContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 40,
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 14,
-    color: '#5f6368',
-    fontWeight: '500',
-  },
-  emptyContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 80,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: '#5f6368',
-    marginTop: 12,
-  },
-  errorTextInline: {
-    color: colors.error,
-    fontSize: 12,
-    marginTop: 8,
-  },
-
-  // Floating Action Button
-  fabContainer: {
+  minimizedDraftContainer: {
     position: 'absolute',
-    right: 36,
-    alignItems: 'flex-end',
-  },
-  fab: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.lightTint,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-  },
-  fabMenuItem: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.success,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-    elevation: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-  },
-
-  // Modal styles (centered card, aligned with NovedadFormModal style)
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalKavWrapper: {
-    flex: 1,
-    width: '100%',
-  },
-  modalKavContent: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContainer: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    width: '90%',
-    maxWidth: 450,
-    maxHeight: MODAL_MAX_HEIGHT,
-    elevation: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-  },
-  modalScrollContent: {
-    padding: 24,
-    flexGrow: 1,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#111827',
-  },
-  closeButton: {
-    padding: 8,
-  },
-  dateSection: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e0e0e0',
-    paddingBottom: 12,
-    marginBottom: 12,
-  },
-  inlinePickerContainer: {
-    marginBottom: 12,
-  },
-  dateRow: {
+    right: UI.spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
-  },
-  dateLabel: {
-    fontSize: 12,
-    color: '#5f6368',
-    fontWeight: '500',
-  },
-  dateValue: {
-    fontSize: 15,
-    color: colors.lightTint,
-    fontWeight: '600',
-    marginTop: 2,
-  },
-  fieldContainer: {
-    marginBottom: 16,
-  },
-  fieldLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 6,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 15,
-    color: '#111827',
     backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: colors.neutralBorder,
+    borderRadius: UI.radius.md,
+    paddingLeft: UI.spacing.sm,
+    paddingRight: UI.spacing.xs,
+    paddingVertical: UI.spacing.xs,
+    shadowColor: UI.shadow.color,
+    shadowOffset: UI.shadow.offset,
+    shadowOpacity: UI.shadow.opacity,
+    shadowRadius: UI.shadow.radius,
+    elevation: UI.shadow.elevation,
   },
-  descriptionInput: {
-    minHeight: 80,
-    textAlignVertical: 'top',
-    paddingTop: 10,
-  },
-  buttonContainer: {
+  minimizedDraftMain: {
     flexDirection: 'row',
-    gap: 10,
-    marginTop: 10,
-    paddingBottom: 10,
-  },
-  cancelButton: {
-    flex: 1,
-    backgroundColor: '#e5e7eb',
-    paddingVertical: 12,
-    borderRadius: 8,
     alignItems: 'center',
+    paddingRight: UI.spacing.xs,
   },
-  cancelButtonText: {
-    color: '#374151',
-    fontSize: 15,
+  minimizedDraftText: {
+    marginLeft: 6,
+    color: colors.text,
+    fontSize: UI.fontSize.sm,
     fontWeight: '600',
   },
-  submitButton: {
-    flex: 1,
-    backgroundColor: colors.lightTint,
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
+  minimizedDraftClose: {
+    marginLeft: 6,
+    padding: 4,
   },
-  submitButtonDisabled: {
-    backgroundColor: '#d1d5db',
-  },
-  submitButtonText: {
-    color: 'white',
-    fontSize: 15,
-    fontWeight: '600',
+  createButtonContainer: {
+    position: 'absolute',
   },
 });
 

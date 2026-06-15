@@ -108,19 +108,10 @@ export function DetalleEmpleado() {
 		);
 	}
 
-	return (
-		<ScrollView
-			style={[styles.container, { backgroundColor: colors.background }]}
-			contentContainerStyle={{ flexGrow: 1 }}
-			refreshControl={
-				<RefreshControl
-					refreshing={isRefreshing}
-					onRefresh={handleRefresh}
-					colors={[colors.tint]}
-					tintColor={colors.tint}
-				/>
-			}
-		>
+	const shouldUseStaticRoot = usuarios.length === 1 && activeTab === 'reportes';
+
+	const pageContent = (
+		<>
 			{/* Sección de búsqueda y usuarios seleccionados */}
 			<View style={[styles.selectionSection, { backgroundColor: colors.componentBackground, borderBottomColor: colors.background }]}>
 				<View style={styles.selectionHeader}>
@@ -146,7 +137,7 @@ export function DetalleEmpleado() {
 								}
 							]}
 						>
-							<View style={[styles.userAvatar, { backgroundColor: colors.tint }]}>
+							<View style={[styles.userAvatar, { backgroundColor: colors.tint }]}> 
 								<ThemedText style={styles.userInitials}>
 									{u.nombre?.[0]}{u.apellido?.[0]}
 								</ThemedText>
@@ -253,6 +244,31 @@ export function DetalleEmpleado() {
 					</ScrollView>
 				)}
 			</View>
+		</>
+	);
+
+	if (shouldUseStaticRoot) {
+		return (
+			<View style={[styles.container, { backgroundColor: colors.background }]}>
+				{pageContent}
+			</View>
+		);
+	}
+
+	return (
+		<ScrollView
+			style={[styles.container, { backgroundColor: colors.background }]}
+			contentContainerStyle={{ flexGrow: 1 }}
+			refreshControl={
+				<RefreshControl
+					refreshing={isRefreshing}
+					onRefresh={handleRefresh}
+					colors={[colors.tint]}
+					tintColor={colors.tint}
+				/>
+			}
+		>
+			{pageContent}
 		</ScrollView>
 	);
 }

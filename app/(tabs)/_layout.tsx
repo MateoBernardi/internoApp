@@ -2,23 +2,16 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
-import { triggerWebPushPermissionPrompt } from '@/features/devices/hooks/useRegisterDevice';
-import { useReportes } from '@/features/reportes/viewmodels/useReportes';
-import {
-  useInvitaciones,
-  useSolicitudesCreadas,
-} from '@/features/solicitudesActividades/viewmodels/useSolicitudes';
-import {
-  useGetSolicitudesLicencias,
-  useGetSolicitudesUsuario,
-} from '@/features/solicitudesLicencias/viewmodels/useSolicitudes';
+import { useArchivosUnseenCount } from '@/features/docs/viewmodels/useArchivos';
+import { useReportesPendingCount } from '@/features/reportes/viewmodels/useReportes';
+import { useSolicitudesUnseen } from '@/features/solicitudesActividades/viewmodels/useSolicitudes';
+import { useLicenciasUnseenCount } from '@/features/solicitudesLicencias/viewmodels/useSolicitudes';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
-import Constants from 'expo-constants';
 import { Href, Redirect, Tabs, useRouter, useSegments } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { LayoutChangeEvent, Platform, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const TAB_BAR_BASE_HEIGHT = 56;
 const DESKTOP_NAV_HEIGHT = 54;
@@ -51,10 +44,11 @@ export default function TabLayout() {
   }, [shouldRedirectUnknownRole, signOut]);
 
   const isRolePending = !user?.rol_nombre;
+  const hasUserContext = Boolean(user?.user_context_id);
   const isEmployeeUser = isRolePending || isEmployee();
   const isEncargado = !isRolePending && hasRole('encargado');
-  const hideExplore = isEmployeeUser || isEncargado;
-  const hideAdmin = isEmployeeUser;
+  const hideExplore = !hasUserContext;
+  const hideAdmin = !hasUserContext || isEmployeeUser;
   const hasSolicitudesTab = !hideExplore;
   const hasAdminTab = !hideAdmin;
   const hasSessionContext = isAuthenticated && !requiresAssociation && !!user?.user_context_id;
@@ -64,72 +58,36 @@ export default function TabLayout() {
   const canSeeReportesAdmin = hasAdminTab && canSeeAdminReportesButton;
   const canSeeLicenciasPersonal = !hasAdminTab;
   const canSeeReportesPersonal = !hasAdminTab;
-  const userContextId = user?.user_context_id?.toString();
   const colors = Colors['light'];
   const [activeMenu, setActiveMenu] = useState<'personal' | 'admin' | null>(null);
   const [containerWidth, setContainerWidth] = useState(0);
-  const [isRequestingWebPush, setIsRequestingWebPush] = useState(false);
   const hasShownWebPushDialogRef = useRef(false);
   const responsiveLayout = useResponsiveLayout();
   const isDesktopWeb = Platform.OS === 'web' && responsiveLayout.isDesktop;
   const currentTab = useMemo(() => (segments[1] as string) || 'index', [segments]);
-  const firebaseConfig = Constants.expoConfig?.extra?.FIREBASE_WEB;
-  const hasFirebaseConfig =
-    !!firebaseConfig &&
-    typeof firebaseConfig.apiKey === 'string' &&
-    firebaseConfig.apiKey.length > 0 &&
-    firebaseConfig.apiKey !== 'TU_API_KEY_WEB' &&
-    typeof firebaseConfig.projectId === 'string' &&
-    firebaseConfig.projectId.length > 0 &&
-    typeof firebaseConfig.messagingSenderId === 'string' &&
-    firebaseConfig.messagingSenderId.length > 0 &&
-    typeof firebaseConfig.appId === 'string' &&
-    firebaseConfig.appId.length > 0;
-  const vapidKey = Constants.expoConfig?.extra?.VAPID_PUBLIC_KEY;
-  const hasVapid = !!vapidKey && vapidKey !== 'TU_VAPID_PUBLIC_KEY';
 
-  const { data: invitaciones = [] } = useInvitaciones(canSeeActivityRequests && hasSessionContext);
-  const { data: solicitudesEnviadas = [] } = useSolicitudesCreadas(canSeeActivityRequests && hasSessionContext);
-  const { data: solicitudesLicenciasAdmin = [] } = useGetSolicitudesLicencias(
-    canSeeLicenciasAdmin && hasSessionContext ? {} : undefined
+  // Contador de solicitudes ('Mensajes') sin ver → badge rojo en la tab.
+  const { data: unseenSolicitudes = 0 } = useSolicitudesUnseen(
+    hasSolicitudesTab && hasSessionContext
   );
-  const { data: solicitudesLicenciasPersonal = [] } = useGetSolicitudesUsuario(
-    canSeeLicenciasPersonal && hasSessionContext
-  );
-  const { data: reportesAdmin = [] } = useReportes(
-    userContextId,
-    canSeeReportesAdmin && hasSessionContext
-  );
-  const { data: reportesPersonal = [] } = useReportes(
-    userContextId,
-    canSeeReportesPersonal && hasSessionContext
-  );
+  const hasMensajesBadge = unseenSolicitudes > 0;
+  const mensajesBadgeLabel = unseenSolicitudes > 99 ? '99+' : String(unseenSolicitudes);
 
-  const hasSolicitudesActividadesPendientesRecibidas = invitaciones.some((item) =>
-    ['SENT', 'MODIFIED_BY_HOST', 'ACCEPTED_BY_HOST'].includes(item.estado)
+  const { data: licenciasUnseenCount = 0 } = useLicenciasUnseenCount(
+    (canSeeLicenciasAdmin || canSeeLicenciasPersonal) && hasSessionContext
   );
-
-  const hasSolicitudesActividadesPendientesEnviadas = solicitudesEnviadas.some(
-    (item) => item.estado === 'MODIFIED'
+  const { data: reportesPendingCount = 0 } = useReportesPendingCount(
+    (canSeeReportesAdmin || canSeeReportesPersonal) && hasSessionContext
   );
+  const { data: archivosUnseenCount = 0 } = useArchivosUnseenCount(hasSessionContext);
 
-  const hasSolicitudesActividadesPendientes =
-    hasSolicitudesActividadesPendientesRecibidas ||
-    hasSolicitudesActividadesPendientesEnviadas;
+  const hasArchivosBadge = archivosUnseenCount > 0;
+  const archivosBadgeLabel = archivosUnseenCount > 99 ? '99+' : String(archivosUnseenCount);
 
-  const hasSolicitudesLicenciasPendientesAdmin = solicitudesLicenciasAdmin.some((item) =>
-    ['PENDIENTE', 'PENDIENTE_DOCUMENTACION', 'PENDIENTE_APROBACION'].includes(item.estado)
-  );
-
-  const hasSolicitudesLicenciasPendientesPersonal = solicitudesLicenciasPersonal.some((item) =>
-    ['PENDIENTE_DOCUMENTACION'].includes(item.estado)
-  );
-
-  const hasReportesPendientesAdmin = reportesAdmin.some((item) => item.estado === 'PENDIENTE');
-  const hasReportesPendientesPersonal = reportesPersonal.some((item) => item.estado === 'PENDIENTE');
-
-  const hasSolicitudesBadgeInTab = hasSolicitudesTab && hasSolicitudesActividadesPendientes;
-  const hasSolicitudesBadgeInHome = !hasSolicitudesTab && hasSolicitudesActividadesPendientes;
+  const hasSolicitudesLicenciasPendientesAdmin = canSeeLicenciasAdmin && licenciasUnseenCount > 0;
+  const hasSolicitudesLicenciasPendientesPersonal = canSeeLicenciasPersonal && licenciasUnseenCount > 0;
+  const hasReportesPendientesAdmin = canSeeReportesAdmin && reportesPendingCount > 0;
+  const hasReportesPendientesPersonal = canSeeReportesPersonal && reportesPendingCount > 0;
 
   const hasAdminBadge =
     hasAdminTab &&
@@ -161,8 +119,8 @@ export default function TabLayout() {
     }] : []),
   ];
 
-  const hideMisReportes = hasRole(['gerencia', 'personasRelaciones', 'consejo', 'contable', 'sistemas', 'presidencia']);
-  const hideMisLicencias = hasRole(['consejo', 'presidencia', 'contable', 'sistemas']);
+  const hideMisReportes = hasRole(['gerencia', 'personasRelaciones', 'consejo', 'contable', 'sistemas', 'presidencia', 'estudio-contable']);
+  const hideMisLicencias = hasRole(['consejo', 'presidencia', 'contable', 'sistemas', 'estudio-contable']);
 
   const personalMenuOptions: MenuOption[] = [
     {
@@ -198,79 +156,6 @@ export default function TabLayout() {
 
   const hasPersonalBadge = personalMenuOptions.some((option) => !!option.hasBadge);
 
-  useEffect(() => {
-    if (Platform.OS !== 'web' || !hasSessionContext || isRequestingWebPush) {
-      return;
-    }
-
-    if (!hasFirebaseConfig || !hasVapid) {
-      return;
-    }
-
-    if (typeof window === 'undefined' || !window.isSecureContext || typeof Notification === 'undefined') {
-      return;
-    }
-
-    if (Notification.permission !== 'default') {
-      return;
-    }
-
-    if (hasShownWebPushDialogRef.current) {
-      return;
-    }
-
-    hasShownWebPushDialogRef.current = true;
-
-    const wantsNotifications = window.confirm(
-      'Quieres recibir notificaciones de tus mensajes?'
-    );
-
-    if (!wantsNotifications) {
-      return;
-    }
-
-    const requestWebPushFromDialog = async () => {
-      setIsRequestingWebPush(true);
-
-      try {
-        const result = await triggerWebPushPermissionPrompt();
-
-        if (result.permission === 'granted') {
-          return;
-        }
-
-        if (result.permission === 'denied') {
-          window.alert('No podremos enviarte notificaciones porque el permiso fue denegado.');
-          return;
-        }
-
-        if (result.permission === 'default') {
-          window.alert('No se pudo completar la accion. Si quieres, vuelve a intentar desde el proximo inicio de sesion.');
-          return;
-        }
-
-        if (result.permission === 'unsupported') {
-          window.alert('Este navegador o contexto no soporta notificaciones push.');
-          return;
-        }
-
-        window.alert('No pudimos activar notificaciones en este momento.');
-      } catch {
-        window.alert('No pudimos activar notificaciones en este momento.');
-      } finally {
-        setIsRequestingWebPush(false);
-      }
-    };
-
-    void requestWebPushFromDialog();
-  }, [hasFirebaseConfig, hasSessionContext, hasVapid, isRequestingWebPush]);
-
-  useEffect(() => {
-    if (!isAuthenticated) {
-      hasShownWebPushDialogRef.current = false;
-    }
-  }, [isAuthenticated]);
-
   const handlePress = (menuType: 'personal' | 'admin') => {
     if (activeMenu === menuType) {
       setActiveMenu(null); // Si ya está abierto, lo cierra (se vuelve cruz -> icono normal)
@@ -297,14 +182,13 @@ export default function TabLayout() {
     if (!isDesktopWeb) return null;
 
     return (
-      <View style={[styles.desktopTopBar, { height: DESKTOP_NAV_HEIGHT }]}> 
+      <View style={[styles.desktopTopBar, { height: DESKTOP_NAV_HEIGHT }]}>
         <View style={styles.desktopTopBarLeft}>
           <TouchableOpacity
             style={[styles.desktopTopButton, currentTab === 'index' && styles.desktopTopButtonActive]}
             onPress={() => navigateToTab('/(tabs)' as Href)}
           >
             <Text style={[styles.desktopTopButtonText, currentTab === 'index' && styles.desktopTopButtonTextActive]}>Inicio</Text>
-            {hasSolicitudesBadgeInHome && <View style={styles.desktopNavPendingDot} />}
           </TouchableOpacity>
 
           {!hideExplore && (
@@ -313,7 +197,7 @@ export default function TabLayout() {
               onPress={() => navigateToTab('/(tabs)/explore' as Href)}
             >
               <Text style={[styles.desktopTopButtonText, currentTab === 'explore' && styles.desktopTopButtonTextActive]}>Solicitudes</Text>
-              {hasSolicitudesBadgeInTab && <View style={styles.desktopNavPendingDot} />}
+              {hasMensajesBadge && <View style={styles.desktopNavPendingDot} />}
             </TouchableOpacity>
           )}
 
@@ -322,6 +206,7 @@ export default function TabLayout() {
             onPress={() => navigateToTab('/(tabs)/documentos' as Href)}
           >
             <Text style={[styles.desktopTopButtonText, currentTab === 'documentos' && styles.desktopTopButtonTextActive]}>Documentos</Text>
+            {hasArchivosBadge && <View style={styles.desktopNavPendingDot} />}
           </TouchableOpacity>
         </View>
 
@@ -363,7 +248,7 @@ export default function TabLayout() {
       return (
         <View style={styles.menuLayer} pointerEvents="box-none">
           <Pressable style={styles.dismissArea} onPress={() => setActiveMenu(null)} />
-          <View style={[styles.menuContainer, styles.desktopMenuContainer, { top: DESKTOP_NAV_HEIGHT + 12, width: menuWidth }]}> 
+          <View style={[styles.menuContainer, styles.desktopMenuContainer, { top: DESKTOP_NAV_HEIGHT + 12, width: menuWidth }]}>
             <View style={styles.menuHeader}>
               <Text style={styles.menuTitle}>{title}</Text>
             </View>
@@ -374,7 +259,7 @@ export default function TabLayout() {
                 onPress={() => handleMenuOptionPress(opt)}
               >
                 <View style={styles.menuItemLabelRow}>
-                  <Text style={[styles.menuItemText, opt.textColor && { color: opt.textColor }]}> 
+                  <Text style={[styles.menuItemText, opt.textColor && { color: opt.textColor }]}>
                     {opt.label}
                   </Text>
                   {opt.hasBadge && <View style={styles.menuPendingDot} />}
@@ -415,15 +300,15 @@ export default function TabLayout() {
     return (
       <View style={styles.menuLayer} pointerEvents="box-none">
         <Pressable style={styles.dismissArea} onPress={() => setActiveMenu(null)} />
-        <View style={[styles.menuContainer, { bottom: tabBarHeight + 10, left: menuLeft, width: menuWidth }]}> 
+        <View style={[styles.menuContainer, { bottom: tabBarHeight + 10, left: menuLeft, width: menuWidth }]}>
           <View style={[styles.menuArrow, { left: arrowLeft }]} />
           <View style={styles.menuHeader}>
             <Text style={styles.menuTitle}>{title}</Text>
           </View>
           {options.map((opt) => (
-            <TouchableOpacity 
-              key={opt.id} 
-              style={styles.menuItem} 
+            <TouchableOpacity
+              key={opt.id}
+              style={styles.menuItem}
               onPress={() => handleMenuOptionPress(opt)}
             >
               <View style={styles.menuItemLabelRow}>
@@ -447,8 +332,9 @@ export default function TabLayout() {
   }
 
   return (
-    <View
-      style={{ flex: 1 }}
+    <SafeAreaView
+      style={{ flex: 1, backgroundColor: colors.background }}
+      edges={['top']}
       onLayout={(event: LayoutChangeEvent) => setContainerWidth(event.nativeEvent.layout.width)}
     >
       {renderDesktopNavigation()}
@@ -468,45 +354,60 @@ export default function TabLayout() {
           tabBarStyle: isDesktopWeb
             ? { display: 'none' }
             : {
-                position: 'relative',
-                height: tabBarHeight,
-                paddingBottom: insets.bottom,
-              },
+              position: 'relative',
+              height: tabBarHeight,
+              paddingBottom: insets.bottom,
+            },
         }}>
-        
-        <Tabs.Screen 
-          name="index" 
+
+        <Tabs.Screen
+          name="index"
           listeners={{ tabPress: () => setActiveMenu(null) }}
           options={{
             title: 'Inicio',
             tabBarIcon: ({ color }) => (
               <View style={styles.tabIconContainer}>
                 <IconSymbol size={24} name="house.fill" color={color} />
-                {hasSolicitudesBadgeInHome && <View style={styles.tabPendingDot} />}
               </View>
             ),
-          }} 
+          }}
         />
 
-        <Tabs.Screen 
-          name="explore" 
+        <Tabs.Screen
+          name="explore"
           listeners={{ tabPress: () => setActiveMenu(null) }}
-          options={{ 
+          options={{
             href: hideExplore ? null : undefined,
-            title: 'Solicitudes', 
+            title: 'Mensajes',
             tabBarIcon: ({ color }) => (
               <View style={styles.tabIconContainer}>
                 <IconSymbol size={24} name="paperplane.fill" color={color} />
-                {hasSolicitudesBadgeInTab && <View style={styles.tabPendingDot} />}
+                {hasMensajesBadge && (
+                  <View style={styles.tabBadge}>
+                    <Text style={styles.tabBadgeText}>{mensajesBadgeLabel}</Text>
+                  </View>
+                )}
               </View>
             ),
-          }} 
+          }}
         />
 
-        <Tabs.Screen 
-          name="documentos" 
+        <Tabs.Screen
+          name="documentos"
           listeners={{ tabPress: () => setActiveMenu(null) }}
-          options={{ title: 'Documentos', tabBarIcon: ({ color }) => <IconSymbol size={24} name="doc.text.fill" color={color} /> }} 
+          options={{
+            title: 'Documentos',
+            tabBarIcon: ({ color }) => (
+              <View style={styles.tabIconContainer}>
+                <IconSymbol size={24} name="doc.text.fill" color={color} />
+                {hasArchivosBadge && (
+                  <View style={styles.tabBadge}>
+                    <Text style={styles.tabBadgeText}>{archivosBadgeLabel}</Text>
+                  </View>
+                )}
+              </View>
+            ),
+          }}
         />
 
         <Tabs.Screen
@@ -517,10 +418,10 @@ export default function TabLayout() {
             title: 'Admin',
             tabBarIcon: ({ color }) => (
               <View style={styles.tabIconContainer}>
-                <IconSymbol 
-                  size={24} 
-                  name={activeMenu === 'admin' ? 'xmark' : 'chart.bar.fill'} 
-                  color={activeMenu === 'admin' ? colors.tint : color} 
+                <IconSymbol
+                  size={24}
+                  name={activeMenu === 'admin' ? 'xmark' : 'chart.bar.fill'}
+                  color={activeMenu === 'admin' ? colors.tint : color}
                 />
                 {hasAdminBadge && <View style={styles.tabPendingDot} />}
               </View>
@@ -535,10 +436,10 @@ export default function TabLayout() {
             title: user?.nombre || 'Usuario',
             tabBarIcon: ({ color }) => (
               <View style={styles.tabIconContainer}>
-                <IconSymbol 
-                  size={24} 
-                  name={activeMenu === 'personal' ? 'xmark' : 'user.fill'} 
-                  color={activeMenu === 'personal' ? colors.tint : color} 
+                <IconSymbol
+                  size={24}
+                  name={activeMenu === 'personal' ? 'xmark' : 'user.fill'}
+                  color={activeMenu === 'personal' ? colors.tint : color}
                 />
                 {hasPersonalBadge && <View style={styles.tabPendingDot} />}
               </View>
@@ -546,7 +447,7 @@ export default function TabLayout() {
           }}
         />
       </Tabs>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -630,6 +531,25 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     backgroundColor: '#FF3B30',
+  },
+  tabBadge: {
+    position: 'absolute',
+    top: -6,
+    right: -10,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    paddingHorizontal: 4,
+    backgroundColor: '#FF3B30',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '700',
+    textAlign: 'center',
+    lineHeight: 14,
   },
   desktopTopBar: {
     flexDirection: 'row',

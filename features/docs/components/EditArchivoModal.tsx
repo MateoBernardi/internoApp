@@ -1,10 +1,10 @@
 import { ThemedText } from '@/components/themed-text';
-import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
+import { UserSelector } from '@/components/UserSelector';
 import { Colors } from '@/constants/theme';
 import { RoleUserSelectionModal } from '@/features/solicitudesActividades/components/RoleUserSelectionModal';
-import { UserSelector } from '@/features/solicitudesActividades/components/UserSelector';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { showGlobalToast } from '@/shared/ui/toast';
+import { adminRoles, allRoles } from '@/shared/users/roles';
 import { UserSummary } from '@/shared/users/User';
 import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,15 +12,14 @@ import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   ScrollView,
   StyleSheet,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Archivo, UpdateArchivoPayload } from '../models/Archivo';
 import { formatPartialWarnings } from '../utils/partialWarnings';
@@ -28,6 +27,15 @@ import { useArchivoPermisos, useUpdateArchivo } from '../viewmodels/useArchivos'
 import { PartialSaveBanner } from './PartialSaveBanner';
 
 const colors = Colors['light'];
+
+/** Splits a full file name into editable base and its (dotted) extension. */
+const splitName = (full: string) => {
+  const dot = full.lastIndexOf('.');
+  return dot > 0 ? { base: full.slice(0, dot), ext: full.slice(dot) } : { base: full, ext: '' };
+};
+
+/** Last path segment of an R2 key / URL (strips folders and query/hash). */
+const baseName = (full: string) => full.split(/[?#]/)[0].split('/').pop() ?? '';
 
 interface EditArchivoModalProps {
   visible: boolean;
@@ -38,7 +46,14 @@ interface EditArchivoModalProps {
 export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModalProps) {
   const insets = useSafeAreaInsets();
 
-  const [nombre, setNombre] = useState(archivo.nombre);
+  // Canonical extension comes from the display name; fall back to the stored
+  // URL when the name was saved without one. Empty string => never invent one.
+  const fileExt = useMemo(
+    () => splitName(archivo.nombre).ext || splitName(baseName(archivo.url ?? '')).ext,
+    [archivo.nombre, archivo.url]
+  );
+
+  const [nombreBase, setNombreBase] = useState(splitName(archivo.nombre).base);
   const [descripcion, setDescripcion] = useState(archivo.titulo ?? '');
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -65,30 +80,24 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
   } = useArchivoPermisos(showPermisosSection ? archivo.id : undefined);
 
   const { hasRole } = useRoleCheck();
+  const isConsejo = hasRole('consejo');
   const isSupervisor = hasRole(['gerencia', 'personasRelaciones', 'encargado']);
 
   const isLoadingUsers = isSearchingUsers || isLoadingRole;
   const { mutate: updateArchivo, isPending: isUpdating } = useUpdateArchivo();
 
-  const allRoles = [
-    { label: 'Todos', value: '*' },
-    { label: 'Contable', value: 'contable' },
-    { label: 'Sistemas', value: 'sistemas' },
-    { label: 'Personal Admin', value: 'empleado-admin' },
-    { label: 'Personal Insumos', value: 'empleado-insumos' },
-    { label: 'Personal Mayorista', value: 'empleado-mayorista' },
-    { label: 'Personal Super', value: 'empleado-super' },
-    { label: 'Consejo', value: 'consejo' },
-    { label: 'Encargado', value: 'encargado' },
-    { label: 'Gerencia', value: 'gerencia' },
-    { label: 'Personal Limpieza', value: 'empleado-limpieza' },
-    { label: 'Personas y Relaciones', value: 'personasRelaciones' },
-    { label: 'Presidencia', value: 'presidencia' },
-  ];
+  const rolesForSelector = useMemo(
+    () => (isConsejo ? adminRoles : allRoles),
+    [isConsejo]
+  );
+  const rolesForSelectorWithAll = useMemo(
+    () => [{ label: 'Seleccionar todos', value: '*' }, ...rolesForSelector],
+    [rolesForSelector]
+  );
 
   const availableRoleValues = useMemo(
-    () => allRoles.filter((role) => role.value !== '*').map((role) => role.value),
-    [allRoles]
+    () => rolesForSelector.map((role) => role.value),
+    [rolesForSelector]
   );
 
   const BUTTON_HEIGHT = 48;
@@ -108,7 +117,7 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
   React.useEffect(() => {
     if (!visible) return;
 
-    setNombre(archivo.nombre);
+    setNombreBase(splitName(archivo.nombre).base);
     setDescripcion(archivo.titulo ?? '');
     setAllowedRoles(archivo.allowed_roles || []);
     setUsuariosCompartidos(
@@ -294,15 +303,15 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
     setUsuariosAsociados((prev) => prev.filter((user) => user.user_context_id !== userId));
   }, []);
 
-  const isFormValid = useMemo(() => nombre.trim().length > 0, [nombre]);
+  const isFormValid = useMemo(() => nombreBase.trim().length > 0, [nombreBase]);
   const selectedRolesForDisplay = useMemo(
     () => allRoles.filter((r) => allowedRoles.includes(r.value)),
-    [allowedRoles, allRoles]
+    [allowedRoles]
   );
   const isRoleSelected = useMemo(() => allowedRoles.includes(activeRole), [allowedRoles, activeRole]);
 
   const resetForm = useCallback(() => {
-    setNombre(archivo.nombre);
+    setNombreBase(splitName(archivo.nombre).base);
     setDescripcion(archivo.titulo ?? '');
     setUsuariosCompartidos(
       (archivo.usuarios_compartidos || []).map((id) => ({
@@ -344,7 +353,7 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
     const usuariosAsociadosIds = usuariosAsociados.map((u) => u.user_context_id);
 
     const payload: UpdateArchivoPayload = {
-      nombre: nombre.trim(),
+      nombre: `${nombreBase.trim()}${fileExt}`,
       titulo: descripcion.trim() || undefined,
       usuarios_compartidos: usuariosCompartidosIds,
       ...(isSupervisor ? { usuarios_asociados: usuariosAsociadosIds } : {}),
@@ -369,321 +378,323 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
         },
       }
     );
-  }, [didPartialSuccess, isFormValid, archivo.id, nombre, descripcion, usuariosCompartidos, usuariosAsociados, allowedRoles, isSupervisor, updateArchivo, onClose, resetForm]);
+  }, [didPartialSuccess, isFormValid, archivo.id, nombreBase, fileExt, descripcion, usuariosCompartidos, usuariosAsociados, allowedRoles, isSupervisor, updateArchivo, onClose, resetForm]);
 
   const handleCancel = useCallback(() => {
     const hasChanges =
-      nombre !== archivo.nombre ||
+      nombreBase !== splitName(archivo.nombre).base ||
       descripcion !== (archivo.titulo ?? '') ||
       usuariosCompartidos.length > 0;
     if (hasChanges) {
       Alert.alert('Descartar cambios', '¿Deseas descartar los cambios?', [
-        { text: 'Cancelar', onPress: () => {} },
+        { text: 'Cancelar', onPress: () => { } },
         { text: 'Descartar', onPress: () => { onClose(); resetForm(); } },
       ]);
     } else {
       onClose();
     }
-  }, [nombre, descripcion, archivo.nombre, archivo.titulo, usuariosCompartidos, onClose, resetForm]);
+  }, [nombreBase, descripcion, archivo.nombre, archivo.titulo, usuariosCompartidos, onClose, resetForm]);
 
   return (
-    <>
-    <Modal visible={visible} animationType="slide" onRequestClose={handleCancel}>
-      {/*
-        Misma estructura que CrearDocumento:
-          <View> raíz
-            <Header> con insets.top
-            <KeyboardAvoidingView> solo el scroll
-            <Botón fijo> con insets.bottom
-      */}
-      <View style={styles.container}>
-        {/* Header con safe-area top */}
-        <View style={[styles.header, { paddingTop: insets.top || 12 }]}>
-          <TouchableOpacity onPress={handleCancel} style={styles.iconButton}>
-            <Ionicons name="close" size={24} color={colors.icon} />
-          </TouchableOpacity>
-          <ThemedText style={styles.headerTitle}>Editar Archivo</ThemedText>
-          <View style={{ width: 40 }} />
-        </View>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent={true}
+      onRequestClose={handleCancel}
+    >
+      <View style={styles.overlay}>
+        <View style={styles.modalContainer}>
+          {/* Header con safe-area top */}
+          <View style={styles.header}>
+            <TouchableOpacity onPress={handleCancel} style={styles.iconButton}>
+              <Ionicons name="close" size={24} color={colors.icon} />
+            </TouchableOpacity>
+          </View>
 
-        {/* KAV solo envuelve el scroll */}
-        <KeyboardAvoidingView
-          style={styles.flex}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={0}
-        >
-          <ScrollView
-            style={styles.content}
-            contentContainerStyle={[styles.contentContainer, { paddingBottom: bottomBarHeight + 8 }]}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-          >
-            {partialWarning ? (
-              <PartialSaveBanner message={partialWarning} onClose={() => setPartialWarning(null)} />
-            ) : null}
+          {/* KAV solo envuelve el scroll */}
+          <ModalKeyboardView style={styles.modalKeyboardAvoiding}>
+            <ScrollView
+              style={styles.content}
+              contentContainerStyle={[styles.contentContainer, { paddingBottom: bottomBarHeight + 8 }]}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              {partialWarning ? (
+                <PartialSaveBanner message={partialWarning} onClose={() => setPartialWarning(null)} />
+              ) : null}
 
-            {/* Título */}
-            <View style={styles.inputSection}>
-              <ThemedText style={styles.label}>Título del archivo</ThemedText>
-              <TextInput
-                style={[styles.input, { color: colors.text }]}
-                placeholder="Título"
-                placeholderTextColor={colors.secondaryText}
-                value={nombre}
-                onChangeText={setNombre}
-                maxLength={100}
-              />
-            </View>
+              {/* Título */}
+              <View style={styles.inputSection}>
+                <ThemedText style={styles.label}>Título del archivo</ThemedText>
+                <View style={styles.nameRow}>
+                  <TextInput
+                    style={[styles.input, styles.nameInput, { color: colors.text }]}
+                    placeholder="Título"
+                    placeholderTextColor={colors.secondaryText}
+                    value={nombreBase}
+                    onChangeText={setNombreBase}
+                    maxLength={100}
+                  />
+                  {fileExt !== '' ? (
+                    <ThemedText style={styles.extSuffix}>{fileExt}</ThemedText>
+                  ) : null}
+                </View>
+              </View>
 
-            {/* Descripción */}
-            <View style={styles.inputSection}>
-              <ThemedText style={styles.label}>
-                Descripción <ThemedText style={styles.labelOptional}>(opcional)</ThemedText>
-              </ThemedText>
-              <TextInput
-                style={[styles.input, styles.inputMultiline, { color: colors.text }]}
-                placeholder="Agregá una descripción del archivo..."
-                placeholderTextColor={colors.secondaryText}
-                value={descripcion}
-                onChangeText={setDescripcion}
-                maxLength={500}
-                multiline
-                numberOfLines={3}
-                textAlignVertical="top"
-              />
-            </View>
-
-            <View style={styles.inputSection}>
-              <TouchableOpacity
-                style={styles.collapsibleButton}
-                onPress={() => setShowPermisosSection((prev) => !prev)}
-                accessibilityRole="button"
-                accessibilityState={{ expanded: showPermisosSection }}
-                accessibilityLabel="Administrar permisos"
-              >
-                <ThemedText style={styles.collapsibleTitle}>Administrar permisos</ThemedText>
-                <Ionicons
-                  name={showPermisosSection ? 'chevron-up' : 'chevron-down'}
-                  size={18}
-                  color={colors.icon}
+              {/* Descripción */}
+              <View style={styles.inputSection}>
+                <ThemedText style={styles.label}>
+                  Descripción <ThemedText style={styles.labelOptional}>(opcional)</ThemedText>
+                </ThemedText>
+                <TextInput
+                  style={[styles.input, styles.inputMultiline, { color: colors.text }]}
+                  placeholder="Agregá una descripción del archivo..."
+                  placeholderTextColor={colors.secondaryText}
+                  value={descripcion}
+                  onChangeText={setDescripcion}
+                  maxLength={500}
+                  multiline
+                  numberOfLines={3}
+                  textAlignVertical="top"
                 />
-              </TouchableOpacity>
+              </View>
 
-              {showPermisosSection ? (
-                <View style={styles.permisosPanel}>
-                  {isLoadingPermisos ? (
-                    <View style={styles.permisosStateRow}>
-                      <ActivityIndicator size="small" color={colors.tint} />
-                      <ThemedText style={styles.permisosHint}>Cargando permisos actuales...</ThemedText>
-                    </View>
-                  ) : permisosError ? (
-                    <ThemedText style={styles.permisosError}>
-                      {(permisosError as any)?.statusCode === 403
-                        ? 'Solo el creador puede ver los permisos completos'
-                        : permisosError instanceof Error
-                          ? permisosError.message
-                          : 'No se pudieron cargar los permisos'}
-                    </ThemedText>
-                  ) : (
-                    <>
-                      <View style={styles.permisosSection}>
-                        <ThemedText style={styles.permisosSectionTitle}>Roles permitidos</ThemedText>
-                        {allowedRoles.length > 0 ? (
-                          <View style={styles.chipWrap}>
-                            {allowedRoles.map((role) => (
-                              <View key={role} style={styles.editableChip}>
-                                <ThemedText style={styles.chipLabel}>{getRoleLabel(role)}</ThemedText>
-                                <TouchableOpacity
-                                  style={styles.chipRemoveButton}
-                                  onPress={() => removeAllowedRole(role)}
-                                  accessibilityRole="button"
-                                  accessibilityLabel={`Quitar rol ${getRoleLabel(role)}`}
-                                >
-                                  <Ionicons name="close" size={14} color={colors.secondaryText} />
-                                </TouchableOpacity>
-                              </View>
-                            ))}
-                          </View>
-                        ) : (
-                          <ThemedText style={styles.permisosHint}>Sin roles seleccionados.</ThemedText>
+              <View style={styles.inputSection}>
+                <TouchableOpacity
+                  style={styles.collapsibleButton}
+                  onPress={() => setShowPermisosSection((prev) => !prev)}
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: showPermisosSection }}
+                  accessibilityLabel="Administrar permisos"
+                >
+                  <ThemedText style={styles.collapsibleTitle}>Administrar permisos</ThemedText>
+                  <Ionicons
+                    name={showPermisosSection ? 'chevron-up' : 'chevron-down'}
+                    size={18}
+                    color={colors.icon}
+                  />
+                </TouchableOpacity>
+
+                {showPermisosSection ? (
+                  <View style={styles.permisosPanel}>
+                    {isLoadingPermisos ? (
+                      <View style={styles.permisosStateRow}>
+                        <ActivityIndicator size="small" color={colors.tint} />
+                        <ThemedText style={styles.permisosHint}>Cargando permisos actuales...</ThemedText>
+                      </View>
+                    ) : permisosError ? (
+                      <ThemedText style={styles.permisosError}>
+                        {(permisosError as any)?.statusCode === 403
+                          ? 'Solo el creador puede ver los permisos completos'
+                          : permisosError instanceof Error
+                            ? permisosError.message
+                            : 'No se pudieron cargar los permisos'}
+                      </ThemedText>
+                    ) : (
+                      <>
+                        <View style={styles.permisosSection}>
+                          <ThemedText style={styles.permisosSectionTitle}>Roles permitidos</ThemedText>
+                          {allowedRoles.length > 0 ? (
+                            <View style={styles.chipWrap}>
+                              {allowedRoles.map((role) => (
+                                <View key={role} style={styles.editableChip}>
+                                  <ThemedText style={styles.chipLabel}>{getRoleLabel(role)}</ThemedText>
+                                  <TouchableOpacity
+                                    style={styles.chipRemoveButton}
+                                    onPress={() => removeAllowedRole(role)}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={`Quitar rol ${getRoleLabel(role)}`}
+                                  >
+                                    <Ionicons name="close" size={14} color={colors.secondaryText} />
+                                  </TouchableOpacity>
+                                </View>
+                              ))}
+                            </View>
+                          ) : (
+                            <ThemedText style={styles.permisosHint}>Sin roles seleccionados.</ThemedText>
+                          )}
+                        </View>
+
+                        <View style={styles.sectionDivider} />
+
+                        <View style={styles.permisosSection}>
+                          <ThemedText style={styles.permisosSectionTitle}>Usuarios compartidos</ThemedText>
+                          {usuariosCompartidos.length > 0 ? (
+                            <View style={styles.chipWrap}>
+                              {usuariosCompartidos.map((user) => (
+                                <View key={user.user_context_id} style={styles.editableChip}>
+                                  <ThemedText style={styles.chipLabel}>{getUserDisplayName(user)}</ThemedText>
+                                  <TouchableOpacity
+                                    style={styles.chipRemoveButton}
+                                    onPress={() => removeSharedUser(user.user_context_id)}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={`Quitar usuario ${getUserDisplayName(user)}`}
+                                  >
+                                    <Ionicons name="close" size={14} color={colors.secondaryText} />
+                                  </TouchableOpacity>
+                                </View>
+                              ))}
+                            </View>
+                          ) : (
+                            <ThemedText style={styles.permisosHint}>Sin usuarios compartidos.</ThemedText>
+                          )}
+                        </View>
+
+                        <View style={[styles.permisosSection, styles.selectorZ20]}>
+                          <ThemedText style={styles.label}>Agregar usuarios y roles</ThemedText>
+                          <UserSelector
+                            selectedUsers={usuariosCompartidos}
+                            onSelectUsers={setUsuariosCompartidos}
+                            users={users}
+                            roles={rolesForSelectorWithAll}
+                            selectedRoles={selectedRolesForDisplay}
+                            onRemoveRole={(roleValue) => setAllowedRoles((prev) => prev.filter((r) => r !== roleValue))}
+                            isLoadingUsers={isLoadingUsers}
+                            isLoadingRoles={false}
+                            showSelectedChips={false}
+                            onSearch={handleSearchUsers}
+                            onSelectRole={handleRoleSelect}
+                          />
+                        </View>
+
+                        {isSupervisor && (
+                          <>
+                            <View style={styles.permisosSection}>
+                              <ThemedText style={styles.permisosSectionTitle}>Usuarios asociados (seguidos)</ThemedText>
+                              {usuariosAsociados.length > 0 ? (
+                                <View style={styles.chipWrap}>
+                                  {usuariosAsociados.map((user) => (
+                                    <View key={user.user_context_id} style={styles.editableChip}>
+                                      <ThemedText style={styles.chipLabel}>{getUserDisplayName(user)}</ThemedText>
+                                      <TouchableOpacity
+                                        style={styles.chipRemoveButton}
+                                        onPress={() => removeAssociatedUser(user.user_context_id)}
+                                        accessibilityRole="button"
+                                        accessibilityLabel={`Quitar usuario asociado ${getUserDisplayName(user)}`}
+                                      >
+                                        <Ionicons name="close" size={14} color={colors.secondaryText} />
+                                      </TouchableOpacity>
+                                    </View>
+                                  ))}
+                                </View>
+                              ) : (
+                                <ThemedText style={styles.permisosHint}>Sin usuarios asociados.</ThemedText>
+                              )}
+                            </View>
+
+                            <View style={[styles.permisosSection, styles.selectorZ10]}>
+                              <ThemedText style={styles.label}>Agregar usuarios asociados</ThemedText>
+                              <UserSelector
+                                selectedUsers={usuariosAsociados}
+                                onSelectUsers={setUsuariosAsociados}
+                                users={users}
+                                roles={rolesForSelectorWithAll}
+                                isLoadingUsers={isLoadingUsers}
+                                isLoadingRoles={false}
+                                showSelectedChips={false}
+                                onSearch={handleSearchUsers}
+                                onSelectRole={handleRoleSelect}
+                              />
+                            </View>
+                          </>
                         )}
-                      </View>
 
-                      <View style={styles.sectionDivider} />
+                        <View style={styles.sectionDivider} />
 
-                      <View style={styles.permisosSection}>
-                        <ThemedText style={styles.permisosSectionTitle}>Usuarios compartidos</ThemedText>
-                        {usuariosCompartidos.length > 0 ? (
-                          <View style={styles.chipWrap}>
-                            {usuariosCompartidos.map((user) => (
-                              <View key={user.user_context_id} style={styles.editableChip}>
-                                <ThemedText style={styles.chipLabel}>{getUserDisplayName(user)}</ThemedText>
-                                <TouchableOpacity
-                                  style={styles.chipRemoveButton}
-                                  onPress={() => removeSharedUser(user.user_context_id)}
-                                  accessibilityRole="button"
-                                  accessibilityLabel={`Quitar usuario ${getUserDisplayName(user)}`}
-                                >
-                                  <Ionicons name="close" size={14} color={colors.secondaryText} />
-                                </TouchableOpacity>
-                              </View>
-                            ))}
-                          </View>
-                        ) : (
-                          <ThemedText style={styles.permisosHint}>Sin usuarios compartidos.</ThemedText>
-                        )}
-                      </View>
-
-                      <View style={[styles.permisosSection, styles.selectorZ20]}>
-                        <ThemedText style={styles.label}>Agregar usuarios y roles</ThemedText>
-                        <UserSelector
-                          selectedUsers={usuariosCompartidos}
-                          onSelectUsers={setUsuariosCompartidos}
-                          users={users}
-                          roles={allRoles}
-                          selectedRoles={selectedRolesForDisplay}
-                          onRemoveRole={(roleValue) => setAllowedRoles((prev) => prev.filter((r) => r !== roleValue))}
-                          isLoadingUsers={isLoadingUsers}
-                          isLoadingRoles={false}
-                          showSelectedChips={false}
-                          onSearch={handleSearchUsers}
-                          onSelectRole={handleRoleSelect}
-                        />
-                      </View>
-
-                      {isSupervisor && (
-                        <>
-                          <View style={styles.permisosSection}>
-                            <ThemedText style={styles.permisosSectionTitle}>Usuarios asociados (seguidos)</ThemedText>
-                            {usuariosAsociados.length > 0 ? (
-                              <View style={styles.chipWrap}>
-                                {usuariosAsociados.map((user) => (
-                                  <View key={user.user_context_id} style={styles.editableChip}>
-                                    <ThemedText style={styles.chipLabel}>{getUserDisplayName(user)}</ThemedText>
-                                    <TouchableOpacity
-                                      style={styles.chipRemoveButton}
-                                      onPress={() => removeAssociatedUser(user.user_context_id)}
-                                      accessibilityRole="button"
-                                      accessibilityLabel={`Quitar usuario asociado ${getUserDisplayName(user)}`}
-                                    >
-                                      <Ionicons name="close" size={14} color={colors.secondaryText} />
-                                    </TouchableOpacity>
-                                  </View>
-                                ))}
-                              </View>
-                            ) : (
-                              <ThemedText style={styles.permisosHint}>Sin usuarios asociados.</ThemedText>
-                            )}
-                          </View>
-
-                          <View style={[styles.permisosSection, styles.selectorZ10]}>
-                            <ThemedText style={styles.label}>Agregar usuarios asociados</ThemedText>
-                            <UserSelector
-                              selectedUsers={usuariosAsociados}
-                              onSelectUsers={setUsuariosAsociados}
-                              users={users}
-                              roles={allRoles}
-                              isLoadingUsers={isLoadingUsers}
-                              isLoadingRoles={false}
-                              showSelectedChips={false}
-                              onSearch={handleSearchUsers}
-                              onSelectRole={handleRoleSelect}
-                            />
-                          </View>
-                        </>
-                      )}
-
-                      <View style={styles.sectionDivider} />
-
-                      <View style={styles.permisosSection}>
-                        <ThemedText style={styles.permisosHint}>Resumen actual a confirmar</ThemedText>
-                        <ThemedText style={styles.permisosHint}>
-                          Roles: {allowedRoles.length > 0 ? allowedRoles.map(getRoleLabel).join(', ') : 'Ninguno'}
-                        </ThemedText>
-                        <ThemedText style={styles.permisosHint}>
-                          Compartidos: {usuariosCompartidos.length > 0
-                            ? usuariosCompartidos.map(getUserDisplayName).join(', ')
-                            : 'Ninguno'}
-                        </ThemedText>
-                        {isSupervisor ? (
+                        <View style={styles.permisosSection}>
+                          <ThemedText style={styles.permisosHint}>Resumen actual a confirmar</ThemedText>
                           <ThemedText style={styles.permisosHint}>
-                            Asociados: {usuariosAsociados.length > 0
-                              ? usuariosAsociados.map(getUserDisplayName).join(', ')
+                            Roles: {allowedRoles.length > 0 ? allowedRoles.map(getRoleLabel).join(', ') : 'Ninguno'}
+                          </ThemedText>
+                          <ThemedText style={styles.permisosHint}>
+                            Compartidos: {usuariosCompartidos.length > 0
+                              ? usuariosCompartidos.map(getUserDisplayName).join(', ')
                               : 'Ninguno'}
                           </ThemedText>
-                        ) : null}
-                      </View>
-                    </>
-                  )}
-                </View>
-              ) : null}
-            </View>
+                          {isSupervisor ? (
+                            <ThemedText style={styles.permisosHint}>
+                              Asociados: {usuariosAsociados.length > 0
+                                ? usuariosAsociados.map(getUserDisplayName).join(', ')
+                                : 'Ninguno'}
+                            </ThemedText>
+                          ) : null}
+                        </View>
+                      </>
+                    )}
+                  </View>
+                ) : null}
+              </View>
 
-            <RoleUserSelectionModal
-              visible={showRoleModal}
-              onClose={handleCloseRoleModal}
-              roleName={activeRole}
-              roleUsers={roleUsers}
-              selectedUsers={usuariosCompartidos}
-              isRoleSelected={isRoleSelected}
-              onToggleUser={handleToggleUser}
-              onSelectAll={handleSelectAllRoleUsers}
-              onDeselectAll={handleDeselectAllRoleUsers}
-            />
-          </ScrollView>
-        </KeyboardAvoidingView>
+              <RoleUserSelectionModal
+                visible={showRoleModal}
+                onClose={handleCloseRoleModal}
+                roleName={activeRole}
+                roleUsers={roleUsers}
+                selectedUsers={usuariosCompartidos}
+                isRoleSelected={isRoleSelected}
+                onToggleUser={handleToggleUser}
+                onSelectAll={handleSelectAllRoleUsers}
+                onDeselectAll={handleDeselectAllRoleUsers}
+              />
+            </ScrollView>
+          </ModalKeyboardView>
 
-        {/* Botón fijo fuera del KAV — con safe-area bottom */}
-        <View style={[styles.updateButtonContainer, { paddingBottom: insets.bottom || BUTTON_MARGIN }]}>
-          <TouchableOpacity
-            style={[styles.updateButton, { backgroundColor: !isFormValid || isUpdating ? colors.icon : colors.lightTint }]}
-            onPress={handleActualizarArchivo}
-            disabled={!isFormValid || isUpdating}
-          >
-            {isUpdating ? (
-              <ActivityIndicator size="small" color={colors.componentBackground} />
-            ) : (
-              <>
-                <Ionicons name="checkmark" size={20} color={colors.componentBackground} />
-                <ThemedText style={styles.updateButtonText}>
-                  {didPartialSuccess ? 'Cerrar' : 'Actualizar Archivo'}
-                </ThemedText>
-              </>
-            )}
-          </TouchableOpacity>
+          {/* Botón fijo fuera del KAV — con safe-area bottom */}
+          <View style={[styles.updateButtonContainer, { paddingBottom: insets.bottom || BUTTON_MARGIN }]}>
+            <TouchableOpacity
+              style={[styles.updateButton, { backgroundColor: !isFormValid || isUpdating ? colors.icon : colors.lightTint }]}
+              onPress={handleActualizarArchivo}
+              disabled={!isFormValid || isUpdating}
+            >
+              {isUpdating ? (
+                <ActivityIndicator size="small" color={colors.componentBackground} />
+              ) : (
+                <>
+                  <Ionicons name="checkmark" size={20} color={colors.componentBackground} />
+                  <ThemedText style={styles.updateButtonText}>
+                    {didPartialSuccess ? 'Cerrar' : 'Actualizar Archivo'}
+                  </ThemedText>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     </Modal>
-    <OperacionPendienteModal visible={isUpdating} />
-    </>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  overlay: {
     flex: 1,
-    backgroundColor: colors.componentBackground,
+    backgroundColor: 'rgba(0,0,0,0.5)' // Sombra de fondo
   },
-  flex: {
+  modalContainer: {
+    // Quita el flex: 1, o usa un alto fijo/porcentaje
     flex: 1,
+    marginTop: '10%', // Empuja el modal hacia abajo
+    backgroundColor: Colors['light'].componentBackground,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    overflow: 'hidden',
+  },
+  modalKeyboardAvoiding: {
+    flex: 1,
+    width: '100%',
   },
   header: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomColor: Colors['light'].icon,
     flexDirection: 'row',
+    justifyContent: 'flex-end',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: '4%',
-    paddingBottom: 12,
-    backgroundColor: colors.componentBackground,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.icon,
   },
   iconButton: {
-    padding: 8,
-    borderRadius: 8,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    padding: 6,
+    borderRadius: 16,
+    backgroundColor: '#f3f4f6',
+    marginLeft: 8,
   },
   content: {
     flex: 1,
@@ -729,6 +740,19 @@ const styles = StyleSheet.create({
   inputMultiline: {
     minHeight: 80,
     paddingTop: 10,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  nameInput: {
+    flex: 1,
+  },
+  extSuffix: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.secondaryText,
   },
   rolesButton: {
     flexDirection: 'row',

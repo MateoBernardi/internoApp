@@ -1,14 +1,19 @@
 
+import { AlertModal, type AlertModalAction } from '@/components/AlertModal';
 import { ThemedText } from '@/components/themed-text';
+import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
-import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
 import { Image } from 'expo-image';
 import type * as ImagePickerTypes from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { deriveIdempotencyKey } from '@/shared/idempotency';
+import { KEYBOARD_BEHAVIOR } from '@/shared/ui/keyboard';
+import { useIdempotencyKey } from '@/shared/useIdempotencyKey';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { uploadReporteImage } from '../services/reportesApi';
 import { useCreateReporte } from '../viewmodels/useReportes';
 
@@ -23,6 +28,10 @@ const colors = Colors['light'];
 
 interface CrearReporteProps {
 	user_context_id?: string;
+	user_nombre?: string;
+	user_apellido?: string;
+	visible?: boolean;
+	onClose?: () => void;
 }
 
 interface PendingImage {
@@ -34,14 +43,18 @@ interface PendingImage {
 
 export default function CrearReporte(props?: CrearReporteProps) {
 	const router = useRouter();
+	const insets = useSafeAreaInsets();
 	const params = useLocalSearchParams();
 	const { tokens } = useAuth();
+	const { idempotencyKey, regenerateIdempotencyKey } = useIdempotencyKey();
 	const { mutateAsync: crearReporte, isPending: isCreating } = useCreateReporte();
+	const modalVisible = props?.visible ?? true;
+	const handleClose = props?.onClose ?? (() => router.back());
 
 	// Obtener user_context_id de props o de los parámetros de navegación
 	const initialUserId = props?.user_context_id || (params.user_context_id as string) || '';
-	const userNombre = (params.user_nombre as string) || '';
-	const userApellido = (params.user_apellido as string) || '';
+	const userNombre = props?.user_nombre || (params.user_nombre as string) || '';
+	const userApellido = props?.user_apellido || (params.user_apellido as string) || '';
 	const userFullName = userNombre && userApellido ? `${userNombre} ${userApellido}` : '';
 
 	// Form state
@@ -51,11 +64,18 @@ export default function CrearReporte(props?: CrearReporteProps) {
 	const [categoria, setCategoria] = useState<'NEGATIVO' | 'POSITIVO'>('NEGATIVO');
 	const [fechaIncidente, setFechaIncidente] = useState<Date>(new Date());
 	const [showDatePicker, setShowDatePicker] = useState(false);
+	const [showTimePicker, setShowTimePicker] = useState(false);
 
 	// Estado de imágenes pendientes
 	const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
 	const [isUploading, setIsUploading] = useState(false);
 	const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
+	const [alertModal, setAlertModal] = useState<{
+		visible: boolean;
+		title: string;
+		message?: string;
+		actions: AlertModalAction[];
+	}>({ visible: false, title: '', message: undefined, actions: [] });
 
 	const isPending = isCreating || isUploading;
 
@@ -70,6 +90,25 @@ export default function CrearReporte(props?: CrearReporteProps) {
 		);
 	}, [usuarioId, titulo, descripcion, categoria, fechaIncidente]);
 
+	const showModal = useCallback((title: string, message?: string, actions?: AlertModalAction[]) => {
+		const normalizedActions: AlertModalAction[] = actions && actions.length > 0
+			? actions
+			: [{ key: 'ok', label: 'Aceptar', onPress: () => { }, variant: 'primary' }];
+
+		setAlertModal({
+			visible: true,
+			title,
+			message,
+			actions: normalizedActions.map((action) => ({
+				...action,
+				onPress: () => {
+					setAlertModal((prev) => ({ ...prev, visible: false }));
+					action.onPress();
+				},
+			})),
+		});
+	}, []);
+
 	// ── Imagen handlers ──────────────────────────────────────────────────────────
 
 	const addAsset = useCallback((asset: ImagePickerTypes.ImagePickerAsset) => {
@@ -81,12 +120,12 @@ export default function CrearReporte(props?: CrearReporteProps) {
 
 	const handlePickFromGallery = useCallback(async () => {
 		if (!ImagePicker) {
-			Alert.alert('No disponible', 'El selector de imágenes no está disponible. Reconstruí la app con el módulo nativo.');
+			showModal('No disponible', 'El selector de imágenes no está disponible. Reconstruí la app con el módulo nativo.');
 			return;
 		}
 		const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
 		if (status !== 'granted') {
-			Alert.alert('Permiso denegado', 'Se necesita acceso a la galería para adjuntar imágenes.');
+			showModal('Permiso denegado', 'Se necesita acceso a la galería para adjuntar imágenes.');
 			return;
 		}
 		const result = await ImagePicker.launchImageLibraryAsync({
@@ -97,16 +136,16 @@ export default function CrearReporte(props?: CrearReporteProps) {
 		if (!result.canceled && result.assets.length > 0) {
 			addAsset(result.assets[0]);
 		}
-	}, [addAsset]);
+	}, [addAsset, showModal]);
 
 	const handleTakePhoto = useCallback(async () => {
 		if (!ImagePicker) {
-			Alert.alert('No disponible', 'La cámara no está disponible. Reconstruí la app con el módulo nativo.');
+			showModal('No disponible', 'La cámara no está disponible. Reconstruí la app con el módulo nativo.');
 			return;
 		}
 		const { status } = await ImagePicker.requestCameraPermissionsAsync();
 		if (status !== 'granted') {
-			Alert.alert('Permiso denegado', 'Se necesita acceso a la cámara para tomar fotos.');
+			showModal('Permiso denegado', 'Se necesita acceso a la cámara para tomar fotos.');
 			return;
 		}
 		const result = await ImagePicker.launchCameraAsync({
@@ -116,7 +155,7 @@ export default function CrearReporte(props?: CrearReporteProps) {
 		if (!result.canceled && result.assets.length > 0) {
 			addAsset(result.assets[0]);
 		}
-	}, [addAsset]);
+	}, [addAsset, showModal]);
 
 	const removeImage = useCallback((index: number) => {
 		setPendingImages((prev) => prev.filter((_, i) => i !== index));
@@ -132,25 +171,41 @@ export default function CrearReporte(props?: CrearReporteProps) {
 
 	const handleCrearReporte = useCallback(async () => {
 		if (!isFormValid) {
-			Alert.alert('Formulario incompleto', 'Por favor completa todos los campos');
+			showModal('Formulario incompleto', 'Por favor completa todos los campos');
 			return;
 		}
 		const token = tokens?.accessToken;
 		if (!token) {
-			Alert.alert('Error', 'No hay sesión activa');
+			showModal('Error', 'No hay sesión activa');
 			return;
 		}
 
 		try {
+			// La key base queda fijada a ESTE intento de creación: el reporte la usa
+			// directa y cada imagen una sub-key derivada, estables entre reintentos.
+			const baseKey = idempotencyKey;
 			const nuevoReporte = await crearReporte({
 				usuario_reportado_id: Number(usuarioId),
 				titulo: titulo.trim(),
 				descripcion: descripcion.trim(),
 				categoria,
-				fecha_incidente: fechaIncidente.toISOString().split('T')[0],
+				fecha_incidente: fechaIncidente.toISOString(),
+				idempotencyKey: baseKey,
 			});
+			// El reporte ya existe: rotar la key para que un próximo envío desde este
+			// mismo formulario sea una operación nueva y no un replay del backend.
+			regenerateIdempotencyKey();
 
 			// Subir imágenes pendientes una por una
+			if (pendingImages.length > 0 && !nuevoReporte?.id) {
+				showModal(
+					'Reporte creado',
+					'El reporte se creó, pero no se pudo identificar para adjuntar las imágenes.',
+					[{ key: 'ok', label: 'Aceptar', onPress: () => handleClose(), variant: 'primary' }],
+				);
+				return;
+			}
+
 			if (pendingImages.length > 0) {
 				setIsUploading(true);
 				setUploadProgress({ current: 0, total: pendingImages.length });
@@ -166,15 +221,23 @@ export default function CrearReporte(props?: CrearReporteProps) {
 							img.mimeType,
 							img.description || 'Imagen de reporte',
 							i,
+							deriveIdempotencyKey(baseKey, `img-${i}`),
 						);
 					}
 				} catch (uploadError: any) {
 					// El reporte ya se creó; avisamos del error pero navegamos igual
-					Alert.alert(
+					showModal(
 						'Reporte creado',
 						`El reporte se creó correctamente, pero algunas imágenes no pudieron subirse: ${uploadError?.message ?? 'Error desconocido'}`,
+						[
+							{
+								key: 'ok',
+								label: 'Aceptar',
+								onPress: () => router.back(),
+								variant: 'primary',
+							},
+						],
 					);
-					router.back();
 					return;
 				} finally {
 					setIsUploading(false);
@@ -182,204 +245,257 @@ export default function CrearReporte(props?: CrearReporteProps) {
 				}
 			}
 
-			Alert.alert('Éxito', 'Reporte creado correctamente');
-			router.back();
+			showModal('Éxito', 'Reporte creado correctamente', [
+				{ key: 'ok', label: 'Aceptar', onPress: () => handleClose(), variant: 'primary' },
+			]);
 		} catch (error: any) {
-			Alert.alert('Error', error?.message || 'Intenta nuevamente');
+			showModal('Error', error?.message || 'Intenta nuevamente');
 		}
-	}, [isFormValid, tokens, crearReporte, usuarioId, titulo, descripcion, categoria, fechaIncidente, pendingImages, router]);
+	}, [isFormValid, tokens, crearReporte, usuarioId, titulo, descripcion, categoria, fechaIncidente, pendingImages, handleClose, showModal, router, idempotencyKey, regenerateIdempotencyKey]);
+
+	const handleDateConfirm = useCallback((selectedDate: Date) => {
+		setFechaIncidente((prev) => {
+			const next = new Date(prev);
+			next.setFullYear(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
+			return next;
+		});
+		setShowDatePicker(false);
+		setShowTimePicker(false);
+	}, []);
+
+	const handleTimeConfirm = useCallback((selectedDate: Date) => {
+		setFechaIncidente((prev) => {
+			const next = new Date(prev);
+			next.setHours(selectedDate.getHours(), selectedDate.getMinutes(), 0, 0);
+			return next;
+		});
+		setShowDatePicker(false);
+		setShowTimePicker(false);
+	}, []);
 
 	return (
-		<View style={styles.container}>
-			<KeyboardAvoidingView
-				behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-				style={styles.container}
-			>
-				{/* Header */}
-				<View style={styles.header}>
-					<View style={styles.iconButton} />
-					<ThemedText style={styles.headerTitle}>Nuevo Reporte</ThemedText>
-					<View style={{ width: 40 }} />
-				</View>
-
-				<ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
-					{/* Usuario reportado */}
-					<View style={styles.inputSection}>
-						<TextInput
-							style={[styles.input, initialUserId && styles.disabledInput]}
-							placeholder={userFullName || "ID usuario reportado"}
-							placeholderTextColor={userFullName ? colors.text : colors.secondaryText}
-							value={userFullName || usuarioId}
-							onChangeText={!initialUserId ? setUsuarioId : undefined}
-							keyboardType="numeric"
-							editable={!initialUserId}
-							selectTextOnFocus={!initialUserId}
-						/>
-					</View>
-					{/* Título */}
-					<View style={styles.inputSection}>
-						<TextInput
-							style={styles.input}
-							placeholder="Título"
-							placeholderTextColor={colors.secondaryText}
-							value={titulo}
-							onChangeText={setTitulo}
-							maxLength={100}
-						/>
-					</View>
-					{/* Descripción */}
-					<TextInput
-						style={styles.messageInput}
-						placeholder="Descripción"
-						placeholderTextColor={colors.secondaryText}
-						value={descripcion}
-						onChangeText={setDescripcion}
-						multiline
-						textAlignVertical="top"
-					/>
-					{/* Categoría */}
-					<View style={[styles.inputSection, { borderBottomWidth: 0, paddingVertical: 10, alignItems: 'center' }]}> 
-						<TouchableOpacity
-							style={[styles.chip, categoria === 'NEGATIVO' && { borderColor: colors.error, backgroundColor: 'transparent', borderWidth: 1 }]}
-							onPress={() => setCategoria('NEGATIVO')}
-						>
-							<ThemedText style={[styles.chipText, categoria === 'NEGATIVO' ? { color: colors.error, fontWeight: 'bold' } : { color: colors.secondaryText }]}>Negativo</ThemedText>
-						</TouchableOpacity>
-						<TouchableOpacity
-							style={[styles.chip, categoria === 'POSITIVO' && { borderColor: colors.success, backgroundColor: 'transparent', borderWidth: 1 }]}
-							onPress={() => setCategoria('POSITIVO')}
-						>
-							<ThemedText style={[styles.chipText, categoria === 'POSITIVO' ? { color: colors.success, fontWeight: 'bold' } : { color: colors.secondaryText }]}>Positivo</ThemedText>
-						</TouchableOpacity>
-					</View>
-					{/* Fecha incidente */}
-					<View style={styles.inputSection}>
-						<TouchableOpacity onPress={() => setShowDatePicker(true)} style={{ flex: 1 }}>
-							<ThemedText style={[styles.dateValue, { color: colors.text }]}>
-								{fechaIncidente.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}
-							</ThemedText>
-						</TouchableOpacity>
-					</View>
-
-					{/* Imágenes */}
-					<View style={styles.imageSection}>
-						<View style={styles.imageSectionHeader}>
-							<ThemedText style={styles.imageSectionLabel}>
-								Imágenes{pendingImages.length > 0 ? ` (${pendingImages.length})` : ' (opcional)'}
-							</ThemedText>
-							<View style={styles.imagePickerRow}>
-								<TouchableOpacity
-									style={styles.imageActionBtn}
-									onPress={handlePickFromGallery}
-									disabled={isPending}
-								>
-									<Ionicons name="image-outline" size={20} color={colors.lightTint} />
-									<ThemedText style={styles.imageActionText}>Galería</ThemedText>
-								</TouchableOpacity>
-								<TouchableOpacity
-									style={styles.imageActionBtn}
-									onPress={handleTakePhoto}
-									disabled={isPending}
-								>
-									<Ionicons name="camera-outline" size={20} color={colors.lightTint} />
-									<ThemedText style={styles.imageActionText}>Cámara</ThemedText>
-								</TouchableOpacity>
-							</View>
-						</View>
-
-						{pendingImages.map((img, idx) => (
-							<View key={idx} style={styles.pendingImageItem}>
-								<Image
-									source={{ uri: img.uri }}
-									style={styles.pendingThumbnail}
-									contentFit="cover"
-								/>
-								<View style={styles.pendingImageDetails}>
-									<TextInput
-										style={styles.pendingDescInput}
-										placeholder="Descripción (opcional)"
-										placeholderTextColor={colors.secondaryText}
-										value={img.description}
-										onChangeText={(text) => updateImageDescription(idx, text)}
-										maxLength={200}
-									/>
-								</View>
-								<TouchableOpacity
-									onPress={() => removeImage(idx)}
-									style={styles.removeImageBtn}
-									disabled={isPending}
-								>
-									<Ionicons name="close-circle" size={24} color={colors.error} />
-								</TouchableOpacity>
-							</View>
-						))}
-					</View>
-				</ScrollView>
-
-				{/* Floating Send Button */}
-				<TouchableOpacity
-					style={[
-						styles.fab,
-						{ backgroundColor: !isFormValid || isPending ? colors.secondaryText : colors.lightTint },
-					]}
-					onPress={handleCrearReporte}
-					disabled={!isFormValid || isPending}
+		<Modal visible={modalVisible} transparent animationType="slide" onRequestClose={handleClose}>
+			<View style={styles.overlay}>
+				<KeyboardAvoidingView
+					behavior={KEYBOARD_BEHAVIOR}
+					style={styles.keyboardContainer}
 				>
-					{isPending ? (
-						<View style={styles.fabLoading}>
-							<ActivityIndicator size="small" color={colors.componentBackground} />
-							{uploadProgress && (
-								<ThemedText style={styles.fabProgressText}>
-									{uploadProgress.current}/{uploadProgress.total}
-								</ThemedText>
-							)}
+					<View style={[styles.container, { paddingBottom: insets.bottom }]}>
+						<View style={styles.modalHeader}>
+							<TouchableOpacity onPress={handleClose} style={styles.closeButton}>
+								<Ionicons name="close" size={24} color="#999" />
+							</TouchableOpacity>
 						</View>
-					) : (
-						<Ionicons name="send" size={24} color={colors.componentBackground} />
-					)}
-				</TouchableOpacity>
 
-				{/* Date Picker */}
-				{showDatePicker && (
-					<DateTimePicker
-						testID="dateTimePicker"
-						value={fechaIncidente}
-						mode="date"
-						is24Hour={true}
-						display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-						onChange={(event, selectedDate) => {
-							setShowDatePicker(false);
-							if (selectedDate && event.type !== 'dismissed') {
-								setFechaIncidente(selectedDate);
-							}
-						}}
-					/>
-				)}
-			</KeyboardAvoidingView>
-		</View>
+						<ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
+							{/* Usuario reportado */}
+							<View style={styles.inputSection}>
+								<TextInput
+									style={[styles.input, initialUserId && styles.disabledInput]}
+									placeholder={userFullName || "ID usuario reportado"}
+									placeholderTextColor={userFullName ? colors.text : colors.secondaryText}
+									value={userFullName || usuarioId}
+									onChangeText={!initialUserId ? setUsuarioId : undefined}
+									keyboardType="numeric"
+									editable={!initialUserId}
+									selectTextOnFocus={!initialUserId}
+								/>
+							</View>
+							{/* Título */}
+							<View style={styles.inputSection}>
+								<TextInput
+									style={styles.input}
+									placeholder="Título"
+									placeholderTextColor={colors.secondaryText}
+									value={titulo}
+									onChangeText={setTitulo}
+									maxLength={100}
+								/>
+							</View>
+							{/* Descripción */}
+							<TextInput
+								style={styles.messageInput}
+								placeholder="Descripción"
+								placeholderTextColor={colors.secondaryText}
+								value={descripcion}
+								onChangeText={setDescripcion}
+								multiline
+								textAlignVertical="top"
+							/>
+							{/* Categoría */}
+							<View style={[styles.inputSection, { borderBottomWidth: 0, paddingVertical: 10, alignItems: 'center' }]}>
+								<TouchableOpacity
+									style={[styles.chip, categoria === 'NEGATIVO' && { borderColor: colors.error, backgroundColor: 'transparent', borderWidth: 1 }]}
+									onPress={() => setCategoria('NEGATIVO')}
+								>
+									<ThemedText style={[styles.chipText, categoria === 'NEGATIVO' ? { color: colors.error, fontWeight: 'bold' } : { color: colors.secondaryText }]}>Negativo</ThemedText>
+								</TouchableOpacity>
+								<TouchableOpacity
+									style={[styles.chip, categoria === 'POSITIVO' && { borderColor: colors.success, backgroundColor: 'transparent', borderWidth: 1 }]}
+									onPress={() => setCategoria('POSITIVO')}
+								>
+									<ThemedText style={[styles.chipText, categoria === 'POSITIVO' ? { color: colors.success, fontWeight: 'bold' } : { color: colors.secondaryText }]}>Positivo</ThemedText>
+								</TouchableOpacity>
+							</View>
+							{/* Fecha incidente */}
+							<View style={styles.inputSection}>
+								<TouchableOpacity onPress={() => {
+									setShowTimePicker(false);
+									setShowDatePicker(true);
+								}} style={{ flex: 1 }}>
+									<ThemedText style={[styles.dateValue, { color: colors.text }]}>
+										{fechaIncidente.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}
+									</ThemedText>
+								</TouchableOpacity>
+								<TouchableOpacity onPress={() => {
+									setShowDatePicker(false);
+									setShowTimePicker(true);
+								}}>
+									<ThemedText style={[styles.dateValue, styles.timeValue, { color: colors.text }]}>
+										{fechaIncidente.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false })}
+									</ThemedText>
+								</TouchableOpacity>
+							</View>
+
+							{/* Imágenes */}
+							<View style={styles.imageSection}>
+								<View style={styles.imageSectionHeader}>
+									<ThemedText style={styles.imageSectionLabel}>
+										Imágenes{pendingImages.length > 0 ? ` (${pendingImages.length})` : ' (opcional)'}
+									</ThemedText>
+									<View style={styles.imagePickerRow}>
+										<TouchableOpacity
+											style={styles.imageActionBtn}
+											onPress={handlePickFromGallery}
+											disabled={isPending}
+										>
+											<Ionicons name="image-outline" size={20} color={colors.lightTint} />
+											<ThemedText style={styles.imageActionText}>Galería</ThemedText>
+										</TouchableOpacity>
+										<TouchableOpacity
+											style={styles.imageActionBtn}
+											onPress={handleTakePhoto}
+											disabled={isPending}
+										>
+											<Ionicons name="camera-outline" size={20} color={colors.lightTint} />
+											<ThemedText style={styles.imageActionText}>Cámara</ThemedText>
+										</TouchableOpacity>
+									</View>
+								</View>
+
+								{pendingImages.map((img, idx) => (
+									<View key={idx} style={styles.pendingImageItem}>
+										<Image
+											source={{ uri: img.uri }}
+											style={styles.pendingThumbnail}
+											contentFit="cover"
+										/>
+										<View style={styles.pendingImageDetails}>
+											<TextInput
+												style={styles.pendingDescInput}
+												placeholder="Descripción (opcional)"
+												placeholderTextColor={colors.secondaryText}
+												value={img.description}
+												onChangeText={(text) => updateImageDescription(idx, text)}
+												maxLength={200}
+											/>
+										</View>
+										<TouchableOpacity
+											onPress={() => removeImage(idx)}
+											style={styles.removeImageBtn}
+											disabled={isPending}
+										>
+											<Ionicons name="close-circle" size={24} color={colors.error} />
+										</TouchableOpacity>
+									</View>
+								))}
+							</View>
+						</ScrollView>
+
+						{/* Floating Send Button */}
+						<View style={[styles.uploadButtonContainer]}>
+							<TouchableOpacity
+								onPress={handleCrearReporte}
+								style={[styles.uploadButton, { backgroundColor: Colors['light'].componentBackground }]}
+							>
+								<Ionicons name="cloud-upload" size={20} color={Colors['light'].lightTint} />
+								<ThemedText style={styles.uploadButtonText}>{'Crear'}</ThemedText>
+
+							</TouchableOpacity>
+						</View>
+
+						{/* Date Picker */}
+						{showDatePicker && (
+							<DateTimePicker
+								visible={showDatePicker}
+								value={fechaIncidente}
+								mode="date"
+								onConfirm={handleDateConfirm}
+								onCancel={() => {
+									setShowDatePicker(false);
+									setShowTimePicker(false);
+								}}
+							/>
+						)}
+
+						{/* Time Picker */}
+						{showTimePicker && (
+							<DateTimePicker
+								visible={showTimePicker}
+								value={fechaIncidente}
+								mode="time"
+								is24Hour
+								onConfirm={handleTimeConfirm}
+								onCancel={() => {
+									setShowDatePicker(false);
+									setShowTimePicker(false);
+								}}
+							/>
+						)}
+
+						<AlertModal
+							visible={alertModal.visible}
+							title={alertModal.title}
+							message={alertModal.message}
+							actions={alertModal.actions}
+							onClose={() => setAlertModal((prev) => ({ ...prev, visible: false }))}
+						/>
+					</View>
+				</KeyboardAvoidingView>
+			</View>
+		</Modal>
 	);
 }
 
 const styles = StyleSheet.create({
+	overlay: {
+		flex: 1,
+		backgroundColor: 'rgba(0,0,0,0.5)',
+	},
+	keyboardContainer: {
+		flex: 1,
+		justifyContent: 'flex-end',
+	},
 	container: {
 		flex: 1,
+		marginTop: '10%',
 		backgroundColor: colors.componentBackground,
+		borderTopLeftRadius: 16,
+		borderTopRightRadius: 16,
+		overflow: 'hidden',
 	},
-	header: {
-		flexDirection: 'row',
-		alignItems: 'center',
-		justifyContent: 'space-between',
-		paddingHorizontal: '4%',
-		paddingVertical: '3%',
-		marginTop: Platform.OS === 'android' ? 0 : 0,
+	modalHeader: {
+		paddingHorizontal: 12,
+		paddingVertical: 10,
+		borderBottomWidth: 1,
+		borderBottomColor: colors.background,
+		alignItems: 'flex-end',
 	},
-	headerTitle: {
-		fontSize: 20,
-		color: colors.text,
-		fontWeight: '500',
-	},
-	iconButton: {
-		padding: 8,
+	closeButton: {
+		padding: 6,
+		borderRadius: 16,
+		backgroundColor: '#f3f4f6',
+		marginLeft: 8,
 	},
 	content: {
 		flex: 1,
@@ -418,6 +534,9 @@ const styles = StyleSheet.create({
 	dateValue: {
 		fontSize: 16,
 		color: colors.lightTint,
+	},
+	timeValue: {
+		fontWeight: '600',
 	},
 	messageInput: {
 		flex: 1,
@@ -513,5 +632,25 @@ const styles = StyleSheet.create({
 	},
 	removeImageBtn: {
 		padding: 2,
+	},
+	uploadButtonContainer: {
+		backgroundColor: Colors['light'].componentBackground,
+		borderTopWidth: StyleSheet.hairlineWidth,
+		borderTopColor: Colors['light'].icon,
+		paddingHorizontal: '4%',
+		paddingTop: 10,
+	},
+	uploadButton: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		justifyContent: 'center',
+		paddingVertical: 14,
+		borderRadius: 8,
+		gap: 8,
+	},
+	uploadButtonText: {
+		color: Colors['light'].lightTint,
+		fontWeight: '600',
+		fontSize: 16,
 	},
 });

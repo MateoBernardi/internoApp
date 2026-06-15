@@ -1,24 +1,56 @@
 import { OwnFlatList } from '@/components/FlatList';
+import { FilePreview, useOpenFilePreview } from '@/components/filePreview';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { showGlobalToast } from '@/shared/ui/toast';
-import * as FileSystem from 'expo-file-system/legacy';
-import * as Linking from 'expo-linking';
+import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
-import React, { useEffect, useState } from 'react';
-import { Alert, StyleSheet, View } from 'react-native';
+import React, { useState } from 'react';
+import { Alert, Platform, StyleSheet, View } from 'react-native';
+import { ArchivoViewersModal } from '../components/ArchivoViewersModal';
 import { DocumentoItem } from '../components/DocumentoItem';
 import { DocumentOptionAction, DocumentOptionsModal } from '../components/DocumentOptionsModal';
 import { EditArchivoModal } from '../components/EditArchivoModal';
 import { FolderPickerModal } from '../components/FolderPickerModal';
 import { Archivo } from '../models/Archivo';
 import { formatPartialWarnings } from '../utils/partialWarnings';
-import { useArchivosPersonales, useCarpetas, useDeleteArchivo, useGetArchivoUrlFirmada, useMoverArchivo, useSearchArchivos } from '../viewmodels/useArchivos';
+import { useArchivosPersonales, useArchivoViewers, useCarpetas, useDeleteArchivo, useGetArchivoUrlFirmada, useMoverArchivo, useSearchArchivos } from '../viewmodels/useArchivos';
 
 const colors = Colors['light'];
+
+function getMimeTypeFromFileName(fileName: string): string {
+  const extension = fileName.split('.').pop()?.toLowerCase();
+  switch (extension) {
+    case 'pdf':
+      return 'application/pdf';
+    case 'doc':
+      return 'application/msword';
+    case 'docx':
+      return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    case 'xls':
+      return 'application/vnd.ms-excel';
+    case 'xlsx':
+      return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    case 'ppt':
+      return 'application/vnd.ms-powerpoint';
+    case 'pptx':
+      return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+    case 'jpg':
+    case 'jpeg':
+      return 'image/jpeg';
+    case 'png':
+      return 'image/png';
+    case 'gif':
+      return 'image/gif';
+    case 'txt':
+      return 'text/plain';
+    default:
+      return 'application/octet-stream';
+  }
+}
 
 type MisDocumentosProps = {
   query?: string;
@@ -30,14 +62,20 @@ export default function MisDocumentos({ query = '', selectedFolderId, listHeader
   const { user } = useAuth();
   const { data: carpetasData } = useCarpetas('list', true);
 
+  const { previewFile, openFile, closePreview } = useOpenFilePreview();
   const [fileToEdit, setFileToEdit] = useState<Archivo | null>(null);
-  const [fileToOpen, setFileToOpen] = useState<Archivo | null>(null);
   const [fileToMove, setFileToMove] = useState<Archivo | null>(null);
   const [fileForOptions, setFileForOptions] = useState<Archivo | null>(null);
+  const [fileForViewers, setFileForViewers] = useState<Archivo | null>(null);
   const deleteMutation = useDeleteArchivo();
   const moverArchivoMutation = useMoverArchivo();
   const [isDownloading, setIsDownloading] = useState(false);
-  const { getArchivoUrlFirmada } = useGetArchivoUrlFirmada();
+  const { getArchivoUrlFirmada } = useGetArchivoUrlFirmada(); // still used for handleDownloadFile
+  const {
+    data: archivoViewers = [],
+    isLoading: loadingViewers,
+    error: viewersError,
+  } = useArchivoViewers(fileForViewers?.id);
 
   const { data: files, isLoading, isPending, error, refetch } = useArchivosPersonales();
   const { data: searchResults, isLoading: loadingSearch, isPending: pendingSearch } = useSearchArchivos(query);
@@ -50,52 +88,63 @@ export default function MisDocumentos({ query = '', selectedFolderId, listHeader
     : (displayData || []).filter((file) => (file.id_carpeta ?? null) === selectedFolderId);
   const isLoadingAny = isSearchingWithResults ? loadingSearch || pendingSearch : isLoading || isPending;
 
-  useEffect(() => {
-    if (!fileToOpen) return;
-
-    const openFile = async () => {
-      try {
-        const url = await getArchivoUrlFirmada(fileToOpen.id);
-        if (url) {
-          await Linking.openURL(url);
-        }
-      } catch (e) {
-        console.error("Error opening file", e);
-        Alert.alert("Error", "No se pudo abrir el archivo");
-      } finally {
-        setFileToOpen(null);
-      }
-    };
-
-    openFile();
-  }, [fileToOpen, getArchivoUrlFirmada]);
 
   const handleDownloadFile = async (file: Archivo) => {
-      if (isDownloading) return;
-      setIsDownloading(true);
-      try {
-          const url = await getArchivoUrlFirmada(file.id);
-          
-          const filename = file.nombre;
-          const fileUri = FileSystem.documentDirectory + filename;
-          
-          const downloadRes = await FileSystem.downloadAsync(url, fileUri);
-          
-          if (downloadRes.status === 200) {
-              if (await Sharing.isAvailableAsync()) {
-                  await Sharing.shareAsync(downloadRes.uri);
-              } else {
-                  Alert.alert("Descarga completa", `Archivo guardado en: ${downloadRes.uri}`);
-              }
-          } else {
-              throw new Error("Download failed");
-          }
-      } catch (e) {
-          console.error(e);
-          Alert.alert("Error", "No se pudo descargar el archivo");
-      } finally {
-          setIsDownloading(false);
+    if (isDownloading) return;
+    setIsDownloading(true);
+
+    try {
+      const url = await getArchivoUrlFirmada(file.id);
+
+      if (Platform.OS === 'web') {
+        // --- LÓGICA PARA WEB ---
+        // 1. Descargamos el archivo como Blob para forzar la descarga en el navegador
+        const response = await fetch(url);
+        const blob = await response.blob();
+
+        // 2. Creamos una URL temporal para el Blob
+        const blobUrl = window.URL.createObjectURL(blob);
+
+        // 3. Creamos un elemento <a> invisible y simulamos un clic
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = file.nombre; // Forzamos el nombre del archivo
+        document.body.appendChild(link);
+        link.click();
+
+        // 4. Limpiamos el DOM y la memoria
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(blobUrl);
+      } else {
+        // --- LÓGICA PARA NATIVE (iOS / Android) ---
+        const destinationDir = new FileSystem.Directory(FileSystem.Paths.cache, 'Italo-Argentina');
+        const destinationFile = new FileSystem.File(destinationDir, file.nombre);
+        const mimeType = getMimeTypeFromFileName(file.nombre);
+
+        await destinationDir.create({ idempotent: true, intermediates: true });
+        const output = await FileSystem.File.downloadFileAsync(url, destinationFile, { idempotent: true });
+
+        // En lugar de (o además de) la alerta, abrimos el menú de compartir/guardar
+        const canShare = await Sharing.isAvailableAsync();
+        if (canShare) {
+          await Sharing.shareAsync(output.uri, {
+            dialogTitle: 'Guardar o compartir archivo',
+            mimeType,
+          });
+        } else {
+          Alert.alert('Descarga completada', 'El archivo se descargó en almacenamiento temporal de la app.');
+        }
       }
+    } catch (e) {
+      console.error(e);
+      if (Platform.OS === 'web') {
+        window.alert("Error: No se pudo descargar el archivo");
+      } else {
+        Alert.alert("Error", "No se pudo descargar el archivo");
+      }
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   const buildOptions = (file: Archivo): DocumentOptionAction[] => {
@@ -109,6 +158,13 @@ export default function MisDocumentos({ query = '', selectedFolderId, listHeader
       },
     ];
 
+    options.push({
+      key: 'move',
+      label: 'Mover',
+      icon: 'folder-open-outline',
+      onPress: () => setFileToMove(file),
+    });
+
     if (isOwner) {
       options.push(
         {
@@ -116,6 +172,12 @@ export default function MisDocumentos({ query = '', selectedFolderId, listHeader
           label: 'Editar y Administrar permisos',
           icon: 'create-outline',
           onPress: () => setFileToEdit(file),
+        },
+        {
+          key: 'show-viewers',
+          label: 'Mostrar quienes abrieron el archivo',
+          icon: 'eye-outline',
+          onPress: () => setFileForViewers(file),
         },
         {
           key: 'delete',
@@ -126,36 +188,29 @@ export default function MisDocumentos({ query = '', selectedFolderId, listHeader
         }
       );
     }
-
-    options.push({
-      key: 'move',
-      label: 'Mover',
-      icon: 'folder-open-outline',
-      onPress: () => setFileToMove(file),
-    });
-
     return options;
   };
 
   const confirmDelete = (file: Archivo) => {
-      Alert.alert(
-          "Eliminar Archivo",
-          `¿Estás seguro de eliminar ${file.nombre}?`,
-          [
-              { text: "Cancelar", style: "cancel" },
-              { 
-                  text: "Eliminar", 
-                  style: "destructive",
-                  onPress: () => deleteMutation.mutate(file.id)
-               }
-          ]
-      );
+    Alert.alert(
+      "Eliminar Archivo",
+      `¿Estás seguro de eliminar ${file.nombre}?`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Eliminar",
+          style: "destructive",
+          onPress: () => deleteMutation.mutate(file.id)
+        }
+      ]
+    );
   };
 
   const renderItem = ({ item }: { item: Archivo }) => (
     <DocumentoItem
       archivo={item}
-      onPress={() => setFileToOpen(item)}
+      currentUserId={user?.user_context_id}
+      onPress={() => openFile(item)}
       onOptions={() => setFileForOptions(item)}
       onDelete={user?.user_context_id === item.creadorId ? () => confirmDelete(item) : undefined}
     />
@@ -178,26 +233,26 @@ export default function MisDocumentos({ query = '', selectedFolderId, listHeader
       ) : (
         <OwnFlatList<Archivo>
           data={filteredData || []}
-            renderItem={renderItem}
-            keyExtractor={(item) => item.id.toString()}
-            ListHeaderComponent={listHeader}
-            contentContainerStyle={styles.listContent}
-            ItemSeparatorComponent={renderSeparator}
-            ListEmptyComponent={
-                <View style={styles.center}>
-                    <ThemedText>No hay documentos</ThemedText>
-                </View>
-            }
-            onRefresh={refetch}
-            refreshing={isLoading}
+          renderItem={renderItem}
+          keyExtractor={(item) => item.id.toString()}
+          ListHeaderComponent={listHeader}
+          contentContainerStyle={styles.listContent}
+          ItemSeparatorComponent={renderSeparator}
+          ListEmptyComponent={
+            <View style={styles.center}>
+              <ThemedText>No hay documentos</ThemedText>
+            </View>
+          }
+          onRefresh={refetch}
+          refreshing={isLoading}
         />
       )}
 
       {fileToEdit && (
-        <EditArchivoModal 
-            visible={!!fileToEdit} 
-            onClose={() => setFileToEdit(null)} 
-            archivo={fileToEdit} 
+        <EditArchivoModal
+          visible={!!fileToEdit}
+          onClose={() => setFileToEdit(null)}
+          archivo={fileToEdit}
         />
       )}
 
@@ -236,6 +291,16 @@ export default function MisDocumentos({ query = '', selectedFolderId, listHeader
         }}
       />
 
+      <ArchivoViewersModal
+        visible={!!fileForViewers}
+        fileName={fileForViewers?.nombre || ''}
+        viewers={archivoViewers}
+        isLoading={loadingViewers}
+        errorMessage={viewersError instanceof Error ? viewersError.message : null}
+        onClose={() => setFileForViewers(null)}
+      />
+
+      <FilePreview file={previewFile} onClose={closePreview} />
     </ThemedView>
   );
 }

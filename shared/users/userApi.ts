@@ -101,7 +101,7 @@ export async function obtenerCuentasDisponibles(accessToken: string, cuit: strin
 
   if (!response.ok) {
     const textResponse = await response.text();
-    console.error("❌ obtenerCuentasDisponibles - Status:", response.statusText, "Response:", textResponse);
+    console.error("obtenerCuentasDisponibles - Status:", response.statusText, "Response:", textResponse);
     try {
       const error = JSON.parse(textResponse);
       throw new Error(error.error || 'Intenta nuevamente');
@@ -133,7 +133,7 @@ export async function requestVerificationToken(
 
   if (!response.ok) {
     const textResponse = await response.text();
-    console.error("❌ requestVerificationToken - Status:", response.statusText, "Response:", textResponse);
+    console.error("requestVerificationToken - Status:", response.statusText, "Response:", textResponse);
     try {
       const error = JSON.parse(textResponse);
       throw new Error(error.error || 'Intenta nuevamente');
@@ -166,7 +166,7 @@ export async function verifyAndAssociateAccount(
 
   if (!response.ok) {
     const textResponse = await response.text();
-    console.error("❌ verifyAndAssociateAccount - Status:", response.statusText, "Response:", textResponse);
+    console.error("verifyAndAssociateAccount - Status:", response.statusText, "Response:", textResponse);
     try {
       const error = JSON.parse(textResponse);
       throw new Error(error.message || error.error || 'Intenta nuevamente');
@@ -193,7 +193,7 @@ export async function generatePasswordToken(email: string) {
 
   if (!response.ok) {
     const textResponse = await response.text();
-    console.error("❌ generatePasswordToken - Status:", response.statusText, "Response:", textResponse);
+    console.error("generatePasswordToken - Status:", response.statusText, "Response:", textResponse);
     try {
       const error = JSON.parse(textResponse);
       throw new Error(error.message || error.error || 'Intenta nuevamente');
@@ -220,7 +220,7 @@ export async function validatePasswordToken(email: string, token: string) {
 
   if (!response.ok) {
     const textResponse = await response.text();
-    console.error("❌ validatePasswordToken - Status:", response.statusText, "Response:", textResponse);
+    console.error("validatePasswordToken - Status:", response.statusText, "Response:", textResponse);
     try {
       const error = JSON.parse(textResponse);
       throw new Error(error.message || error.error || 'Intenta nuevamente');
@@ -247,7 +247,7 @@ export async function changePasswordWithToken(accessToken: string, newPassword: 
 
   if (!response.ok) {
     const textResponse = await response.text();
-    console.error("❌ changePasswordWithToken - Status:", response.statusText, "Response:", textResponse);
+    console.error("changePasswordWithToken - Status:", response.statusText, "Response:", textResponse);
     try {
       const error = JSON.parse(textResponse);
       throw new Error(error.message || error.error || 'Intenta nuevamente');

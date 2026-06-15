@@ -2,24 +2,33 @@ export enum ArchivoUso {
   EMPRESA = 'EMPRESA',
   LICENCIA = 'LICENCIA',
   MAYORISTA = 'MAYORISTA',
+  TAREA = 'TAREA',
   WEB = 'WEB',
 }
 
 export interface Archivo {
-    id: number;
-    nombre: string;
-    titulo?: string;
-    url: string;
-    tamaño: number;
-    tipo: string;
-    creadorId: number;
-    nombreCreador: string;
-    apellidoCreador: string;
-    createdAt: Date;
-    id_carpeta?: number | null;
-    allowed_roles?: string[];
-    usuarios_compartidos?: number[];
-    usuarios_asociados?: number[];
+  id: number;
+  nombre: string;
+  titulo?: string;
+  url: string;
+  tamaño: number;
+  tipo: string;
+  creadorId: number;
+  nombreCreador: string;
+  apellidoCreador: string;
+  createdAt: Date;
+  openedAt?: Date | null;
+  id_carpeta?: number | null;
+  allowed_roles?: string[];
+  usuarios_compartidos?: number[];
+  usuarios_asociados?: number[];
+}
+
+export interface ArchivoViewerResponse {
+  user_context_id: number;
+  nombre: string;
+  apellido: string;
+  visto_en: Date;
 }
 
 export interface UpdateArchivoPayload {
@@ -52,14 +61,18 @@ export interface MoverArchivoPayload {
 }
 
 export interface PedirUrlCargaRequest {
+  files: {
     fileName: string;
     contentType: string;
+  }[];
 }
 
 export interface PedirUrlCargaResponse {
+  urls: {
     uploadUrl: string;
     ruta_r2: string;
     fileName: string;
+  }[];
 }
 
 export interface MobileFile {
@@ -67,4 +80,9 @@ export interface MobileFile {
   name: string;
   type: string;
   size?: number;
+}
+
+export interface ArchivoAProcesar {
+  archivo: MobileFile;
+  archivoData: UploadArchivoPayload;
 }

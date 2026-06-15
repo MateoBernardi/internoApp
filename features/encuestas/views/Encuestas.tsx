@@ -1,14 +1,12 @@
-import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { CrearEncuesta } from '../components/CrearEncuesta';
 import { VerResultadosEncuestas } from '../components/VerResultadoEncuestas';
 
@@ -39,11 +37,7 @@ export const Encuestas: React.FC = () => {
 
   // Pantalla de selección de opciones
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-      <View style={styles.header}>
-        <ThemedText type="title" style={styles.headerTitle}>Gestión de Encuestas</ThemedText>
-      </View>
-
+    <View style={styles.container}>
       <View style={styles.content}>
         <TouchableOpacity
           style={styles.optionCard}
@@ -87,7 +81,7 @@ export const Encuestas: React.FC = () => {
           </View>
         </TouchableOpacity>
       </View>
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -95,20 +89,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.componentBackground,
-  },
-  header: {
-    paddingHorizontal: 16,
-    paddingTop: 24,
-    paddingBottom: 8,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    backgroundColor: colors.componentBackground,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
   },
   content: {
     flex: 1,

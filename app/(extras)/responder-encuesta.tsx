@@ -2,7 +2,7 @@ import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
 import { Encuesta } from '@/features/encuestas/models/Encuesta';
 import { ResponderEncuesta } from '@/features/encuestas/views/ResponderEncuesta';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
 import {
     KeyboardAvoidingView,
@@ -10,18 +10,17 @@ import {
     StyleSheet,
     View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { KEYBOARD_BEHAVIOR } from '@/shared/ui/keyboard';
 const colors = Colors['light'];
 
 export default function ResponderEncuestaScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const { encuesta: encuestaParam } = useLocalSearchParams<{ encuesta: string }>();
 
   if (!encuestaParam) {
     return (
-      <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={styles.container}>
         <ThemedText style={styles.errorText}>Error: No se encontró la encuesta</ThemedText>
       </View>
     );
@@ -33,7 +32,7 @@ export default function ResponderEncuestaScreen() {
   } catch (error) {
     console.error('Error parsing encuesta:', error);
     return (
-      <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={styles.container}>
         <ThemedText style={styles.errorText}>Error: No se pudo cargar la encuesta</ThemedText>
       </View>
     );
@@ -41,10 +40,11 @@ export default function ResponderEncuestaScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={[styles.container, { paddingTop: insets.top }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.container}
+      behavior={KEYBOARD_BEHAVIOR}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
     >
+      <Stack.Screen options={{ title: encuesta.titulo }} />
       <ResponderEncuesta
         encuesta={encuesta}
         onCancelar={() => router.back()}

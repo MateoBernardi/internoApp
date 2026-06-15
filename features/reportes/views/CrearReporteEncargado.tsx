@@ -7,11 +7,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-    ActivityIndicator,
-    FlatList,
-    StyleSheet,
-    TouchableOpacity,
-    View,
+	ActivityIndicator,
+	FlatList,
+	StyleSheet,
+	TouchableOpacity,
+	View,
 } from 'react-native';
 
 const colors = Colors['light'];
@@ -91,15 +91,6 @@ export default function CrearReporteEncargado() {
 
 	return (
 		<View style={styles.container}>
-			{/* Header */}
-			<View style={styles.header}>
-				<View style={styles.iconButton} />
-				<ThemedText style={styles.headerTitle}>
-					Reportes de Empleados
-				</ThemedText>
-				<View style={{ width: 40 }} />
-			</View>
-
 			{isComparingMode && (
 				<View style={styles.compareBanner}>
 					<ThemedText style={styles.compareBannerText}>

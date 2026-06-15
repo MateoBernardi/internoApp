@@ -5,6 +5,7 @@ import { ParticipanteActividad } from './Actividad';
  */
 export interface Activity {
   id: string;
+  actividad_id?: number;
   time: string;
   title: string;
   description?: string;
@@ -17,6 +18,7 @@ export interface Activity {
   tipo_licencia_id?: number;
   tipo_licencia_nombre?: string;
   usuario_id?: number;
+  fecha_inicio?: string;
   fecha_fin?: string;
   tipo_actividad?: 'MANDATO' | 'REUNION'; // Tipo de actividad heredado de la solicitud
 }

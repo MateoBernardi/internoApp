@@ -6,15 +6,11 @@ import { EncuestasPendientes } from '@/features/encuestas/components/EncuestasPe
 import { useGetEncuestas } from '@/features/encuestas/viewmodels/useEncuestas';
 import { KanbanBoard } from '@/features/kanban/views/KanbanBoard';
 import TablonNovedades from '@/features/novedades/views/TablonNovedades';
-import {
-    useInvitaciones,
-    useSolicitudesCreadas,
-} from '@/features/solicitudesActividades/viewmodels/useSolicitudes';
-import SolicitudesView from '@/features/solicitudesActividades/views/Solicitudes';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { useQueryClient } from '@tanstack/react-query';
 import React, { useCallback, useState } from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { useSafeTopInset } from '@/hooks/useSafeTopInset';
 
 const colors = Colors['light'];
 
@@ -24,18 +20,13 @@ export default function HomeScreen() {
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const canSeeSolicitudes = isEmployeeOrEncargado();
   const isUserContextReady = Boolean(user?.user_context_id);
-  const shouldEnableHomeQueries = canSeeSolicitudes && isUserContextReady;
-  const containerPaddingTop = Platform.OS === 'web' ? 0 : '10%';
+  const shouldEnableHomeQueries = isUserContextReady;
+  const top = useSafeTopInset();
 
   const { isLoading: isLoadingEncuestas } = useGetEncuestas(shouldEnableHomeQueries);
-  const { isLoading: isLoadingInvitaciones } = useInvitaciones(shouldEnableHomeQueries);
-  const { isLoading: isLoadingEnviadas } = useSolicitudesCreadas(shouldEnableHomeQueries);
 
-  const showHomeSkeleton =
-    shouldEnableHomeQueries &&
-    (isLoadingEncuestas || isLoadingInvitaciones || isLoadingEnviadas);
+  const showHomeSkeleton = shouldEnableHomeQueries && isLoadingEncuestas;
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -46,27 +37,23 @@ export default function HomeScreen() {
 
   return (
     <ThemedView
-      style={[styles.container, { paddingTop: containerPaddingTop }]}
+      style={[styles.container, { paddingTop: top }]}
       lightColor={colors.componentBackground}
     >
       {showHomeSkeleton ? (
         <ScreenSkeleton rows={6} />
       ) : (
         <>
-      {/* Sección superior: novedades y encuestas */}
-      <View style={styles.topSection}>
-        <TablonNovedades refreshTrigger={refreshTrigger} enabled={isUserContextReady} />
-        <EncuestasPendientes enabled={shouldEnableHomeQueries} />
-      </View>
+          {/* Sección superior: novedades y encuestas */}
+          <View style={styles.topSection}>
+            <TablonNovedades refreshTrigger={refreshTrigger} enabled={isUserContextReady} />
+            <EncuestasPendientes enabled={shouldEnableHomeQueries} />
+          </View>
 
-      {/* Sección principal: solicitudes o kanban (fuera del ScrollView para que el FAB flote) */}
-      <View style={styles.mainSection}>
-        {canSeeSolicitudes ? (
-          <SolicitudesView onRefresh={handleRefresh} refreshing={refreshing} />
-        ) : (
-          <KanbanBoard />
-        )}
-      </View>
+          {/* Sección principal: solicitudes o kanban (fuera del ScrollView para que el FAB flote) */}
+          <View style={styles.mainSection}>
+            <KanbanBoard />
+          </View>
         </>
       )}
     </ThemedView>
@@ -76,7 +63,6 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: '10%',
   },
   topSection: {
     paddingBottom: 8,

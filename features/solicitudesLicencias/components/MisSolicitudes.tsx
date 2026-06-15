@@ -2,15 +2,14 @@ import { ThemedText } from '@/components/themed-text';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { Colors } from '@/constants/theme';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
-import { useRouter } from 'expo-router';
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
-    FlatList,
-    ListRenderItem,
-    RefreshControl,
-    StyleSheet,
-    TouchableOpacity,
-    View
+  FlatList,
+  ListRenderItem,
+  RefreshControl,
+  StyleSheet,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 // Componentes y Hooks propios
@@ -18,6 +17,8 @@ import { CreateButton } from '@/components/ui/CreateButton';
 import { EstadoSolicitud, SolicitudLicencia } from '../models/SolicitudLicencia';
 import { formatCantidadLicencia } from '../utils/formatCantidad';
 import { useGetSolicitudesUsuario } from '../viewmodels/useSolicitudes';
+import { CrearSolicitudesLicencias } from './CrearSolicitudesLicencias';
+import { SolicitudLicencia as SolicitudLicenciaModal } from './SolicitudLicencia';
 
 const estadoMapping: Record<EstadoSolicitud, string> = {
   'PENDIENTE': 'Pendiente',
@@ -34,10 +35,13 @@ const colors = Colors['light'];
 
 
 export function MisSolicitudes() {
-  const router = useRouter();
   const insets = useSafeAreaInsets();
   const { hasRole } = useRoleCheck();
   const isConsejo = hasRole('consejo');
+
+  const [selectedSolicitudId, setSelectedSolicitudId] = useState<number | null>(null);
+  const [detalleVisible, setDetalleVisible] = useState(false);
+  const [crearVisible, setCrearVisible] = useState(false);
 
   // 1. Obtención de datos
   const { data: solicitudes, isLoading, error, refetch, isRefetching } = useGetSolicitudesUsuario();
@@ -45,17 +49,24 @@ export function MisSolicitudes() {
   // 2. Navegación
   const handleOpenSolicitud = useCallback(
     (solicitudId: number) => {
-      router.push({
-        pathname: '/(extras)/solicitud-licencia' as any,
-        params: { id: solicitudId.toString(), type: 'enviada' },
-      });
+      setSelectedSolicitudId(solicitudId);
+      setDetalleVisible(true);
     },
-    [router]
+    []
   );
 
   const handleCreateNew = useCallback(() => {
-    router.push('/(extras)/crear-solicitudes-licencias' as any);
-  }, [router]);
+    setCrearVisible(true);
+  }, []);
+
+  const handleCloseDetalle = useCallback(() => {
+    setDetalleVisible(false);
+    setSelectedSolicitudId(null);
+  }, []);
+
+  const handleCloseCrear = useCallback(() => {
+    setCrearVisible(false);
+  }, []);
 
   // 3. Renderizado de la lista
   const renderSeparator = useCallback(() => {
@@ -102,8 +113,6 @@ export function MisSolicitudes() {
 
   return (
     <View style={styles.container}>
-      <ThemedText type="title" style={styles.pageTitle}>Mis Solicitudes</ThemedText>
-      
       {(!solicitudes || solicitudes.length === 0) ? (
         <View style={styles.centerContainer}>
           <ThemedText type="subtitle">No hay solicitudes enviadas</ThemedText>
@@ -132,10 +141,26 @@ export function MisSolicitudes() {
 
       {/* Botón flotante de creación */}
       {!isConsejo && (
-        <CreateButton 
-          onPress={handleCreateNew} 
+        <CreateButton
+          onPress={handleCreateNew}
           style={{ ...styles.fab, bottom: insets.bottom + 16, right: 36 }}
           accessibilityLabel="Crear solicitud de licencia"
+        />
+      )}
+
+      {selectedSolicitudId !== null && (
+        <SolicitudLicenciaModal
+          visible={detalleVisible}
+          onClose={handleCloseDetalle}
+          solicitudId={selectedSolicitudId}
+          type="enviada"
+        />
+      )}
+
+      {crearVisible && (
+        <CrearSolicitudesLicencias
+          visible={crearVisible}
+          onClose={handleCloseCrear}
         />
       )}
     </View>
@@ -202,7 +227,7 @@ function MiSolicitudItem({ solicitud, estadoUI, onPress }: MiSolicitudItemProps)
           <ThemedText style={[styles.dateText, { color: colors.icon }]}>
             Creada: {new Date(solicitud.created_at).toLocaleDateString('es-AR')}
           </ThemedText>
-          
+
           <View
             style={[
               styles.estadoBadge,
@@ -225,18 +250,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.componentBackground,
-  },
-  pageTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    backgroundColor: colors.componentBackground,
-    paddingVertical: '3%',
-    paddingHorizontal: '4%',
-    marginHorizontal: '4%',
-    marginTop: 16,
-    marginBottom: 12,
-    borderRadius: 8,
   },
   centerContainer: {
     flex: 1,

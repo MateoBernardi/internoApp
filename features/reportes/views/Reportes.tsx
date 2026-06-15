@@ -3,7 +3,7 @@ import { SearchBar } from '@/components/ui/SearchBar';
 import { Colors } from '@/constants/theme';
 import { useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
-import { Platform, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { Semaforo } from '../components/Semaforo';
 import { TopEmployee } from '../components/TopEmployee';
 import { UpgradedEmployee } from '../components/UpgradedEmployee';
@@ -36,12 +36,6 @@ export function Reportes() {
 
 	return (
 		<View style={styles.container}>
-			<View style={styles.header}>
-				<ThemedText type="title" style={styles.headerTitle}>
-					Métricas de empleados
-				</ThemedText>
-			</View>
-
 			{/* Banner de comparación */}
 			{params.comparingWith && (
 				<View style={{ backgroundColor: colors.lightTint + '15', paddingVertical: '2.5%', paddingHorizontal: '4%' }}>
@@ -105,23 +99,9 @@ const styles = StyleSheet.create({
 		flex: 1,
 		backgroundColor: colors.componentBackground,
 	},
-	header: {
-		paddingHorizontal: '4%',
-		paddingTop: Platform.OS === 'web' ? 0 : '6%',
-		paddingBottom: '2%',
-	},
-	headerTitle: {
-		fontSize: 20,
-		fontWeight: 'bold',
-		textAlign: 'center',
-		backgroundColor: colors.componentBackground,
-		paddingVertical: '3%',
-		paddingHorizontal: '4%',
-		borderRadius: 8,
-	},
 	searchBarContainer: {
 		paddingHorizontal: '3%',
-		paddingTop: Platform.OS === 'web' ? 0 : '3%',
+		paddingTop: 0,
 		paddingBottom: '4%',
 	},
 	searchBar: {
@@ -144,7 +124,7 @@ const styles = StyleSheet.create({
 	},
 	titleContainer: {
 		paddingHorizontal: '4%',
-		paddingTop: Platform.OS === 'web' ? 0 : '2%',
+		paddingTop: 0,
 	},
 	semaforoTitle: {
 		fontSize: 20,

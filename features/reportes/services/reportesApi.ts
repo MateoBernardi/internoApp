@@ -1,16 +1,30 @@
-import { apiRequest } from '@/shared/apiRequest';
+import { apiRequest, throwApiError } from '@/shared/apiRequest';
+import { IDEMPOTENCY_HEADER, idempotencyHeaders } from '@/shared/idempotency';
 import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 import * as reporte from '../models/Reporte';
 
 const API_BASE_URL = Constants.expoConfig?.extra?.API_BASE_URL;
 
-export async function createReporte (accessToken: string, payload: reporte.CreateReportePayload): Promise<reporte.Reporte> {
-    const response = await apiRequest({  method: 'POST', endpoint: '/reportes', token: accessToken, body: payload});
+export async function getReportesPendingCount(accessToken: string): Promise<number> {
+    const response = await apiRequest({ method: 'GET', endpoint: '/reportes/pending', token: accessToken });
+
+    if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.message || errData.error || response.statusText);
+    }
+
+    const data = await response.json();
+    return typeof data?.pendingReportes === 'number' ? data.pendingReportes : 0;
+}
+
+export async function createReporte (accessToken: string, payload: reporte.CreateReportePayload, idempotencyKey?: string): Promise<reporte.Reporte> {
+    const response = await apiRequest({  method: 'POST', endpoint: '/reportes', token: accessToken, body: payload, headers: idempotencyHeaders(idempotencyKey)});
 
     if (!response.ok) {
         const errorText = await response.text();
         console.error('Error:', { status: response.status, statusText: response.statusText, body: errorText });
-        try { const errData = JSON.parse(errorText); throw new Error(errData.message || errData.error || errorText); } catch (e) { if (e instanceof Error && e.message !== errorText) throw e; throw new Error(errorText || response.statusText); }
+        throwApiError(errorText, response);
     }
 
     const data: reporte.Reporte = await response.json();
@@ -37,7 +51,7 @@ export async function fetchReportes (accessToken: string, usuarioId?: string): P
         if (!response.ok) {
             const errorText = await response.text();
             console.error('[fetchReportes] Error response:', errorText);
-            try { const errData = JSON.parse(errorText); throw new Error(errData.message || errData.error || errorText); } catch (e) { if (e instanceof Error && e.message !== errorText) throw e; throw new Error(errorText || response.statusText); }
+            throwApiError(errorText, response);
         }
 
         const data: reporte.Reporte[] = await response.json();
@@ -159,10 +173,30 @@ export async function uploadReporteImage (
     mimeType: string,
     description: string,
     orden: number,
+    idempotencyKey?: string,
 ): Promise<reporte.UploadReporteImageResponse> {
     const formData = new FormData();
-    // React Native FormData acepta un objeto con uri para representar archivos locales
-    formData.append('file', { uri: fileUri, name: fileName, type: mimeType } as any);
+
+    // El campo `file` se arma distinto según la plataforma:
+    // - Web: el patrón { uri, name, type } NO es un archivo real (se serializa
+    //   como "[object Object]" y el backend recibe vacío). Hay que materializar
+    //   el contenido en un Blob real antes de adjuntarlo.
+    // - Native: React Native sí acepta el objeto { uri, name, type } para
+    //   representar archivos locales (file://, content://, ph://).
+    if (Platform.OS === 'web') {
+        const fileResponse = await fetch(fileUri);
+        if (!fileResponse.ok) {
+            throw new Error(`No se pudo leer la imagen seleccionada (HTTP ${fileResponse.status})`);
+        }
+        const blob = await fileResponse.blob();
+        if (blob.size === 0) {
+            throw new Error('La imagen seleccionada está vacía o ya no está disponible.');
+        }
+        formData.append('file', blob, fileName);
+    } else {
+        formData.append('file', { uri: fileUri, name: fileName, type: mimeType } as any);
+    }
+
     formData.append('reporteId', String(reporteId));
     formData.append('description', description);
     formData.append('orden', String(orden));
@@ -172,6 +206,7 @@ export async function uploadReporteImage (
         headers: {
             Authorization: `Bearer ${accessToken}`,
             'x-app-entorno': 'interno',
+            ...(idempotencyKey ? { [IDEMPOTENCY_HEADER]: idempotencyKey } : {}),
             // NO establecer Content-Type — fetch lo agrega automáticamente con el boundary correcto
         },
         body: formData,
@@ -179,7 +214,7 @@ export async function uploadReporteImage (
 
     if (!response.ok) {
         const errorText = await response.text();
-        try { const errData = JSON.parse(errorText); throw new Error(errData.message || errData.error || errorText); } catch (e) { if (e instanceof Error && e.message !== errorText) throw e; throw new Error(errorText || response.statusText); }
+        throwApiError(errorText, response);
     }
 
     return response.json();
@@ -203,7 +238,30 @@ export async function unlinkReporteImage (
 
     if (!response.ok) {
         const errorText = await response.text();
-        try { const errData = JSON.parse(errorText); throw new Error(errData.message || errData.error || errorText); } catch (e) { if (e instanceof Error && e.message !== errorText) throw e; throw new Error(errorText || response.statusText); }
+        throwApiError(errorText, response);
+    }
+}
+
+/**
+ * Agrega o elimina archivos (docs) vinculados a un reporte.
+ * PATCH /reportes/:id/archivos?action=add|remove
+ */
+export async function archivoReporte(
+    accessToken: string,
+    id: string | number,
+    action: 'add' | 'remove',
+    archivosIds: number[],
+): Promise<void> {
+    const response = await apiRequest({
+        method: 'PATCH',
+        endpoint: `/reportes/${id}/archivos?action=${action}`,
+        token: accessToken,
+        body: { archivosIds },
+    });
+
+    if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.message || errData.error || response.statusText);
     }
 }
 

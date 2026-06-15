@@ -22,6 +22,12 @@ const DOMAIN_QUERY_KEYS: Record<SyncDomain, readonly (readonly unknown[])[]> = {
   documentos: [['archivos']],
 };
 
+// Count-specific query keys invalidated alongside their parent domain keys via DOMAIN_QUERY_KEYS
+// (the parent ['archivos'], ['solicitudes-licencias'], ['reportes'] keys already cover these
+// via React Query's prefix matching, so no extra invalidation is strictly required —
+// but we declare them for explicit prefetch usage in the orchestrator)
+
+
 const DOMAIN_ALIASES: Record<string, SyncDomain> = {
   solicitudes: 'solicitudesActividades',
   'solicitudes-actividades': 'solicitudesActividades',
@@ -247,14 +253,16 @@ export function syncPushPayloadToCache(
 }
 
 export const RealtimeQueryKeys = {
-  solicitudesCreadas: ['solicitudes', 'creadas'] as const,
-  invitaciones: ['solicitudes', 'invitaciones'] as const,
+  solicitudesUnseen: ['solicitudes', 'unseen'] as const,
   actividadesSemanales: ['actividades', 'semanales'] as const,
   objetivos: ['objetivos'] as const,
   reportes: (usuarioId?: string) => ['reportes', usuarioId ?? 'all'] as const,
+  reportesPendingCount: ['reportes', 'pending-count'] as const,
   licenciasAdmin: ['solicitudes-licencias', {}] as const,
   licenciasUsuario: ['solicitudes-licencias', 'usuario'] as const,
+  licenciasUnseenCount: ['solicitudes-licencias', 'unseen-count'] as const,
   saldosLicencias: ['saldos-licencias'] as const,
   tiposLicencias: ['tipos-licencias'] as const,
   archivosEmpresa: ['archivos', 'list'] as const,
+  archivosUnseenCount: ['archivos', 'unseen-count'] as const,
 };

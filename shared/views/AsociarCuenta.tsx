@@ -27,6 +27,7 @@ import {
   View,
 } from "react-native";
 
+import { KEYBOARD_BEHAVIOR } from '@/shared/ui/keyboard';
 const colors = Colors["light"];
 
 type Step = "cuit" | "select-cuenta" | "verify" | "success";
@@ -250,7 +251,7 @@ export default function AsociarCuenta() {
   return (
     <KeyboardAvoidingView
       style={styles.keyboardAvoid}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      behavior={KEYBOARD_BEHAVIOR}
       keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
     >
       <ScrollView

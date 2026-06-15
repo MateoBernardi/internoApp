@@ -1,13 +1,12 @@
 import { Colors } from '@/constants/theme';
 import EditarUsuario from '@/shared/views/EditarUsuario';
-import { StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { StyleSheet, View } from 'react-native';
 
 export default function EditarUsuarioScreen() {
   return (
-        <SafeAreaView style={styles.container}>
+        <View style={styles.container}>
           <EditarUsuario />
-        </SafeAreaView>
+        </View>
     );
 }
 

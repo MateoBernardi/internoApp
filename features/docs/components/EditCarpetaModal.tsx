@@ -1,7 +1,9 @@
 import { ThemedText } from '@/components/themed-text';
+import { UserSelector } from '@/components/UserSelector';
 import { Colors } from '@/constants/theme';
 import { RoleUserSelectionModal } from '@/features/solicitudesActividades/components/RoleUserSelectionModal';
-import { UserSelector } from '@/features/solicitudesActividades/components/UserSelector';
+import { useRoleCheck } from '@/hooks/useRoleCheck';
+import { adminRoles, allRoles } from '@/shared/users/roles';
 import { UserSummary } from '@/shared/users/User';
 import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,15 +11,14 @@ import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   ScrollView,
   StyleSheet,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Carpeta, UpdateCarpetaPayload } from '../models/Carpeta';
 import { useCarpetaPermisos } from '../viewmodels/useArchivos';
@@ -35,24 +36,6 @@ interface EditCarpetaModalProps {
   onSubmit: (payload: UpdateCarpetaPayload) => void;
 }
 
-const allRoles = [
-  { label: 'Todos', value: '*' },
-  { label: 'Contable', value: 'contable' },
-  { label: 'Sistemas', value: 'sistemas' },
-  { label: 'Personal Admin', value: 'empleado-admin' },
-  { label: 'Personal Insumos', value: 'empleado-insumos' },
-  { label: 'Personal Mayorista', value: 'empleado-mayorista' },
-  { label: 'Personal Super', value: 'empleado-super' },
-  { label: 'Consejo', value: 'consejo' },
-  { label: 'Encargado', value: 'encargado' },
-  { label: 'Gerencia', value: 'gerencia' },
-  { label: 'Personal Limpieza', value: 'empleado-limpieza' },
-  { label: 'Personas y Relaciones', value: 'personasRelaciones' },
-  { label: 'Presidencia', value: 'presidencia' },
-];
-
-const availableRoleValues = allRoles.filter((role) => role.value !== '*').map((role) => role.value);
-
 export function EditCarpetaModal({
   visible,
   carpeta,
@@ -63,6 +46,20 @@ export function EditCarpetaModal({
   onDismissPartialWarning,
 }: EditCarpetaModalProps) {
   const insets = useSafeAreaInsets();
+  const { hasRole } = useRoleCheck();
+  const isConsejo = hasRole('consejo');
+  const rolesForSelector = useMemo(
+    () => (isConsejo ? adminRoles : allRoles),
+    [isConsejo]
+  );
+  const rolesForSelectorWithAll = useMemo(
+    () => [{ label: 'Seleccionar todos', value: '*' }, ...rolesForSelector],
+    [rolesForSelector]
+  );
+  const availableRoleValues = useMemo(
+    () => rolesForSelector.map((role) => role.value),
+    [rolesForSelector]
+  );
 
   const [nombre, setNombre] = useState(carpeta.nombre);
   const [searchQuery, setSearchQuery] = useState('');
@@ -284,199 +281,200 @@ export function EditCarpetaModal({
   };
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <View style={styles.container}>
-        <View style={[styles.header, { paddingTop: insets.top || 12 }]}> 
-          <TouchableOpacity onPress={onClose} style={styles.iconButton}>
-            <Ionicons name="close" size={24} color={colors.icon} />
-          </TouchableOpacity>
-          <ThemedText style={styles.headerTitle}>Editar Carpeta</ThemedText>
-          <View style={{ width: 40 }} />
-        </View>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent={true}
+      onRequestClose={onClose}
+    >
+      <View style={styles.overlay}>
+        <View style={styles.container}>
+          <View style={[styles.header, { paddingTop: insets.top || 12 }]}>
+            <TouchableOpacity onPress={onClose} style={styles.iconButton}>
+              <Ionicons name="close" size={24} color={colors.icon} />
+            </TouchableOpacity>
+          </View>
 
-        <KeyboardAvoidingView
-          style={styles.flex}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={0}
-        >
-          <ScrollView
-            style={styles.content}
-            contentContainerStyle={[styles.contentContainer, { paddingBottom: 120 + insets.bottom }]}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-          >
-            {partialWarningMessage ? (
-              <PartialSaveBanner message={partialWarningMessage} onClose={onDismissPartialWarning || (() => {})} />
-            ) : null}
-
-            <View style={styles.inputSection}>
-              <ThemedText style={styles.label}>Nombre de la carpeta</ThemedText>
-              <TextInput
-                style={[styles.input, { color: colors.text }]}
-                placeholder="Nombre"
-                placeholderTextColor={colors.secondaryText}
-                value={nombre}
-                onChangeText={setNombre}
-                maxLength={100}
-              />
-            </View>
-
-            <View style={styles.inputSection}>
-              <TouchableOpacity
-                style={styles.collapsibleButton}
-                onPress={() => setShowPermisosSection((prev) => !prev)}
-                accessibilityRole="button"
-                accessibilityState={{ expanded: showPermisosSection }}
-                accessibilityLabel="Administrar permisos"
-              >
-                <ThemedText style={styles.collapsibleTitle}>Administrar permisos</ThemedText>
-                <Ionicons
-                  name={showPermisosSection ? 'chevron-up' : 'chevron-down'}
-                  size={18}
-                  color={colors.icon}
-                />
-              </TouchableOpacity>
-
-              {showPermisosSection ? (
-                <View style={styles.permisosPanel}>
-                  {isLoadingPermisos ? (
-                    <View style={styles.permisosStateRow}>
-                      <ActivityIndicator size="small" color={colors.tint} />
-                      <ThemedText style={styles.permisosHint}>Cargando permisos actuales...</ThemedText>
-                    </View>
-                  ) : permisosError ? (
-                    <ThemedText style={styles.permisosError}>
-                      {(permisosError as any)?.statusCode === 403
-                        ? 'Solo el creador puede ver los permisos completos'
-                        : permisosError instanceof Error
-                          ? permisosError.message
-                          : 'No se pudieron cargar los permisos'}
-                    </ThemedText>
-                  ) : (
-                    <>
-                      <View style={styles.permisosSection}>
-                        <ThemedText style={styles.permisosSectionTitle}>Roles permitidos</ThemedText>
-                        {allowedRoles.length > 0 ? (
-                          <View style={styles.chipWrap}>
-                            {allowedRoles.map((role) => (
-                              <View key={role} style={styles.editableChip}>
-                                <ThemedText style={styles.chipLabel}>{getRoleLabel(role)}</ThemedText>
-                                <TouchableOpacity
-                                  style={styles.chipRemoveButton}
-                                  onPress={() => removeAllowedRole(role)}
-                                  accessibilityRole="button"
-                                  accessibilityLabel={`Quitar rol ${getRoleLabel(role)}`}
-                                >
-                                  <Ionicons name="close" size={14} color={colors.secondaryText} />
-                                </TouchableOpacity>
-                              </View>
-                            ))}
-                          </View>
-                        ) : (
-                          <ThemedText style={styles.permisosHint}>Sin roles seleccionados.</ThemedText>
-                        )}
-                      </View>
-
-                      <View style={styles.permisosSection}>
-                        <ThemedText style={styles.permisosSectionTitle}>Usuarios permitidos</ThemedText>
-                        {selectedUsers.length > 0 ? (
-                          <View style={styles.chipWrap}>
-                            {selectedUsers.map((user) => (
-                              <View key={user.user_context_id} style={styles.editableChip}>
-                                <ThemedText style={styles.chipLabel}>{getUserDisplayName(user)}</ThemedText>
-                                <TouchableOpacity
-                                  style={styles.chipRemoveButton}
-                                  onPress={() => removeAllowedUser(user.user_context_id)}
-                                  accessibilityRole="button"
-                                  accessibilityLabel={`Quitar usuario ${getUserDisplayName(user)}`}
-                                >
-                                  <Ionicons name="close" size={14} color={colors.secondaryText} />
-                                </TouchableOpacity>
-                              </View>
-                            ))}
-                          </View>
-                        ) : (
-                          <ThemedText style={styles.permisosHint}>Sin usuarios seleccionados.</ThemedText>
-                        )}
-                      </View>
-
-                      <View style={styles.permisosSection}>
-                        <ThemedText style={styles.label}>Agregar usuarios y roles</ThemedText>
-                        <UserSelector
-                          selectedUsers={selectedUsers}
-                          onSelectUsers={setSelectedUsers}
-                          users={users}
-                          roles={allRoles}
-                          selectedRoles={selectedRolesForDisplay}
-                          onRemoveRole={(roleValue) => setAllowedRoles((prev) => prev.filter((r) => r !== roleValue))}
-                          isLoadingUsers={isLoadingUsers}
-                          isLoadingRoles={false}
-                          showSelectedChips={false}
-                          onSearch={setSearchQuery}
-                          onSelectRole={(role) => {
-                            if (role === '*') {
-                              setAllowedRoles(availableRoleValues);
-                              setActiveRole('');
-                              return;
-                            }
-
-                            setActiveRole(role);
-                          }}
-                        />
-                      </View>
-
-                      <View style={styles.sectionDivider} />
-
-                      <View style={styles.permisosSection}>
-                        <ThemedText style={styles.permisosHint}>
-                          Resumen actual a confirmar
-                        </ThemedText>
-                        <ThemedText style={styles.permisosHint}>
-                          Roles: {allowedRoles.length > 0
-                            ? allowedRoles.map(getRoleLabel).join(', ')
-                            : 'Ninguno'}
-                        </ThemedText>
-                        <ThemedText style={styles.permisosHint}>
-                          Usuarios: {selectedUsers.length > 0
-                            ? selectedUsers.map(getUserDisplayName).join(', ')
-                            : 'Ninguno'}
-                        </ThemedText>
-                      </View>
-                    </>
-                  )}
-                </View>
+          <ModalKeyboardView style={styles.flex}>
+            <ScrollView
+              style={styles.content}
+              contentContainerStyle={[styles.contentContainer, { paddingBottom: 120 + insets.bottom }]}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              {partialWarningMessage ? (
+                <PartialSaveBanner message={partialWarningMessage} onClose={onDismissPartialWarning || (() => { })} />
               ) : null}
-            </View>
 
-            <RoleUserSelectionModal
-              visible={showRoleModal}
-              onClose={handleCloseRoleModal}
-              roleName={activeRole}
-              roleUsers={roleUsers}
-              selectedUsers={selectedUsers}
-              isRoleSelected={isRoleSelected}
-              onToggleUser={handleToggleUser}
-              onSelectAll={handleSelectAllRoleUsers}
-              onDeselectAll={handleDeselectAllRoleUsers}
-            />
-          </ScrollView>
-        </KeyboardAvoidingView>
+              <View style={styles.inputSection}>
+                <ThemedText style={styles.label}>Nombre de la carpeta</ThemedText>
+                <TextInput
+                  style={[styles.input, { color: colors.text }]}
+                  placeholder="Nombre"
+                  placeholderTextColor={colors.secondaryText}
+                  value={nombre}
+                  onChangeText={setNombre}
+                  maxLength={100}
+                />
+              </View>
 
-        <View style={[styles.bottomBar, { paddingBottom: insets.bottom || 16 }]}> 
-          <TouchableOpacity
-            style={[styles.saveButton, { backgroundColor: !isFormValid || isSaving ? colors.icon : colors.lightTint }]}
-            onPress={handleSubmit}
-            disabled={!isFormValid || isSaving}
-          >
-            {isSaving ? (
-              <ActivityIndicator size="small" color={colors.componentBackground} />
-            ) : (
-              <>
-                <Ionicons name="checkmark" size={20} color={colors.componentBackground} />
-                <ThemedText style={styles.saveButtonText}>Guardar Cambios</ThemedText>
-              </>
-            )}
-          </TouchableOpacity>
+              <View style={styles.inputSection}>
+                <TouchableOpacity
+                  style={styles.collapsibleButton}
+                  onPress={() => setShowPermisosSection((prev) => !prev)}
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: showPermisosSection }}
+                  accessibilityLabel="Administrar permisos"
+                >
+                  <ThemedText style={styles.collapsibleTitle}>Administrar permisos</ThemedText>
+                  <Ionicons
+                    name={showPermisosSection ? 'chevron-up' : 'chevron-down'}
+                    size={18}
+                    color={colors.icon}
+                  />
+                </TouchableOpacity>
+
+                {showPermisosSection ? (
+                  <View style={styles.permisosPanel}>
+                    {isLoadingPermisos ? (
+                      <View style={styles.permisosStateRow}>
+                        <ActivityIndicator size="small" color={colors.tint} />
+                        <ThemedText style={styles.permisosHint}>Cargando permisos actuales...</ThemedText>
+                      </View>
+                    ) : permisosError ? (
+                      <ThemedText style={styles.permisosError}>
+                        {(permisosError as any)?.statusCode === 403
+                          ? 'Solo el creador puede ver los permisos completos'
+                          : permisosError instanceof Error
+                            ? permisosError.message
+                            : 'No se pudieron cargar los permisos'}
+                      </ThemedText>
+                    ) : (
+                      <>
+                        <View style={styles.permisosSection}>
+                          <ThemedText style={styles.permisosSectionTitle}>Roles permitidos</ThemedText>
+                          {allowedRoles.length > 0 ? (
+                            <View style={styles.chipWrap}>
+                              {allowedRoles.map((role) => (
+                                <View key={role} style={styles.editableChip}>
+                                  <ThemedText style={styles.chipLabel}>{getRoleLabel(role)}</ThemedText>
+                                  <TouchableOpacity
+                                    style={styles.chipRemoveButton}
+                                    onPress={() => removeAllowedRole(role)}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={`Quitar rol ${getRoleLabel(role)}`}
+                                  >
+                                    <Ionicons name="close" size={14} color={colors.secondaryText} />
+                                  </TouchableOpacity>
+                                </View>
+                              ))}
+                            </View>
+                          ) : (
+                            <ThemedText style={styles.permisosHint}>Sin roles seleccionados.</ThemedText>
+                          )}
+                        </View>
+
+                        <View style={styles.permisosSection}>
+                          <ThemedText style={styles.permisosSectionTitle}>Usuarios permitidos</ThemedText>
+                          {selectedUsers.length > 0 ? (
+                            <View style={styles.chipWrap}>
+                              {selectedUsers.map((user) => (
+                                <View key={user.user_context_id} style={styles.editableChip}>
+                                  <ThemedText style={styles.chipLabel}>{getUserDisplayName(user)}</ThemedText>
+                                  <TouchableOpacity
+                                    style={styles.chipRemoveButton}
+                                    onPress={() => removeAllowedUser(user.user_context_id)}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={`Quitar usuario ${getUserDisplayName(user)}`}
+                                  >
+                                    <Ionicons name="close" size={14} color={colors.secondaryText} />
+                                  </TouchableOpacity>
+                                </View>
+                              ))}
+                            </View>
+                          ) : (
+                            <ThemedText style={styles.permisosHint}>Sin usuarios seleccionados.</ThemedText>
+                          )}
+                        </View>
+
+                        <View style={styles.permisosSection}>
+                          <ThemedText style={styles.label}>Agregar usuarios y roles</ThemedText>
+                          <UserSelector
+                            selectedUsers={selectedUsers}
+                            onSelectUsers={setSelectedUsers}
+                            users={users}
+                            roles={rolesForSelectorWithAll}
+                            selectedRoles={selectedRolesForDisplay}
+                            onRemoveRole={(roleValue) => setAllowedRoles((prev) => prev.filter((r) => r !== roleValue))}
+                            isLoadingUsers={isLoadingUsers}
+                            isLoadingRoles={false}
+                            showSelectedChips={false}
+                            onSearch={setSearchQuery}
+                            onSelectRole={(role) => {
+                              if (role === '*') {
+                                setAllowedRoles(availableRoleValues);
+                                setActiveRole('');
+                                return;
+                              }
+
+                              setActiveRole(role);
+                            }}
+                          />
+                        </View>
+
+                        <View style={styles.sectionDivider} />
+
+                        <View style={styles.permisosSection}>
+                          <ThemedText style={styles.permisosHint}>
+                            Resumen actual a confirmar
+                          </ThemedText>
+                          <ThemedText style={styles.permisosHint}>
+                            Roles: {allowedRoles.length > 0
+                              ? allowedRoles.map(getRoleLabel).join(', ')
+                              : 'Ninguno'}
+                          </ThemedText>
+                          <ThemedText style={styles.permisosHint}>
+                            Usuarios: {selectedUsers.length > 0
+                              ? selectedUsers.map(getUserDisplayName).join(', ')
+                              : 'Ninguno'}
+                          </ThemedText>
+                        </View>
+                      </>
+                    )}
+                  </View>
+                ) : null}
+              </View>
+
+              <RoleUserSelectionModal
+                visible={showRoleModal}
+                onClose={handleCloseRoleModal}
+                roleName={activeRole}
+                roleUsers={roleUsers}
+                selectedUsers={selectedUsers}
+                isRoleSelected={isRoleSelected}
+                onToggleUser={handleToggleUser}
+                onSelectAll={handleSelectAllRoleUsers}
+                onDeselectAll={handleDeselectAllRoleUsers}
+              />
+            </ScrollView>
+          </ModalKeyboardView>
+
+          <View style={[styles.bottomBar, { paddingBottom: insets.bottom || 16 }]}>
+            <TouchableOpacity
+              style={[styles.saveButton, { backgroundColor: !isFormValid || isSaving ? colors.icon : colors.lightTint }]}
+              onPress={handleSubmit}
+              disabled={!isFormValid || isSaving}
+            >
+              {isSaving ? (
+                <ActivityIndicator size="small" color={colors.componentBackground} />
+              ) : (
+                <>
+                  <Ionicons name="checkmark" size={20} color={colors.componentBackground} />
+                  <ThemedText style={styles.saveButtonText}>Guardar Cambios</ThemedText>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     </Modal>
@@ -484,26 +482,36 @@ export function EditCarpetaModal({
 }
 
 const styles = StyleSheet.create({
-  container: {
+  overlay: {
     flex: 1,
-    backgroundColor: colors.componentBackground,
+    backgroundColor: 'rgba(0,0,0,0.5)' // Sombra de fondo
+  },
+  container: {
+    // Quita el flex: 1, o usa un alto fijo/porcentaje
+    flex: 1,
+    marginTop: '10%', // Empuja el modal hacia abajo
+    backgroundColor: Colors['light'].componentBackground,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    overflow: 'hidden',
   },
   flex: {
     flex: 1,
+    width: '100%',
   },
   header: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomColor: Colors['light'].icon,
     flexDirection: 'row',
+    justifyContent: 'flex-end',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: '4%',
-    paddingBottom: 12,
-    backgroundColor: colors.componentBackground,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.icon,
   },
   iconButton: {
-    padding: 8,
-    borderRadius: 8,
+    padding: 6,
+    borderRadius: 16,
+    backgroundColor: '#f3f4f6',
+    marginLeft: 8,
   },
   headerTitle: {
     fontSize: 18,

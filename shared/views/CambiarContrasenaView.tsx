@@ -7,6 +7,7 @@ import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { KEYBOARD_BEHAVIOR } from '@/shared/ui/keyboard';
 import {
   changePasswordWithToken,
   generatePasswordToken,
@@ -204,7 +205,7 @@ export const CambiarContrasenaView: React.FC<CambiarContrasenaViewProps> = ({ on
   return (
     <KeyboardAvoidingView
       style={styles.keyboardAvoid}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={KEYBOARD_BEHAVIOR}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
     >
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}

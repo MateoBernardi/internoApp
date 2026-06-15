@@ -1,4 +1,5 @@
 import { apiRequest } from '@/shared/apiRequest';
+import { idempotencyHeaders } from '@/shared/idempotency';
 import type {
     Encuesta,
     EncuestaConPreguntas,
@@ -58,8 +59,8 @@ export async function getRespuestasEncuesta(accessToken: string): Promise<Encues
     return encuestasConOpciones;
 }
 
-export async function createEncuestaCompleta(accessToken: string, encuestaData: {encuesta: Encuesta, preguntas: Pregunta}): Promise<EncuestaConPreguntas> {
-    const response = await apiRequest({ method: 'POST', endpoint: '/encuestas/completa', token: accessToken, body: encuestaData });
+export async function createEncuestaCompleta(accessToken: string, encuestaData: {encuesta: Encuesta, preguntas: Pregunta}, idempotencyKey?: string): Promise<EncuestaConPreguntas> {
+    const response = await apiRequest({ method: 'POST', endpoint: '/encuestas/completa', token: accessToken, body: encuestaData, headers: idempotencyHeaders(idempotencyKey) });
 
     if (!response.ok) {
         console.error('Error creating encuesta with preguntas:', response.status, response.statusText);
@@ -77,8 +78,8 @@ export type EnviarRespuestasResult = {
     data: Respuesta[];
 };
 
-export async function enviarRespuestas(accessToken: string, data: {respuestas: Respuesta[]}): Promise<EnviarRespuestasResult> {
-    const response = await apiRequest({ method: 'POST', endpoint: '/encuestas/respuestas', token: accessToken, body: data });
+export async function enviarRespuestas(accessToken: string, data: {respuestas: Respuesta[]}, idempotencyKey?: string): Promise<EnviarRespuestasResult> {
+    const response = await apiRequest({ method: 'POST', endpoint: '/encuestas/respuestas', token: accessToken, body: data, headers: idempotencyHeaders(idempotencyKey) });
 
     if (!response.ok) {
         if(response.status === 409){   

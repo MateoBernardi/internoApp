@@ -1,4 +1,5 @@
-import { apiRequest } from "@/shared/apiRequest";
+import { apiRequest, throwApiError } from "@/shared/apiRequest";
+import { deriveIdempotencyKey, idempotencyHeaders } from "@/shared/idempotency";
 import type { ApiOperationResult, ApiOperationStatus, ApiWarningDetail } from '@/shared/types/apiStatus';
 import type { ArchivoDTO } from "../dto/ArchivoDTO";
 import { mapArchivoDTOToArchivo } from "../mappers/archivoMapper";
@@ -116,42 +117,54 @@ const uriToBlob = async (uri: string) => {
 
 // Helper to get MIME type from file extension
 const getMimeType = (fileName: string, providedType?: string): string => {
-  // If a type is provided and it looks like a MIME type, use it
-  if (providedType && providedType.includes('/')) {
-    return providedType;
-  }
+    // If a type is provided and it looks like a MIME type, use it
+    if (providedType && providedType.includes('/')) {
+        return providedType;
+    }
 
-  // Fallback: map by file extension
-  const extension = fileName.toLowerCase().split('.').pop() || '';
-  const mimeTypes: Record<string, string> = {
-    pdf: 'application/pdf',
-    doc: 'application/msword',
-    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    xls: 'application/vnd.ms-excel',
-    xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    ppt: 'application/vnd.ms-powerpoint',
-    pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-    txt: 'text/plain',
-    csv: 'text/csv',
-    jpg: 'image/jpeg',
-    jpeg: 'image/jpeg',
-    png: 'image/png',
-    gif: 'image/gif',
-    zip: 'application/zip',
-    mp3: 'audio/mpeg',
-    mp4: 'video/mp4',
-  };
+    // Fallback: map by file extension
+    const extension = fileName.toLowerCase().split('.').pop() || '';
+    const mimeTypes: Record<string, string> = {
+        pdf: 'application/pdf',
+        doc: 'application/msword',
+        docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        xls: 'application/vnd.ms-excel',
+        xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ppt: 'application/vnd.ms-powerpoint',
+        pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        txt: 'text/plain',
+        csv: 'text/csv',
+        jpg: 'image/jpeg',
+        jpeg: 'image/jpeg',
+        png: 'image/png',
+        gif: 'image/gif',
+        zip: 'application/zip',
+        mp3: 'audio/mpeg',
+        mp4: 'video/mp4',
+    };
 
-  return mimeTypes[extension] || 'application/octet-stream';
+    return mimeTypes[extension] || 'application/octet-stream';
 };
 
-export async function fetchArchivos(accessToken: string) : Promise<archivos.Archivo[]> {   
-    const response = await apiRequest({method: 'GET', endpoint: '/archivos', token: accessToken})
+export async function getArchivosUnseenCount(accessToken: string): Promise<number> {
+    const response = await apiRequest({ method: 'GET', endpoint: '/archivos/unseen-count', token: accessToken });
+
+    if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.message || errData.error || response.statusText);
+    }
+
+    const data = await response.json();
+    return typeof data?.unseenCount === 'number' ? data.unseenCount : 0;
+}
+
+export async function fetchArchivos(accessToken: string): Promise<archivos.Archivo[]> {
+    const response = await apiRequest({ method: 'GET', endpoint: '/archivos', token: accessToken })
 
     if (!response.ok) {
         const errorText = await response.text();
         console.error('[fetchArchivos] Error:', { status: response.status, statusText: response.statusText, body: errorText });
-        try { const errData = JSON.parse(errorText); throw new Error(errData.message || errData.error || errorText); } catch (e) { if (e instanceof Error && e.message !== errorText) throw e; throw new Error(errorText || response.statusText); }
+        throwApiError(errorText, response);
     }
 
     const data: ArchivoDTO[] = await response.json();
@@ -159,8 +172,8 @@ export async function fetchArchivos(accessToken: string) : Promise<archivos.Arch
     return archivosFormateados;
 }
 
-export async function searchArchivosByNombre(accessToken: string, query: string) : Promise<archivos.Archivo[]> {
-    const response = await apiRequest({method: 'GET', endpoint: `/archivos/searchByNombre?nombre=${encodeURIComponent(query)}`, token: accessToken});
+export async function searchArchivosByNombre(accessToken: string, query: string): Promise<archivos.Archivo[]> {
+    const response = await apiRequest({ method: 'GET', endpoint: `/archivos/searchByNombre?nombre=${encodeURIComponent(query)}`, token: accessToken });
 
     if (!response.ok) {
         console.error(`Error searching by name: ${response.status}`);
@@ -176,9 +189,9 @@ export async function searchArchivosByNombre(accessToken: string, query: string)
     return archivosFormateados;
 }
 
-export async function searchArchivosByPersona(accessToken: string, query: string) : Promise<archivos.Archivo[]> {
-    const response = await apiRequest({method: 'GET', endpoint: `/archivos/?search=${encodeURIComponent(query)}`, token: accessToken});
-    
+export async function searchArchivosByPersona(accessToken: string, query: string): Promise<archivos.Archivo[]> {
+    const response = await apiRequest({ method: 'GET', endpoint: `/archivos/?search=${encodeURIComponent(query)}`, token: accessToken });
+
     if (!response.ok) {
         console.error(`Error searching by person: ${response.status}`);
         return [];
@@ -193,8 +206,8 @@ export async function searchArchivosByPersona(accessToken: string, query: string
     return archivosFormateados;
 }
 
-export async function getArchivosByIdUsuario(accessToken: string, idUsuario: number) : Promise<archivos.Archivo[]> {
-    const response = await apiRequest({method: 'GET', endpoint: `/archivos/usuario/${idUsuario}`, token: accessToken});
+export async function getArchivosByIdUsuario(accessToken: string, idUsuario: number): Promise<archivos.Archivo[]> {
+    const response = await apiRequest({ method: 'GET', endpoint: `/archivos/usuario/${idUsuario}`, token: accessToken });
 
     if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
@@ -206,7 +219,7 @@ export async function getArchivosByIdUsuario(accessToken: string, idUsuario: num
     return archivosFormateados;
 }
 
-export async function searchArchivos(query: string) : Promise<archivos.Archivo[]> {
+export async function searchArchivos(query: string): Promise<archivos.Archivo[]> {
     const trimmedQuery = query.trim();
 
     if (trimmedQuery.length < 1) {
@@ -220,35 +233,35 @@ export async function searchArchivos(query: string) : Promise<archivos.Archivo[]
                 return [] as archivos.Archivo[];
             }),
             trimmedQuery.length >= 2
-            ? searchArchivosByPersona('', trimmedQuery).catch(err => {
-                console.error('Error buscando archivos por persona:', err);
-                return [] as archivos.Archivo[];
-            })
-            : Promise.resolve([] as archivos.Archivo[])
+                ? searchArchivosByPersona('', trimmedQuery).catch(err => {
+                    console.error('Error buscando archivos por persona:', err);
+                    return [] as archivos.Archivo[];
+                })
+                : Promise.resolve([] as archivos.Archivo[])
         ]
 
-    const [resultadosNombre, resultadosPersona] = await Promise.all(promises);
+        const [resultadosNombre, resultadosPersona] = await Promise.all(promises);
 
-    const resultadosCombinados = [...resultadosNombre, ...resultadosPersona];
+        const resultadosCombinados = [...resultadosNombre, ...resultadosPersona];
 
-    const resultadosUnicos = resultadosCombinados.reduce((acc: archivos.Archivo[], actual) => {
-      const existe = acc.find(item => item.id === actual.id);
-      if (!existe) {
-        acc.push(actual);
-      }
-      return acc;
-    }, []);
+        const resultadosUnicos = resultadosCombinados.reduce((acc: archivos.Archivo[], actual) => {
+            const existe = acc.find(item => item.id === actual.id);
+            if (!existe) {
+                acc.push(actual);
+            }
+            return acc;
+        }, []);
 
-    return resultadosUnicos;
+        return resultadosUnicos;
 
     } catch (error) {
-    console.error('Error en búsqueda de archivos:', error);
-    return [];
+        console.error('Error en búsqueda de archivos:', error);
+        return [];
     }
 }
 
-export async function getArchivosPersonales(accessToken: string) : Promise<archivos.Archivo[]> {
-    const response = await apiRequest({method: 'GET', endpoint: '/archivos/personales', token: accessToken});
+export async function getArchivosPersonales(accessToken: string): Promise<archivos.Archivo[]> {
+    const response = await apiRequest({ method: 'GET', endpoint: '/archivos/personales', token: accessToken });
 
     if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
@@ -260,14 +273,14 @@ export async function getArchivosPersonales(accessToken: string) : Promise<archi
     return archivosFormateados;
 }
 
-export async function getUrlCargaArchivo(accessToken: string, data:archivos.PedirUrlCargaRequest ) : Promise<archivos.PedirUrlCargaResponse> {
-    const response = await apiRequest({method: 'POST', endpoint: '/archivos/upload', token: accessToken, body: data});
+export async function getUrlCargaArchivo(accessToken: string, data: archivos.PedirUrlCargaRequest): Promise<archivos.PedirUrlCargaResponse> {
+    const response = await apiRequest({ method: 'POST', endpoint: '/archivos/upload', token: accessToken, body: data });
 
     if (!response.ok) {
         let errorDetails = '';
         try {
             const errorData = await response.json();
-            errorDetails = errorData.message || JSON.stringify(errorData);
+            errorDetails = errorData.message || errorData.error || JSON.stringify(errorData);
         } catch {
             errorDetails = response.statusText || `Error ${response.status}`;
         }
@@ -275,12 +288,11 @@ export async function getUrlCargaArchivo(accessToken: string, data:archivos.Pedi
     }
 
     const responseData = await response.json();
-    const { uploadUrl, ruta_r2, fileName } = responseData;
-    return { uploadUrl, ruta_r2, fileName };
+    return { urls: responseData.urls };
 }
 
-export async function uploadArchivoR2(uploadUrl: string, fileUri: string, mimeType: string) : Promise<void> {
-    try {        
+export async function uploadArchivoR2(uploadUrl: string, fileUri: string, mimeType: string): Promise<void> {
+    try {
         const archivoBlob = await uriToBlob(fileUri);
 
         const response = await fetch(uploadUrl, {
@@ -295,9 +307,9 @@ export async function uploadArchivoR2(uploadUrl: string, fileUri: string, mimeTy
         if (!response.ok) {
             const errorText = await response.text();
             console.error('Error en R2:', { status: response.status, statusText: response.statusText, body: errorText });
-            try { const errData = JSON.parse(errorText); throw new Error(errData.message || errData.error || errorText); } catch (e) { if (e instanceof Error && e.message !== errorText) throw e; throw new Error(errorText || response.statusText); }
+            throwApiError(errorText, response);
         }
-        
+
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         if (fileUri.startsWith('blob:')) {
@@ -323,71 +335,94 @@ export async function uploadArchivoR2(uploadUrl: string, fileUri: string, mimeTy
     }
 }
 
-export async function confirmarUploadArchivo(accessToken: string, archivoData: archivos.UploadArchivoPayload) : Promise<archivos.Archivo> {
-    const response = await apiRequest({method: 'POST', endpoint: '/archivos/metadata', token: accessToken, body: archivoData});
+export async function confirmarUploadArchivo(accessToken: string, archivoData: archivos.UploadArchivoPayload, idempotencyKey?: string): Promise<archivos.Archivo> {
+    const response = await apiRequest({ method: 'POST', endpoint: '/archivos/metadata', token: accessToken, body: archivoData, headers: idempotencyHeaders(idempotencyKey) });
 
     if (!response.ok) {
-            const body = await parseBody(response);
-            throw buildApiError(response.status, response.statusText || `Error ${response.status}`, body);
+        const body = await parseBody(response);
+        throw buildApiError(response.status, response.statusText || `Error ${response.status}`, body);
     }
 
     const body = await parseBody(response);
     const data: ArchivoDTO = body?.archivo || body?.resource || body?.data || body;
     const archivoConfirmado = mapArchivoDTOToArchivo(data);
     return archivoConfirmado;
-}   
+}
 
 export async function uploadArchivo(
     accessToken: string,
-    archivo: archivos.MobileFile,
-    archivoData: archivos.UploadArchivoPayload
-) : Promise<ApiOperationResult<archivos.Archivo>> {
+    items: archivos.ArchivoAProcesar[],
+    idempotencyKey?: string
+): Promise<{ exitosos: ApiOperationResult<archivos.Archivo>[], fallidos: any[] }> {
     try {
-        // Get proper MIME type from file name and provided type
-        const contentType = getMimeType(archivo.name, archivo.type);
-        
-        // 1. Pedir URL de carga
-        const urlCargaResponse = await getUrlCargaArchivo(accessToken, {
-            fileName: archivoData.nombre,
-            contentType: contentType,
-        });
-        const uploadUrl = urlCargaResponse.uploadUrl;
-        const rutaR2 = urlCargaResponse.ruta_r2;
-    
-        // 2. Subir archivo a R2
-        await uploadArchivoR2(uploadUrl, archivo.uri, contentType);
+        // 1. Preparar el payload con todos los archivos para pedir las URLs de golpe
+        const requestFiles = items.map(item => ({
+            fileName: item.archivoData.nombre,
+            contentType: getMimeType(item.archivo.name, item.archivo.type)
+        }));
 
-        // 3. Confirmar subida con datos adicionales
-        const payloadConfirmacion: archivos.UploadArchivoPayload = {
-            nombre: archivoData.nombre,
-            titulo: archivoData.titulo,
-            ruta_r2: rutaR2,
-            tamaño: archivo.size,
-            tipo: contentType,
-            ...(archivoData.uso ? { uso: archivoData.uso } : {}),
-            ...(archivoData.id_carpeta !== undefined ? { id_carpeta: archivoData.id_carpeta } : {}),
-            allowed_roles: archivoData.allowed_roles || [],
-            usuarios_asociados: archivoData.usuarios_asociados || [],
-            usuarios_compartidos: archivoData.usuarios_compartidos || [],
-        };
+        // 2. Pedir todas las URLs en una sola llamada al backend
+        const urlsResponse = await getUrlCargaArchivo(accessToken, { files: requestFiles });
 
-                const metadataResponse = await apiRequest({ method: 'POST', endpoint: '/archivos/metadata', token: accessToken, body: payloadConfirmacion });
+        // 3. Ejecutar las subidas y confirmaciones en paralelo
+        const promesasDeSubida = items.map(async (item, index) => {
+            // Como mandamos los archivos en orden, las URLs devueltas corresponden al mismo index
+            const urlInfo = urlsResponse.urls[index];
+            const contentType = getMimeType(item.archivo.name, item.archivo.type);
 
-                if (!metadataResponse.ok) {
-                    const body = await parseBody(metadataResponse);
-                    throw buildApiError(metadataResponse.status, metadataResponse.statusText, body);
-                }
+            // A. Subir archivo a R2
+            await uploadArchivoR2(urlInfo.uploadUrl, item.archivo.uri, contentType);
 
+            // B. Confirmar subida (Metadata) 
+            // Nota: Actualmente esto hace una petición por archivo.
+            const payloadConfirmacion: archivos.UploadArchivoPayload = {
+                ...item.archivoData, // Copiamos toda la info (título, uso, id_carpeta, roles, etc)
+                ruta_r2: urlInfo.ruta_r2,
+                tamaño: item.archivo.size,
+                tipo: contentType,
+            };
+
+            // Cada archivo del lote lleva su PROPIA key idempotente derivada de
+            // la key base (estable entre reintentos, única por archivo) para que
+            // un backend idempotente no deduplique archivos distintos como uno.
+            const metadataResponse = await apiRequest({
+                method: 'POST',
+                endpoint: '/archivos/metadata',
+                token: accessToken,
+                body: payloadConfirmacion,
+                headers: idempotencyHeaders(deriveIdempotencyKey(idempotencyKey, index))
+            });
+
+            if (!metadataResponse.ok) {
                 const body = await parseBody(metadataResponse);
-                const dto: ArchivoDTO = body?.archivo || body?.resource || body?.data || body;
+                throw buildApiError(metadataResponse.status, metadataResponse.statusText, body);
+            }
 
-                return {
-                    status: metadataResponse.status === 207 ? 'partial_success' : 'success',
-                    statusCode: metadataResponse.status,
-                    data: mapArchivoDTOToArchivo(dto),
-                    message: body?.message,
-                    warnings: parseWarnings(body),
-                };
+            const body = await parseBody(metadataResponse);
+            const dto: ArchivoDTO = body?.archivo || body?.resource || body?.data || body;
+
+            return {
+                status: metadataResponse.status === 207 ? 'partial_success' : 'success',
+                statusCode: metadataResponse.status,
+                data: mapArchivoDTOToArchivo(dto),
+                message: body?.message,
+                warnings: parseWarnings(body),
+            } as ApiOperationResult<archivos.Archivo>;
+        });
+
+        // 4. Esperar a que todos terminen (sin que un fallo detenga a los demás)
+        const resultados = await Promise.allSettled(promesasDeSubida);
+
+        // 5. Separar éxitos de fracasos para informar a la UI
+        const exitosos = resultados
+            .filter((res): res is PromiseFulfilledResult<ApiOperationResult<archivos.Archivo>> => res.status === 'fulfilled')
+            .map(res => res.value);
+
+        const fallidos = resultados
+            .filter((res): res is PromiseRejectedResult => res.status === 'rejected')
+            .map(res => res.reason);
+
+        return { exitosos, fallidos };
     } catch (error) {
         console.error('Error subiendo el archivo:', error);
         throw error;
@@ -398,28 +433,28 @@ export async function updateArchivo(
     accessToken: string,
     idArchivo: number,
     archivoData: archivos.UpdateArchivoPayload
-) : Promise<ApiOperationResult<archivos.Archivo>> {
-    const response = await apiRequest({method: 'PUT', endpoint: `/archivos/${idArchivo}`, token: accessToken, body: archivoData});
+): Promise<ApiOperationResult<archivos.Archivo>> {
+    const response = await apiRequest({ method: 'PUT', endpoint: `/archivos/${idArchivo}`, token: accessToken, body: archivoData });
 
     if (!response.ok) {
-                const errData = await parseBody(response);
-                throw buildApiError(response.status, response.statusText, errData);
+        const errData = await parseBody(response);
+        throw buildApiError(response.status, response.statusText, errData);
     }
 
-        const body = await parseBody(response);
-        const data: ArchivoDTO = body?.archivo || body?.resource || body?.data || body;
-        const archivoFormateado = mapArchivoDTOToArchivo(data);
-        return {
-            status: response.status === 207 ? 'partial_success' : 'success',
-            statusCode: response.status,
-            data: archivoFormateado,
-            message: body?.message,
-            warnings: parseWarnings(body),
-        };
+    const body = await parseBody(response);
+    const data: ArchivoDTO = body?.archivo || body?.resource || body?.data || body;
+    const archivoFormateado = mapArchivoDTOToArchivo(data);
+    return {
+        status: response.status === 207 ? 'partial_success' : 'success',
+        statusCode: response.status,
+        data: archivoFormateado,
+        message: body?.message,
+        warnings: parseWarnings(body),
+    };
 }
 
-export async function deleteArchivo(accessToken: string, idArchivo: number) : Promise<void> {
-    const response = await apiRequest({method: 'DELETE', endpoint: `/archivos/${idArchivo}`, token: accessToken});
+export async function deleteArchivo(accessToken: string, idArchivo: number): Promise<void> {
+    const response = await apiRequest({ method: 'DELETE', endpoint: `/archivos/${idArchivo}`, token: accessToken });
 
     if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
@@ -427,8 +462,8 @@ export async function deleteArchivo(accessToken: string, idArchivo: number) : Pr
     }
 }
 
-export async function getArchivoUrlFirmada(accessToken: string, idArchivo: number) : Promise<string> {
-    const response = await apiRequest({method: 'GET', endpoint: `/archivos/${idArchivo}/url`, token: accessToken});
+export async function getArchivoUrlFirmada(accessToken: string, idArchivo: number): Promise<string> {
+    const response = await apiRequest({ method: 'GET', endpoint: `/archivos/${idArchivo}/url`, token: accessToken });
 
     if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
@@ -447,27 +482,27 @@ export async function moverArchivo(
     const response = await apiRequest({ method: 'POST', endpoint: `/archivos/${idArchivo}/mover`, token: accessToken, body: data });
 
     if (!response.ok) {
-                const errData = await parseBody(response);
+        const errData = await parseBody(response);
         if (response.status === 403) {
-                        throw buildApiError(response.status, 'No tenes permisos para mover este archivo', errData);
+            throw buildApiError(response.status, 'No tenes permisos para mover este archivo', errData);
         }
         if (response.status === 404) {
-                        throw buildApiError(response.status, 'Archivo o carpeta destino no encontrado', errData);
-                }
-                if (response.status === 400) {
-                        throw buildApiError(response.status, 'Revisa el destino seleccionado e intenta nuevamente', errData);
+            throw buildApiError(response.status, 'Archivo o carpeta destino no encontrado', errData);
         }
-                throw buildApiError(response.status, response.statusText, errData);
+        if (response.status === 400) {
+            throw buildApiError(response.status, 'Revisa el destino seleccionado e intenta nuevamente', errData);
+        }
+        throw buildApiError(response.status, response.statusText, errData);
     }
 
-        const body = await parseBody(response);
-        const moved: ArchivoDTO = body?.archivo || body?.resource || body?.data || body;
-        return {
-            status: response.status === 207 ? 'partial_success' : 'success',
-            statusCode: response.status,
-            data: mapArchivoDTOToArchivo(moved),
-            message: body?.message,
-            warnings: parseWarnings(body),
+    const body = await parseBody(response);
+    const moved: ArchivoDTO = body?.archivo || body?.resource || body?.data || body;
+    return {
+        status: response.status === 207 ? 'partial_success' : 'success',
+        statusCode: response.status,
+        data: mapArchivoDTOToArchivo(moved),
+        message: body?.message,
+        warnings: parseWarnings(body),
     };
 }
 
@@ -484,4 +519,39 @@ export async function getArchivoPermisos(accessToken: string, idArchivo: number)
 
     const body = await parseBody(response);
     return normalizeResourcePermisos(body);
+}
+
+export async function getArchivoViewers(
+    accessToken: string,
+    idArchivo: number
+): Promise<archivos.ArchivoViewerResponse[]> {
+    const response = await apiRequest({
+        method: 'POST',
+        endpoint: '/archivos/viewers',
+        token: accessToken,
+        body: { archivo_id: idArchivo },
+    });
+
+    if (!response.ok) {
+        const errData = await parseBody(response);
+        throw buildApiError(response.status, response.statusText, errData);
+    }
+
+    const body = await parseBody(response);
+    const rawItems = Array.isArray(body)
+        ? body
+        : Array.isArray(body?.data)
+            ? body.data
+            : Array.isArray(body?.items)
+                ? body.items
+                : [];
+
+    return rawItems
+        .filter((item: any) => Number.isInteger(item?.user_context_id))
+        .map((item: any) => ({
+            user_context_id: item.user_context_id,
+            nombre: typeof item.nombre === 'string' ? item.nombre : '',
+            apellido: typeof item.apellido === 'string' ? item.apellido : '',
+            visto_en: new Date(item.visto_en),
+        }));
 }

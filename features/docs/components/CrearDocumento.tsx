@@ -1,560 +1,692 @@
-import { ThemedText } from '@/components/themed-text';
-import { Colors } from '@/constants/theme';
-import { RoleUserSelectionModal } from '@/features/solicitudesActividades/components/RoleUserSelectionModal';
-import { UserSelector } from '@/features/solicitudesActividades/components/UserSelector';
-import { useRoleCheck } from '@/hooks/useRoleCheck';
+import { fileTypeColor, getExt, isImageFile } from '@/components/filePreview';
+import { deriveIdempotencyKey, generateIdempotencyKey } from '@/shared/idempotency';
 import { showGlobalToast } from '@/shared/ui/toast';
-import { UserSummary } from '@/shared/users/User';
-import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
+import { useAuth } from '@/features/auth/context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useCallback, useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import * as DocumentPicker from 'expo-document-picker';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
+  Animated,
+  Image,
   Modal,
   Platform,
   ScrollView,
   StyleSheet,
-  TextInput,
+  Text,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MobileFile, UploadArchivoPayload } from '../models/Archivo';
-import { formatPartialWarnings } from '../utils/partialWarnings';
-import { useUploadArchivo } from '../viewmodels/useArchivos';
-import { PartialSaveBanner } from './PartialSaveBanner';
+import { MobileFile } from '../models/Archivo';
+import {
+  confirmarUploadArchivo,
+  getUrlCargaArchivo,
+  uploadArchivoR2,
+} from '../services/archivosApi';
+import { ARCHIVOS_KEYS } from '../viewmodels/useArchivos';
 
-const colors = Colors['light'];
+// ─── Design tokens (shared with the file preview module) ─────────────────────────
+const INK = '#1c2024';
+const MUTED = '#7a8087';
+const MUTED2 = '#9aa3ab';
+const LINE = '#e8eaed';
+const CARD = '#f6f7f9';
+const PANEL = '#eef0f2';
+const BLUE = '#2f78e8';
+const BLUE_BTN = '#5b86f0';
+const BLUE_BTN_DISABLED = '#aebfe8';
+const NAVY = '#2b1f5c';
+const GREEN = '#1f9d57';
+const PROGRESS_TRACK = '#e3e6ea';
+const REMOVE_BG = '#dfe3e8';
+const REMOVE_GLYPH = '#6b727a';
+
+// ─── Types ───────────────────────────────────────────────────────────────────────
+type FileStatus = 'pending' | 'uploading' | 'done';
+
+interface SelFile {
+  id: string;
+  name: string;
+  ext: string;
+  bytes: number;
+  uri: string;
+  mimeType: string;
+  isImage: boolean;
+  status: FileStatus;
+  progress: number; // 0..100, only meaningful while 'uploading'
+  archivoId?: number;
+  leaving?: boolean;
+}
 
 interface CrearDocumentoProps {
   visible: boolean;
   onClose: () => void;
-  initialFile?: MobileFile;
+  initialFiles?: MobileFile[];
   initialFolderId?: number | null;
 }
 
-export function CrearDocumento({ visible, onClose, initialFile, initialFolderId }: CrearDocumentoProps) {
-  const insets = useSafeAreaInsets();
+// ─── Helpers ───────────────────────────────────────────────────────────────────
+function formatBytes(bytes: number): string {
+  if (!bytes) return '0 KB';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1048576) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${(bytes / 1048576).toFixed(1)} MB`;
+}
 
-  const [titulo, setTitulo] = useState(initialFile?.name.split('.')[0] || '');
-  const [descripcion, setDescripcion] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
-  const { data: searchResults, isLoading: isSearchingUsers } = useSearchUsers(searchQuery);
-  const users = searchResults || [];
+const MIME_MAP: Record<string, string> = {
+  pdf: 'application/pdf',
+  doc: 'application/msword',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  xls: 'application/vnd.ms-excel',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  txt: 'text/plain',
+  csv: 'text/csv',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  gif: 'image/gif',
+  webp: 'image/webp',
+  zip: 'application/zip',
+  mp4: 'video/mp4',
+};
 
-  const [activeRole, setActiveRole] = useState('');
-  const [roleUsers, setRoleUsers] = useState<UserSummary[]>([]);
-  const [showRoleModal, setShowRoleModal] = useState(false);
-  const { data: roleUsersData, isLoading: isLoadingRole, error: roleError } = useGetUserByRole(activeRole);
+function resolveMime(type: string | undefined, name: string): string {
+  if (type && type.includes('/') && type !== 'application/octet-stream') return type;
+  return MIME_MAP[getExt(type, name)] ?? type ?? 'application/octet-stream';
+}
 
-  const [usuariosCompartidos, setUsuariosCompartidos] = useState<UserSummary[]>([]);
-  const [usuariosAsociados, setUsuariosAsociados] = useState<UserSummary[]>([]);
-  const [allowedRoles, setAllowedRoles] = useState<string[]>([]);
-  const [selectorContext, setSelectorContext] = useState<'compartidos' | 'asociados'>('compartidos');
-  const [partialWarning, setPartialWarning] = useState<string | null>(null);
-  const [didPartialSuccess, setDidPartialSuccess] = useState(false);
-
-  const { hasRole } = useRoleCheck();
-  const isSupervisor = hasRole(['gerencia', 'personasRelaciones', 'encargado']);
-
-  const isLoadingUsers = isSearchingUsers || isLoadingRole;
-  const { mutate: uploadArchivo, isPending: isUploading } = useUploadArchivo();
-
-  const allRoles = [
-    { label: 'Todos', value: '*' },
-    { label: 'Contable', value: 'contable' },
-    { label: 'Sistemas', value: 'sistemas' },
-    { label: 'Personal Admin', value: 'empleado-admin' },
-    { label: 'Personal Insumos', value: 'empleado-insumos' },
-    { label: 'Personal Mayorista', value: 'empleado-mayorista' },
-    { label: 'Personal Super', value: 'empleado-super' },
-    { label: 'Consejo', value: 'consejo' },
-    { label: 'Encargado', value: 'encargado' },
-    { label: 'Gerencia', value: 'gerencia' },
-    { label: 'Personal Limpieza', value: 'empleado-limpieza' },
-    { label: 'Personas y Relaciones', value: 'personasRelaciones' },
-    { label: 'Presidencia', value: 'presidencia' },
-  ];
-
-  const availableRoleValues = useMemo(
-    () => allRoles.filter((role) => role.value !== '*').map((role) => role.value),
-    [allRoles]
-  );
-
-  React.useEffect(() => {
-    if (activeRole && roleUsersData) {
-      setRoleUsers(roleUsersData);
-      setShowRoleModal(true);
-    } else if (roleError) {
-      Alert.alert('Intenta nuevamente');
-      setActiveRole('');
-    }
-  }, [roleUsersData, activeRole, roleError]);
-
-  const handleCloseRoleModal = () => {
-    setShowRoleModal(false);
-    setActiveRole('');
-    setRoleUsers([]);
+let _seq = 0;
+function toSelFile(f: { name: string; uri: string; type?: string; size?: number }): SelFile {
+  // DocumentPicker assets expose `mimeType`; MobileFile exposes `type`. Tolerate both.
+  const rawType = f.type ?? (f as { mimeType?: string }).mimeType;
+  const ext = getExt(rawType, f.name);
+  return {
+    id: `${f.uri}__${_seq++}`,
+    name: f.name,
+    ext,
+    bytes: f.size ?? 0,
+    uri: f.uri,
+    mimeType: resolveMime(rawType, f.name),
+    isImage: isImageFile(rawType, f.name),
+    status: 'pending',
+    progress: 0,
   };
+}
 
-  const handleToggleUser = useCallback((user: UserSummary) => {
-    if (selectorContext === 'asociados') {
-      setUsuariosAsociados((prev) => {
-        const isSelected = prev.some((u) => u.user_context_id === user.user_context_id);
-        return isSelected
-          ? prev.filter((u) => u.user_context_id !== user.user_context_id)
-          : [...prev, user];
-      });
+// ─── Main component ──────────────────────────────────────────────────────────────
+export function CrearDocumento({ visible, onClose, initialFiles, initialFolderId }: CrearDocumentoProps) {
+  const insets = useSafeAreaInsets();
+  const { tokens } = useAuth();
+  const queryClient = useQueryClient();
+
+  const [files, setFiles] = useState<SelFile[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const batchSizeRef = useRef(0);
+  const uploadBaseKeyRef = useRef(generateIdempotencyKey());
+  const timersRef = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map());
+
+  // Seed from the files picked by the caller; reset everything when the sheet closes.
+  useEffect(() => {
+    if (visible) {
+      setFiles(initialFiles?.length ? initialFiles.map(toSelFile) : []);
     } else {
-      // compartidos: if the role was fully selected, deselect it and add remaining users individually
-      if (activeRole && allowedRoles.includes(activeRole)) {
-        setAllowedRoles((prev) => prev.filter((r) => r !== activeRole));
-        setUsuariosCompartidos((prev) => {
-          const otherRoleUsers = roleUsers.filter((u) => u.user_context_id !== user.user_context_id);
-          const existingIds = new Set(prev.map((u) => u.user_context_id));
-          const newUsers = otherRoleUsers.filter((u) => !existingIds.has(u.user_context_id));
-          return [...prev, ...newUsers];
-        });
-      } else {
-        setUsuariosCompartidos((prev) => {
-          const isSelected = prev.some((u) => u.user_context_id === user.user_context_id);
-          return isSelected
-            ? prev.filter((u) => u.user_context_id !== user.user_context_id)
-            : [...prev, user];
-        });
-      }
+      setFiles([]);
+      setUploading(false);
+      batchSizeRef.current = 0;
+      timersRef.current.forEach(clearInterval);
+      timersRef.current.clear();
     }
-  }, [selectorContext, activeRole, allowedRoles, roleUsers]);
+  }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleSelectAllRoleUsers = useCallback((usersToSelect: UserSummary[]) => {
-    if (selectorContext === 'asociados') {
-      // asociados: add all users individually
-      setUsuariosAsociados((prev) => {
-        const existingIds = new Set(prev.map((u) => u.user_context_id));
-        const newUsers = usersToSelect.filter((u) => !existingIds.has(u.user_context_id));
-        return [...prev, ...newUsers];
-      });
-    } else {
-      // compartidos: add role to allowedRoles, remove individual users of this role
-      if (activeRole && !allowedRoles.includes(activeRole)) {
-        setAllowedRoles((prev) => [...prev, activeRole]);
-      }
-      setUsuariosCompartidos((prev) => {
-        const idsToRemove = new Set(usersToSelect.map((u) => u.user_context_id));
-        return prev.filter((u) => !idsToRemove.has(u.user_context_id));
-      });
-    }
-  }, [selectorContext, activeRole, allowedRoles]);
-
-  const handleDeselectAllRoleUsers = useCallback((_: UserSummary[]) => {
-    if (selectorContext === 'asociados') {
-      // asociados: remove all role users
-      setUsuariosAsociados((prev) => {
-        const idsToRemove = new Set(roleUsers.map((u) => u.user_context_id));
-        return prev.filter((u) => !idsToRemove.has(u.user_context_id));
-      });
-    } else {
-      // compartidos: remove role from allowedRoles
-      if (activeRole && allowedRoles.includes(activeRole)) {
-        setAllowedRoles((prev) => prev.filter((r) => r !== activeRole));
-      }
-    }
-  }, [selectorContext, activeRole, allowedRoles, roleUsers]);
-
-  const handleSearchUsers = useCallback((query: string) => setSearchQuery(query), []);
-
-  const handleRoleSelectCompartidos = useCallback((role: string) => {
-    setSelectorContext('compartidos');
-
-    if (role === '*') {
-      setAllowedRoles(availableRoleValues);
-      setActiveRole('');
-      return;
-    }
-
-    setActiveRole(role);
-  }, [availableRoleValues]);
-
-  const handleRoleSelectAsociados = useCallback((role: string) => {
-    if (role === '*') {
-      return;
-    }
-
-    setSelectorContext('asociados');
-    setActiveRole(role);
+  // Clear any in-flight progress timers on unmount.
+  useEffect(() => () => {
+    timersRef.current.forEach(clearInterval);
+    timersRef.current.clear();
   }, []);
 
-  const modalSelectedUsers = useMemo(() => {
-    return selectorContext === 'asociados' ? usuariosAsociados : usuariosCompartidos;
-  }, [selectorContext, usuariosAsociados, usuariosCompartidos]);
+  // ─── Derived ─────────────────────────────────────────────────────────────────
+  const pendingFiles = useMemo(() => files.filter(f => f.status === 'pending'), [files]);
+  const doneFiles = useMemo(() => files.filter(f => f.status === 'done'), [files]);
+  const uploadingNow = useMemo(() => files.filter(f => f.status === 'uploading').length, [files]);
+  const completedInBatch = batchSizeRef.current - uploadingNow;
 
-  const isRoleSelected = useMemo(() => {
-    return selectorContext === 'compartidos' && allowedRoles.includes(activeRole);
-  }, [selectorContext, allowedRoles, activeRole]);
+  const totalBytes = useMemo(() => files.reduce((s, f) => s + f.bytes, 0), [files]);
+  const pendingBytes = useMemo(() => pendingFiles.reduce((s, f) => s + f.bytes, 0), [pendingFiles]);
 
-  const selectedRolesForDisplay = useMemo(() => {
-    return allRoles.filter((r) => allowedRoles.includes(r.value));
-  }, [allRoles, allowedRoles]);
+  const allDone = files.length > 0 && pendingFiles.length === 0 && !uploading;
+  const hasPending = pendingFiles.length > 0 && !uploading;
+  const pendingLabel = pendingFiles.length === 1 ? '1 archivo' : `${pendingFiles.length} archivos`;
 
-  const handleRemoveRole = useCallback((roleValue: string) => {
-    setAllowedRoles((prev) => prev.filter((r) => r !== roleValue));
+  const subtitle = useMemo(() => {
+    if (files.length === 0) return 'Ninguno seleccionado';
+    if (uploading) return `Subiendo… ${completedInBatch}/${batchSizeRef.current}`;
+    if (allDone) {
+      const n = doneFiles.length;
+      return `${n} ${n === 1 ? 'archivo subido' : 'archivos subidos'}`;
+    }
+    if (doneFiles.length > 0 && pendingFiles.length > 0) {
+      return `${doneFiles.length} subidos · ${pendingFiles.length} pendientes`;
+    }
+    return `${files.length} ${files.length === 1 ? 'archivo' : 'archivos'} · ${formatBytes(totalBytes)}`;
+  }, [files.length, uploading, completedInBatch, allDone, doneFiles.length, pendingFiles.length, totalBytes]);
+
+  // ─── File management ───────────────────────────────────────────────────────────
+  const addFiles = useCallback((incoming: { name: string; uri: string; type?: string; size?: number }[]) => {
+    setFiles(prev => {
+      const existing = new Set(prev.map(f => f.uri));
+      const fresh = incoming.filter(p => !existing.has(p.uri)).map(toSelFile);
+      if (!fresh.length) return prev;
+      showGlobalToast(fresh.length === 1 ? 'Archivo agregado' : `${fresh.length} archivos agregados`);
+      return [...prev, ...fresh];
+    });
   }, []);
 
-  const isFormValid = useMemo(
-    () => titulo.trim().length > 0 && initialFile != null,
-    [titulo, initialFile]
-  );
-
-  const BUTTON_HEIGHT = 48;
-  const BUTTON_MARGIN = 16;
-  const bottomBarHeight = BUTTON_HEIGHT + BUTTON_MARGIN * 2 + insets.bottom;
-
-  const resetForm = useCallback(() => {
-    setTitulo('');
-    setDescripcion('');
-    setUsuariosCompartidos([]);
-    setUsuariosAsociados([]);
-    setAllowedRoles([]);
-    setPartialWarning(null);
-    setDidPartialSuccess(false);
+  // Remove animates the row out (opacity→0, translateX 14px, 200ms) before it leaves the list.
+  const removeFile = useCallback((id: string) => {
+    setFiles(prev => prev.map(f => (f.id === id ? { ...f, leaving: true } : f)));
+    setTimeout(() => setFiles(prev => prev.filter(f => f.id !== id)), 200);
   }, []);
 
-  const handleCrearDocumento = useCallback(() => {
-    if (didPartialSuccess) {
-      onClose();
-      resetForm();
-      return;
-    }
-
-    if (!isFormValid || !initialFile) {
-      Alert.alert('Formulario incompleto', 'Por favor proporciona un archivo y título');
-      return;
-    }
-    const uploadPayload: UploadArchivoPayload = {
-      nombre: titulo.trim(),
-      titulo: descripcion.trim(),
-      usuarios_compartidos: usuariosCompartidos.map((u) => u.user_context_id),
-      usuarios_asociados: isSupervisor ? usuariosAsociados.map((u) => u.user_context_id) : undefined,
-      allowed_roles: allowedRoles.length > 0 ? allowedRoles : undefined,
-      ...(initialFolderId !== undefined ? { id_carpeta: initialFolderId } : {}),
-    };
-    const mobileFile: MobileFile = {
-      uri: initialFile.uri,
-      name: initialFile.name,
-      type: initialFile.type,
-      size: initialFile.size,
-    };
-    uploadArchivo(
-      { archivo: mobileFile, data: uploadPayload },
-      {
-        onSuccess: (result) => {
-          if (result.status === 'partial_success') {
-            setDidPartialSuccess(true);
-            setPartialWarning(formatPartialWarnings(result.warnings));
-            showGlobalToast('Guardado parcial');
-            return;
-          }
-
-          Alert.alert('Éxito', 'Archivo subido correctamente');
-          onClose();
-          resetForm();
-        },
-        onError: (error: any) => {
-          Alert.alert('Error', error instanceof Error ? error.message : 'Intenta nuevamente');
-        },
+  const handleSelectFiles = useCallback(async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        multiple: true,
+        copyToCacheDirectory: true,
+      });
+      if (!result.canceled && result.assets?.length) {
+        addFiles(result.assets.map(a => ({
+          name: a.name,
+          uri: a.uri,
+          type: a.mimeType ?? undefined,
+          size: a.size ?? undefined,
+        })));
       }
-    );
-  }, [didPartialSuccess, isFormValid, initialFile, titulo, descripcion, usuariosCompartidos, usuariosAsociados, allowedRoles, isSupervisor, uploadArchivo, onClose, resetForm]);
+    } catch (err) {
+      console.error('Error seleccionando documento', err);
+      Alert.alert('Error', 'No se pudo seleccionar el archivo.');
+    }
+  }, [addFiles]);
 
-  const handleCancel = useCallback(() => {
-    const hasUnsavedChanges = !!(
-      initialFile ||
-      titulo.trim() ||
-      descripcion.trim() ||
-      usuariosCompartidos.length > 0 ||
-      usuariosAsociados.length > 0 ||
-      allowedRoles.length > 0
-    );
+  // ─── Upload ──────────────────────────────────────────────────────────────────
+  const stopTimer = useCallback((id: string) => {
+    const t = timersRef.current.get(id);
+    if (t) { clearInterval(t); timersRef.current.delete(id); }
+  }, []);
 
-    if (hasUnsavedChanges) {
-      if (Platform.OS === 'web') {
-        const shouldDiscard = typeof globalThis.confirm === 'function'
-          ? globalThis.confirm('¿Deseas descartar los cambios?')
-          : true;
+  // Real transport (PUT to R2) has no progress events, so we animate an optimistic
+  // bar up to 80% while the request is in flight, then snap to 90/100 on confirm.
+  const startProgressTimer = useCallback((id: string) => {
+    const timer = setInterval(() => {
+      setFiles(prev => prev.map(f =>
+        f.id === id && f.status === 'uploading'
+          ? { ...f, progress: Math.min(f.progress + 3, 80) }
+          : f
+      ));
+    }, 120);
+    timersRef.current.set(id, timer);
+  }, []);
 
-        if (shouldDiscard) {
-          onClose();
-          resetForm();
+  // Only PENDING files are uploaded. Files already in `done` keep their state —
+  // they are never re-uploaded and never show progress again.
+  const startUpload = useCallback(async () => {
+    const pending = files.filter(f => f.status === 'pending');
+    if (!pending.length || uploading) return;
+
+    const token = tokens?.accessToken;
+    if (!token) {
+      Alert.alert('Error', 'No se identificó al usuario.');
+      return;
+    }
+
+    batchSizeRef.current = pending.length;
+    setUploading(true);
+    setFiles(prev => prev.map(f =>
+      f.status === 'pending' ? { ...f, status: 'uploading', progress: 0 } : f
+    ));
+
+    let urlsResponse: Awaited<ReturnType<typeof getUrlCargaArchivo>>;
+    try {
+      urlsResponse = await getUrlCargaArchivo(token, {
+        files: pending.map(f => ({ fileName: f.name, contentType: f.mimeType })),
+      });
+    } catch {
+      // Whole batch failed to start → revert to pending so the user can retry.
+      setFiles(prev => prev.map(f =>
+        f.status === 'uploading' ? { ...f, status: 'pending', progress: 0 } : f
+      ));
+      setUploading(false);
+      batchSizeRef.current = 0;
+      Alert.alert('Error', 'No se pudo iniciar la subida. Verificá tu conexión e intentá de nuevo.');
+      return;
+    }
+
+    const results = await Promise.allSettled(
+      pending.map(async (file, index) => {
+        const urlInfo = urlsResponse.urls[index];
+        startProgressTimer(file.id);
+        try {
+          await uploadArchivoR2(urlInfo.uploadUrl, file.uri, file.mimeType);
+          stopTimer(file.id);
+          setFiles(prev => prev.map(f => (f.id === file.id ? { ...f, progress: 90 } : f)));
+
+          const archivado = await confirmarUploadArchivo(token, {
+            nombre: file.name,
+            ruta_r2: urlInfo.ruta_r2,
+            tamaño: file.bytes,
+            tipo: file.mimeType,
+            ...(initialFolderId !== undefined ? { id_carpeta: initialFolderId } : {}),
+          }, deriveIdempotencyKey(uploadBaseKeyRef.current, file.id));
+
+          setFiles(prev => prev.map(f =>
+            f.id === file.id
+              ? { ...f, status: 'done', progress: 100, archivoId: archivado.id }
+              : f
+          ));
+          return archivado.id;
+        } catch {
+          stopTimer(file.id);
+          setFiles(prev => prev.map(f =>
+            f.id === file.id ? { ...f, status: 'pending', progress: 0 } : f
+          ));
+          return null;
         }
+      })
+    );
+
+    setUploading(false);
+    batchSizeRef.current = 0;
+
+    const succeeded = results.filter(
+      (r): r is PromiseFulfilledResult<number> => r.status === 'fulfilled' && r.value !== null
+    );
+
+    if (succeeded.length) {
+      queryClient.invalidateQueries({ queryKey: ARCHIVOS_KEYS.all });
+    }
+
+    const failedCount = pending.length - succeeded.length;
+    if (failedCount > 0 && succeeded.length > 0) {
+      Alert.alert('Subida parcial', `Se subieron ${succeeded.length} de ${pending.length} archivos. Los demás quedaron pendientes para reintentar.`);
+    } else if (failedCount > 0) {
+      Alert.alert('Error', 'No se pudo subir ningún archivo. Intentá de nuevo.');
+    }
+  }, [files, uploading, tokens, initialFolderId, startProgressTimer, stopTimer, queryClient]);
+
+  // ─── Close ─────────────────────────────────────────────────────────────────────
+  const handleClose = useCallback(() => {
+    if (uploading) return; // never interrupt an in-flight batch
+
+    if (pendingFiles.length > 0) {
+      if (Platform.OS === 'web') {
+        const ok = typeof globalThis.confirm === 'function'
+          ? globalThis.confirm('Hay archivos sin subir. ¿Deseas descartarlos?')
+          : true;
+        if (ok) onClose();
         return;
       }
-
-      Alert.alert('Descartar cambios', '¿Deseas descartar los cambios?', [
-        { text: 'Cancelar', onPress: () => {} },
-        { text: 'Descartar', onPress: () => { onClose(); resetForm(); } },
+      Alert.alert('Descartar selección', 'Hay archivos sin subir. ¿Deseas descartarlos?', [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Descartar', style: 'destructive', onPress: onClose },
       ]);
-    } else {
-      onClose();
+      return;
     }
-  }, [initialFile, titulo, descripcion, usuariosCompartidos, usuariosAsociados, allowedRoles, onClose, resetForm]);
+    onClose();
+  }, [uploading, pendingFiles.length, onClose]);
 
+  // ─── Render ──────────────────────────────────────────────────────────────────
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={handleCancel}>
-      {/*
-        Estructura:
-          <View> (raíz, flex:1)
-            <Header> (fijo arriba, con insets.top)
-            <KeyboardAvoidingView> (ocupa el espacio restante entre header y botón)
-              <ScrollView> (contenido scrolleable)
-            <View botón fijo> (fijo abajo, con insets.bottom)
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={handleClose}>
+      <View style={s.overlay}>
+        <View style={[s.sheet, { paddingTop: insets.top || 12 }]}>
+          {/* Header */}
+          <View style={s.header}>
+            <View style={s.headerText}>
+              <Text style={s.title} numberOfLines={2}>Archivos seleccionados</Text>
+              <Text style={s.subtitle} numberOfLines={1}>{subtitle}</Text>
+            </View>
+            <TouchableOpacity
+              onPress={handleClose}
+              style={s.closeBtn}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="close" size={22} color="#5a6068" />
+            </TouchableOpacity>
+          </View>
 
-        Así el teclado empuja solo el scroll, nunca el botón.
-      */}
-      <View style={styles.container}>
-        {/* Header fijo con safe-area top */}
-        <View style={[styles.header, { paddingTop: insets.top || 12 }]}>
-          <TouchableOpacity onPress={handleCancel} style={styles.iconButton}>
-            <Ionicons name="close" size={24} color={colors.icon} />
-          </TouchableOpacity>
-          <ThemedText style={styles.headerTitle}>Subir Archivo</ThemedText>
-          <View style={{ width: 40 }} />
-        </View>
+          {/* Body */}
+          {files.length === 0 ? (
+            <EmptyState onSelect={handleSelectFiles} />
+          ) : (
+            <ScrollView
+              style={s.list}
+              contentContainerStyle={s.listContent}
+              showsVerticalScrollIndicator={false}
+            >
+              {files.map(file => (
+                <FileRow key={file.id} file={file} onRemove={uploading ? undefined : removeFile} />
+              ))}
 
-        {/* KAV solo envuelve el scroll — el botón queda fuera */}
-        <KeyboardAvoidingView
-          style={styles.flex}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={0}
-        >
-          <ScrollView
-            style={styles.content}
-            contentContainerStyle={[styles.contentContainer, { paddingBottom: bottomBarHeight + 8 }]}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-          >
-            {partialWarning ? (
-              <PartialSaveBanner message={partialWarning} onClose={() => setPartialWarning(null)} />
-            ) : null}
+              {/* Add more — available whenever not actively uploading */}
+              {!uploading && (
+                <TouchableOpacity style={s.addMore} onPress={handleSelectFiles} activeOpacity={0.7}>
+                  <Ionicons name="add" size={18} color={NAVY} />
+                  <Text style={s.addMoreText}>Seleccionar más archivos</Text>
+                </TouchableOpacity>
+              )}
+            </ScrollView>
+          )}
 
-            {/* File Info */}
-            {initialFile && (
-              <View style={styles.fileInfoSection}>
-                <Ionicons name="document-text" size={32} color={colors.tint} />
-                <View style={styles.fileInfoText}>
-                  <ThemedText type="defaultSemiBold" numberOfLines={2}>{initialFile.name}</ThemedText>
-                  <ThemedText style={{ color: colors.secondaryText, fontSize: 12 }}>{initialFile.type}</ThemedText>
+          {/* Footer */}
+          {files.length > 0 && (
+            <View style={[s.footer, { paddingBottom: (insets.bottom || 0) + 14 }]}>
+              {uploading && (
+                <View style={[s.footerBtn, { backgroundColor: BLUE_BTN_DISABLED }]}>
+                  <ActivityIndicator size="small" color="#fff" style={{ marginRight: 10 }} />
+                  <Text style={s.footerBtnLabel}>
+                    Subiendo… {completedInBatch}/{batchSizeRef.current}
+                  </Text>
                 </View>
-              </View>
-            )}
+              )}
 
-            {/* Título */}
-            <View style={styles.inputSection}>
-              <ThemedText style={styles.label}>Título del archivo</ThemedText>
-              <TextInput
-                style={[styles.input, { color: colors.text }]}
-                placeholder="Título"
-                placeholderTextColor={colors.secondaryText}
-                value={titulo}
-                onChangeText={setTitulo}
-                maxLength={100}
-              />
+              {hasPending && (
+                <>
+                  <View style={s.footerSummary}>
+                    <Text style={s.footerSummaryLabel}>Listos para subir</Text>
+                    <Text style={s.footerSummaryValue} numberOfLines={1}>
+                      {pendingFiles.length} · {formatBytes(pendingBytes)}
+                    </Text>
+                  </View>
+                  <TouchableOpacity style={s.footerBtn} onPress={startUpload} activeOpacity={0.85}>
+                    <Ionicons name="cloud-upload-outline" size={20} color="#fff" style={{ marginRight: 10 }} />
+                    <Text style={s.footerBtnLabel}>Subir {pendingLabel}</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+
+              {allDone && (
+                <View style={[s.footerBtn, s.footerBtnDone]}>
+                  <Ionicons name="checkmark" size={20} color="#fff" style={{ marginRight: 8 }} />
+                  <Text style={s.footerBtnLabel}>Subida completa</Text>
+                </View>
+              )}
             </View>
-
-            {/* Descripción */}
-            <View style={styles.inputSection}>
-              <ThemedText style={styles.label}>
-                Descripción <ThemedText style={styles.labelOptional}>(opcional)</ThemedText>
-              </ThemedText>
-              <TextInput
-                style={[styles.input, styles.inputMultiline, { color: colors.text }]}
-                placeholder="Agregá una descripción del archivo..."
-                placeholderTextColor={colors.secondaryText}
-                value={descripcion}
-                onChangeText={setDescripcion}
-                maxLength={500}
-                multiline
-                numberOfLines={3}
-                textAlignVertical="top"
-              />
-            </View>
-
-            {/*
-              Selectores de usuarios: zIndex escalonado para que el dropdown
-              del primero flote por encima del segundo.
-              zIndex 20 → compartidos (primero en pantalla, dropdown flota hacia abajo)
-              zIndex 10 → asociados (debajo)
-            */}
-            <View style={[styles.inputSection, styles.selectorZ20]}>
-              <ThemedText style={styles.label}>Compartir con usuarios</ThemedText>
-              <UserSelector
-                selectedUsers={usuariosCompartidos}
-                onSelectUsers={setUsuariosCompartidos}
-                users={users}
-                roles={allRoles}
-                selectedRoles={selectedRolesForDisplay}
-                onRemoveRole={handleRemoveRole}
-                isLoadingUsers={isLoadingUsers}
-                isLoadingRoles={false}
-                onSearch={handleSearchUsers}
-                onSelectRole={handleRoleSelectCompartidos}
-              />
-            </View>
-
-            <RoleUserSelectionModal
-              visible={showRoleModal}
-              onClose={handleCloseRoleModal}
-              roleName={activeRole}
-              roleUsers={roleUsers}
-              selectedUsers={modalSelectedUsers}
-              isRoleSelected={isRoleSelected}
-              onToggleUser={handleToggleUser}
-              onSelectAll={handleSelectAllRoleUsers}
-              onDeselectAll={handleDeselectAllRoleUsers}
-            />
-
-            {isSupervisor && (
-              <View style={[styles.inputSection, styles.selectorZ10]}>
-                <ThemedText style={styles.label}>Usuarios Asociados (Seguidos)</ThemedText>
-                <UserSelector
-                  selectedUsers={usuariosAsociados}
-                  onSelectUsers={setUsuariosAsociados}
-                  users={users}
-                  roles={allRoles}
-                  isLoadingUsers={isLoadingUsers}
-                  isLoadingRoles={false}
-                  onSearch={handleSearchUsers}
-                  onSelectRole={handleRoleSelectAsociados}
-                />
-              </View>
-            )}
-          </ScrollView>
-        </KeyboardAvoidingView>
-
-        {/* Botón fijo fuera del KAV — nunca se mueve con el teclado */}
-        <View style={[styles.uploadButtonContainer, { paddingBottom: (insets.bottom || 0) + BUTTON_MARGIN }]}>
-          <TouchableOpacity
-            style={[styles.uploadButton, { backgroundColor: !isFormValid || isUploading ? colors.icon : colors.lightTint }]}
-            onPress={handleCrearDocumento}
-            disabled={!isFormValid || isUploading}
-          >
-            {isUploading ? (
-              <ActivityIndicator size="small" color={colors.componentBackground} />
-            ) : (
-              <>
-                <Ionicons name="cloud-upload" size={20} color={colors.componentBackground} />
-                <ThemedText style={styles.uploadButtonText}>{didPartialSuccess ? 'Cerrar' : 'Subir Archivo'}</ThemedText>
-              </>
-            )}
-          </TouchableOpacity>
+          )}
         </View>
       </View>
     </Modal>
   );
 }
 
-const BUTTON_MARGIN = 16;
+// ─── FileRow ───────────────────────────────────────────────────────────────────
+function FileRow({ file, onRemove }: { file: SelFile; onRemove?: (id: string) => void }) {
+  const anim = useRef(new Animated.Value(0)).current; // 0 = visible, 1 = removed
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.componentBackground,
+  useEffect(() => {
+    if (file.leaving) {
+      Animated.timing(anim, { toValue: 1, duration: 200, useNativeDriver: true }).start();
+    }
+  }, [file.leaving, anim]);
+
+  const animStyle = {
+    opacity: anim.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
+    transform: [{ translateX: anim.interpolate({ inputRange: [0, 1], outputRange: [0, 14] }) }],
+  };
+
+  const isPending = file.status === 'pending';
+  const isUploading = file.status === 'uploading';
+  const isDone = file.status === 'done';
+
+  return (
+    <Animated.View style={[s.row, animStyle]}>
+      <FileBadge file={file} />
+
+      <View style={s.rowMeta}>
+        <Text style={s.rowName} numberOfLines={1}>{file.name}</Text>
+        {isUploading ? (
+          <View style={s.progressTrack}>
+            <View style={[s.progressFill, { width: `${file.progress}%` }]} />
+          </View>
+        ) : (
+          <Text style={s.rowSub} numberOfLines={1}>
+            {file.ext.toUpperCase()} · {formatBytes(file.bytes)}{isDone && ' · Subido'}
+          </Text>
+        )}
+      </View>
+
+      {isPending && onRemove && (
+        <TouchableOpacity
+          onPress={() => onRemove(file.id)}
+          style={s.removeBtn}
+          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+          activeOpacity={0.7}
+          accessibilityLabel="Quitar"
+        >
+          <Ionicons name="close" size={15} color={REMOVE_GLYPH} />
+        </TouchableOpacity>
+      )}
+      {isUploading && <Text style={s.progressPct}>{file.progress}%</Text>}
+      {isDone && (
+        <View style={s.doneCheck}>
+          <Ionicons name="checkmark" size={17} color="#fff" />
+        </View>
+      )}
+    </Animated.View>
+  );
+}
+
+// ─── FileBadge ───────────────────────────────────────────────────────────────────
+// Image → real thumbnail (panel fallback). Other types → solid color + EXT label.
+function FileBadge({ file }: { file: SelFile }) {
+  const [imgError, setImgError] = useState(false);
+
+  if (file.isImage && file.uri && !imgError) {
+    return (
+      <View style={[s.badge, { backgroundColor: PANEL }]}>
+        <Image
+          source={{ uri: file.uri }}
+          style={s.badgeImage}
+          resizeMode="cover"
+          onError={() => setImgError(true)}
+        />
+      </View>
+    );
+  }
+
+  if (file.isImage) {
+    return (
+      <View style={[s.badge, { backgroundColor: PANEL }]}>
+        <Ionicons name="image-outline" size={22} color={MUTED2} />
+      </View>
+    );
+  }
+
+  return (
+    <View style={[s.badge, { backgroundColor: fileTypeColor(file.ext) }]}>
+      <Text style={s.badgeText}>{file.ext.toUpperCase().slice(0, 4)}</Text>
+    </View>
+  );
+}
+
+// ─── EmptyState ───────────────────────────────────────────────────────────────────
+function EmptyState({ onSelect }: { onSelect: () => void }) {
+  return (
+    <View style={s.emptyWrap}>
+      <View style={s.emptyIcon}>
+        <Ionicons name="document-outline" size={40} color={MUTED2} />
+      </View>
+      <Text style={s.emptyTitle}>No hay archivos</Text>
+      <Text style={s.emptySub}>Seleccioná uno o varios archivos para adjuntar.</Text>
+      <TouchableOpacity style={s.emptyBtn} onPress={onSelect} activeOpacity={0.85}>
+        <Ionicons name="add" size={18} color="#fff" style={{ marginRight: 8 }} />
+        <Text style={s.emptyBtnText}>Seleccionar archivos</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+// ─── Styles ───────────────────────────────────────────────────────────────────────
+const s = StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' },
+  sheet: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '94%',
+    flexShrink: 1,
   },
-  flex: {
-    flex: 1,
-  },
+
+  // Header
   header: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingHorizontal: 20,
+    paddingTop: 22,
+    paddingBottom: 6,
+  },
+  headerText: { flex: 1, minWidth: 0, paddingRight: 12 },
+  title: { fontSize: 20, fontWeight: '800', color: INK, lineHeight: 25, letterSpacing: -0.2 },
+  subtitle: { fontSize: 13.5, color: MUTED, marginTop: 5 },
+  closeBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: PANEL,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: '4%',
-    paddingBottom: 12,
-    backgroundColor: colors.componentBackground,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.icon,
+    justifyContent: 'center',
   },
-  iconButton: {
-    padding: 8,
-    borderRadius: 8,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  content: {
-    flex: 1,
-  },
-  contentContainer: {
-    paddingHorizontal: '4%',
-    paddingTop: 12,
-    // overflow visible necesario para que los dropdowns salgan del scroll
-    overflow: 'visible',
-  },
-  fileInfoSection: {
+
+  // List
+  list: { flexGrow: 0 },
+  listContent: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 8 },
+
+  // File row
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.componentBackground,
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 20,
-  },
-  fileInfoText: {
-    marginLeft: 12,
-    flex: 1,
-  },
-  inputSection: {
-    marginBottom: 20,
-  },
-  // zIndex escalonado para los selectores de usuarios
-  selectorZ20: {
-    zIndex: 20,
-    elevation: 20,
-  },
-  selectorZ10: {
-    zIndex: 10,
-    elevation: 10,
-  },
-  label: {
-    fontWeight: '600',
-    marginBottom: 8,
-    fontSize: 14,
-  },
-  labelOptional: {
-    fontWeight: '400',
-    fontSize: 13,
-    color: colors.secondaryText,
-  },
-  input: {
-    backgroundColor: colors.componentBackground,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    backgroundColor: CARD,
     borderWidth: 1,
-    borderColor: colors.icon,
+    borderColor: LINE,
+    borderRadius: 13,
+    paddingVertical: 11,
+    paddingHorizontal: 12,
+    gap: 12,
+    marginBottom: 10,
   },
-  inputMultiline: {
-    minHeight: 80,
-    paddingTop: 10,
+  badge: {
+    width: 46,
+    height: 46,
+    borderRadius: 11,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  uploadButtonContainer: {
-    backgroundColor: colors.componentBackground,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.icon,
-    paddingHorizontal: '4%',
-    paddingTop: 24,
+  badgeImage: { width: '100%', height: '100%' },
+  badgeText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.4,
   },
-  uploadButton: {
+  rowMeta: { flex: 1, minWidth: 0 },
+  rowName: { fontSize: 14.5, fontWeight: '600', color: INK },
+  rowSub: { fontSize: 12.5, color: MUTED, marginTop: 3 },
+  progressTrack: {
+    height: 5,
+    borderRadius: 99,
+    backgroundColor: PROGRESS_TRACK,
+    marginTop: 8,
+    overflow: 'hidden',
+  },
+  progressFill: { height: '100%', borderRadius: 99, backgroundColor: BLUE_BTN },
+  progressPct: { fontSize: 12.5, fontWeight: '700', color: BLUE, minWidth: 38, textAlign: 'right' },
+  removeBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: REMOVE_BG,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  doneCheck: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: GREEN,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // Add more
+  addMore: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1.6,
+    borderStyle: 'dashed',
+    borderColor: '#c2c7cd',
+    borderRadius: 13,
     paddingVertical: 14,
-    borderRadius: 8,
-    gap: 8,
+    backgroundColor: '#fff',
+    gap: 9,
+    marginTop: 2,
   },
-  uploadButtonText: {
-    color: colors.componentBackground,
-    fontWeight: '600',
-    fontSize: 16,
+  addMoreText: { fontSize: 15, fontWeight: '700', color: NAVY },
+
+  // Empty state
+  emptyWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 56,
+    paddingHorizontal: 32,
   },
+  emptyIcon: {
+    width: 84,
+    height: 84,
+    borderRadius: 24,
+    backgroundColor: PANEL,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  emptyTitle: { fontSize: 17, fontWeight: '700', color: INK, marginBottom: 6 },
+  emptySub: { fontSize: 13.5, color: MUTED, textAlign: 'center', maxWidth: 240, marginBottom: 18 },
+  emptyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: BLUE_BTN,
+    borderRadius: 13,
+    paddingVertical: 13,
+    paddingHorizontal: 22,
+  },
+  emptyBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
+
+  // Footer
+  footer: {
+    borderTopWidth: 1,
+    borderTopColor: LINE,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    gap: 10,
+  },
+  footerSummary: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 2,
+  },
+  footerSummaryLabel: { fontSize: 13, color: MUTED },
+  footerSummaryValue: { fontSize: 13, fontWeight: '600', color: INK },
+  footerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: BLUE_BTN,
+    borderRadius: 14,
+    paddingVertical: 16,
+  },
+  footerBtnDone: { backgroundColor: GREEN },
+  footerBtnLabel: { fontSize: 16.5, fontWeight: '700', color: '#fff' },
 });

@@ -1,4 +1,5 @@
 import { apiRequest } from '@/shared/apiRequest';
+import { idempotencyHeaders } from '@/shared/idempotency';
 import type { NovedadDTO } from '../dto/NovedadesDTO';
 import { mapNovedadDTOToNovedades } from '../mappers/novedadesMapper';
 import type { Novedad } from '../models/Novedades';
@@ -15,8 +16,8 @@ export async function fetchNovedades(accessToken: string): Promise<Novedad[]> {
     return data.map(mapNovedadDTOToNovedades);
 }
 
-export async function crearNovedad(novedadData: Novedad, accessToken: string): Promise<Novedad> {
-    const response = await apiRequest({method: 'POST', endpoint: '/novedades', token: accessToken, body: novedadData});
+export async function crearNovedad(novedadData: Novedad, accessToken: string, idempotencyKey?: string): Promise<Novedad> {
+    const response = await apiRequest({method: 'POST', endpoint: '/novedades', token: accessToken, body: novedadData, headers: idempotencyHeaders(idempotencyKey)});
 
     if (!response.ok) {
         const errorText = await response.text();

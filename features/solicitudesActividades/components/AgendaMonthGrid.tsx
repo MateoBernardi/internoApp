@@ -16,7 +16,7 @@ interface AgendaMonthGridProps {
 
 /**
  * Vista mensual de la Agenda: cabecera de días de la semana + grilla 6x7 con
- * preview de la primera actividad y badge de cantidad por día.
+ * marcas semánticas de color (turno=celeste, licencia=morado, actividad=verde).
  */
 export const AgendaMonthGrid = React.memo(function AgendaMonthGrid({
   monthGridDates, selectedDate, dayCellHeight, activitiesByDate, onSelectDay,
@@ -36,8 +36,9 @@ export const AgendaMonthGrid = React.memo(function AgendaMonthGrid({
               const isCurrentMonth = cell.esMesActual;
               const isSelected = key === selectedDate;
               const dayActivities = activitiesByDate.get(key) ?? [];
-              const firstActivityTitle = dayActivities[0]?.title ?? '';
-              const count = dayActivities.length;
+              const hasTurno = dayActivities.some((a) => a.tipo === 'turno');
+              const hasLicencia = dayActivities.some((a) => a.tipo === 'licencia');
+              const hasActividad = dayActivities.some((a) => a.tipo === 'actividad' || !a.tipo);
 
               return (
                 <TouchableOpacity
@@ -56,26 +57,31 @@ export const AgendaMonthGrid = React.memo(function AgendaMonthGrid({
                   ]}>
                     {cell.day}
                   </Text>
-                  {count > 0 && (
-                    <>
-                      <Text
-                        style={[
-                          styles.dayCellPreview,
-                          !isCurrentMonth && styles.dayCellTextMuted,
-                        ]}
-                        numberOfLines={1}
-                      >
-                        {firstActivityTitle}
-                      </Text>
-                      <View style={styles.dayCellBadge}>
-                        <Text style={styles.dayCellBadgeText}>{count}</Text>
-                      </View>
-                    </>
+                  {(hasTurno || hasLicencia || hasActividad) && (
+                    <View style={styles.dayCellMarks}>
+                      {hasTurno && <View style={styles.markTurno} />}
+                      {hasLicencia && <View style={styles.markLicencia} />}
+                      {hasActividad && <View style={styles.markActividad} />}
+                    </View>
                   )}
                 </TouchableOpacity>
               );
             })}
           </View>
+        </View>
+      </View>
+      <View style={styles.legend}>
+        <View style={styles.legendItem}>
+          <View style={[styles.markTurno, styles.legendMark]} />
+          <Text style={styles.legendText}>Turno</Text>
+        </View>
+        <View style={styles.legendItem}>
+          <View style={[styles.markLicencia, styles.legendMark]} />
+          <Text style={styles.legendText}>Licencia</Text>
+        </View>
+        <View style={styles.legendItem}>
+          <View style={[styles.markActividad, styles.legendMark]} />
+          <Text style={styles.legendText}>Actividad</Text>
         </View>
       </View>
     </View>
@@ -146,28 +152,48 @@ const styles = StyleSheet.create({
     color: colors.lightTint,
     fontWeight: '700',
   },
-  dayCellPreview: {
-    marginTop: 6,
-    fontSize: 10,
-    color: colors.text,
-    fontWeight: '500',
-    width: '100%',
+  dayCellMarks: {
+    flexDirection: 'row',
+    gap: 2,
+    marginTop: 4,
+    flexWrap: 'wrap',
   },
-  dayCellBadge: {
-    marginTop: 'auto',
-    marginBottom: 2,
-    alignSelf: 'flex-end',
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
-    paddingHorizontal: 4,
-    backgroundColor: colors.lightTint,
+  markTurno: {
+    width: 14,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#2f86d6',
+  },
+  markLicencia: {
+    width: 14,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#7b5ce0',
+  },
+  markActividad: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#1f9d57',
+  },
+  legend: {
+    flexDirection: 'row',
     justifyContent: 'center',
-    alignItems: 'center',
+    gap: 16,
+    paddingTop: 10,
+    paddingBottom: 4,
   },
-  dayCellBadgeText: {
-    color: '#fff',
-    fontSize: 10,
-    fontWeight: '700',
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  legendMark: {
+    marginTop: 0,
+  },
+  legendText: {
+    fontSize: 11,
+    color: colors.secondaryText,
+    fontWeight: '500',
   },
 });

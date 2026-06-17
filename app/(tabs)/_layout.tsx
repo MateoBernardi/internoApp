@@ -95,6 +95,11 @@ export default function TabLayout() {
       (canSeeAdminReportesButton && hasReportesPendientesAdmin));
 
   const administrationMenuOptions: MenuOption[] = [
+    {
+      id: 'horarios',
+      label: 'Horarios',
+      route: '/(extras)/horarios-admin' as Href,
+    },
     ...(canSeeAdminReportesButton ? [{
       id: 'reportes',
       label: 'Reportes',

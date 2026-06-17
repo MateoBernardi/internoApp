@@ -16,7 +16,8 @@ export interface HorarioDTO {
   nombre: string;
   apellido: string;
   relacion: string;
-  esta_de_licencia: boolean;
+  licencia?: boolean;
+  esta_de_licencia?: boolean;
 }
 
 export interface SedeDTO {

@@ -314,14 +314,26 @@ export function GestionHorarios() {
               </Text>
             </View>
           ) : (
-            dayTurnos.map((t, i) => (
-              <TurnoCard
-                key={t.id != null ? t.id : `${t.userContextId}-${t.fechaISO}-${t.turno}-${i}`}
-                turno={t}
-                sedes={sedes}
-                onPress={openEdit}
-              />
-            ))
+            dayTurnos.map((t, i) => {
+              const key = t.id != null ? t.id : `${t.userContextId}-${t.fechaISO}-${t.turno}-${i}`;
+              if (t.licencia) {
+                return (
+                  <View key={key} style={styles.licenciaCard}>
+                    <Ionicons name="calendar-outline" size={18} color={MUTED} />
+                    <Text style={styles.licenciaName}>{t.nombre}</Text>
+                    <Text style={styles.licenciaTag}>En licencia</Text>
+                  </View>
+                );
+              }
+              return (
+                <TurnoCard
+                  key={key}
+                  turno={t}
+                  sedes={sedes}
+                  onPress={openEdit}
+                />
+              );
+            })
           )}
         </View>
       </ScrollView>
@@ -628,5 +640,32 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 14,
     fontWeight: '600',
+  },
+  licenciaCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: CARD,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginBottom: 9,
+    borderWidth: 1,
+    borderColor: LINE,
+    gap: 10,
+  },
+  licenciaName: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '700',
+    color: INK,
+  },
+  licenciaTag: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: MUTED,
+    backgroundColor: '#f0f0f0',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
   },
 });

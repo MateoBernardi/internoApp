@@ -22,6 +22,7 @@ export interface Turno {
   egreso: string;        // "HH:MM"
   sedeIdIngreso: number;
   sedeIdEgreso: number;
+  licencia: boolean;
   isNew?: boolean;
 }
 
@@ -48,5 +49,6 @@ export function mapHorarioDTOToTurno(dto: HorarioDTO): Turno {
     egreso: `${pad(outDate.getHours())}:${pad(outDate.getMinutes())}`,
     sedeIdIngreso: dto.sede_id_in,
     sedeIdEgreso: dto.sede_id_out,
+    licencia: dto.licencia ?? dto.esta_de_licencia ?? false,
   };
 }

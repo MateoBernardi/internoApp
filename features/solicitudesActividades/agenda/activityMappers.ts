@@ -115,7 +115,7 @@ export function mapLicencias(licencias: Licencia[]): Activity[] {
  * Convierte HorarioDTO del backend a celdas Activity para la agenda personal.
  */
 export function mapTurnos(horarios: HorarioDTO[]): Activity[] {
-  return (horarios || []).map((h) => {
+  return (horarios || []).filter((h) => !(h.licencia ?? h.esta_de_licencia)).map((h) => {
     const inDate = stripTz(h.esperado_in);
     const outDate = stripTz(h.esperado_out);
     const date = `${inDate.getFullYear()}-${pad2(inDate.getMonth() + 1)}-${pad2(inDate.getDate())}`;

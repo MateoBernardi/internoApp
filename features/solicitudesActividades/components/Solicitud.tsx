@@ -689,7 +689,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
     <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={handleClose}>
       <View style={styles.overlay}>
         <ModalKeyboardView style={styles.keyboardContainer}>
-          <View style={[styles.container, { paddingBottom: insets.bottom }]}>
+          <View style={[styles.container, { marginTop: insets.top, paddingBottom: insets.bottom }]}>
 
             {/* Header */}
             <View style={styles.modalHeader}>

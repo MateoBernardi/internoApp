@@ -9,6 +9,7 @@ import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { generateIdempotencyKey } from '@/shared/idempotency';
 import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { adminRoles, allRoles } from '@/shared/users/roles';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
@@ -79,6 +80,7 @@ interface ConversacionChatProps {
 
 export function ConversacionChat({ solicitud, visible, onClose }: ConversacionChatProps) {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { hasRole } = useRoleCheck();
 
@@ -332,7 +334,7 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
     <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={handleClose}>
       <View style={styles.overlay}>
         <ModalKeyboardView style={styles.keyboardContainer}>
-          <View style={styles.container}>
+          <View style={[styles.container, { marginTop: insets.top }]}>
 
             {/* Header */}
             <View style={styles.modalHeader}>

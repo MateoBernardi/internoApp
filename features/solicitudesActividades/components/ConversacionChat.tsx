@@ -27,6 +27,7 @@ import {
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { UserSelector } from '../../../components/UserSelector';
 import { MESSAGE_STATES, formatDateDDMMYYYY, formatTimeHHMM } from '../conversacion/constants';
 import { useAdjuntos } from '../conversacion/hooks/useAdjuntos';
@@ -79,6 +80,7 @@ interface ConversacionChatProps {
 
 export function ConversacionChat({ solicitud, visible, onClose }: ConversacionChatProps) {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { hasRole } = useRoleCheck();
 
@@ -335,7 +337,10 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
           <View style={styles.container}>
 
             {/* Header */}
-            <View style={styles.modalHeader}>
+            {/* paddingTop con el inset superior: el marginTop '10%' del container
+               resuelve contra el ancho (~39px) y queda por debajo del status bar/notch
+               de iOS, comiéndose el touch del botón de cerrar. */}
+            <View style={[styles.modalHeader, { paddingTop: insets.top + 5 }]}>
               <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
                 <Ionicons name="chevron-down" size={24} color="#999" />
               </TouchableOpacity>

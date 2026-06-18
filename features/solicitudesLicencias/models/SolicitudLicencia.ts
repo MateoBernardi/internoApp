@@ -32,6 +32,16 @@ export interface SaldoLicencia {
   tipo_nombre?: string;           // Nombre del tipo (joined)
 }
 
+export interface FrancosSaldo {
+  horas_disponibles: number;
+  horas_consumidas: number;
+}
+
+export interface SaldosLicenciaResponse {
+  ausencias: SaldoLicencia[];
+  francos: FrancosSaldo;
+}
+
 // Solicitud de Ausencia (SolicitudAusenciaDTO según API)
 export interface SolicitudLicencia {
   id: number;

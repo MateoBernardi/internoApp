@@ -692,7 +692,10 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
           <View style={[styles.container, { paddingBottom: insets.bottom }]}>
 
             {/* Header */}
-            <View style={styles.modalHeader}>
+            {/* paddingTop con el inset superior: el marginTop '10%' del container
+               resuelve contra el ancho (~39px) y queda por debajo del status bar/notch
+               de iOS, comiéndose el touch del botón de cerrar. */}
+            <View style={[styles.modalHeader, { paddingTop: insets.top + 5 }]}>
               <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
                 <Ionicons name="chevron-down" size={24} color="#999" />
               </TouchableOpacity>

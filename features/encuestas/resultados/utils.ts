@@ -1,4 +1,4 @@
-import { Pregunta, Respuesta } from '../models/Encuesta';
+import { ParticipanteResumen, Pregunta, Respuesta } from '../models/Encuesta';
 
 export interface RespuestaAgrupada {
   encuestaId: number;
@@ -11,6 +11,9 @@ export interface RespuestaAgrupada {
   created_by?: number;
   creador_nombre?: string;
   creador_apellido?: string;
+  destinatarios_count?: number;
+  convocados?: number[];
+  participantes?: ParticipanteResumen[];
   preguntas: {
     pregunta: Pregunta;
     respuestas: Respuesta[];
@@ -42,6 +45,9 @@ export const agruparEncuestas = (encuestas: any[]): RespuestaAgrupada[] => {
         created_by: encuesta.created_by,
         creador_nombre: encuesta.creador_nombre,
         creador_apellido: encuesta.creador_apellido,
+        destinatarios_count: encuesta.destinatarios_count,
+        convocados: encuesta.convocados ?? [],
+        participantes: encuesta.participantes ?? [],
         preguntas: preguntasAgrupadas,
       };
     });
@@ -57,6 +63,23 @@ export const getTipoPreguntaLabel = (tipo: string): string => {
     texto: '📝 Texto',
     multiple_choice: '☑️ Opción múltiple',
     si_no: '✓/✗ Sí/No',
+    horario: '🕐 Horario',
   };
   return labels[tipo] || tipo;
 };
+
+/** Formatea un ISO datetime string del tipo horario como "dd/mm/aaaa-hh:mm". */
+export function formatHorarioSlot(isoString: string): string {
+  try {
+    const date = new Date(isoString);
+    if (isNaN(date.getTime())) return isoString;
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const year = date.getFullYear();
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    return `${day}/${month}/${year}-${hours}:${minutes}`;
+  } catch {
+    return isoString;
+  }
+}

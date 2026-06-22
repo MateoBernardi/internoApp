@@ -2,6 +2,7 @@ import { getQueryClient } from '@/context/QueryProvider';
 import { ExtendedUserContext } from '@/features/auth/models/User';
 import { getUserContext, login, logout, refresh } from '@/features/auth/services/authApi';
 import { LoginResponse, RefreshResponse } from '@/features/auth/types';
+import { getCurrentPushToken } from '@/features/devices/services/devicesApi';
 import * as SecureStore from 'expo-secure-store';
 import { AppState, AppStateStatus, Platform } from 'react-native';
 
@@ -187,7 +188,7 @@ class AuthSessionService {
     try {
       const currentRT = this.tokensRef?.refreshToken;
       if (currentRT) {
-        await logout(currentRT);
+        await logout(currentRT, getCurrentPushToken());
       }
     } catch (error) {
       console.error('Error notifying logout to server:', error);

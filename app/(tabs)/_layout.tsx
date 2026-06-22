@@ -107,7 +107,7 @@ export default function TabLayout() {
       route: '/(extras)/solicitudes-licencias' as Href,
       hasBadge: hasSolicitudesLicenciasPendientesAdmin,
     }] : []),
-    ...(!isEncargado ? [{
+    ...(hasRole(['gerencia', 'encargado', 'contable', 'personasRelaciones', 'consejo', 'presidencia']) ? [{
       id: 'encuestas',
       label: 'Encuestas',
       route: '/(extras)/encuestas' as Href,
@@ -127,6 +127,11 @@ export default function TabLayout() {
       id: 'agenda-personal',
       label: 'Agenda Personal',
       route: '/(extras)/agenda-personal' as Href,
+    },
+    {
+      id: 'encuestas-pendientes',
+      label: 'Mis Encuestas',
+      route: '/(extras)/encuestas-pendientes' as Href,
     },
     ...(!hideMisLicencias ? [{
       id: 'mis-solicitudes',

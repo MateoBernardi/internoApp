@@ -4,7 +4,7 @@ import type {
     Encuesta,
     EncuestaConPreguntas,
     Pregunta,
-    Respuesta
+    Respuesta,
 } from '../models/Encuesta';
 
 export async function fetchEncuestas(accessToken: string){
@@ -59,7 +59,7 @@ export async function getRespuestasEncuesta(accessToken: string): Promise<Encues
     return encuestasConOpciones;
 }
 
-export async function createEncuestaCompleta(accessToken: string, encuestaData: {encuesta: Encuesta, preguntas: Pregunta}, idempotencyKey?: string): Promise<EncuestaConPreguntas> {
+export async function createEncuestaCompleta(accessToken: string, encuestaData: {encuesta: Encuesta, preguntas: Pregunta, invitados?: number[]}, idempotencyKey?: string): Promise<EncuestaConPreguntas> {
     const response = await apiRequest({ method: 'POST', endpoint: '/encuestas/completa', token: accessToken, body: encuestaData, headers: idempotencyHeaders(idempotencyKey) });
 
     if (!response.ok) {
@@ -111,6 +111,41 @@ export async function enviarRespuestas(accessToken: string, data: {respuestas: R
         message: responseBody?.message || responseBody?.mensaje || 'Tu respuesta ha sido enviada correctamente',
         data: Array.isArray(responseBody?.data) ? responseBody.data : [],
     };
+}
+
+export async function registrarConvocatorias(
+    accessToken: string,
+    encuestaId: number,
+    invitados: number[]
+): Promise<void> {
+    const response = await apiRequest({
+        method: 'POST',
+        endpoint: `/encuestas/${encuestaId}/convocatorias`,
+        token: accessToken,
+        body: { invitados },
+    });
+    if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.message || data.error || 'Error al registrar convocatorias');
+    }
+}
+
+export async function actualizarParticipantesEncuesta(
+    accessToken: string,
+    encuestaId: number,
+    action: 'add' | 'remove',
+    invitados: number[]
+): Promise<void> {
+    const response = await apiRequest({
+        method: 'PATCH',
+        endpoint: `/encuestas/${encuestaId}/participantes?action=${action}`,
+        token: accessToken,
+        body: { invitados },
+    });
+    if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.message || data.error || 'Error al actualizar participantes');
+    }
 }
 
 export async function eliminarEncuesta(accessToken: string, encuestaId: number): Promise<void> {

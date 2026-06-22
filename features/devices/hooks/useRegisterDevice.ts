@@ -6,7 +6,7 @@ import { useRouter } from 'expo-router';
 import { Unsubscribe, onMessage } from 'firebase/messaging';
 import { useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
-import { registerDeviceSafely } from '../services/devicesApi';
+import { registerDeviceSafely, setCurrentPushToken } from '../services/devicesApi';
 import {
   getWebPushToken,
   messaging
@@ -345,6 +345,11 @@ export function useRegisterDevice(options: UseRegisterDeviceOptions = {}) {
       });
     }
   }, [enabled, expoPushToken, token, tokens?.accessToken, isAuthenticated]);
+
+  useEffect(() => {
+    const pushToken = Platform.OS === 'web' ? token : expoPushToken;
+    setCurrentPushToken(isAuthenticated ? pushToken : null);
+  }, [expoPushToken, token, isAuthenticated]);
 
   return {
     expoPushToken,

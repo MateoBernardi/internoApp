@@ -497,7 +497,7 @@ export const styles = StyleSheet.create({
 
   // ── Votantes inline ──────────────────────────────────────────────────────────
   votantesInlineContainer: {
-    marginTop: 8,
+    marginBottom: 8,
     gap: 6,
   },
   votanteRow: {
@@ -572,7 +572,7 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 10,
     backgroundColor: colors.background,
     borderRadius: 8,
-    marginTop: 4,
+    marginBottom: 4,
   },
   verTodosText: {
     fontSize: 13,
@@ -846,6 +846,29 @@ export const styles = StyleSheet.create({
     padding: 32,
     alignItems: 'center',
     gap: 8,
+  },
+  invitadosSection: {
+    marginTop: 20,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: colors.background,
+  },
+  invitadosSectionTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 10,
+  },
+  invitadoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 7,
+  },
+  invitadoNombre: {
+    fontSize: 14,
+    color: colors.text,
+    flex: 1,
   },
   gestionFooter: {
     flexDirection: 'row',

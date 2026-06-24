@@ -56,7 +56,6 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
   const [tipoActividad, setTipoActividad] = useState<'REUNION' | 'MANDATO'>('MANDATO');
   const [includeDates, setIncludeDates] = useState(false);
   const [enviarPorSeparado, setEnviarPorSeparado] = useState(false);
-  const [esGrupo, setEsGrupo] = useState(false);
   const [showRoleModal, setShowRoleModal] = useState(false);
   const [activeRole, setActiveRole] = useState('');
   const [selectedUsers, setSelectedUsers] = useState<UserSummary[]>([]);
@@ -108,7 +107,6 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
     setPendingPayload(null);
     setPickedFiles([]);
     setEnviarPorSeparado(false);
-    setEsGrupo(false);
     onClose();
   }, [onClose, setPickedFiles]);
 
@@ -232,12 +230,17 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
     return null;
   }, [hasDates, areDatesMissing, isAllDayCurrentDay, isStartDatePast, isDateRangeInvalid]);
 
+  // En la pestaña de chats, varias personas implican un grupo salvo que se
+  // elija "enviar por separado" (que crea N conversaciones 1-a-1). El grupo
+  // siempre lleva un título obligatorio; la conversación directa, no.
+  const esGrupoChat = fromChatsTab && selectedUsers.length > 1 && !enviarPorSeparado;
+
   const isFormValid = useMemo(() => {
     if (fromChatsTab) {
       return (
         selectedUsers.length > 0 &&
         descripcion.trim().length > 0 &&
-        (!esGrupo || titulo.trim().length > 0)
+        (!esGrupoChat || titulo.trim().length > 0)
       );
     }
     return (
@@ -246,7 +249,7 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
       (isConsejo || selectedUsers.length > 0) &&
       !dateErrorMessage
     );
-  }, [fromChatsTab, esGrupo, titulo, descripcion, selectedUsers, dateErrorMessage, isConsejo]);
+  }, [fromChatsTab, esGrupoChat, titulo, descripcion, selectedUsers, dateErrorMessage, isConsejo]);
 
   const avisosBackend = useMemo(() => {
     const grouped = new Map<string, number>();
@@ -355,23 +358,23 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
       }
     }
 
-    const enviarSeparado = enviarPorSeparado && selectedUsers.length > 1 && (!fromChatsTab || !esGrupo);
+    const enviarSeparado = enviarPorSeparado && selectedUsers.length > 1;
     const invitadoIds = selectedUsers.map((u) => u.user_context_id);
 
     const payload: CrearSolicitudRequest = {
-      titulo: fromChatsTab ? (esGrupo ? titulo.trim() : '') : titulo.trim(),
+      titulo: fromChatsTab ? (esGrupoChat ? titulo.trim() : '') : titulo.trim(),
       descripcion: descripcion.trim(),
       tipo_actividad: fromChatsTab ? 'CHAT' : tipoActividad,
       invitados: invitadoIds,
       crear_de_todos_modos: 0,
-      es_grupo: fromChatsTab ? esGrupo : false,
+      es_grupo: esGrupoChat,
       ...(archivosIds.length > 0 ? { archivosIds } : {}),
       ...(hasDates ? { fecha_inicio: start, fecha_fin: end } : {}),
       ...(enviarSeparado ? { enviar_por_separado: 1 } : {}),
     };
 
     ejecutarCreacion(payload);
-  }, [isFormValid, hasDates, fechaInicio, fechaFin, allDay, tipoActividad, selectedUsers, titulo, descripcion, ejecutarCreacion, showModal, pickedFiles, fromChatsTab, esGrupo, enviarPorSeparado]);
+  }, [isFormValid, hasDates, fechaInicio, fechaFin, allDay, tipoActividad, selectedUsers, titulo, descripcion, ejecutarCreacion, showModal, pickedFiles, fromChatsTab, esGrupoChat, enviarPorSeparado]);
 
   const handleAgregarAdjunto = useCallback(() => {
     showModal('Adjuntar archivo', 'Elegí una opción', [
@@ -458,24 +461,7 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
               )}
 
               <View style={styles.dateSection}>
-                {fromChatsTab && (
-                  <View style={[styles.switchRow, { marginTop: 4 }]}>
-                    <Ionicons name="people-circle-outline" size={20} color={colors.secondaryText} style={{ marginRight: 8 }} />
-                    <ThemedText style={[styles.dateSectionTitle, { color: colors.secondaryText }]}>Crear grupo</ThemedText>
-                    <View style={{ flex: 1 }} />
-                    <Switch
-                      value={esGrupo}
-                      onValueChange={(value) => {
-                        setEsGrupo(value);
-                        if (value) setEnviarPorSeparado(false);
-                      }}
-                      trackColor={{ false: colors.secondaryText, true: colors.success }}
-                      thumbColor={colors.componentBackground}
-                    />
-                  </View>
-                )}
-
-                {selectedUsers.length > 1 && (!fromChatsTab || !esGrupo) && (
+                {selectedUsers.length > 1 && (
                   <View style={[styles.switchRow, { marginTop: 4 }]}>
                     <Ionicons name="people-outline" size={20} color={colors.secondaryText} style={{ marginRight: 8 }} />
                     <ThemedText style={[styles.dateSectionTitle, { color: colors.secondaryText }]}>Enviar por separado</ThemedText>
@@ -554,7 +540,7 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
                 )}
               </View>
 
-              {(!fromChatsTab || esGrupo) && (
+              {(!fromChatsTab || esGrupoChat) && (
                 <View style={styles.inputSection}>
                   <TextInput
                     style={styles.input}

@@ -128,11 +128,6 @@ export default function TabLayout() {
       label: 'Agenda Personal',
       route: '/(extras)/agenda-personal' as Href,
     },
-    {
-      id: 'encuestas-pendientes',
-      label: 'Mis Encuestas',
-      route: '/(extras)/encuestas-pendientes' as Href,
-    },
     ...(!hideMisLicencias ? [{
       id: 'mis-solicitudes',
       label: 'Mis Licencias',

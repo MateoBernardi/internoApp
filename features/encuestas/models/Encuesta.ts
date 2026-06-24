@@ -39,7 +39,7 @@ export interface Encuesta {
   invitados?: number[];          // IDs de usuario_entidad invitados ([] = todos los empleados)
   destinatarios_count?: number;  // Total de destinatarios (devuelto por el backend)
   convocados?: number[];         // user_context_ids que ya recibieron solicitud de reunión desde esta encuesta
-  participantes?: ParticipanteResumen[]; // Usuarios que ya respondieron (devuelto por GET /encuestas/respuestas)
+  participantes?: ParticipanteResumen[]; // Invitados con visibilidad sobre la encuesta, CON nombre/apellido (de encuestas_usuarios_visibilidad; devuelto por GET /encuestas/respuestas). Vacío = encuesta para todos los empleados.
 }
 
 // Encuesta completa con preguntas

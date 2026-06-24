@@ -174,6 +174,27 @@ export const GestionParticipantesModal: React.FC<GestionParticipantesModalProps>
                   onSearch={setSearchQuery}
                   onSelectRole={(role) => { setActiveRole(role); setShowRoleModal(true); }}
                 />
+
+                <View style={styles.invitadosSection}>
+                  <Text style={styles.invitadosSectionTitle}>
+                    Invitados{participantesActuales.length > 0 ? ` (${participantesActuales.length})` : ''}
+                  </Text>
+                  {participantesActuales.length === 0 ? (
+                    <View style={styles.invitadoRow}>
+                      <Ionicons name="people-outline" size={18} color={colors.secondaryText} />
+                      <Text style={styles.invitadoNombre}>Todos los empleados</Text>
+                    </View>
+                  ) : (
+                    participantesActuales.map((p) => (
+                      <View key={p.user_context_id} style={styles.invitadoRow}>
+                        <Ionicons name="person-circle-outline" size={20} color={colors.secondaryText} />
+                        <Text style={styles.invitadoNombre}>
+                          {p.nombre} {p.apellido}
+                        </Text>
+                      </View>
+                    ))
+                  )}
+                </View>
               </ScrollView>
 
               <View style={styles.gestionFooter}>

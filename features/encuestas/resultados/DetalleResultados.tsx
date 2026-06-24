@@ -78,7 +78,7 @@ export const DetalleResultados: React.FC<DetalleResultadosProps> = ({
 
   return (
     <View style={styles.container}>
-      <View style={styles.detailHeaderContainer}>
+      <View style={[styles.detailHeaderContainer, { paddingTop: insets.top + 16 }]}>
         <TouchableOpacity onPress={onVolver} style={styles.resultadosButton}>
           <Text style={styles.resultadosButtonText}>Resultados</Text>
         </TouchableOpacity>

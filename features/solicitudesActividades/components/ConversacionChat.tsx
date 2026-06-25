@@ -89,6 +89,9 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
   const modalVisible = visible ?? true;
   const handleClose = onClose ?? (() => router.back());
 
+  // ─── Estado UI (debe ir antes de los hooks que dependen de él) ───────────
+  const [showFullBitacora, setShowFullBitacora] = useState(false);
+
   // ─── Queries / mutations ──────────────────────────────────────────────────
   const {
     data: bitacoraData,
@@ -96,7 +99,7 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-  } = useSolicitudBitacora(solicitudId);
+  } = useSolicitudBitacora(solicitudId, showFullBitacora);
   const bitacoraItems = useMemo(
     () => (bitacoraData?.pages ?? []).flatMap(p => p.data),
     [bitacoraData],
@@ -126,7 +129,6 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
   const [showArchivosModal, setShowArchivosModal] = useState(false);
   const { previewFile, openFile, openWithUri, closePreview } = useOpenFilePreview();
   const { data: chatArchivos, isLoading: isLoadingArchivos } = useChatArchivos(solicitudId, showArchivosModal);
-  const [showFullBitacora, setShowFullBitacora] = useState(false);
   const [messageDraft, setMessageDraft] = useState('');
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [pendingMessages, setPendingMessages] = useState<OptimisticMessage[]>([]);
@@ -165,6 +167,19 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
   const { messagesScrollRef, handleMessagesScroll, handleMessagesContentSizeChange } = useMessagesScroll({
     hasNextPage, isFetchingNextPage, fetchNextPage,
   });
+
+  const chatOtherUser = useMemo(() => {
+    if (solicitud.es_grupo) return null;
+    return displayParticipantes.find(p => p.user_id !== user?.user_context_id) ?? displayParticipantes[0] ?? null;
+  }, [solicitud.es_grupo, displayParticipantes, user?.user_context_id]);
+
+  const chatTitle = solicitud.es_grupo
+    ? solicitud.titulo
+    : (chatOtherUser ? getParticipanteDisplayName(chatOtherUser) : solicitud.titulo);
+
+  const chatSubtitle = solicitud.es_grupo
+    ? `${displayParticipantes.length} participantes · toca para ver archivos`
+    : 'Conversación directa · toca para ver archivos';
 
   const contentScrollRef = useRef<ScrollView>(null);
 
@@ -341,6 +356,13 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
                resuelve contra el ancho (~39px) y queda por debajo del status bar/notch
                de iOS, comiéndose el touch del botón de cerrar. */}
             <View style={[styles.modalHeader, { paddingTop: insets.top + 5 }]}>
+              <TouchableOpacity style={{ flex: 1 }} onPress={() => setShowArchivosModal(true)} activeOpacity={0.75}>
+                <Text style={styles.modalHeaderTitle} numberOfLines={1}>{chatTitle}</Text>
+                <Text style={styles.modalHeaderSubtitle} numberOfLines={1}>{chatSubtitle}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setShowArchivosModal(true)} style={styles.closeButton}>
+                <Ionicons name="folder-outline" size={22} color={colors.lightTint} />
+              </TouchableOpacity>
               <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
                 <Ionicons name="chevron-down" size={24} color="#999" />
               </TouchableOpacity>
@@ -353,19 +375,9 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
               showsVerticalScrollIndicator={false}
               nestedScrollEnabled
             >
-              {/* Conversation header row */}
-              <ChatHeaderRow
-                solicitud={solicitud}
-                displayParticipantes={displayParticipantes}
-                getParticipanteDisplayName={getParticipanteDisplayName}
-                currentUserId={user?.user_context_id}
-                onPress={() => setShowArchivosModal(true)}
-              />
-
               {/* Participantes (solo grupos) */}
               {solicitud.es_grupo && (
                 <ParticipantesBlock
-                  titulo={solicitud.titulo}
                   participantes={displayParticipantes.map(inv => ({
                     id: inv.user_id,
                     nombre: getParticipanteDisplayName(inv),
@@ -724,55 +736,6 @@ function countByKind(archivos: any[]): { images: number; files: number } {
   return { images, files };
 }
 
-// ─── ChatHeaderRow ─────────────────────────────────────────────────────────────
-
-interface ChatHeaderRowProps {
-  solicitud: SolicitudEnviada;
-  displayParticipantes: any[];
-  getParticipanteDisplayName: (p: any) => string;
-  archivosCount?: number;
-  currentUserId?: number;
-  onPress: () => void;
-}
-
-function ChatHeaderRow({ solicitud, displayParticipantes, getParticipanteDisplayName, archivosCount, currentUserId, onPress }: ChatHeaderRowProps) {
-  const isGroup = solicitud.es_grupo;
-
-  const otherUser = useMemo(() => {
-    if (isGroup) return null;
-    return displayParticipantes.find(p => p.user_id !== currentUserId) ?? displayParticipantes[0] ?? null;
-  }, [isGroup, displayParticipantes, currentUserId]);
-
-  const title = isGroup
-    ? solicitud.titulo
-    : (otherUser ? getParticipanteDisplayName(otherUser) : solicitud.titulo);
-
-  const subtitle = isGroup
-    ? `${displayParticipantes.length} participantes · toca para ver archivos`
-    : 'Conversación directa · toca para ver archivos';
-
-  const initials = useMemo(() => {
-    if (!otherUser) return '?';
-    const name = getParticipanteDisplayName(otherUser);
-    const parts = name.trim().split(' ');
-    return (parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '');
-  }, [otherUser, getParticipanteDisplayName]);
-
-  return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.75} style={localStyles.chatHeader}>
-      <View style={localStyles.chatHeaderAvatar}>
-        {isGroup
-          ? <Ionicons name="people" size={20} color="#3b6fd4" />
-          : <Text style={localStyles.chatHeaderAvatarText}>{initials.toUpperCase()}</Text>}
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={localStyles.chatHeaderTitle} numberOfLines={1}>{title}</Text>
-        <Text style={localStyles.chatHeaderSubtitle} numberOfLines={1}>{subtitle}</Text>
-      </View>
-    </TouchableOpacity>
-  );
-}
-
 // ─── ArchivosModalContent ──────────────────────────────────────────────────────
 
 function ArchivosModalContent({
@@ -831,54 +794,6 @@ function ArchivosModalContent({
 // ─── Styles ────────────────────────────────────────────────────────────────────
 
 const localStyles = StyleSheet.create({
-  chatHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f6f7f9',
-    borderWidth: 1,
-    borderColor: '#e8eaed',
-    borderRadius: 14,
-    padding: 11,
-    paddingHorizontal: 12,
-    gap: 12,
-  },
-  chatHeaderAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#cfe0f7',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  chatHeaderAvatarText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#3b6fd4',
-  },
-  chatHeaderTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1c2024',
-  },
-  chatHeaderSubtitle: {
-    fontSize: 12.5,
-    color: '#7a8087',
-    marginTop: 1,
-  },
-  filesPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#cfe0f7',
-    borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  filesPillCount: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#3b6fd4',
-  },
   archivosCard: {
     width: '90%',
     maxWidth: 450,

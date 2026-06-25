@@ -126,12 +126,10 @@ export const GestionParticipantesModal: React.FC<GestionParticipantesModalProps>
     <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
       <View style={styles.convocarOverlay}>
         <View style={[styles.convocarSheet, { paddingBottom: insets.bottom + 8 }]}>
-          <View style={styles.convocarHandle} />
-
-          <View style={styles.convocarHeader}>
+            <View style={styles.convocarHeader}>
             <Text style={styles.convocarTitle}>Gestionar participantes</Text>
-            <TouchableOpacity onPress={handleClose} style={{ position: 'absolute', right: 20, top: 14 }}>
-              <Ionicons name="close" size={22} color={colors.secondaryText} />
+            <TouchableOpacity onPress={handleClose} style={{ position: 'absolute', right: 20, top: 10, padding: 6, borderRadius: 16, backgroundColor: '#f3f4f6' }}>
+              <Ionicons name="chevron-down" size={22} color={colors.secondaryText} />
             </TouchableOpacity>
           </View>
 

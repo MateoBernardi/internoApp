@@ -689,13 +689,14 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
     <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={handleClose}>
       <View style={styles.overlay}>
         <ModalKeyboardView style={styles.keyboardContainer}>
-          <View style={[styles.container, { paddingBottom: insets.bottom }]}>
+          <View style={styles.container}>
 
             {/* Header */}
             {/* paddingTop con el inset superior: el marginTop '10%' del container
                resuelve contra el ancho (~39px) y queda por debajo del status bar/notch
                de iOS, comiéndose el touch del botón de cerrar. */}
             <View style={[styles.modalHeader, { paddingTop: insets.top + 5 }]}>
+              <Text style={styles.modalHeaderTitle} numberOfLines={1}>{solicitud.titulo}</Text>
               <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
                 <Ionicons name="chevron-down" size={24} color="#999" />
               </TouchableOpacity>
@@ -704,13 +705,12 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
             <ScrollView
               ref={contentScrollRef}
               style={styles.content}
-              contentContainerStyle={styles.contentContainer}
+              contentContainerStyle={[styles.contentContainer, { paddingBottom: insets.bottom + 24 }]}
               showsVerticalScrollIndicator={false}
               nestedScrollEnabled
             >
               {/* Participantes */}
               <ParticipantesBlock
-                titulo={solicitud.titulo}
                 participantes={displayParticipantes.map(inv => ({
                   id: inv.user_id,
                   nombre: getParticipanteDisplayName(inv),

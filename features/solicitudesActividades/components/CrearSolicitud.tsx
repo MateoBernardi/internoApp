@@ -84,7 +84,7 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
 
   const [isUploadingFile, setIsUploadingFile] = useState(false);
   const { mutateAsync: uploadArchivo } = useUploadArchivo(idempotencyKey);
-  const { alertModal, showModal, closeAlert } = useAlertModal();
+  const { alertModal, showModal, closeAlert, onModalDismiss } = useAlertModal();
   const { pickedFiles, setPickedFiles, handleTakePhoto, handleSeleccionarArchivo } = useFilePicker({ showModal });
 
   const rolesForSelector = useMemo(
@@ -647,6 +647,7 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
               message={alertModal.message}
               actions={alertModal.actions}
               onClose={closeAlert}
+              onDismiss={onModalDismiss}
             />
           </View>
         </ModalKeyboardView>

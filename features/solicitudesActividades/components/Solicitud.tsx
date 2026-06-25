@@ -141,7 +141,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
   const [messageDraft, setMessageDraft] = useState('');
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [isModifyMode, setIsModifyMode] = useState(false);
-  const { alertModal, showModal, closeAlert } = useAlertModal();
+  const { alertModal, showModal, closeAlert, onModalDismiss } = useAlertModal();
   const {
     pickedFiles, setPickedFiles, handleAgregarAdjunto, handleOpenArchivo, uploadPickedFiles,
   } = useAdjuntos({ showModal });
@@ -1314,6 +1314,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
               message={alertModal.message}
               actions={alertModal.actions}
               onClose={closeAlert}
+              onDismiss={onModalDismiss}
             />
 
             <OperacionPendienteModal visible={isMutating} />

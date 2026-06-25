@@ -133,7 +133,7 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [pendingMessages, setPendingMessages] = useState<OptimisticMessage[]>([]);
   const queryClient = useQueryClient();
-  const { alertModal, showModal, closeAlert } = useAlertModal();
+  const { alertModal, showModal, closeAlert, onModalDismiss } = useAlertModal();
   const {
     pickedFiles, setPickedFiles, handleAgregarAdjunto, handleOpenArchivo, uploadPickedFiles,
   } = useAdjuntos({ showModal });
@@ -689,6 +689,7 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
               message={alertModal.message}
               actions={alertModal.actions}
               onClose={closeAlert}
+              onDismiss={onModalDismiss}
             />
 
             <OperacionPendienteModal visible={isBlockingOperation} />

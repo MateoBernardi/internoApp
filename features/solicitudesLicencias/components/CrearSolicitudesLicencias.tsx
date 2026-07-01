@@ -107,29 +107,24 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
         tiposLicencias?.find((t) => t.id === tipoLicenciaId),
         [tiposLicencias, tipoLicenciaId]);
 
-    const isFranco = tipoLicenciaId === 2;
-    const saldoFrancosDisponibles = saldosLicencias?.francos?.horas_disponibles ?? 0;
-
-    /** El modo efectivo: francos siempre en horas; si requiere saldo, siempre es días */
-    const effectiveMode = useMemo<CantidadMode>(() => {
-        if (isFranco) return 'horas';
-        return selectedTipo?.requiere_saldo ? 'dias' : cantidadMode;
-    }, [isFranco, selectedTipo, cantidadMode]);
+    /** El modo efectivo: si requiere saldo, siempre es días */
+    const effectiveMode = useMemo<CantidadMode>(() =>
+        selectedTipo?.requiere_saldo ? 'dias' : cantidadMode,
+        [selectedTipo, cantidadMode]);
 
     const cantidadDias = useMemo(() => wholeDays + (halfDay ? 0.5 : 0), [wholeDays, halfDay]);
 
     const saldoCorrespondiente = useMemo(() => {
-        const ausencias = saldosLicencias?.ausencias;
-        if (!ausencias || ausencias.length === 0) return null;
+        if (!saldosLicencias || saldosLicencias.length === 0) return null;
         if (!tipoLicenciaId) {
-            return ausencias.length === 1 ? ausencias[0] : null;
+            return saldosLicencias.length === 1 ? saldosLicencias[0] : null;
         }
 
-        const porTipo = ausencias.find(s => s.tipo_licencia_id === tipoLicenciaId);
+        const porTipo = saldosLicencias.find(s => s.tipo_licencia_id === tipoLicenciaId);
         if (porTipo) return porTipo;
 
         // Fallback para respuestas con un unico saldo sin tipo_licencia_id.
-        return ausencias.length === 1 ? ausencias[0] : null;
+        return saldosLicencias.length === 1 ? saldosLicencias[0] : null;
     }, [tipoLicenciaId, saldosLicencias]);
 
     const saldoDisponible = useMemo(() => {
@@ -156,10 +151,10 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
         if (dateErrorMessage) return false;
         if (effectiveMode === 'dias' && cantidadDias <= 0) return false;
         if (effectiveMode === 'horas' && horas <= 0) return false;
-        if (isFranco ? horas > saldoFrancosDisponibles : (selectedTipo?.requiere_saldo && saldoDisponible < cantidadDias)) return false;
+        if (selectedTipo?.requiere_saldo && saldoDisponible < cantidadDias) return false;
         if (isPending || isAdjuntando) return false;
         return true;
-    }, [tipoLicenciaId, dateErrorMessage, effectiveMode, cantidadDias, horas, isFranco, saldoFrancosDisponibles, selectedTipo, saldoDisponible, isPending, isAdjuntando]);
+    }, [tipoLicenciaId, dateErrorMessage, effectiveMode, cantidadDias, horas, selectedTipo, saldoDisponible, isPending, isAdjuntando]);
 
     // --- Handlers Fecha ---
     const onDateConfirm = useCallback((selectedDate: Date) => {
@@ -450,8 +445,8 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
                                         <ThemedText style={styles.sectionLabel}>Cantidad</ThemedText>
                                     </View>
 
-                                    {/* Toggle días/horas — solo si NO requiere saldo y NO es franco */}
-                                    {!selectedTipo?.requiere_saldo && !isFranco && (
+                                    {/* Toggle días/horas — solo si NO requiere saldo */}
+                                    {!selectedTipo?.requiere_saldo && (
                                         <View style={styles.modeToggleContainer}>
                                             <TouchableOpacity
                                                 style={[styles.modeToggleBtn, effectiveMode === 'dias' && styles.modeToggleBtnActive]}
@@ -559,27 +554,20 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
                             )}
 
                             {/* ── Saldo ── */}
-                            {(selectedTipo?.requiere_saldo || isFranco) && (() => {
-                                const saldoInsuf = isFranco ? horas > saldoFrancosDisponibles : saldoDisponible < cantidadDias;
-                                return (
-                                    <View style={[styles.sectionCard, styles.saldoCard, saldoInsuf && styles.saldoError]}>
-                                        <Ionicons name="information-circle" size={20} color={saldoInsuf ? colors.error : colors.lightTint} />
-                                        <View style={{ flex: 1, marginLeft: 12 }}>
-                                            <ThemedText style={styles.saldoTitle}>Saldo Disponible</ThemedText>
-                                            <ThemedText style={styles.saldoSubtitle}>
-                                                {isLoadingSaldos ? '...' : isFranco
-                                                    ? `${saldoFrancosDisponibles} hs restantes`
-                                                    : `${saldoDisponible} días restantes`}
-                                            </ThemedText>
-                                            {saldoInsuf && (
-                                                <ThemedText style={styles.warningText}>
-                                                    {isFranco ? 'No tenés saldo suficiente de francos.' : 'No tenés saldo suficiente para estos días.'}
-                                                </ThemedText>
-                                            )}
-                                        </View>
+                            {selectedTipo?.requiere_saldo && (
+                                <View style={[styles.sectionCard, styles.saldoCard, saldoDisponible < cantidadDias && styles.saldoError]}>
+                                    <Ionicons name="information-circle" size={20} color={saldoDisponible < cantidadDias ? colors.error : colors.lightTint} />
+                                    <View style={{ flex: 1, marginLeft: 12 }}>
+                                        <ThemedText style={styles.saldoTitle}>Saldo Disponible</ThemedText>
+                                        <ThemedText style={styles.saldoSubtitle}>
+                                            {isLoadingSaldos ? '...' : `${saldoDisponible} días restantes`}
+                                        </ThemedText>
+                                        {saldoDisponible < cantidadDias && (
+                                            <ThemedText style={styles.warningText}>No tenés saldo suficiente para estos días.</ThemedText>
+                                        )}
                                     </View>
-                                );
-                            })()}
+                                </View>
+                            )}
 
                             {/* ── Observación ── */}
                             <View style={styles.sectionCard}>

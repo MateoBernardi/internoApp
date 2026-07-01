@@ -33,8 +33,8 @@ interface ConvocarReunionModalProps {
 
 const colors = Colors['light'];
 
-function addHours(date: Date, hours: number): Date {
-  return new Date(date.getTime() + hours * 60 * 60 * 1000);
+function addMinutes(date: Date, minutes: number): Date {
+  return new Date(date.getTime() + minutes * 60 * 1000);
 }
 
 export const ConvocarReunionModal: React.FC<ConvocarReunionModalProps> = ({
@@ -51,12 +51,12 @@ export const ConvocarReunionModal: React.FC<ConvocarReunionModalProps> = ({
   const [nota, setNota] = useState('');
   const [resultado, setResultado] = useState<ConvocarReunionesResult | null>(null);
 
-  // fecha_fin por usuario_id (default: slot + 1h)
+  // fecha_fin por usuario_id (default: slot + 30min)
   const [fechasFinMap, setFechasFinMap] = useState<Map<number, Date>>(() => {
     const map = new Map<number, Date>();
     personas.forEach((p) => {
       const fechaInicio = new Date(p.opcionTexto);
-      map.set(p.voter.usuario_id!, addHours(fechaInicio, 1));
+      map.set(p.voter.usuario_id!, addMinutes(fechaInicio, 30));
     });
     return map;
   });
@@ -115,7 +115,7 @@ export const ConvocarReunionModal: React.FC<ConvocarReunionModalProps> = ({
       titulo: titulo.trim(),
       descripcion: nota.trim(),
       fechaInicio: new Date(p.opcionTexto),
-      fechaFin: fechasFinMap.get(p.voter.usuario_id!) ?? addHours(new Date(p.opcionTexto), 1),
+      fechaFin: fechasFinMap.get(p.voter.usuario_id!) ?? addMinutes(new Date(p.opcionTexto), 30),
     }));
 
     const res = await enviar(encuestaId, requests);
@@ -211,7 +211,7 @@ export const ConvocarReunionModal: React.FC<ConvocarReunionModalProps> = ({
                       </Text>
                     </View>
                     {grupo.map((p) => {
-                      const fechaFin = fechasFinMap.get(p.voter.usuario_id!) ?? addHours(new Date(slotIso), 1);
+                      const fechaFin = fechasFinMap.get(p.voter.usuario_id!) ?? addMinutes(new Date(slotIso), 30);
                       return (
                         <View key={p.voter.usuario_id} style={styles.personaReunionRow}>
                           <Text style={styles.personaReunionNombre}>

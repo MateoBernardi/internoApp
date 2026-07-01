@@ -103,9 +103,9 @@ export function useRoleCheck() {
     return isEmployee() || hasRole('encargado');
   };
 
-  // Roles habilitados a responder encuestas: empleado-*, encargado y gerencia.
+  // Roles habilitados a responder encuestas: empleado-*, encargado, gerencia, presidencia y consejo.
   const canRespondEncuestas = (): boolean => {
-    return isEmployee() || hasRole(['encargado', 'gerencia']);
+    return isEmployee() || hasRole(['encargado', 'gerencia', 'presidencia', 'consejo']);
   };
 
   const isAdmin = (): boolean => {

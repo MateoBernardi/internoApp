@@ -7,7 +7,7 @@ import { styles } from './styles';
 export const RespuestasSiNo: React.FC<{ respuestas: Respuesta[] }> = ({ respuestas }) => {
   const esAnonima = respuestas[0]?.nombre === undefined || respuestas[0]?.nombre === null;
 
-  const siRespuestas = respuestas.filter((r) => r.respuesta_texto === 'Sí');
+  const siRespuestas = respuestas.filter((r) => r.respuesta_texto === 'Si');
   const noRespuestas = respuestas.filter((r) => r.respuesta_texto === 'No');
   const si = siRespuestas.length;
   const no = noRespuestas.length;

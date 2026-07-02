@@ -117,6 +117,17 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
       actualizarEstadoRaw({ ...variables, idempotencyKey: generateIdempotencyKey() }, options),
     [actualizarEstadoRaw],
   );
+  // Instancia dedicada solo para el auto-mark "SEEN" de useMarcarVisto: su
+  // isPending se mantiene fuera de isMutating a propósito. Si contribuyera a
+  // isMutating, dispararía OperacionPendienteModal mientras el <Modal
+  // animationType="slide"> exterior todavía está en su transición de
+  // apertura al montar — en iOS eso puede colgar la app.
+  const { mutate: marcarVistoEstadoRaw } = useActualizarEstadoInvitacion();
+  const marcarVistoEstado = useCallback<typeof marcarVistoEstadoRaw>(
+    (variables, options) =>
+      marcarVistoEstadoRaw({ ...variables, idempotencyKey: generateIdempotencyKey() }, options),
+    [marcarVistoEstadoRaw],
+  );
   const { mutate: reenviarSolicitud, isPending: isSharing } = useReenviarSolicitud();
   const { mutate: crearActividad, isPending: isCreatingActividad } = useCrearActividad();
   const { mutateAsync: crearObjetivo, isPending: isCreatingObjetivo } = useCreateObjetivo();
@@ -394,7 +405,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
 
   // ─── Marcar como visto ────────────────────────────────────────────────────
 
-  useMarcarVisto({ solicitud, solicitudId, isHost, invitadosSinCreador, actualizarEstado });
+  useMarcarVisto({ solicitud, solicitudId, isHost, invitadosSinCreador, actualizarEstado: marcarVistoEstado });
 
   // ─── Handlers aceptar / rechazar ─────────────────────────────────────────
 

@@ -2,9 +2,10 @@ import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Respuesta } from '../models/Encuesta';
+import { Opcion, Respuesta } from '../models/Encuesta';
+import { useEliminarOpcion } from '../viewmodels/useEncuestas';
 import { ConvocarReunionModal } from './ConvocarReunionModal';
 import { GestionParticipantesModal } from './GestionParticipantesModal';
 import { RespuestasMultipleChoice } from './RespuestasMultipleChoice';
@@ -65,11 +66,34 @@ export const DetalleResultados: React.FC<DetalleResultadosProps> = ({
   const insets = useSafeAreaInsets();
   const puedeGestionarParticipantes = ROLES_GESTION.has(user?.rol_nombre ?? '');
   const [gestionModalVisible, setGestionModalVisible] = useState(false);
+  const { mutate: eliminarOpcion } = useEliminarOpcion();
 
   const convocadosIds = new Set((encuesta.convocados ?? []).map(Number));
   const selectedVoterIds = new Set(selectedVoters.keys());
   const selectedCount = selectedVoters.size;
   const personasParaReunion = Array.from(selectedVoters.values());
+  const puedeEliminarOpciones = esCreador && esEncuestaEnProgreso();
+
+  const handleEliminarOpcion = useCallback((opcion: Opcion) => {
+    Alert.alert(
+      'Eliminar Opción',
+      '¿Deseas eliminar esta opción de la pregunta? Esta acción no se puede deshacer.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: () => {
+            eliminarOpcion(opcion.id, {
+              onError: (error) => {
+                Alert.alert('Error', error instanceof Error ? error.message : 'Intenta nuevamente');
+              },
+            });
+          },
+        },
+      ]
+    );
+  }, [eliminarOpcion]);
 
   const handleReunionSuccess = () => {
     setSelectedVoters(new Map());
@@ -175,6 +199,7 @@ export const DetalleResultados: React.FC<DetalleResultadosProps> = ({
                           handleToggleVoter(voter, opcion?.texto_opcion ?? '');
                         }
                       : undefined}
+                    onEliminarOpcion={puedeEliminarOpciones ? handleEliminarOpcion : undefined}
                   />
                 )}
 

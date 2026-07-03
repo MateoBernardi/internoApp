@@ -131,9 +131,6 @@ export const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.lightTint,
   },
-  eliminarButton: {
-    fontSize: 18,
-  },
   preguntaTitulo: {
     fontSize: 14,
     fontWeight: '600',

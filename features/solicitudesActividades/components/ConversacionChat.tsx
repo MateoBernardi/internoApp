@@ -227,14 +227,14 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
     // La descripción es el mensaje original (el más antiguo). Solo se muestra
     // cuando ya no quedan páginas anteriores por cargar, para que quede arriba
     // de todo sin contradecir los mensajes más viejos aún sin traer.
-    const base = descripcion && !hasNextPage
+    const base = (descripcion || (solicitud.fecha_inicio && solicitud.fecha_fin)) && !hasNextPage
       ? [{
         id: 'descripcion',
         usuario_id: solicitud.created_by ?? null,
         usuario_nombre: solicitud.nombre_creador ?? '',
         usuario_apellido: solicitud.apellido_creador ?? '',
         created_at: createdAt,
-        observacion: descripcion,
+        observacion: descripcion || '',
         estado: 'MESSAGE' as const,
         fecha_inicio_nueva: null,
         fecha_fin_nueva: null,
@@ -427,6 +427,13 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
                 </View>
 
                 <View style={styles.bitacoraContainer}>
+                  {!!solicitud.fecha_inicio && !!solicitud.fecha_fin && hasNextPage && (
+                    <View style={styles.pinnedDatesBar}>
+                      <ThemedText style={styles.pinnedDatesText}>
+                        Fechas: {formatDateDDMMYYYY(new Date(solicitud.fecha_inicio))} {formatTimeHHMM(new Date(solicitud.fecha_inicio))} {'→'} {formatDateDDMMYYYY(new Date(solicitud.fecha_fin))} {formatTimeHHMM(new Date(solicitud.fecha_fin))}
+                      </ThemedText>
+                    </View>
+                  )}
                   {isLoadingBitacora ? (
                     <ActivityIndicator size="small" color={colors.lightTint} style={{ marginTop: 20 }} />
                   ) : mensajes.length > 0 ? (
@@ -453,6 +460,8 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
                         const hideTitle = isDescripcion || isSystem || (
                           MESSAGE_STATES.includes(b.estado) && b.estado !== 'ACCEPTED' && b.estado !== 'ACCEPTED_BY_HOST'
                         );
+                        const fechaInicioMsg = b.fecha_inicio_nueva ?? (isDescripcion ? solicitud.fecha_inicio : null);
+                        const fechaFinMsg = b.fecha_fin_nueva ?? (isDescripcion ? solicitud.fecha_fin : null);
                         const archivos = Array.isArray(b.archivos) ? b.archivos : [];
 
                         if (isSystem) return (
@@ -503,6 +512,19 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
                                         />
                                       )
                                     ))}
+                                  </View>
+                                )}
+                                {fechaInicioMsg && fechaFinMsg && (
+                                  <View style={styles.changeBubble}>
+                                    <ThemedText style={styles.changeText}>
+                                      {b.fecha_inicio_nueva ? 'Propuso cambio:' : 'Fechas:'}
+                                    </ThemedText>
+                                    <ThemedText style={styles.changeText}>
+                                      Inicio: {formatDateDDMMYYYY(new Date(fechaInicioMsg))} {formatTimeHHMM(new Date(fechaInicioMsg))}
+                                    </ThemedText>
+                                    <ThemedText style={styles.changeText}>
+                                      Fin: {formatDateDDMMYYYY(new Date(fechaFinMsg))} {formatTimeHHMM(new Date(fechaFinMsg))}
+                                    </ThemedText>
                                   </View>
                                 )}
                                 {b.__optimistic && (
@@ -866,6 +888,30 @@ const localStyles = StyleSheet.create({
     color: '#9aa3ab',
     marginTop: 4,
     alignSelf: 'flex-end',
+  },
+  changeBubble: {
+    marginTop: 6,
+    backgroundColor: colors.background,
+    padding: 8,
+    borderRadius: 8,
+  },
+  changeText: {
+    fontSize: 13,
+    color: colors.text,
+  },
+  pinnedDatesBar: {
+    marginBottom: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: colors.background,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.neutralBorder,
+  },
+  pinnedDatesText: {
+    fontSize: 12,
+    color: colors.text,
+    fontWeight: '600',
   },
 });
 

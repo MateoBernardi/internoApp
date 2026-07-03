@@ -25,26 +25,35 @@ const colors = Colors['light'];
 interface FormularioPreguntaProps {
   onAgregarPregunta: (pregunta: Pregunta) => void;
   onCancelar: () => void;
+  preguntaInicial?: Pregunta;
 }
 
 type PickerStep = null | 'date' | 'time';
 
-/** Formulario para crear una pregunta de encuesta (tipo, opciones, obligatoria). */
+/** Formulario para crear/editar una pregunta de encuesta (tipo, opciones, obligatoria). */
 export const FormularioPregunta: React.FC<FormularioPreguntaProps> = ({
   onAgregarPregunta,
   onCancelar,
+  preguntaInicial,
 }) => {
   const insets = useSafeAreaInsets();
-  const [titulo, setTitulo] = useState('');
-  const [tipoPregunta, setTipoPregunta] = useState<TipoPregunta>('texto');
-  const [esObligatoria, setEsObligatoria] = useState(true);
+  const esEdicion = !!preguntaInicial;
+  const [titulo, setTitulo] = useState(() => preguntaInicial?.titulo ?? '');
+  const [tipoPregunta, setTipoPregunta] = useState<TipoPregunta>(
+    () => preguntaInicial?.tipo_pregunta ?? 'texto'
+  );
+  const [esObligatoria, setEsObligatoria] = useState(() => preguntaInicial?.es_obligatoria ?? true);
 
   // multiple_choice
-  const [opciones, setOpciones] = useState<string[]>([]);
+  const [opciones, setOpciones] = useState<string[]>(
+    () => (preguntaInicial?.tipo_pregunta === 'multiple_choice' ? preguntaInicial.opciones ?? [] : [])
+  );
   const [nuevaOpcion, setNuevaOpcion] = useState('');
 
   // horario
-  const [slots, setSlots] = useState<string[]>([]); // ISO datetime strings
+  const [slots, setSlots] = useState<string[]>(
+    () => (preguntaInicial?.tipo_pregunta === 'horario' ? preguntaInicial.opciones ?? [] : [])
+  ); // ISO datetime strings
   const [pickerStep, setPickerStep] = useState<PickerStep>(null);
   const [pendingDate, setPendingDate] = useState<Date>(new Date());
 
@@ -117,7 +126,9 @@ export const FormularioPregunta: React.FC<FormularioPreguntaProps> = ({
       behavior={KEYBOARD_BEHAVIOR}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
     >
-      <ThemedText type="title" style={styles.pageTitle}>Nueva Pregunta</ThemedText>
+      <ThemedText type="title" style={styles.pageTitle}>
+        {esEdicion ? 'Editar Pregunta' : 'Nueva Pregunta'}
+      </ThemedText>
 
       <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingBottom: 100 }}>
         <View style={styles.section}>
@@ -226,7 +237,9 @@ export const FormularioPregunta: React.FC<FormularioPreguntaProps> = ({
           <Text style={styles.cancelarButtonText}>Cancelar</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.guardarButton} onPress={handleGuardar}>
-          <Text style={styles.guardarButtonText}>Guardar Pregunta</Text>
+          <Text style={styles.guardarButtonText}>
+            {esEdicion ? 'Guardar Cambios' : 'Guardar Pregunta'}
+          </Text>
         </TouchableOpacity>
       </View>
 

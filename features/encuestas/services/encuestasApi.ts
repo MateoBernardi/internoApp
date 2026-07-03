@@ -149,10 +149,10 @@ export async function actualizarParticipantesEncuesta(
 }
 
 export async function eliminarEncuesta(accessToken: string, encuestaId: number): Promise<void> {
-    const response = await apiRequest({ 
-        method: 'DELETE', 
-        endpoint: `/encuestas/${encuestaId}`, 
-        token: accessToken 
+    const response = await apiRequest({
+        method: 'DELETE',
+        endpoint: `/encuestas/${encuestaId}`,
+        token: accessToken
     });
 
     if (!response.ok) {
@@ -161,6 +161,24 @@ export async function eliminarEncuesta(accessToken: string, encuestaId: number):
         }
         const errorText = await response.text();
         console.error('Error eliminando encuesta:', response.status, response.statusText);
+        console.error('Response body:', errorText);
+        throw new Error(`${errorText || response.statusText}`);
+    }
+}
+
+export async function eliminarOpcionEncuesta(accessToken: string, opcionId: number): Promise<void> {
+    const response = await apiRequest({
+        method: 'DELETE',
+        endpoint: `/encuestas/opciones/${opcionId}`,
+        token: accessToken
+    });
+
+    if (!response.ok) {
+        if (response.status === 403) {
+            throw new Error('Solo el creador de la encuesta puede eliminar opciones');
+        }
+        const errorText = await response.text();
+        console.error('Error eliminando opción de encuesta:', response.status, response.statusText);
         console.error('Response body:', errorText);
         throw new Error(`${errorText || response.statusText}`);
     }

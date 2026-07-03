@@ -1,10 +1,13 @@
+import { Colors } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useMemo } from 'react';
-import { Text, View } from 'react-native';
-import { Pregunta, Respuesta } from '../models/Encuesta';
+import { Text, TouchableOpacity, View } from 'react-native';
+import { Opcion, Pregunta, Respuesta } from '../models/Encuesta';
 import { formatHorarioSlot } from './utils';
 import { VotantesInline } from './VotantesInline';
 import { styles } from './styles';
+
+const colors = Colors['light'];
 
 interface RespuestasMultipleChoiceProps {
   respuestas: Respuesta[];
@@ -13,6 +16,8 @@ interface RespuestasMultipleChoiceProps {
   selectedVoterIds?: Set<number>;
   convocadosIds?: Set<number>;
   onToggleVoter?: (voter: Respuesta) => void;
+  // Solo el creador, mientras la encuesta está en progreso
+  onEliminarOpcion?: (opcion: Opcion) => void;
 }
 
 export const RespuestasMultipleChoice: React.FC<RespuestasMultipleChoiceProps> = ({
@@ -21,6 +26,7 @@ export const RespuestasMultipleChoice: React.FC<RespuestasMultipleChoiceProps> =
   selectedVoterIds,
   convocadosIds,
   onToggleVoter,
+  onEliminarOpcion,
 }) => {
   const esAnonima = respuestas[0]?.nombre === undefined || respuestas[0]?.nombre === null;
   const esHorario = pregunta.tipo_pregunta === 'horario';
@@ -68,6 +74,19 @@ export const RespuestasMultipleChoice: React.FC<RespuestasMultipleChoiceProps> =
                   <Ionicons name="time-outline" size={14} color="#2f78e8" />
                 )}
                 <Text style={[styles.opcionTexto, { flex: 1 }]}>{opcionLabel}</Text>
+                {onEliminarOpcion && (
+                  <TouchableOpacity
+                    onPress={() => onEliminarOpcion(opcion)}
+                    disabled={cantidad > 0}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons
+                      name="trash-outline"
+                      size={18}
+                      color={cantidad > 0 ? colors.secondaryText : colors.error}
+                    />
+                  </TouchableOpacity>
+                )}
               </View>
               <View style={styles.opcionStatsWrapper}>
                 <View style={styles.opcionStats}>

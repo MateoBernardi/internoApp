@@ -44,7 +44,8 @@ export const CrearEncuesta: React.FC<CrearEncuestaProps> = ({ onEncuestaCreada, 
   const [fechaFin, setFechaFin] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [preguntas, setPreguntas] = useState<Pregunta[]>([]);
-  const [mostrandoFormularioPregunta, setMostrandoFormularioPregunta] = useState(false);
+  // null = formulario oculto; { index: null } = creando; { index: n } = editando preguntas[n]
+  const [formularioPregunta, setFormularioPregunta] = useState<{ index: number | null } | null>(null);
 
   // Destinatarios
   const [todosEmpleados, setTodosEmpleados] = useState(true);
@@ -68,8 +69,16 @@ export const CrearEncuesta: React.FC<CrearEncuestaProps> = ({ onEncuestaCreada, 
   };
 
   const agregarPregunta = (pregunta: Pregunta) => {
-    setPreguntas([...preguntas, { ...pregunta, orden: preguntas.length + 1 }]);
-    setMostrandoFormularioPregunta(false);
+    const index = formularioPregunta?.index;
+    if (index != null) {
+      // Edición: reemplaza la pregunta existente conservando su orden.
+      const nuevasPreguntas = [...preguntas];
+      nuevasPreguntas[index] = { ...pregunta, orden: preguntas[index].orden };
+      setPreguntas(nuevasPreguntas);
+    } else {
+      setPreguntas([...preguntas, { ...pregunta, orden: preguntas.length + 1 }]);
+    }
+    setFormularioPregunta(null);
   };
 
   const eliminarPregunta = (index: number) => {
@@ -167,11 +176,12 @@ export const CrearEncuesta: React.FC<CrearEncuestaProps> = ({ onEncuestaCreada, 
     return `${selectedUsers.length} persona${selectedUsers.length > 1 ? 's' : ''} seleccionada${selectedUsers.length > 1 ? 's' : ''}`;
   }, [todosEmpleados, selectedUsers]);
 
-  if (mostrandoFormularioPregunta) {
+  if (formularioPregunta) {
     return (
       <FormularioPregunta
+        preguntaInicial={formularioPregunta.index !== null ? preguntas[formularioPregunta.index] : undefined}
         onAgregarPregunta={agregarPregunta}
-        onCancelar={() => setMostrandoFormularioPregunta(false)}
+        onCancelar={() => setFormularioPregunta(null)}
       />
     );
   }
@@ -309,7 +319,7 @@ export const CrearEncuesta: React.FC<CrearEncuestaProps> = ({ onEncuestaCreada, 
             </ThemedText>
             <TouchableOpacity
               style={styles.agregarPreguntaButton}
-              onPress={() => setMostrandoFormularioPregunta(true)}
+              onPress={() => setFormularioPregunta({ index: null })}
             >
               <Text style={styles.agregarPreguntaText}>+ Agregar</Text>
             </TouchableOpacity>
@@ -327,9 +337,14 @@ export const CrearEncuesta: React.FC<CrearEncuestaProps> = ({ onEncuestaCreada, 
               <View key={index} style={styles.preguntaCard}>
                 <View style={styles.preguntaCardHeader}>
                   <Text style={styles.preguntaNumero}>Pregunta {index + 1}</Text>
-                  <TouchableOpacity onPress={() => eliminarPregunta(index)}>
-                    <Text style={styles.eliminarButton}>🗑️</Text>
-                  </TouchableOpacity>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <TouchableOpacity onPress={() => setFormularioPregunta({ index })}>
+                      <Ionicons name="pencil-outline" size={18} color={colors.lightTint} />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => eliminarPregunta(index)}>
+                      <Ionicons name="trash-outline" size={18} color={colors.error} />
+                    </TouchableOpacity>
+                  </View>
                 </View>
                 <Text style={styles.preguntaTitulo}>{pregunta.titulo}</Text>
                 <View style={styles.preguntaInfo}>

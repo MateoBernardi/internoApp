@@ -7,6 +7,7 @@ import {
     actualizarParticipantesEncuesta,
     createEncuestaCompleta,
     eliminarEncuesta,
+    eliminarOpcionEncuesta,
     enviarRespuestas,
     fetchEncuestas,
     getRespuestasEncuesta,
@@ -107,6 +108,25 @@ export function useEliminarEncuesta() {
                 throw new Error('No hay token de acceso');
             }
             return eliminarEncuesta(token, encuestaId);
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['encuestas'] });
+            queryClient.invalidateQueries({ queryKey: ['encuestas_respuestas'] });
+        },
+    });
+}
+
+export function useEliminarOpcion() {
+    const queryClient = useQueryClient();
+    const { tokens } = useAuth();
+
+    return useMutation({
+        mutationFn: async (opcionId: number) => {
+            const token = tokens?.accessToken;
+            if (!token) {
+                throw new Error('No hay token de acceso');
+            }
+            return eliminarOpcionEncuesta(token, opcionId);
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['encuestas'] });

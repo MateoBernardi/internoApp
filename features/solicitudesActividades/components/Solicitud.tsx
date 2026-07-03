@@ -318,14 +318,14 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
       ? new Date(solicitud.fecha_inicio).toISOString()
       : new Date().toISOString();
 
-    const base = descripcion && !hasNextPage
+    const base = (descripcion || (solicitud.fecha_inicio && solicitud.fecha_fin)) && !hasNextPage
       ? [{
         id: 'descripcion',
         usuario_id: solicitud.created_by ?? null,
         usuario_nombre: solicitud.nombre_creador ?? '',
         usuario_apellido: solicitud.apellido_creador ?? '',
         created_at: createdAt,
-        observacion: descripcion,
+        observacion: descripcion || '',
         estado: 'MESSAGE' as const,
         fecha_inicio_nueva: null,
         fecha_fin_nueva: null,
@@ -817,6 +817,13 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                 </View>
 
                 <View style={styles.bitacoraContainer}>
+                  {hasDates && hasNextPage && (
+                    <View style={styles.pinnedDatesBar}>
+                      <ThemedText style={styles.pinnedDatesText}>
+                        Fechas: {formatDateDDMMYYYY(new Date(solicitud.fecha_inicio!))} {formatTimeHHMM(new Date(solicitud.fecha_inicio!))} {'→'} {formatDateDDMMYYYY(new Date(solicitud.fecha_fin!))} {formatTimeHHMM(new Date(solicitud.fecha_fin!))}
+                      </ThemedText>
+                    </View>
+                  )}
                   {isLoadingBitacora ? (
                     <ActivityIndicator size="small" color={colors.lightTint} style={{ marginTop: 20 }} />
                   ) : mensajes.length > 0 ? (
@@ -1416,6 +1423,20 @@ const localStyles = StyleSheet.create({
   changeText: {
     fontSize: 13,
     color: colors.text,
+  },
+  pinnedDatesBar: {
+    marginBottom: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: colors.background,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.neutralBorder,
+  },
+  pinnedDatesText: {
+    fontSize: 12,
+    color: colors.text,
+    fontWeight: '600',
   },
   inlineDateSection: {
     paddingHorizontal: 12,

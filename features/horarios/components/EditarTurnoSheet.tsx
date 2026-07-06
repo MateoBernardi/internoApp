@@ -178,6 +178,28 @@ export function EditarTurnoSheet({
                       onChange={(id) => onField('sedeIdEgreso', id)}
                     />
                   </View>
+
+                  <View style={styles.field}>
+                    <Text style={styles.fieldLabel}>LICENCIA</Text>
+                    <View style={styles.licenciaRow}>
+                      <TouchableOpacity
+                        style={[styles.licenciaBtn, !displayDraft.licencia && styles.licenciaBtnActive]}
+                        onPress={() => onField('licencia', false)}
+                      >
+                        <Text style={[styles.licenciaBtnText, !displayDraft.licencia && styles.licenciaBtnTextActive]}>
+                          No
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.licenciaBtn, displayDraft.licencia && styles.licenciaBtnActive]}
+                        onPress={() => onField('licencia', true)}
+                      >
+                        <Text style={[styles.licenciaBtnText, displayDraft.licencia && styles.licenciaBtnTextActive]}>
+                          Sí
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
                 </>
               )}
             </ScrollView>
@@ -272,6 +294,30 @@ const styles = StyleSheet.create({
   row2: {
     flexDirection: 'row',
     gap: 12,
+  },
+  licenciaRow: {
+    flexDirection: 'row',
+    borderRadius: 11,
+    borderWidth: 1,
+    borderColor: LINE,
+    overflow: 'hidden',
+  },
+  licenciaBtn: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 11,
+    backgroundColor: '#f6f7f9',
+  },
+  licenciaBtnActive: {
+    backgroundColor: NAVY,
+  },
+  licenciaBtnText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: MUTED,
+  },
+  licenciaBtnTextActive: {
+    color: '#ffffff',
   },
   sedeBtn: {
     flexDirection: 'row',

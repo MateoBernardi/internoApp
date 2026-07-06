@@ -38,4 +38,5 @@ export interface UpdateHorarioPayload {
   horario_out: string;   // "YYYY-MM-DDTHH:MM:00"
   sede_id_in: number;
   sede_id_out: number;
+  licencia: 0 | 1;        // marcado manual: 1 si el empleado está de licencia
 }

@@ -3,6 +3,7 @@ import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
 import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { Colors, UI } from '@/constants/theme';
+import { useTurnosPorPeriodo } from '@/features/horarios/viewmodels/useTurnosAgenda';
 import { confirmAction } from '@/shared/ui/confirmAction';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams } from 'expo-router';
@@ -19,6 +20,16 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { mapActivities, mapLicencias, mapTurnos } from '../agenda/activityMappers';
+import {
+  addMonths,
+  buildDateTimeFromDateAndTime,
+  buildDefaultNewActivityState,
+  ceilToNextMinute,
+  formatDateKey,
+  generarGrillaMes,
+  normalizeToMinute,
+} from '../agenda/dateUtils';
 import { ActividadDetalle } from '../components/ActividadDetalle';
 import { AgendaDiaria } from '../components/AgendaDiaria';
 import { AgendaMonthGrid } from '../components/AgendaMonthGrid';
@@ -35,17 +46,6 @@ import {
   useCancelarActividad,
   useCrearActividad,
 } from '../viewmodels/useActividades';
-import { mapActivities, mapLicencias, mapTurnos } from '../agenda/activityMappers';
-import { useTurnosPorPeriodo } from '@/features/horarios/viewmodels/useTurnosAgenda';
-import {
-  addMonths,
-  buildDateTimeFromDateAndTime,
-  buildDefaultNewActivityState,
-  ceilToNextMinute,
-  formatDateKey,
-  generarGrillaMes,
-  normalizeToMinute,
-} from '../agenda/dateUtils';
 
 const colors = Colors['light'];
 const AgendaPersonal: React.FC = () => {
@@ -423,7 +423,6 @@ const AgendaPersonal: React.FC = () => {
         onNextMonth={() => handleChangeMonth(1)}
         onOpenMonthPicker={handleOpenMonthDatePicker}
         onChangeViewMode={setViewMode}
-        subtitle="Tu turno laboral y tus eventos, en un solo lugar"
       />
 
       {/* Activities */}

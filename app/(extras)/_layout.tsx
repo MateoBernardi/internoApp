@@ -46,6 +46,7 @@ export default function ExtrasLayout() {
       <Stack.Screen name="reportes-encargado" options={{ title: 'Reportes de Empleados' }} />
       <Stack.Screen name="responder-encuesta" options={{ title: 'Responder Encuesta' }} />
       <Stack.Screen name="solicitudes-licencias" options={{ title: 'Solicitudes de Licencias' }} />
+      <Stack.Screen name="horarios-admin" options={{ title: 'Horarios' }} />
     </Stack>
     </SafeAreaView>
   );

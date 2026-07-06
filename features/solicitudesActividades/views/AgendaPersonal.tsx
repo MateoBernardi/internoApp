@@ -35,7 +35,8 @@ import {
   useCancelarActividad,
   useCrearActividad,
 } from '../viewmodels/useActividades';
-import { mapActivities, mapLicencias } from '../agenda/activityMappers';
+import { mapActivities, mapLicencias, mapTurnos } from '../agenda/activityMappers';
+import { useTurnosPorPeriodo } from '@/features/horarios/viewmodels/useTurnosAgenda';
 import {
   addMonths,
   buildDateTimeFromDateAndTime,
@@ -70,6 +71,7 @@ const AgendaPersonal: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState(() => formatDateKey(today));
   const periodo = useMemo(() => buildPeriodoVentanaFromMonth(activeMonth), [activeMonth]);
   const actividadesPeriodoQuery = useActividadesPorPeriodo(periodo);
+  const turnosPeriodoQuery = useTurnosPorPeriodo(periodo);
 
   const crearActividadMutation = useCrearActividad();
   const cancelarActividadMutation = useCancelarActividad();
@@ -126,8 +128,9 @@ const AgendaPersonal: React.FC = () => {
     return [
       ...mapActivities(actividadesPeriodoQuery.data.actividades || []),
       ...mapLicencias(actividadesPeriodoQuery.data.licencias || []),
+      ...mapTurnos(turnosPeriodoQuery.data || []),
     ];
-  }, [actividadesPeriodoQuery.data]);
+  }, [actividadesPeriodoQuery.data, turnosPeriodoQuery.data]);
 
   const filteredActivities = useMemo(() => {
     if (viewMode === 'day') {
@@ -420,6 +423,7 @@ const AgendaPersonal: React.FC = () => {
         onNextMonth={() => handleChangeMonth(1)}
         onOpenMonthPicker={handleOpenMonthDatePicker}
         onChangeViewMode={setViewMode}
+        subtitle="Tu turno laboral y tus eventos, en un solo lugar"
       />
 
       {/* Activities */}

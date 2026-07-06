@@ -193,12 +193,23 @@ export const AgendaDiaria: React.FC<AgendaDiariaProps> = ({ activities, onDelete
                     );
                   }
 
+                  const esTurno = activity.tipo === 'turno';
+                  const esLicencia = activity.tipo === 'licencia';
+                  const cardBorderColor = esTurno
+                    ? '#2f86d6'
+                    : esLicencia
+                    ? '#7b5ce0'
+                    : esReunionVacia
+                    ? '#EF4444'
+                    : '#1a73e8';
+                  const cardBg = esTurno ? '#e7f2fb' : esLicencia ? '#efeafb' : '#FFFFFF';
+
                   return (
                     <TouchableOpacity
                       key={`${activity.id}-${hour}`}
-                      activeOpacity={activity.tipo === 'licencia' ? 1 : 0.7}
+                      activeOpacity={activity.tipo === 'licencia' || esTurno ? 1 : 0.7}
                       onPress={() => {
-                        if (activity.tipo !== 'licencia' && onPressActivity) {
+                        if (!esLicencia && !esTurno && onPressActivity) {
                           onPressActivity(activity);
                         }
                       }}
@@ -206,7 +217,7 @@ export const AgendaDiaria: React.FC<AgendaDiariaProps> = ({ activities, onDelete
                       <View
                         style={[
                           styles.activityCard,
-                          { borderLeftColor: borderColor },
+                          { borderLeftColor: cardBorderColor, backgroundColor: cardBg },
                           !isEnd && styles.activityCardConnectBottom,
                         ]}
                       >
@@ -226,23 +237,31 @@ export const AgendaDiaria: React.FC<AgendaDiariaProps> = ({ activities, onDelete
                         </View>
 
                         <View style={styles.contentColumn}>
-                          <Text style={[styles.titleText, esReunionVacia && { color: '#EF4444' }]} numberOfLines={2}>
+                          <Text style={[styles.titleText, esReunionVacia && { color: '#EF4444' }, esTurno && { color: '#1a5fa8' }]} numberOfLines={2}>
                             {activity.title}
                           </Text>
-                          {activity.tipo === 'licencia' && (
+                          {esTurno && activity.sede_ingreso && (
+                            <Text style={styles.turnoSedeLabel}>
+                              {activity.sede_ingreso}
+                              {activity.sede_egreso && activity.sede_egreso !== activity.sede_ingreso
+                                ? ` → ${activity.sede_egreso}`
+                                : ''}
+                            </Text>
+                          )}
+                          {esLicencia && (
                             <Text style={styles.licenseLabel}>Licencia</Text>
                           )}
                           {esReunionVacia && (
                             <Text style={styles.warningLabel}>Sin participantes</Text>
                           )}
-                          {activity.description && (
+                          {!esTurno && !esLicencia && activity.description && (
                             <Text style={styles.descriptionText} numberOfLines={2}>
                               {activity.description}
                             </Text>
                           )}
                         </View>
 
-                        {activity.tipo !== 'licencia' && (
+                        {!esLicencia && !esTurno && (
                           <TouchableOpacity
                             onPress={(e) => {
                               e.stopPropagation();
@@ -369,9 +388,15 @@ const styles = StyleSheet.create({
   },
   licenseLabel: {
     fontSize: 12,
-    color: '#1a73e8',
+    color: '#7b5ce0',
     fontWeight: '600',
     marginTop: 4,
+  },
+  turnoSedeLabel: {
+    fontSize: 12,
+    color: '#2f86d6',
+    fontWeight: '500',
+    marginTop: 3,
   },
   warningLabel: {
     fontSize: 12,

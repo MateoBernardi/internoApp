@@ -11,7 +11,8 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import { EstadoInvitacionDB, SolicitudEnviada } from '../models/Solicitud';
+import { SolicitudEnviada } from '../models/Solicitud';
+import { tieneNovedadSinVer } from '../badgeState';
 
 const colors = Colors['light'];
 
@@ -24,14 +25,6 @@ function getChatDisplayName(solicitud: SolicitudEnviada, currentUserId?: number)
         return nombre || solicitud.titulo;
     }
     return solicitud.titulo;
-}
-
-function getChatBadgeState(solicitud: SolicitudEnviada): EstadoInvitacionDB | null {
-    const estado = solicitud.estado as EstadoInvitacionDB;
-    if (solicitud.is_host) {
-        return estado === 'MODIFIED' ? estado : null;
-    }
-    return (estado === 'SENT' || estado === 'MODIFIED_BY_HOST') ? estado : null;
 }
 
 interface ChatsListProps {
@@ -96,7 +89,7 @@ export function ChatsList({ chats, onRefresh, refreshing, isLoading, onOpenChat,
                     <ChatItem
                         chat={item}
                         displayName={getChatDisplayName(item, currentUserId)}
-                        badgeState={getChatBadgeState(item)}
+                        hasBadge={tieneNovedadSinVer(item)}
                         onPress={() => onOpenChat(item)}
                     />
                 </React.Fragment>
@@ -108,11 +101,11 @@ export function ChatsList({ chats, onRefresh, refreshing, isLoading, onOpenChat,
 interface ChatItemProps {
     chat: SolicitudEnviada;
     displayName: string;
-    badgeState: EstadoInvitacionDB | null;
+    hasBadge: boolean;
     onPress: () => void;
 }
 
-function ChatItem({ chat, displayName, badgeState, onPress }: ChatItemProps) {
+function ChatItem({ chat, displayName, hasBadge, onPress }: ChatItemProps) {
     const inicial = displayName.charAt(0).toUpperCase();
 
     return (
@@ -125,7 +118,7 @@ function ChatItem({ chat, displayName, badgeState, onPress }: ChatItemProps) {
                     <ThemedText type="defaultSemiBold" numberOfLines={1} style={styles.itemTitle}>
                         {displayName}
                     </ThemedText>
-                    {badgeState && <View style={styles.stateDot} />}
+                    {hasBadge && <View style={styles.stateDot} />}
                 </View>
                 {chat.invitados.length > 2 && (
                     <ThemedText

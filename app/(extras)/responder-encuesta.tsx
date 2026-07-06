@@ -1,8 +1,10 @@
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
+import { useAuth } from '@/features/auth/context/AuthContext';
 import { Encuesta } from '@/features/encuestas/models/Encuesta';
 import { ResponderEncuesta } from '@/features/encuestas/views/ResponderEncuesta';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useRoleCheck } from '@/hooks/useRoleCheck';
+import { Redirect, Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
 import {
     KeyboardAvoidingView,
@@ -16,7 +18,14 @@ const colors = Colors['light'];
 
 export default function ResponderEncuestaScreen() {
   const router = useRouter();
+  const { user } = useAuth();
+  const { canRespondEncuestas } = useRoleCheck();
   const { encuesta: encuestaParam } = useLocalSearchParams<{ encuesta: string }>();
+
+  // Solo empleado-*, encargado y gerencia pueden responder.
+  if (user?.rol_nombre && !canRespondEncuestas()) {
+    return <Redirect href="/(tabs)" />;
+  }
 
   if (!encuestaParam) {
     return (

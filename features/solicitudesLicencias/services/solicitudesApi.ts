@@ -27,7 +27,7 @@ export const getTiposLicencia = async (accessToken: string): Promise<solicitudLi
     return data;
 };
 
-export const getSaldosLicencia = async (accessToken: string): Promise<solicitudLicencia.SaldosLicenciaResponse> => {
+export const getSaldosLicencia = async (accessToken: string): Promise<solicitudLicencia.SaldoLicencia[]> => {
     const response = await apiRequest({ method: 'GET', endpoint: '/licencias/saldos', token: accessToken });
 
     if (!response.ok) {
@@ -37,9 +37,15 @@ export const getSaldosLicencia = async (accessToken: string): Promise<solicitudL
     }
 
     const raw = await response.json();
-    const rawAusencias = Array.isArray(raw?.ausencias) ? raw.ausencias : [];
+    const rawList = Array.isArray(raw)
+        ? raw
+        : Array.isArray(raw?.data)
+            ? raw.data
+            : raw
+                ? [raw]
+                : [];
 
-    const ausencias: solicitudLicencia.SaldoLicencia[] = rawAusencias.map((item: any) => {
+    const data: solicitudLicencia.SaldoLicencia[] = rawList.map((item: any) => {
         const diasOtorgados = Number(item?.dias_otorgados ?? 0);
         const diasConsumidos = Number(item?.dias_consumidos ?? 0);
         const diasDisponibles = item?.dias_disponibles !== undefined && item?.dias_disponibles !== null
@@ -59,12 +65,7 @@ export const getSaldosLicencia = async (accessToken: string): Promise<solicitudL
         };
     }).filter((item: solicitudLicencia.SaldoLicencia) => Number.isFinite(item.id));
 
-    const francos: solicitudLicencia.FrancosSaldo = {
-        horas_disponibles: Number(raw?.francos?.horas_disponibles ?? 0),
-        horas_consumidas: Number(raw?.francos?.horas_consumidas ?? 0),
-    };
-
-    return { ausencias, francos };
+    return data;
 };
 
 export const getSolicitudesLicencias = async (accessToken: string, filters?: solicitudLicencia.GetSolicitudesFilters): Promise<solicitudLicencia.SolicitudLicencia[]> => {

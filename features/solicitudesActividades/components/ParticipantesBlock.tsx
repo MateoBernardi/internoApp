@@ -1,4 +1,3 @@
-import { Colors } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
@@ -24,7 +23,6 @@ interface Props {
   isRemovable?: (id: number) => boolean;
   extraContent?: React.ReactNode;
   renderRowSub?: (id: number) => React.ReactNode;
-  titulo?: string;
 }
 
 function initials(nombre: string): string {
@@ -40,7 +38,6 @@ export function ParticipantesBlock({
   isRemovable,
   extraContent,
   renderRowSub,
-  titulo = 'Participantes',
 }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [query, setQuery] = useState('');
@@ -60,24 +57,6 @@ export function ParticipantesBlock({
 
   return (
     <View>
-      {/* Section header */}
-      <View style={s.headerRow}>
-        <Text style={s.headerLabel}>{titulo}</Text>
-        <View style={s.headerActions}>
-          <TouchableOpacity style={s.infoBtn}>
-            <Text style={s.infoBtnText}>{'i'}</Text>
-          </TouchableOpacity>
-          {canManage && onAgregar && (
-            <TouchableOpacity style={s.addPill} onPress={onAgregar}>
-              <Text style={s.addPillText}>{'+ Agregar'}</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
-
-      {/* Extra content (e.g. UserSelector) injected by parent */}
-      {extraContent}
-
       {/* Collapsible card */}
       <View style={s.card}>
         <TouchableOpacity
@@ -157,8 +136,15 @@ export function ParticipantesBlock({
               )}
             </ScrollView>
 
+            {extraContent}
+
             <View style={s.footer}>
               <Text style={s.footerCount}>{participantes.length} en total</Text>
+              {canManage && onAgregar && (
+                <TouchableOpacity style={s.addPill} onPress={onAgregar}>
+                  <Text style={s.addPillText}>{'+ Agregar'}</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         )}
@@ -168,37 +154,6 @@ export function ParticipantesBlock({
 }
 
 const s = StyleSheet.create({
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  headerLabel: {
-    fontSize: 16,
-    color: Colors.light['text'],
-    fontWeight: '500',
-  },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-  },
-  infoBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#f3f4f6',
-  },
-  infoBtnText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#6b7280',
-  },
   addPill: {
     borderWidth: 2,
     borderColor: '#2b1f5c',

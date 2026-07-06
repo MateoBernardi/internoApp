@@ -13,6 +13,7 @@ import {
     View,
 } from 'react-native';
 import { EstadoInvitacionDB, SolicitudEnviada, estadoInvitacionMapping } from '../models/Solicitud';
+import { tieneNovedadSinVer } from '../badgeState';
 import { useCancelarSolicitud, useOcultarSolicitudInvitado } from '../viewmodels/useSolicitudes';
 
 const colors = Colors['light'];
@@ -89,11 +90,10 @@ function getEstadoRelevante(solicitud: SolicitudEnviada): string {
     )[0];
 }
 
-function getContainerColor(estadoUI: string, isHost: boolean): string {
-    const activos = isHost
-        ? ['Modificado']
-        : ['Pendiente', 'Modificado por creador'];
-    return activos.includes(estadoUI) ? colors.componentBackground : colors.background;
+function getContainerColor(solicitud: SolicitudEnviada): string {
+    // El realce de "novedad sin ver" usa el estado propio del usuario (igual que
+    // el resto de los badges), no el estado agregado de los invitados.
+    return tieneNovedadSinVer(solicitud) ? colors.componentBackground : colors.background;
 }
 
 interface SolicitudesListProps {
@@ -377,7 +377,7 @@ function SolicitudItem({ solicitud, onPress, onHide, isHiding, onCancel, isCance
     const tipoLabel = formatTipoSolicitud(solicitud.tipo_actividad);
     const tipoBadgeStyle = getTipoBadgeStyle(solicitud.tipo_actividad);
     const estadoBadgeStyle = getEstadoBadgeStyle(estadoUI);
-    const containerColor = getContainerColor(estadoUI, solicitud.is_host);
+    const containerColor = getContainerColor(solicitud);
 
     return (
         <TouchableOpacity

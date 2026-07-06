@@ -36,8 +36,10 @@ export async function refresh(refreshToken: string) {
   return data;
 }
 
-export async function logout(refreshToken: string) {
-  return apiRequest({method: "POST", endpoint: "/auth/logout", token:'', body: { refreshToken }});
+export async function logout(refreshToken: string, pushToken?: string | null) {
+  const body: Record<string, unknown> = { refreshToken };
+  if (pushToken) body.pushToken = pushToken;
+  return apiRequest({method: "POST", endpoint: "/auth/logout", token:'', body});
 }
 
 export async function getUserContext(accessToken: string): Promise<UserContext> {

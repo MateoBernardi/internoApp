@@ -17,13 +17,20 @@ interface AlertModalProps {
     message?: string;
     actions: AlertModalAction[];
     onClose: () => void;
+    /**
+     * iOS: se dispara cuando el modal terminó de descartarse (sale de la
+     * jerarquía de ventanas). `useAlertModal` lo usa para ejecutar la acción
+     * elegida recién acá, evitando presentar el document picker / la cámara
+     * mientras este modal sigue en transición de dismiss. No existe en Android.
+     */
+    onDismiss?: () => void;
 }
 
 const colors = Colors.light;
 
-export function AlertModal({ visible, title, message, actions, onClose }: AlertModalProps) {
+export function AlertModal({ visible, title, message, actions, onClose, onDismiss }: AlertModalProps) {
     return (
-        <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+        <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} onDismiss={onDismiss}>
             <Pressable style={styles.overlay} onPress={onClose}>
                 <Pressable style={styles.card} onPress={() => { }}>
                     <View style={styles.header}>

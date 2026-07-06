@@ -24,27 +24,11 @@ import { Solicitud } from '../components/Solicitud';
 import { SolicitudesList } from '../components/SolicitudesList';
 
 // Modelos, Hooks y Mappers
-import { EstadoInvitacionDB, SolicitudEnviada, estadoInvitacionMapping } from '../models/Solicitud';
+import { SolicitudEnviada } from '../models/Solicitud';
+import { tieneNovedadSinVer } from '../badgeState';
 import { useBuscarSolicitudes, useSolicitudes } from '../viewmodels/useSolicitudes';
 
 const colors = Colors['light'];
-
-// --- HELPERS PARA LÓGICA DE ESTADO (IDÉNTICOS A LA LISTA) ---
-const mapEstado = (estado: string): string => estadoInvitacionMapping[estado as EstadoInvitacionDB] ?? estado;
-
-const getEstadoRelevanteUI = (solicitud: SolicitudEnviada): string => {
-  if (!solicitud.is_host) return mapEstado(solicitud.estado);
-  const invitados = solicitud.invitados.filter(inv => inv.user_id !== solicitud.created_by);
-  if (invitados.length === 0) return mapEstado(solicitud.estado);
-
-  const ESTADO_PRIORITY: Record<string, number> = {
-    'Modificado': 0, 'Modificado por creador': 1, 'Pendiente': 2, 'Visto': 3,
-    'Aceptado': 4, 'Rechazado': 5, 'Actividad creada': 6, 'Expirada': 7,
-  };
-
-  const estadosUI = invitados.map(inv => mapEstado(inv.estado ?? ''));
-  return estadosUI.sort((a, b) => (ESTADO_PRIORITY[a] ?? 99) - (ESTADO_PRIORITY[b] ?? 99))[0];
-};
 
 interface SolicitudesViewProps {
   onRefresh?: () => Promise<void>;
@@ -91,13 +75,7 @@ export default function SolicitudesView({ onRefresh, refreshing }: SolicitudesVi
 
   // Contador de pendientes en la página actual (para el info bar)
   const { sinVerCount } = useMemo(() => {
-    const count = solicitudes.reduce((acc, sol) => {
-      const estadoUI = getEstadoRelevanteUI(sol);
-      const esPendiente = sol.is_host
-        ? estadoUI === 'Modificado'
-        : ['Pendiente', 'Modificado por creador'].includes(estadoUI);
-      return esPendiente ? acc + 1 : acc;
-    }, 0);
+    const count = solicitudes.reduce((acc, sol) => tieneNovedadSinVer(sol) ? acc + 1 : acc, 0);
     return { sinVerCount: count };
   }, [solicitudes]);
 
@@ -105,21 +83,12 @@ export default function SolicitudesView({ onRefresh, refreshing }: SolicitudesVi
   const solicitudesTabBadge = useMemo(() =>
     (solBadgeSource?.data ?? [])
       .filter(s => s.tipo_actividad !== 'CHAT')
-      .some(sol => {
-        const estadoUI = getEstadoRelevanteUI(sol);
-        return sol.is_host
-          ? estadoUI === 'Modificado'
-          : ['Pendiente', 'Modificado por creador'].includes(estadoUI);
-      }),
+      .some(tieneNovedadSinVer),
     [solBadgeSource],
   );
 
   const chatsTabBadge = useMemo(() =>
-    (chatBadgeSource?.data ?? []).some(s =>
-      s.is_host
-        ? s.estado === 'MODIFIED'
-        : s.estado === 'SENT' || s.estado === 'MODIFIED_BY_HOST',
-    ),
+    (chatBadgeSource?.data ?? []).some(tieneNovedadSinVer),
     [chatBadgeSource],
   );
 

@@ -107,7 +107,7 @@ export default function TabLayout() {
       route: '/(extras)/solicitudes-licencias' as Href,
       hasBadge: hasSolicitudesLicenciasPendientesAdmin,
     }] : []),
-    ...(!isEncargado ? [{
+    ...(hasRole(['gerencia', 'encargado', 'contable', 'personasRelaciones', 'consejo', 'presidencia']) ? [{
       id: 'encuestas',
       label: 'Encuestas',
       route: '/(extras)/encuestas' as Href,

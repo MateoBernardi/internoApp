@@ -29,7 +29,20 @@ export const conversacionStyles = StyleSheet.create({
     paddingVertical: 5,
     borderBottomWidth: 1,
     borderBottomColor: colors.background,
-    alignItems: 'flex-end',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  modalHeaderTitle: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1c2024',
+  },
+  modalHeaderSubtitle: {
+    fontSize: 12,
+    color: '#7a8087',
+    marginTop: 1,
   },
   closeButton: {
     padding: 6,

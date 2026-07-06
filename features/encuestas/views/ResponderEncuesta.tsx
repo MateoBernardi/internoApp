@@ -1,5 +1,6 @@
 import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
 import { Colors } from '@/constants/theme';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
@@ -14,6 +15,7 @@ import {
 } from 'react-native';
 import { useIdempotencyKey } from '@/shared/useIdempotencyKey';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { formatHorarioSlot } from '../resultados/utils';
 import { Encuesta, Pregunta, Respuesta } from '../models/Encuesta';
 import { useEnviarRespuestasEncuesta } from '../viewmodels/useEncuestas';
 
@@ -100,6 +102,11 @@ export const ResponderEncuesta: React.FC<ResponderEncuestaProps> = ({ encuesta, 
           Alert.alert('Campo obligatorio', `Debes seleccionar una opción en "${pregunta.titulo}"`);
           return false;
         }
+
+        if (pregunta.tipo_pregunta === 'horario' && !respuesta.opcion_id) {
+          Alert.alert('Campo obligatorio', `Debes seleccionar un horario en "${pregunta.titulo}"`);
+          return false;
+        }
       }
     }
 
@@ -137,12 +144,14 @@ export const ResponderEncuesta: React.FC<ResponderEncuestaProps> = ({ encuesta, 
           </Text>
           <Text style={styles.tipoPregunta}>
             {pregunta.tipo_pregunta === 'rating'
-              ? 'Calificacion'
+              ? 'Calificación'
               : pregunta.tipo_pregunta === 'texto'
               ? 'Texto'
               : pregunta.tipo_pregunta === 'multiple_choice'
-              ? 'Opcion multiple'
-              : 'Si/No'}
+              ? 'Opción múltiple'
+              : pregunta.tipo_pregunta === 'horario'
+              ? 'Horario'
+              : 'Sí/No'}
           </Text>
         </View>
 
@@ -206,6 +215,53 @@ export const ResponderEncuesta: React.FC<ResponderEncuestaProps> = ({ encuesta, 
                 <Text style={styles.opcionText}>{opcion.texto_opcion}</Text>
               </TouchableOpacity>
             ))}
+          </View>
+        )}
+
+        {pregunta.tipo_pregunta === 'horario' && pregunta.opcionesCompletas && (
+          <View style={styles.opcionesContainer}>
+            {pregunta.opcionesCompletas.map((opcion) => {
+              const isOcupado = (opcion.respuestas_count ?? 0) > 0;
+              const isSelected = respuestas.get(preguntaId)?.opcion_id === opcion.id;
+              return (
+                <TouchableOpacity
+                  key={opcion.id}
+                  style={[
+                    styles.opcionButton,
+                    isSelected && styles.opcionButtonSelected,
+                    isOcupado && styles.opcionButtonDisabled,
+                  ]}
+                  onPress={() => !isOcupado && handleMultipleChoiceChange(preguntaId, opcion.id)}
+                  disabled={isPending || isOcupado}
+                  activeOpacity={isOcupado ? 1 : 0.7}
+                >
+                  <View style={[
+                    styles.radioCircle,
+                    isSelected && styles.radioCircleSelected,
+                    isOcupado && { borderColor: colors.secondaryText + '50' },
+                  ]}>
+                    {isSelected && <View style={styles.radioInner} />}
+                  </View>
+                  <Ionicons
+                    name="time-outline"
+                    size={16}
+                    color={isOcupado ? colors.secondaryText + '50' : colors.lightTint}
+                    style={{ marginRight: 6 }}
+                  />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[
+                      styles.opcionText,
+                      isOcupado && { color: colors.secondaryText + '80' },
+                    ]}>
+                      {formatHorarioSlot(opcion.texto_opcion)}
+                    </Text>
+                    {isOcupado && (
+                      <Text style={styles.noDisponibleText}>No disponible</Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         )}
 
@@ -434,6 +490,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.text,
     flex: 1,
+  },
+  opcionButtonDisabled: {
+    borderColor: colors.background,
+    backgroundColor: colors.background + '60',
+  },
+  noDisponibleText: {
+    fontSize: 11,
+    color: colors.secondaryText,
+    marginTop: 2,
   },
   siNoContainer: {
     flexDirection: 'row',

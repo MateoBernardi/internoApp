@@ -10,7 +10,8 @@ export const solicitudesQueryKeys = {
     [...solicitudesQueryKeys.all, 'lista', page, pageSize, tipoConversacion ?? 'all'] as const,
   creadas: () => [...solicitudesQueryKeys.all, 'creadas'] as const,
   invitaciones: () => [...solicitudesQueryKeys.all, 'invitaciones'] as const,
-  bitacora: (solicitudId: number) => [...solicitudesQueryKeys.all, 'bitacora', solicitudId] as const,
+  bitacora: (solicitudId: number, includeSeen = false) => [...solicitudesQueryKeys.all, 'bitacora', solicitudId, includeSeen] as const,
+  bitacoraBase: (solicitudId: number) => [...solicitudesQueryKeys.all, 'bitacora', solicitudId] as const,
   chatArchivos: (solicitudId: number) => [...solicitudesQueryKeys.all, 'chatArchivos', solicitudId] as const,
   unseen: () => [...solicitudesQueryKeys.all, 'unseen'] as const,
 };
@@ -23,11 +24,11 @@ const BITACORA_PAGE_SIZE = 20;
  * apunta a las más antiguas. El `select` invierte el orden de las páginas
  * para que la más antigua quede primero (cronológico de arriba a abajo).
  */
-export function useSolicitudBitacora(solicitudId: number) {
+export function useSolicitudBitacora(solicitudId: number, includeSeen = false) {
   const { tokens } = useAuth();
 
   return useInfiniteQuery({
-    queryKey: solicitudesQueryKeys.bitacora(solicitudId),
+    queryKey: solicitudesQueryKeys.bitacora(solicitudId, includeSeen),
     queryFn: ({ pageParam }) => {
       const accessToken = tokens?.accessToken;
       if (!accessToken) {
@@ -36,6 +37,7 @@ export function useSolicitudBitacora(solicitudId: number) {
       return solicitudesApi.getSolicitudBitacora(accessToken, solicitudId, {
         cursor: pageParam,
         limit: BITACORA_PAGE_SIZE,
+        includeSeen,
       });
     },
     initialPageParam: undefined as number | undefined,
@@ -243,7 +245,7 @@ export function useActualizarEstadoInvitacion(opts?: { retry?: number }) {
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
-        queryKey: solicitudesQueryKeys.bitacora(variables.solicitud_id),
+        queryKey: solicitudesQueryKeys.bitacoraBase(variables.solicitud_id),
       });
       // Invalidar las invitaciones para refrescar la lista
       queryClient.invalidateQueries({

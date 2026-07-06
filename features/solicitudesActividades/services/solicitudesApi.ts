@@ -71,11 +71,12 @@ export async function reenviarSolicitud(accessToken: string, data: solicitudes.R
 export async function getSolicitudBitacora(
     accessToken: string,
     solicitudId: number,
-    opts?: { cursor?: number | null; limit?: number },
+    opts?: { cursor?: number | null; limit?: number; includeSeen?: boolean },
 ): Promise<solicitudes.BitacoraPage> {
     const params = new URLSearchParams();
     params.set('limit', String(opts?.limit ?? 20));
     if (opts?.cursor != null) params.set('cursor', String(opts.cursor));
+    if (opts?.includeSeen) params.set('includeSeen', 'true');
     const endpoint = `/solicitudes-actividades/solicitudes/bitacora/${solicitudId}?${params.toString()}`;
     const response = await apiRequest({ method: 'GET', endpoint, token: accessToken });
 

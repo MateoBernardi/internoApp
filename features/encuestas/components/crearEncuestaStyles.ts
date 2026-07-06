@@ -131,9 +131,6 @@ export const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.lightTint,
   },
-  eliminarButton: {
-    fontSize: 18,
-  },
   preguntaTitulo: {
     fontSize: 14,
     fontWeight: '600',
@@ -262,5 +259,112 @@ export const styles = StyleSheet.create({
   },
   crearButtonDisabled: {
     backgroundColor: colors.secondaryText,
+  },
+
+  // ── Tipo horario en FormularioPregunta ───────────────────────────────────
+  slotItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#e9f1fd',
+    borderWidth: 1,
+    borderColor: '#cfe0f9',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 8,
+  },
+  slotItemText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2a4f86',
+    flex: 1,
+  },
+  agregarSlotButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderWidth: 1.5,
+    borderColor: colors.lightTint,
+    borderStyle: 'dashed',
+    borderRadius: 8,
+    paddingVertical: 12,
+    marginTop: 4,
+  },
+  agregarSlotText: {
+    fontSize: 14,
+    color: colors.lightTint,
+    fontWeight: '600',
+  },
+
+  // ── Destinatarios en CrearEncuesta ───────────────────────────────────────
+  audOptionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 14,
+    borderWidth: 1.5,
+    borderColor: colors.background,
+    borderRadius: 12,
+    marginBottom: 10,
+  },
+  audOptionRowSelected: {
+    borderColor: colors.lightTint,
+    backgroundColor: '#e9f1fd',
+  },
+  radioDot: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: colors.secondaryText,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  radioDotSelected: {
+    borderColor: colors.lightTint,
+  },
+  radioDotInner: {
+    width: 11,
+    height: 11,
+    borderRadius: 6,
+    backgroundColor: colors.lightTint,
+  },
+  audOptionInfo: {
+    flex: 1,
+  },
+  audOptionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  audOptionSubtitle: {
+    fontSize: 12,
+    color: colors.secondaryText,
+    marginTop: 2,
+  },
+  audDivider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginVertical: 12,
+  },
+  audDividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.background,
+  },
+  audDividerLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.secondaryText,
+    letterSpacing: 0.5,
+  },
+  audSummary: {
+    fontSize: 13,
+    color: colors.secondaryText,
+    textAlign: 'center',
+    marginTop: 8,
   },
 });

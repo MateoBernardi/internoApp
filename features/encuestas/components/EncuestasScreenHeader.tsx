@@ -2,6 +2,7 @@ import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const colors = Colors['light'];
 
@@ -13,17 +14,16 @@ interface EncuestasScreenHeaderProps {
   right?: React.ReactNode;
 }
 
-/**
- * Encabezado de pantalla con título centrado, compartido por las vistas de
- * encuestas (`CrearEncuesta`, `VerResultadosEncuestas`).
- */
-export const EncuestasScreenHeader: React.FC<EncuestasScreenHeaderProps> = ({ title, left, right }) => (
-  <View style={styles.headerContainer}>
-    {left ?? <View style={styles.spacer} />}
-    <ThemedText type="title" style={styles.headerTitle}>{title}</ThemedText>
-    {right ?? <View style={styles.spacer} />}
-  </View>
-);
+export const EncuestasScreenHeader: React.FC<EncuestasScreenHeaderProps> = ({ title, left, right }) => {
+  const insets = useSafeAreaInsets();
+  return (
+    <View style={[styles.headerContainer, { paddingTop: insets.top + 12 }]}>
+      {left ?? <View style={styles.spacer} />}
+      <ThemedText type="title" style={styles.headerTitle}>{title}</ThemedText>
+      {right ?? <View style={styles.spacer} />}
+    </View>
+  );
+};
 
 const styles = StyleSheet.create({
   headerContainer: {
@@ -31,7 +31,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: 16,
     paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: colors.background,

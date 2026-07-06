@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DetalleResultados } from '../resultados/DetalleResultados';
 import { styles } from '../resultados/styles';
 import { agruparEncuestas, calcularTotalRespuestas } from '../resultados/utils';
@@ -26,6 +27,7 @@ export const VerResultadosEncuestas: React.FC<VerResultadosEncuestasProps> = ({ 
   const { data: encuestas, isLoading, error, refetch } = useGetRespuestasEncuesta();
   const { mutate: eliminarEncuesta, isPending: isDeleting } = useEliminarEncuesta();
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   const [encuestaSeleccionada, setEncuestaSeleccionada] = useState<number | null>(null);
 
   const handleEliminarEncuesta = (encuestaId: number, titulo: string) => {
@@ -54,10 +56,16 @@ export const VerResultadosEncuestas: React.FC<VerResultadosEncuestasProps> = ({ 
     );
   };
 
+  const backButton = (
+    <TouchableOpacity onPress={onVolver} style={{ width: 40, height: 40, justifyContent: 'center' }}>
+      <Ionicons name="chevron-back" size={24} color={colors.lightTint} />
+    </TouchableOpacity>
+  );
+
   if (isLoading) {
     return (
       <View style={styles.container}>
-        <EncuestasScreenHeader title="Resultados" />
+        <EncuestasScreenHeader title="Resultados" left={backButton} />
         <ScreenSkeleton rows={4} />
       </View>
     );
@@ -66,7 +74,7 @@ export const VerResultadosEncuestas: React.FC<VerResultadosEncuestasProps> = ({ 
   if (error) {
     return (
       <View style={styles.container}>
-        <EncuestasScreenHeader title="Resultados" />
+        <EncuestasScreenHeader title="Resultados" left={backButton} />
         <View style={styles.centerContainer}>
           <Ionicons name="alert-circle-outline" size={48} color={colors.error} />
           <Text style={styles.errorSubtext}>{error.message}</Text>
@@ -81,7 +89,7 @@ export const VerResultadosEncuestas: React.FC<VerResultadosEncuestasProps> = ({ 
   if (!encuestas || encuestas.length === 0) {
     return (
       <View style={styles.container}>
-        <EncuestasScreenHeader title="Resultados" />
+        <EncuestasScreenHeader title="Resultados" left={backButton} />
         <View style={styles.centerContainer}>
           <Ionicons name="document-text-outline" size={48} color={colors.secondaryText} />
           <Text style={styles.emptyText}>No hay resultados disponibles</Text>
@@ -101,7 +109,7 @@ export const VerResultadosEncuestas: React.FC<VerResultadosEncuestasProps> = ({ 
   if (respuestasAgrupadas.length === 0) {
     return (
       <View style={styles.container}>
-        <EncuestasScreenHeader title="Resultados" />
+        <EncuestasScreenHeader title="Resultados" left={backButton} />
         <View style={styles.centerContainer}>
           <Ionicons name="document-text-outline" size={48} color={colors.secondaryText} />
           <Text style={styles.emptyText}>No hay resultados disponibles</Text>
@@ -133,7 +141,7 @@ export const VerResultadosEncuestas: React.FC<VerResultadosEncuestasProps> = ({ 
 
   return (
     <View style={styles.container}>
-      <EncuestasScreenHeader title="Resultados" />
+      <EncuestasScreenHeader title="Resultados" left={backButton} />
 
       <View style={styles.subHeader}>
         <Text style={styles.headerSubtitle}>
@@ -187,7 +195,7 @@ export const VerResultadosEncuestas: React.FC<VerResultadosEncuestasProps> = ({ 
             </View>
           </TouchableOpacity>
         )}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 16 }]}
         showsVerticalScrollIndicator={false}
       />
     </View>

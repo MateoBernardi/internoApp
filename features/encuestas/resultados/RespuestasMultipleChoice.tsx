@@ -1,16 +1,42 @@
-import React, { useState } from 'react';
+import { Colors } from '@/constants/theme';
+import { Ionicons } from '@expo/vector-icons';
+import React, { useMemo } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
-import { Pregunta, Respuesta } from '../models/Encuesta';
-import { RespondentesModal } from './RespondentesModal';
+import { Opcion, Pregunta, Respuesta } from '../models/Encuesta';
+import { formatHorarioSlot } from './utils';
+import { VotantesInline } from './VotantesInline';
 import { styles } from './styles';
 
-export const RespuestasMultipleChoice: React.FC<{
+const colors = Colors['light'];
+
+interface RespuestasMultipleChoiceProps {
   respuestas: Respuesta[];
   pregunta: Pregunta;
-}> = ({ respuestas, pregunta }) => {
-  const [modalVisible, setModalVisible] = useState(false);
-  const [opcionSeleccionada, setOpcionSeleccionada] = useState<number | null>(null);
+  // Solo para tipo horario
+  selectedVoterIds?: Set<number>;
+  convocadosIds?: Set<number>;
+  onToggleVoter?: (voter: Respuesta) => void;
+  // Solo el creador, mientras la encuesta está en progreso
+  onEliminarOpcion?: (opcion: Opcion) => void;
+}
+
+export const RespuestasMultipleChoice: React.FC<RespuestasMultipleChoiceProps> = ({
+  respuestas,
+  pregunta,
+  selectedVoterIds,
+  convocadosIds,
+  onToggleVoter,
+  onEliminarOpcion,
+}) => {
   const esAnonima = respuestas[0]?.nombre === undefined || respuestas[0]?.nombre === null;
+  const esHorario = pregunta.tipo_pregunta === 'horario';
+
+  // Mapa opcion_id → texto ISO para pasar al modal en modo horario
+  const opcionTextoMap = useMemo(() => {
+    const map = new Map<number, string>();
+    pregunta.opcionesCompletas?.forEach((o) => map.set(o.id, o.texto_opcion));
+    return map;
+  }, [pregunta.opcionesCompletas]);
 
   const opcionesCount = new Map<number, number>();
   const respuestasPorOpcion = new Map<number, Respuesta[]>();
@@ -25,13 +51,7 @@ export const RespuestasMultipleChoice: React.FC<{
     }
   });
 
-  const abrirModal = (opcionId: number) => {
-    setOpcionSeleccionada(opcionId);
-    setModalVisible(true);
-  };
-
-  const respuestasOpcionSeleccionada = opcionSeleccionada ? respuestasPorOpcion.get(opcionSeleccionada) || [] : [];
-  const opcionSeleccionadaNombre = pregunta.opcionesCompletas?.find(o => o.id === opcionSeleccionada)?.texto_opcion || '';
+  const maxCantidad = Math.max(0, ...Array.from(opcionesCount.values()));
 
   return (
     <View>
@@ -40,48 +60,64 @@ export const RespuestasMultipleChoice: React.FC<{
         const porcentaje = respuestas.length
           ? ((cantidad / respuestas.length) * 100).toFixed(0)
           : '0';
+        const barraWidth = maxCantidad > 0 ? (cantidad / maxCantidad) * 100 : 0;
+        const opcionLabel = esHorario
+          ? formatHorarioSlot(opcion.texto_opcion)
+          : opcion.texto_opcion;
+        const votantesOpcion = respuestasPorOpcion.get(opcion.id) || [];
 
         return (
           <View key={opcion.id}>
             <View style={styles.opcionResultadoCard}>
-              <Text style={styles.opcionTexto}>{opcion.texto_opcion}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 6 }}>
+                {esHorario && (
+                  <Ionicons name="time-outline" size={14} color="#2f78e8" />
+                )}
+                <Text style={[styles.opcionTexto, { flex: 1 }]}>{opcionLabel}</Text>
+                {onEliminarOpcion && (
+                  <TouchableOpacity
+                    onPress={() => onEliminarOpcion(opcion)}
+                    disabled={cantidad > 0}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons
+                      name="trash-outline"
+                      size={18}
+                      color={cantidad > 0 ? colors.secondaryText : colors.error}
+                    />
+                  </TouchableOpacity>
+                )}
+              </View>
               <View style={styles.opcionStatsWrapper}>
                 <View style={styles.opcionStats}>
                   <View
                     style={[
                       styles.opcionBarra,
-                      {
-                        width: `${porcentaje}%` as any,
-                        minWidth: cantidad > 0 ? 30 : 0
-                      },
+                      { width: `${barraWidth}%` as any, minWidth: cantidad > 0 ? 30 : 0 },
                     ]}
                   />
                   <Text style={styles.opcionPorcentaje}>
                     {cantidad} ({porcentaje}%)
                   </Text>
                 </View>
-                {!esAnonima && cantidad > 0 && (
-                  <TouchableOpacity
-                    style={styles.verRespondentesButtonInline}
-                    onPress={() => abrirModal(opcion.id)}
-                  >
-                    <Text style={styles.verRespondentesText}>Ver</Text>
-                  </TouchableOpacity>
-                )}
               </View>
             </View>
+
+            {!esAnonima && cantidad > 0 && (
+              <VotantesInline
+                respuestas={votantesOpcion}
+                opcionLabel={opcionLabel}
+                esAnonima={esAnonima}
+                esHorario={esHorario}
+                selectedVoterIds={selectedVoterIds}
+                convocadosIds={convocadosIds}
+                onToggleVoter={onToggleVoter}
+                opcionTextoMap={esHorario ? opcionTextoMap : undefined}
+              />
+            )}
           </View>
         );
       })}
-
-      {!esAnonima && (
-        <RespondentesModal
-          visible={modalVisible}
-          title={`Usuarios: ${opcionSeleccionadaNombre}`}
-          respuestas={respuestasOpcionSeleccionada}
-          onClose={() => setModalVisible(false)}
-        />
-      )}
     </View>
   );
 };

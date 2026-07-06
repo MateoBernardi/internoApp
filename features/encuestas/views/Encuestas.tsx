@@ -1,12 +1,16 @@
 import { Colors } from '@/constants/theme';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+    BackHandler,
     StyleSheet,
     Text,
     TouchableOpacity,
     View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { EncuestasScreenHeader } from '../components/EncuestasScreenHeader';
 import { CrearEncuesta } from '../components/CrearEncuesta';
 import { VerResultadosEncuestas } from '../components/VerResultadoEncuestas';
 
@@ -15,6 +19,8 @@ const colors = Colors['light'];
 type OpcionSeleccionada = 'crear' | 'resultados' | null;
 
 export const Encuestas: React.FC = () => {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [opcionSeleccionada, setOpcionSeleccionada] =
     useState<OpcionSeleccionada>(null);
 
@@ -26,6 +32,15 @@ export const Encuestas: React.FC = () => {
     setOpcionSeleccionada(null);
   };
 
+  useEffect(() => {
+    if (!opcionSeleccionada) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      handleVolver();
+      return true; // consumir el evento: no propagar al router
+    });
+    return () => sub.remove();
+  }, [opcionSeleccionada]);
+
   // Si hay una opción seleccionada, mostrar el componente correspondiente
   if (opcionSeleccionada === 'crear') {
     return <CrearEncuesta onEncuestaCreada={handleEncuestaCreada} onVolver={handleVolver} />;
@@ -36,8 +51,18 @@ export const Encuestas: React.FC = () => {
   }
 
   // Pantalla de selección de opciones
+  const backButton = (
+    <TouchableOpacity
+      onPress={() => router.back()}
+      style={{ width: 40, height: 40, justifyContent: 'center' }}
+    >
+      <Ionicons name="chevron-back" size={24} color={colors.lightTint} />
+    </TouchableOpacity>
+  );
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      <EncuestasScreenHeader title="Encuestas" left={backButton} />
       <View style={styles.content}>
         <TouchableOpacity
           style={styles.optionCard}

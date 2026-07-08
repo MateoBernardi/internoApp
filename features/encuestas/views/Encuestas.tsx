@@ -1,5 +1,5 @@
 import { Colors } from '@/constants/theme';
-import { useRouter } from 'expo-router';
+import { Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
@@ -9,8 +9,6 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { EncuestasScreenHeader } from '../components/EncuestasScreenHeader';
 import { CrearEncuesta } from '../components/CrearEncuesta';
 import { VerResultadosEncuestas } from '../components/VerResultadoEncuestas';
 
@@ -19,8 +17,6 @@ const colors = Colors['light'];
 type OpcionSeleccionada = 'crear' | 'resultados' | null;
 
 export const Encuestas: React.FC = () => {
-  const router = useRouter();
-  const insets = useSafeAreaInsets();
   const [opcionSeleccionada, setOpcionSeleccionada] =
     useState<OpcionSeleccionada>(null);
 
@@ -41,28 +37,34 @@ export const Encuestas: React.FC = () => {
     return () => sub.remove();
   }, [opcionSeleccionada]);
 
+  // El valor se re-declara en cada estado (no solo cuando es false) porque
+  // expo-router no restaura el valor previo al desmontar un <Stack.Screen>
+  // condicional: hay que fijarlo explícitamente en true al volver a la selección.
+  const headerToggle = <Stack.Screen options={{ headerShown: opcionSeleccionada === null }} />;
+
   // Si hay una opción seleccionada, mostrar el componente correspondiente
   if (opcionSeleccionada === 'crear') {
-    return <CrearEncuesta onEncuestaCreada={handleEncuestaCreada} onVolver={handleVolver} />;
+    return (
+      <>
+        {headerToggle}
+        <CrearEncuesta onEncuestaCreada={handleEncuestaCreada} onVolver={handleVolver} />
+      </>
+    );
   }
 
   if (opcionSeleccionada === 'resultados') {
-    return <VerResultadosEncuestas onVolver={handleVolver} />;
+    return (
+      <>
+        {headerToggle}
+        <VerResultadosEncuestas onVolver={handleVolver} />
+      </>
+    );
   }
 
   // Pantalla de selección de opciones
-  const backButton = (
-    <TouchableOpacity
-      onPress={() => router.back()}
-      style={{ width: 40, height: 40, justifyContent: 'center' }}
-    >
-      <Ionicons name="chevron-back" size={24} color={colors.lightTint} />
-    </TouchableOpacity>
-  );
-
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <EncuestasScreenHeader title="Encuestas" left={backButton} />
+    <View style={styles.container}>
+      {headerToggle}
       <View style={styles.content}>
         <TouchableOpacity
           style={styles.optionCard}

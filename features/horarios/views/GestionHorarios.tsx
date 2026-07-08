@@ -48,7 +48,7 @@ const FILTER_OPTS: { value: TurnoFilter; label: string }[] = [
 ];
 
 // Solo roles con turnos: Encargado, Gerencia y todo el personal operativo.
-const SHIFT_ROLES = allRoles.filter(
+export const SHIFT_ROLES = allRoles.filter(
   (r) => r.value === 'encargado' || r.value === 'gerencia' || r.label.startsWith('Personal '),
 );
 

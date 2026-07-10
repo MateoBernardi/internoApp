@@ -4,7 +4,7 @@ import { es } from 'date-fns/locale/es'; // ← en v9 el path cambió
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import ReactDatePicker, { registerLocale } from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
-import { Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Modal, Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 registerLocale('es', es);
 
@@ -125,39 +125,49 @@ export default function CrossPlatformDateTimePicker(props: CrossPlatformDateTime
     }
 
     return (
-      <View style={styles.container}>
-        <NativeDateTimePicker
-          value={draftValue}
-          mode={mode}
-          minimumDate={minimumDate}
-          maximumDate={maximumDate}
-          is24Hour={is24Hour}
-          display={nativeDisplay}
-          testID={testID}
-          onChange={(event, selectedDate) => {
-            if (event.type === 'dismissed') {
-              emitDismiss();
-              return;
-            }
-            if (selectedDate) {
-              setDraftValue(selectedDate);
-            }
-          }}
-        />
+      <Modal
+        transparent
+        visible
+        animationType="fade"
+        presentationStyle="overFullScreen"
+        onRequestClose={emitDismiss}
+      >
+        <View style={styles.webOverlay}>
+          <View style={styles.webContainer}>
+            <NativeDateTimePicker
+              value={draftValue}
+              mode={mode}
+              minimumDate={minimumDate}
+              maximumDate={maximumDate}
+              is24Hour={is24Hour}
+              display={nativeDisplay}
+              testID={testID}
+              onChange={(event, selectedDate) => {
+                if (event.type === 'dismissed') {
+                  emitDismiss();
+                  return;
+                }
+                if (selectedDate) {
+                  setDraftValue(selectedDate);
+                }
+              }}
+            />
 
-        <View style={styles.actionsRow}>
-          <TouchableOpacity onPress={emitDismiss}>
-            <ThemedText style={styles.actionText}>Cancelar</ThemedText>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => {
-            if (minimumDate && draftValue < minimumDate) return;
-            if (maximumDate && draftValue > maximumDate) return;
-            emitSet(draftValue);
-          }}>
-            <ThemedText style={[styles.actionText, styles.actionConfirm]}>OK</ThemedText>
-          </TouchableOpacity>
+            <View style={styles.actionsRow}>
+              <TouchableOpacity onPress={emitDismiss}>
+                <ThemedText style={styles.actionText}>Cancelar</ThemedText>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => {
+                if (minimumDate && draftValue < minimumDate) return;
+                if (maximumDate && draftValue > maximumDate) return;
+                emitSet(draftValue);
+              }}>
+                <ThemedText style={[styles.actionText, styles.actionConfirm]}>OK</ThemedText>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
-      </View>
+      </Modal>
     );
   }
 

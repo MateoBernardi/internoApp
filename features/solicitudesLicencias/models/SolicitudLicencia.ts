@@ -32,6 +32,14 @@ export interface SaldoLicencia {
   tipo_nombre?: string;           // Nombre del tipo (joined)
 }
 
+// Respuesta del endpoint /licencias/saldos (shape objeto).
+// `francos` es el saldo neto de Franco Compensatorio en horas reales
+// (horas_disponibles − horas_consumidas, ya dividido por 10 por el backend).
+export interface SaldosResponse {
+  ausencias: SaldoLicencia[];
+  francos: number | null;
+}
+
 // Solicitud de Ausencia (SolicitudAusenciaDTO según API)
 export interface SolicitudLicencia {
   id: number;

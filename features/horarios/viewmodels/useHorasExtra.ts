@@ -1,9 +1,12 @@
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  createObjetivoHoras,
   getHorasExtra,
   getMovimientos,
+  getObjetivosHoras,
   liquidarHorasExtra,
+  updateObjetivoHoras,
   type HorasExtraFilter,
 } from '../services/horasExtraService';
 
@@ -18,6 +21,7 @@ export const horasExtraQueryKeys = {
     ] as const,
   movimientos: (userContextId: number, mes: string) =>
     ['horasExtra', 'movimientos', userContextId, mes] as const,
+  objetivos: ['horasExtra', 'objetivos'] as const,
 };
 
 export function useHorasExtra(filter: HorasExtraFilter) {
@@ -57,6 +61,62 @@ export function useMovimientos(userContextId: number | undefined, mes: string, e
     gcTime: 1000 * 60 * 10,
     retry: 2,
     retryDelay: (i) => Math.min(1000 * 2 ** i, 15000),
+  });
+}
+
+/**
+ * Objetivos semanales de horas ya cargados (GET /horarios/objetivos). Sólo
+ * incluye usuarios que ya tienen uno; `enabled` debe reflejar si el modal de
+ * detalle está abierto. Cambia poco, así que se le da un staleTime moderado.
+ */
+export function useObjetivosHoras(enabled: boolean) {
+  const { tokens } = useAuth();
+  return useQuery({
+    queryKey: horasExtraQueryKeys.objetivos,
+    queryFn: async () => {
+      const token = tokens?.accessToken;
+      if (!token) throw new Error('No access token');
+      return getObjetivosHoras(token);
+    },
+    enabled,
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 10,
+    retry: 2,
+    retryDelay: (i) => Math.min(1000 * 2 ** i, 15000),
+  });
+}
+
+/**
+ * Alta o modificación del objetivo semanal de un usuario: hace POST si
+ * `exists` es `false` (todavía no tiene objetivo), PATCH si es `true`. No se
+ * reintenta: un reintento del POST tras un éxito daría 409. Sólo invalida la
+ * query de objetivos, no la de horas extra (editar el objetivo no cambia el
+ * saldo actual, sólo el próximo cálculo del batch semanal).
+ */
+export function useUpsertObjetivoHoras() {
+  const { tokens } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      userContextId,
+      horas,
+      exists,
+    }: {
+      userContextId: number;
+      horas: number;
+      exists: boolean;
+    }) => {
+      const token = tokens?.accessToken;
+      if (!token) throw new Error('No access token');
+      return exists
+        ? updateObjetivoHoras(token, userContextId, horas)
+        : createObjetivoHoras(token, userContextId, horas);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: horasExtraQueryKeys.objetivos });
+    },
+    retry: 0,
   });
 }
 

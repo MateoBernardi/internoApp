@@ -31,6 +31,19 @@ export interface MovimientoDTO {
   createdAt: string;
 }
 
+/**
+ * Objetivo semanal de horas de un usuario (GET/POST/PATCH /horarios/objetivos),
+ * en horas reales. Sólo aparece en el GET si el usuario ya tiene objetivo
+ * cargado; su ausencia es lo que decide si corresponde POST (alta) o PATCH
+ * (modificación).
+ */
+export interface ObjetivoHorasDTO {
+  userContextId: number;
+  nombre?: string;
+  apellido?: string;
+  horas: number;
+}
+
 interface MovimientoTipoInfo {
   label: string;
   sign: '+' | '−';

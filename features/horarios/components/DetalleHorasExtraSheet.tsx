@@ -9,6 +9,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -20,7 +21,7 @@ import {
   monthLabel,
   shiftMonth,
 } from '../utils/dateRange';
-import { useMovimientos } from '../viewmodels/useHorasExtra';
+import { useMovimientos, useObjetivosHoras, useUpsertObjetivoHoras } from '../viewmodels/useHorasExtra';
 
 const colors = Colors['light'];
 const AMBER = '#c98a1a';
@@ -60,13 +61,53 @@ export function DetalleHorasExtraSheet({
   // Mes del desglose de movimientos: arranca siempre en el mes actual y se
   // reinicia cada vez que se abre el sheet para un empleado distinto.
   const [mes, setMes] = useState(currentMonthISO);
+  const [editingObjetivo, setEditingObjetivo] = useState(false);
+  const [objetivoText, setObjetivoText] = useState('');
   useEffect(() => {
-    if (visible) setMes(currentMonthISO());
+    if (visible) {
+      setMes(currentMonthISO());
+      setEditingObjetivo(false);
+    }
   }, [visible, displayEmpleado?.userContextId]);
 
   const isCurrentMonth = mes >= currentMonthISO();
   const movimientosQuery = useMovimientos(displayEmpleado?.userContextId, mes, visible);
   const movimientos = movimientosQuery.data ?? [];
+
+  // Objetivo semanal de horas del empleado (GET /horarios/objetivos, filtrado
+  // en el cliente: no hay endpoint por-usuario). Su presencia en la lista
+  // decide si al guardar se hace POST (alta) o PATCH (modificación).
+  const objetivosQuery = useObjetivosHoras(visible);
+  const objetivo = objetivosQuery.data?.find(
+    (o) => o.userContextId === displayEmpleado?.userContextId,
+  );
+  const objetivoExists = objetivo != null;
+  const upsertObjetivo = useUpsertObjetivoHoras();
+
+  function startEditingObjetivo() {
+    setObjetivoText(objetivo != null ? String(objetivo.horas) : '');
+    upsertObjetivo.reset();
+    setEditingObjetivo(true);
+  }
+
+  const parsedObjetivo = Number(objetivoText.replace(',', '.'));
+  const isObjetivoValid = objetivoText.trim().length > 0 && Number.isFinite(parsedObjetivo) && parsedObjetivo > 0;
+
+  function saveObjetivo() {
+    if (!isObjetivoValid || !displayEmpleado) return;
+    upsertObjetivo.mutate(
+      {
+        userContextId: displayEmpleado.userContextId,
+        horas: parsedObjetivo,
+        exists: objetivoExists,
+      },
+      {
+        onSuccess: () => {
+          setEditingObjetivo(false);
+        },
+      },
+    );
+  }
 
   return (
     <Modal
@@ -98,6 +139,85 @@ export function DetalleHorasExtraSheet({
                     <Text style={styles.totalLineBold}>{formatHoras(displayEmpleado.horas)}</Text>
                     {' horas extra · saldo actual'}
                   </Text>
+                </View>
+              )}
+
+              {/*
+               * Objetivo semanal de horas (GET/POST/PATCH /horarios/objetivos).
+               * No afecta el saldo actual de arriba: sólo el próximo cálculo
+               * del batch semanal de acreditación.
+               */}
+              {displayEmpleado && (
+                <View style={styles.objetivoLine}>
+                  {editingObjetivo ? (
+                    <View style={styles.objetivoEditRow}>
+                      <View style={styles.objetivoInputRow}>
+                        <TextInput
+                          style={styles.objetivoInput}
+                          keyboardType="decimal-pad"
+                          value={objetivoText}
+                          onChangeText={setObjetivoText}
+                          placeholder="0.0"
+                          placeholderTextColor={MUTED}
+                          editable={!upsertObjetivo.isPending}
+                          autoFocus
+                        />
+                        <Text style={styles.objetivoInputSuffix}>h</Text>
+                      </View>
+                      <TouchableOpacity
+                        style={styles.objetivoIconBtn}
+                        onPress={() => setEditingObjetivo(false)}
+                        disabled={upsertObjetivo.isPending}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Ionicons name="close" size={18} color={MUTED} />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[
+                          styles.objetivoIconBtn,
+                          styles.objetivoSaveBtn,
+                          (!isObjetivoValid || upsertObjetivo.isPending) && styles.btnDisabled,
+                        ]}
+                        onPress={saveObjetivo}
+                        disabled={!isObjetivoValid || upsertObjetivo.isPending}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        {upsertObjetivo.isPending ? (
+                          <ActivityIndicator size="small" color="#ffffff" />
+                        ) : (
+                          <Ionicons name="checkmark" size={18} color="#ffffff" />
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <View style={styles.objetivoReadRow}>
+                      <Text style={styles.objetivoLineText}>
+                        {'Objetivo semanal: '}
+                        {objetivosQuery.isFetching && !objetivosQuery.data ? (
+                          <Text style={styles.objetivoPlaceholder}>—</Text>
+                        ) : (
+                          <Text style={styles.objetivoLineBold}>
+                            {objetivoExists ? formatHoras(objetivo!.horas) : 'Sin objetivo'}
+                          </Text>
+                        )}
+                      </Text>
+                      <TouchableOpacity
+                        style={styles.objetivoIconBtn}
+                        onPress={startEditingObjetivo}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Ionicons name="pencil" size={16} color={TURNO_COLOR} />
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                  {editingObjetivo && objetivoText.trim().length > 0 && !isObjetivoValid && (
+                    <Text style={styles.objetivoErrorText}>Ingresá un valor mayor a 0.</Text>
+                  )}
+                  {editingObjetivo && upsertObjetivo.isError && (
+                    <Text style={styles.objetivoErrorText}>
+                      {(upsertObjetivo.error as Error)?.message || 'No se pudo guardar el objetivo.'}
+                    </Text>
+                  )}
                 </View>
               )}
 
@@ -265,6 +385,79 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: TURNO_COLOR,
     fontVariant: ['tabular-nums'],
+  },
+  objetivoLine: {
+    backgroundColor: CARD,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: LINE,
+    gap: 6,
+  },
+  objetivoReadRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  objetivoLineText: {
+    fontSize: 13,
+    color: MUTED,
+    fontWeight: '500',
+  },
+  objetivoLineBold: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: INK,
+    fontVariant: ['tabular-nums'],
+  },
+  objetivoPlaceholder: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: MUTED,
+  },
+  objetivoIconBtn: {
+    padding: 6,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  objetivoEditRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  objetivoInputRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: LINE,
+    paddingHorizontal: 10,
+    height: 38,
+    gap: 6,
+  },
+  objetivoInput: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '700',
+    color: INK,
+    fontVariant: ['tabular-nums'],
+    paddingVertical: 0,
+  },
+  objetivoInputSuffix: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: MUTED,
+  },
+  objetivoSaveBtn: {
+    backgroundColor: TURNO_COLOR,
+  },
+  objetivoErrorText: {
+    fontSize: 12,
+    color: RED_FLASH,
   },
   monthNav: {
     flexDirection: 'row',

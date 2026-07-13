@@ -136,6 +136,9 @@ export function mapTurnos(horarios: HorarioDTO[]): Activity[] {
       // sede_ingreso/egreso omitidos hasta que la agenda tenga lookup de nombres de sede
       fecha_inicio: `${date}T${ingreso}:00`,
       fecha_fin: `${date}T${egreso}:00`,
+      // pd.id es bigint → el backend lo serializa como string; coercionamos a number.
+      planificacion_id: Number(h.planificacion_id ?? h.id) || undefined,
+      acepted_at: h.acepted_at ?? null,
     };
   });
 }

@@ -3,6 +3,7 @@ import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
 import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { Colors, UI } from '@/constants/theme';
+import { TurnoDetalle } from '@/features/horarios/components/TurnoDetalle';
 import { useTurnosPorPeriodo } from '@/features/horarios/viewmodels/useTurnosAgenda';
 import { confirmAction } from '@/shared/ui/confirmAction';
 import { Ionicons } from '@expo/vector-icons';
@@ -58,6 +59,7 @@ const AgendaPersonal: React.FC = () => {
   const { height: windowHeight } = useWindowDimensions();
   const [selectedActividadId, setSelectedActividadId] = useState<number | null>(null);
   const [selectedActividadRol, setSelectedActividadRol] = useState<string | undefined>(undefined);
+  const [selectedTurno, setSelectedTurno] = useState<Activity | null>(null);
   const handledParamRef = useRef<string | null>(null);
 
   // FIX: today estabilizado con useState para que no cambie de referencia en cada render.
@@ -334,6 +336,11 @@ const AgendaPersonal: React.FC = () => {
   const handlePressActivity = useCallback((activity: Activity) => {
     if (activity.tipo === 'licencia') return;
 
+    if (activity.tipo === 'turno') {
+      setSelectedTurno(activity);
+      return;
+    }
+
     const actividadId = activity.actividad_id ?? Number(activity.id);
     if (!Number.isFinite(actividadId)) return;
 
@@ -344,6 +351,10 @@ const AgendaPersonal: React.FC = () => {
   const handleCloseActividad = useCallback(() => {
     setSelectedActividadId(null);
     setSelectedActividadRol(undefined);
+  }, []);
+
+  const handleCloseTurno = useCallback(() => {
+    setSelectedTurno(null);
   }, []);
 
   const ejecutarCrearActividad = useCallback(async (payload: {
@@ -540,6 +551,14 @@ const AgendaPersonal: React.FC = () => {
           actividadId={selectedActividadId}
           rol={selectedActividadRol}
           onClose={handleCloseActividad}
+        />
+      )}
+
+      {selectedTurno !== null && (
+        <TurnoDetalle
+          visible
+          activity={selectedTurno}
+          onClose={handleCloseTurno}
         />
       )}
 

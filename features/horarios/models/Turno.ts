@@ -24,6 +24,7 @@ export interface Turno {
   sedeIdEgreso: number;
   licencia: boolean;
   isNew?: boolean;
+  aceptedAt?: string | null;
 }
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -50,5 +51,6 @@ export function mapHorarioDTOToTurno(dto: HorarioDTO): Turno {
     sedeIdIngreso: dto.sede_id_in,
     sedeIdEgreso: dto.sede_id_out,
     licencia: dto.licencia ?? dto.esta_de_licencia ?? false,
+    aceptedAt: dto.acepted_at ?? null,
   };
 }

@@ -8,6 +8,7 @@ const TURNO_SOFT = '#e7f2fb';
 const TURNO_COLOR = '#2f86d6';
 const TARDE_SOFT = '#fff8e7';
 const TARDE_COLOR = '#c98a1a';
+const ACEPTADO_COLOR = '#16a34a';
 
 interface TurnoCardProps {
   turno: Turno;
@@ -39,7 +40,15 @@ export const TurnoCard = React.memo(function TurnoCard({ turno, sedes, onPress }
       </View>
 
       <View style={styles.mid}>
-        <Text style={styles.nombre} numberOfLines={1}>{turno.nombre}</Text>
+        <View style={styles.nombreRow}>
+          <Text style={styles.nombre} numberOfLines={1}>{turno.nombre}</Text>
+          {!!turno.aceptedAt && (
+            <View style={styles.aceptadoPill}>
+              <Ionicons name="checkmark-circle" size={11} color={ACEPTADO_COLOR} />
+              <Text style={styles.aceptadoText}>Aceptado</Text>
+            </View>
+          )}
+        </View>
         <View style={styles.sedeRow}>
           <Ionicons name="location-outline" size={12} color="#7a8087" style={styles.pinIcon} />
           <Text style={styles.sedeText} numberOfLines={1}>
@@ -91,10 +100,31 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 3,
   },
+  nombreRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   nombre: {
     fontSize: 15,
     fontWeight: '700',
     color: '#1c2024',
+    flexShrink: 1,
+  },
+  aceptadoPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    backgroundColor: '#e9f9ef',
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    flexShrink: 0,
+  },
+  aceptadoText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#16a34a',
   },
   sedeRow: {
     flexDirection: 'row',

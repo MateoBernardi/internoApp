@@ -18,6 +18,7 @@ export interface HorarioDTO {
   relacion: string;
   licencia?: boolean;
   esta_de_licencia?: boolean;
+  acepted_at?: string | null;
 }
 
 export interface SedeDTO {

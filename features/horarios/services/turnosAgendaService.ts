@@ -33,3 +33,24 @@ export async function getTurnosPorPeriodo(
   if (!res.ok) throwApiError(await extractError(res), res);
   return res.json();
 }
+
+export interface AceptarTurnoResponse {
+  id: number;
+  acepted_at: string;
+}
+
+export async function aceptarTurno(
+  token: string,
+  planificacionId: number,
+): Promise<AceptarTurnoResponse> {
+  const res = await apiRequest({
+    method: 'POST',
+    endpoint: '/horarios/aceptar',
+    token,
+    body: { id: planificacionId },
+  });
+  // extractError ya devuelve el mensaje plano; lo lanzamos directo (throwApiError
+  // volvería a hacer JSON.parse sobre un string plano y tiraría un SyntaxError).
+  if (!res.ok) throw new Error(await extractError(res));
+  return res.json();
+}

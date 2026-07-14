@@ -38,7 +38,7 @@ export default function ExtrasLayout() {
       <Stack.Screen name="cambiar-rol" options={{ title: 'Gestión de Roles' }} />
       <Stack.Screen name="detalle-empleados" options={{ title: 'Detalle de Empleado' }} />
       <Stack.Screen name="editar-usuario" options={{ title: 'Editar Perfil' }} />
-      <Stack.Screen name="encuestas" options={{ title: 'Gestión de Encuestas' }} />
+      <Stack.Screen name="encuestas" options={{ title: 'Encuestas' }} />
       <Stack.Screen name="encuestas-pendientes" options={{ title: 'Encuestas sin Responder' }} />
       <Stack.Screen name="mis-reportes" options={{ title: 'Mis Reportes' }} />
       <Stack.Screen name="mis-solicitudes-licencias" options={{ title: 'Mis Solicitudes' }} />
@@ -46,6 +46,7 @@ export default function ExtrasLayout() {
       <Stack.Screen name="reportes-encargado" options={{ title: 'Reportes de Empleados' }} />
       <Stack.Screen name="responder-encuesta" options={{ title: 'Responder Encuesta' }} />
       <Stack.Screen name="solicitudes-licencias" options={{ title: 'Solicitudes de Licencias' }} />
+      <Stack.Screen name="horarios-admin" options={{ title: 'Horarios' }} />
     </Stack>
     </SafeAreaView>
   );

@@ -15,6 +15,7 @@ interface AgendaToolbarProps {
   onNextMonth: () => void;
   onOpenMonthPicker: () => void;
   onChangeViewMode: (mode: ViewMode) => void;
+  subtitle?: string;
 }
 
 const VIEW_MODE_LABELS: Record<ViewMode, string> = { month: 'Mes', week: 'Semana', day: 'Día' };
@@ -23,10 +24,11 @@ const VIEW_MODE_LABELS: Record<ViewMode, string> = { month: 'Mes', week: 'Semana
  * Encabezado de la Agenda: navegación de mes y tabs de modo de vista.
  */
 export const AgendaToolbar = React.memo(function AgendaToolbar({
-  activeMonth, viewMode, onPrevMonth, onNextMonth, onOpenMonthPicker, onChangeViewMode,
+  activeMonth, viewMode, onPrevMonth, onNextMonth, onOpenMonthPicker, onChangeViewMode, subtitle,
 }: AgendaToolbarProps) {
   return (
     <View style={styles.header}>
+      {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
       <View style={styles.monthHeaderRow}>
         <TouchableOpacity onPress={onPrevMonth} style={styles.monthNavBtn}>
           <Ionicons name="chevron-back" size={UI.icon.md} color={colors.lightTint} />
@@ -89,6 +91,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.lightTint,
     textTransform: 'capitalize',
+  },
+  subtitle: {
+    fontSize: 13,
+    color: colors.secondaryText,
+    marginBottom: 8,
   },
   tabs: {
     flexDirection: 'row',

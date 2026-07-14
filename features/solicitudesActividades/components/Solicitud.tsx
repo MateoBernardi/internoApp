@@ -117,6 +117,17 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
       actualizarEstadoRaw({ ...variables, idempotencyKey: generateIdempotencyKey() }, options),
     [actualizarEstadoRaw],
   );
+  // Instancia dedicada solo para el auto-mark "SEEN" de useMarcarVisto: su
+  // isPending se mantiene fuera de isMutating a propósito. Si contribuyera a
+  // isMutating, dispararía OperacionPendienteModal mientras el <Modal
+  // animationType="slide"> exterior todavía está en su transición de
+  // apertura al montar — en iOS eso puede colgar la app.
+  const { mutate: marcarVistoEstadoRaw } = useActualizarEstadoInvitacion();
+  const marcarVistoEstado = useCallback<typeof marcarVistoEstadoRaw>(
+    (variables, options) =>
+      marcarVistoEstadoRaw({ ...variables, idempotencyKey: generateIdempotencyKey() }, options),
+    [marcarVistoEstadoRaw],
+  );
   const { mutate: reenviarSolicitud, isPending: isSharing } = useReenviarSolicitud();
   const { mutate: crearActividad, isPending: isCreatingActividad } = useCrearActividad();
   const { mutateAsync: crearObjetivo, isPending: isCreatingObjetivo } = useCreateObjetivo();
@@ -141,7 +152,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
   const [messageDraft, setMessageDraft] = useState('');
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [isModifyMode, setIsModifyMode] = useState(false);
-  const { alertModal, showModal, closeAlert } = useAlertModal();
+  const { alertModal, showModal, closeAlert, onModalDismiss } = useAlertModal();
   const {
     pickedFiles, setPickedFiles, handleAgregarAdjunto, handleOpenArchivo, uploadPickedFiles,
   } = useAdjuntos({ showModal });
@@ -307,14 +318,14 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
       ? new Date(solicitud.fecha_inicio).toISOString()
       : new Date().toISOString();
 
-    const base = descripcion && !hasNextPage
+    const base = (descripcion || (solicitud.fecha_inicio && solicitud.fecha_fin)) && !hasNextPage
       ? [{
         id: 'descripcion',
         usuario_id: solicitud.created_by ?? null,
         usuario_nombre: solicitud.nombre_creador ?? '',
         usuario_apellido: solicitud.apellido_creador ?? '',
         created_at: createdAt,
-        observacion: descripcion,
+        observacion: descripcion || '',
         estado: 'MESSAGE' as const,
         fecha_inicio_nueva: null,
         fecha_fin_nueva: null,
@@ -394,7 +405,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
 
   // ─── Marcar como visto ────────────────────────────────────────────────────
 
-  useMarcarVisto({ solicitud, solicitudId, isHost, invitadosSinCreador, actualizarEstado });
+  useMarcarVisto({ solicitud, solicitudId, isHost, invitadosSinCreador, actualizarEstado: marcarVistoEstado });
 
   // ─── Handlers aceptar / rechazar ─────────────────────────────────────────
 
@@ -689,10 +700,14 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
     <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={handleClose}>
       <View style={styles.overlay}>
         <ModalKeyboardView style={styles.keyboardContainer}>
-          <View style={[styles.container, { paddingBottom: insets.bottom }]}>
+          <View style={styles.container}>
 
             {/* Header */}
-            <View style={styles.modalHeader}>
+            {/* paddingTop con el inset superior: el marginTop '10%' del container
+               resuelve contra el ancho (~39px) y queda por debajo del status bar/notch
+               de iOS, comiéndose el touch del botón de cerrar. */}
+            <View style={[styles.modalHeader, { paddingTop: insets.top + 5 }]}>
+              <Text style={styles.modalHeaderTitle} numberOfLines={1}>{solicitud.titulo}</Text>
               <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
                 <Ionicons name="chevron-down" size={24} color="#999" />
               </TouchableOpacity>
@@ -701,13 +716,12 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
             <ScrollView
               ref={contentScrollRef}
               style={styles.content}
-              contentContainerStyle={styles.contentContainer}
+              contentContainerStyle={[styles.contentContainer, { paddingBottom: insets.bottom + 24 }]}
               showsVerticalScrollIndicator={false}
               nestedScrollEnabled
             >
               {/* Participantes */}
               <ParticipantesBlock
-                titulo={solicitud.titulo}
                 participantes={displayParticipantes.map(inv => ({
                   id: inv.user_id,
                   nombre: getParticipanteDisplayName(inv),
@@ -803,6 +817,13 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                 </View>
 
                 <View style={styles.bitacoraContainer}>
+                  {hasDates && hasNextPage && (
+                    <View style={styles.pinnedDatesBar}>
+                      <ThemedText style={styles.pinnedDatesText}>
+                        Fechas: {formatDateDDMMYYYY(new Date(solicitud.fecha_inicio!))} {formatTimeHHMM(new Date(solicitud.fecha_inicio!))} {'→'} {formatDateDDMMYYYY(new Date(solicitud.fecha_fin!))} {formatTimeHHMM(new Date(solicitud.fecha_fin!))}
+                      </ThemedText>
+                    </View>
+                  )}
                   {isLoadingBitacora ? (
                     <ActivityIndicator size="small" color={colors.lightTint} style={{ marginTop: 20 }} />
                   ) : mensajes.length > 0 ? (
@@ -1311,6 +1332,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
               message={alertModal.message}
               actions={alertModal.actions}
               onClose={closeAlert}
+              onDismiss={onModalDismiss}
             />
 
             <OperacionPendienteModal visible={isMutating} />
@@ -1401,6 +1423,20 @@ const localStyles = StyleSheet.create({
   changeText: {
     fontSize: 13,
     color: colors.text,
+  },
+  pinnedDatesBar: {
+    marginBottom: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: colors.background,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.neutralBorder,
+  },
+  pinnedDatesText: {
+    fontSize: 12,
+    color: colors.text,
+    fontWeight: '600',
   },
   inlineDateSection: {
     paddingHorizontal: 12,

@@ -1,5 +1,9 @@
 import { apiRequest } from '@/shared/apiRequest';
 
+let _currentPushToken: string | null = null;
+export const setCurrentPushToken = (token: string | null): void => { _currentPushToken = token; };
+export const getCurrentPushToken = (): string | null => _currentPushToken;
+
 interface RegisterDeviceData {
   token: string;
   platform: 'ios' | 'android' | 'web';

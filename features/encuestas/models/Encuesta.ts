@@ -2,12 +2,13 @@
 export interface Opcion {
   id: number;
   pregunta_id?: number;
-  texto_opcion: string;
+  texto_opcion: string; // Para tipo horario: ISO datetime string (ej. "2026-06-23T09:00:00.000Z")
   orden?: number;
+  respuestas_count?: number; // Para tipo horario: cantidad de respuestas ya elegidas (slot ocupado)
 }
 
 // Tipo de pregunta según el backend
-export type TipoPregunta = 'rating' | 'texto' | 'multiple_choice' | 'si_no';
+export type TipoPregunta = 'rating' | 'texto' | 'multiple_choice' | 'si_no' | 'horario';
 
 // Pregunta de encuesta
 export interface Pregunta {
@@ -31,15 +32,26 @@ export interface Encuesta {
   fecha_creacion: string;
   fecha_fin: string;
   preguntas: Pregunta[];
-  creador_user_context_id?: number; // ID del contexto de usuario que creó la encuesta
-  created_by?: number;           // ID del creador (desde el backend)
-  creador_nombre?: string;       // Nombre del creador
-  creador_apellido?: string;     // Apellido del creador
+  creador_user_context_id?: number;
+  created_by?: number;
+  creador_nombre?: string;
+  creador_apellido?: string;
+  invitados?: number[];          // IDs de usuario_entidad invitados ([] = todos los empleados)
+  destinatarios_count?: number;  // Total de destinatarios (devuelto por el backend)
+  convocados?: number[];         // user_context_ids que ya recibieron solicitud de reunión desde esta encuesta
+  participantes?: ParticipanteResumen[]; // Invitados con visibilidad sobre la encuesta, CON nombre/apellido (de encuestas_usuarios_visibilidad; devuelto por GET /encuestas/respuestas). Vacío = encuesta para todos los empleados.
 }
 
 // Encuesta completa con preguntas
 export interface EncuestaConPreguntas extends Encuesta {
   preguntas: Pregunta[];
+}
+
+// Participante tal como lo devuelve el backend en GET /encuestas/respuestas
+export interface ParticipanteResumen {
+  user_context_id: number;
+  nombre: string;
+  apellido: string;
 }
 
 // Respuesta individual a una pregunta

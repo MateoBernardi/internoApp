@@ -4,7 +4,7 @@ import type {
     Encuesta,
     EncuestaConPreguntas,
     Pregunta,
-    Respuesta
+    Respuesta,
 } from '../models/Encuesta';
 
 export async function fetchEncuestas(accessToken: string){
@@ -59,7 +59,7 @@ export async function getRespuestasEncuesta(accessToken: string): Promise<Encues
     return encuestasConOpciones;
 }
 
-export async function createEncuestaCompleta(accessToken: string, encuestaData: {encuesta: Encuesta, preguntas: Pregunta}, idempotencyKey?: string): Promise<EncuestaConPreguntas> {
+export async function createEncuestaCompleta(accessToken: string, encuestaData: {encuesta: Encuesta, preguntas: Pregunta, invitados?: number[]}, idempotencyKey?: string): Promise<EncuestaConPreguntas> {
     const response = await apiRequest({ method: 'POST', endpoint: '/encuestas/completa', token: accessToken, body: encuestaData, headers: idempotencyHeaders(idempotencyKey) });
 
     if (!response.ok) {
@@ -113,11 +113,46 @@ export async function enviarRespuestas(accessToken: string, data: {respuestas: R
     };
 }
 
+export async function registrarConvocatorias(
+    accessToken: string,
+    encuestaId: number,
+    invitados: number[]
+): Promise<void> {
+    const response = await apiRequest({
+        method: 'POST',
+        endpoint: `/encuestas/${encuestaId}/convocatorias`,
+        token: accessToken,
+        body: { invitados },
+    });
+    if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.message || data.error || 'Error al registrar convocatorias');
+    }
+}
+
+export async function actualizarParticipantesEncuesta(
+    accessToken: string,
+    encuestaId: number,
+    action: 'add' | 'remove',
+    invitados: number[]
+): Promise<void> {
+    const response = await apiRequest({
+        method: 'PATCH',
+        endpoint: `/encuestas/${encuestaId}/participantes?action=${action}`,
+        token: accessToken,
+        body: { invitados },
+    });
+    if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.message || data.error || 'Error al actualizar participantes');
+    }
+}
+
 export async function eliminarEncuesta(accessToken: string, encuestaId: number): Promise<void> {
-    const response = await apiRequest({ 
-        method: 'DELETE', 
-        endpoint: `/encuestas/${encuestaId}`, 
-        token: accessToken 
+    const response = await apiRequest({
+        method: 'DELETE',
+        endpoint: `/encuestas/${encuestaId}`,
+        token: accessToken
     });
 
     if (!response.ok) {
@@ -126,6 +161,24 @@ export async function eliminarEncuesta(accessToken: string, encuestaId: number):
         }
         const errorText = await response.text();
         console.error('Error eliminando encuesta:', response.status, response.statusText);
+        console.error('Response body:', errorText);
+        throw new Error(`${errorText || response.statusText}`);
+    }
+}
+
+export async function eliminarOpcionEncuesta(accessToken: string, opcionId: number): Promise<void> {
+    const response = await apiRequest({
+        method: 'DELETE',
+        endpoint: `/encuestas/opciones/${opcionId}`,
+        token: accessToken
+    });
+
+    if (!response.ok) {
+        if (response.status === 403) {
+            throw new Error('Solo el creador de la encuesta puede eliminar opciones');
+        }
+        const errorText = await response.text();
+        console.error('Error eliminando opción de encuesta:', response.status, response.statusText);
         console.error('Response body:', errorText);
         throw new Error(`${errorText || response.statusText}`);
     }

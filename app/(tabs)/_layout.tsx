@@ -95,6 +95,11 @@ export default function TabLayout() {
       (canSeeAdminReportesButton && hasReportesPendientesAdmin));
 
   const administrationMenuOptions: MenuOption[] = [
+    {
+      id: 'horarios',
+      label: 'Horarios',
+      route: '/(extras)/horarios-admin' as Href,
+    },
     ...(canSeeAdminReportesButton ? [{
       id: 'reportes',
       label: 'Reportes',
@@ -107,7 +112,7 @@ export default function TabLayout() {
       route: '/(extras)/solicitudes-licencias' as Href,
       hasBadge: hasSolicitudesLicenciasPendientesAdmin,
     }] : []),
-    ...(!isEncargado ? [{
+    ...(hasRole(['gerencia', 'encargado', 'contable', 'personasRelaciones', 'consejo', 'presidencia']) ? [{
       id: 'encuestas',
       label: 'Encuestas',
       route: '/(extras)/encuestas' as Href,

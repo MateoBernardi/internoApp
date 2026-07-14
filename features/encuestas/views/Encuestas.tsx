@@ -1,7 +1,9 @@
 import { Colors } from '@/constants/theme';
+import { Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+    BackHandler,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -26,18 +28,43 @@ export const Encuestas: React.FC = () => {
     setOpcionSeleccionada(null);
   };
 
+  useEffect(() => {
+    if (!opcionSeleccionada) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      handleVolver();
+      return true; // consumir el evento: no propagar al router
+    });
+    return () => sub.remove();
+  }, [opcionSeleccionada]);
+
+  // El valor se re-declara en cada estado (no solo cuando es false) porque
+  // expo-router no restaura el valor previo al desmontar un <Stack.Screen>
+  // condicional: hay que fijarlo explícitamente en true al volver a la selección.
+  const headerToggle = <Stack.Screen options={{ headerShown: opcionSeleccionada === null }} />;
+
   // Si hay una opción seleccionada, mostrar el componente correspondiente
   if (opcionSeleccionada === 'crear') {
-    return <CrearEncuesta onEncuestaCreada={handleEncuestaCreada} onVolver={handleVolver} />;
+    return (
+      <>
+        {headerToggle}
+        <CrearEncuesta onEncuestaCreada={handleEncuestaCreada} onVolver={handleVolver} />
+      </>
+    );
   }
 
   if (opcionSeleccionada === 'resultados') {
-    return <VerResultadosEncuestas onVolver={handleVolver} />;
+    return (
+      <>
+        {headerToggle}
+        <VerResultadosEncuestas onVolver={handleVolver} />
+      </>
+    );
   }
 
   // Pantalla de selección de opciones
   return (
     <View style={styles.container}>
+      {headerToggle}
       <View style={styles.content}>
         <TouchableOpacity
           style={styles.optionCard}

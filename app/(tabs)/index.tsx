@@ -16,12 +16,13 @@ const colors = Colors['light'];
 
 export default function HomeScreen() {
   const { user } = useAuth();
-  const { isEmployeeOrEncargado } = useRoleCheck();
+  const { isEmployeeOrEncargado, canRespondEncuestas } = useRoleCheck();
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const isUserContextReady = Boolean(user?.user_context_id);
-  const shouldEnableHomeQueries = isUserContextReady;
+  const puedeResponderEncuestas = canRespondEncuestas();
+  const shouldEnableHomeQueries = isUserContextReady && puedeResponderEncuestas;
   const top = useSafeTopInset();
 
   const { isLoading: isLoadingEncuestas } = useGetEncuestas(shouldEnableHomeQueries);
@@ -47,7 +48,7 @@ export default function HomeScreen() {
           {/* Sección superior: novedades y encuestas */}
           <View style={styles.topSection}>
             <TablonNovedades refreshTrigger={refreshTrigger} enabled={isUserContextReady} />
-            <EncuestasPendientes enabled={shouldEnableHomeQueries} />
+            {puedeResponderEncuestas && <EncuestasPendientes enabled={shouldEnableHomeQueries} />}
           </View>
 
           {/* Sección principal: solicitudes o kanban (fuera del ScrollView para que el FAB flote) */}

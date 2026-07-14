@@ -4,6 +4,7 @@ import type { UpdateHorarioPayload } from '../models/HorarioDTO';
 import {
   getHorariosByDate,
   getSedes,
+  type HorariosByDateFilter,
   updateHorario,
   uploadShiftsFile,
 } from '../services/horariosService';
@@ -11,7 +12,8 @@ import {
 export const horariosQueryKeys = {
   all: ['horarios'] as const,
   sedes: () => ['horarios', 'sedes'] as const,
-  byDate: (diaFecha: string) => ['horarios', 'byDate', diaFecha] as const,
+  byDate: (diaFecha: string, filter?: HorariosByDateFilter) =>
+    ['horarios', 'byDate', diaFecha, filter?.key ?? null, filter?.value ?? null] as const,
 };
 
 export function useSedes() {
@@ -29,14 +31,14 @@ export function useSedes() {
   });
 }
 
-export function useHorariosByDate(diaFecha: string) {
+export function useHorariosByDate(diaFecha: string, filter?: HorariosByDateFilter) {
   const { tokens } = useAuth();
   return useQuery({
-    queryKey: horariosQueryKeys.byDate(diaFecha),
+    queryKey: horariosQueryKeys.byDate(diaFecha, filter),
     queryFn: async () => {
       const token = tokens?.accessToken;
       if (!token) throw new Error('No access token');
-      return getHorariosByDate(token, diaFecha);
+      return getHorariosByDate(token, diaFecha, filter);
     },
     staleTime: 0,
     gcTime: 1000 * 60 * 10,

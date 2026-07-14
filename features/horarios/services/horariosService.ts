@@ -20,11 +20,21 @@ export async function getSedes(token: string): Promise<SedeDTO[]> {
   return res.json();
 }
 
+// El backend solo soporta UN filtro por request, como string "clave:valor"
+// (ver buildFilterCondition en horariosRepo.ts): turno, sede, usuario o rol_nombre.
+export type HorariosByDateFilter =
+  | { key: 'usuario'; value: number }
+  | { key: 'rol_nombre'; value: string };
+
 export async function getHorariosByDate(
   token: string,
   diaFecha: string, // "YYYY-MM-DD"
+  filter?: HorariosByDateFilter,
 ): Promise<HorarioDTO[]> {
   const params = new URLSearchParams({ dia_fecha: diaFecha });
+  if (filter) {
+    params.set('filter', `${filter.key}:${filter.value}`);
+  }
   const res = await apiRequest({
     method: 'GET',
     endpoint: `/horarios/?${params.toString()}`,
@@ -62,13 +72,11 @@ export async function updateHorario(
   token: string,
   payload: UpdateHorarioPayload,
 ): Promise<void> {
-  console.log('Updating horario with payload:', payload);
   const res = await apiRequest({
     method: 'PATCH',
     endpoint: '/horarios/update-shift',
     token,
     body: payload,
   });
-  console.log('updateHorario response:', res);
   if (!res.ok) throwApiError(await extractError(res), res);
 }

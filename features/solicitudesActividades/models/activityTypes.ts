@@ -25,4 +25,6 @@ export interface Activity {
   turno_code?: 'M' | 'T';
   sede_ingreso?: string;
   sede_egreso?: string;
+  planificacion_id?: number;
+  acepted_at?: string | null;
 }

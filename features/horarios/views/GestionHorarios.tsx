@@ -12,10 +12,15 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
+import { allRoles } from '@/shared/users/roles';
+import type { UserSummary } from '@/shared/users/User';
+import { useSearchUsers } from '@/shared/users/useUser';
 import { EditarTurnoSheet } from '../components/EditarTurnoSheet';
 import { TurnoCard } from '../components/TurnoCard';
 import type { UpdateHorarioPayload } from '../models/HorarioDTO';
 import { mapHorarioDTOToTurno, TURNO_LABEL, type Turno } from '../models/Turno';
+import type { HorariosByDateFilter } from '../services/horariosService';
 import {
   useHorariosByDate,
   useSedes,
@@ -42,6 +47,11 @@ const FILTER_OPTS: { value: TurnoFilter; label: string }[] = [
   { value: 'TARDE', label: TURNO_LABEL.TARDE },
 ];
 
+// Solo roles con turnos: Encargado, Gerencia y todo el personal operativo.
+export const SHIFT_ROLES = allRoles.filter(
+  (r) => r.value === 'encargado' || r.value === 'gerencia' || r.label.startsWith('Personal '),
+);
+
 function todayISO(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -60,24 +70,47 @@ function formatDayLabel(iso: string): string {
   return `${DAY_NAMES[dt.getDay()]} ${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`;
 }
 
+function isoToDate(iso: string): Date {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function dateToISO(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 export function GestionHorarios() {
   const [selDateISO, setSelDateISO] = useState(todayISO);
-  const [q, setQ] = useState('');
   const [filter, setFilter] = useState<TurnoFilter>('Todos');
   const [sedeFilter, setSedeFilter] = useState<number | null>(null);
   const [showSedeMenu, setShowSedeMenu] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedUser, setSelectedUser] = useState<UserSummary | null>(null);
+  const [rolFilter, setRolFilter] = useState<string | null>(null);
+  const [showRolMenu, setShowRolMenu] = useState(false);
   const [editingTurno, setEditingTurno] = useState<Turno | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [toast, setToast] = useState('');
   const [toastError, setToastError] = useState(false);
   const toastAnim = useRef(new Animated.Value(0)).current;
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const horariosQuery = useHorariosByDate(selDateISO);
+  // El backend solo acepta un filtro por request: prioriza el empleado buscado
+  // sobre el rol si por algún motivo ambos quedaran seteados.
+  const activeFilter: HorariosByDateFilter | undefined = selectedUser
+    ? { key: 'usuario', value: selectedUser.user_context_id }
+    : rolFilter
+      ? { key: 'rol_nombre', value: rolFilter }
+      : undefined;
+
+  const horariosQuery = useHorariosByDate(selDateISO, activeFilter);
   const sedesQuery = useSedes();
+  const userSearchQuery = useSearchUsers(searchQuery);
   const { mutate: uploadShifts, isPending: isUploading } = useUploadShifts();
   const { mutate: updateShift, isPending: isSaving } = useUpdateHorario();
 
   const sedes = sedesQuery.data ?? [];
+  const userResults = userSearchQuery.data ?? [];
 
   const showToast = useCallback(
     (msg: string, isError = false) => {
@@ -97,14 +130,12 @@ export function GestionHorarios() {
   const dayTurnos = useMemo(() => {
     const dtos = horariosQuery.data ?? [];
     const mapped = dtos.map(mapHorarioDTOToTurno);
-    const qt = q.trim().toLowerCase();
     return mapped.filter((t) => {
       if (filter !== 'Todos' && t.turno !== filter) return false;
       if (sedeFilter !== null && t.sedeIdIngreso !== sedeFilter) return false;
-      if (qt && !t.nombre.toLowerCase().includes(qt)) return false;
       return true;
     });
-  }, [horariosQuery.data, filter, sedeFilter, q]);
+  }, [horariosQuery.data, filter, sedeFilter]);
 
   const totalForDay = horariosQuery.data?.length ?? 0;
 
@@ -129,6 +160,7 @@ export function GestionHorarios() {
       horario_out: `${editingTurno.fechaISO}T${editingTurno.egreso}:00`,
       sede_id_in: editingTurno.sedeIdIngreso,
       sede_id_out: editingTurno.sedeIdEgreso,
+      licencia: editingTurno.licencia ? 1 : 0,
     };
     updateShift(payload, {
       onSuccess: () => {
@@ -170,6 +202,22 @@ export function GestionHorarios() {
       ? (sedes.find((s) => s.id === sedeFilter)?.nombre ?? `Sede ${sedeFilter}`)
       : 'Todas';
 
+  const rolDropdownLabel =
+    rolFilter !== null
+      ? (SHIFT_ROLES.find((r) => r.value === rolFilter)?.label ?? rolFilter)
+      : 'Todos';
+
+  const selectUser = useCallback((user: UserSummary) => {
+    setSelectedUser(user);
+    setSearchQuery('');
+    setRolFilter(null); // el backend solo admite un filtro por request
+  }, []);
+
+  const clearUserSearch = useCallback(() => {
+    setSelectedUser(null);
+    setSearchQuery('');
+  }, []);
+
   return (
     <View style={styles.container}>
       <ScrollView
@@ -184,11 +232,30 @@ export function GestionHorarios() {
           <TouchableOpacity style={styles.navBtn} onPress={() => setSelDateISO((d) => shiftDay(d, -1))}>
             <Ionicons name="chevron-back" size={22} color={NAVY} />
           </TouchableOpacity>
-          <Text style={styles.dayLabel}>{formatDayLabel(selDateISO)}</Text>
+          <TouchableOpacity
+            style={styles.dayLabelBtn}
+            onPress={() => setShowDatePicker(true)}
+          >
+            <Text style={styles.dayLabel}>{formatDayLabel(selDateISO)}</Text>
+            <Ionicons name="calendar-outline" size={16} color={NAVY} />
+          </TouchableOpacity>
           <TouchableOpacity style={styles.navBtn} onPress={() => setSelDateISO((d) => shiftDay(d, 1))}>
             <Ionicons name="chevron-forward" size={22} color={NAVY} />
           </TouchableOpacity>
         </View>
+
+        {showDatePicker && (
+          <DateTimePicker
+            visible={showDatePicker}
+            value={isoToDate(selDateISO)}
+            mode="date"
+            onConfirm={(date) => {
+              setSelDateISO(dateToISO(date));
+              setShowDatePicker(false);
+            }}
+            onCancel={() => setShowDatePicker(false)}
+          />
+        )}
 
         {/* TXT import card */}
         <View style={styles.importCard}>
@@ -219,22 +286,49 @@ export function GestionHorarios() {
           {/* Search */}
           <View style={styles.searchBox}>
             <Ionicons name="search" size={16} color={MUTED} style={styles.searchIcon} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Buscar empleado"
-              placeholderTextColor={MUTED}
-              value={q}
-              onChangeText={setQ}
-            />
-            {q.length > 0 && (
+            {selectedUser ? (
+              <Text style={styles.searchSelectedText} numberOfLines={1}>
+                {selectedUser.nombre} {selectedUser.apellido}
+              </Text>
+            ) : (
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Buscar empleado"
+                placeholderTextColor={MUTED}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
+            )}
+            {(selectedUser !== null || searchQuery.length > 0) && (
               <TouchableOpacity
-                onPress={() => setQ('')}
+                onPress={clearUserSearch}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
                 <Ionicons name="close" size={16} color={MUTED} />
               </TouchableOpacity>
             )}
           </View>
+
+          {!selectedUser && searchQuery.trim().length > 1 && (
+            <View style={styles.userResultsBox}>
+              {userSearchQuery.isFetching ? (
+                <ActivityIndicator size="small" color={MUTED} style={styles.userResultsLoading} />
+              ) : userResults.length === 0 ? (
+                <Text style={styles.userResultsEmpty}>No se encontraron usuarios</Text>
+              ) : (
+                userResults.map((u) => (
+                  <TouchableOpacity
+                    key={u.user_context_id}
+                    style={styles.userResultItem}
+                    onPress={() => selectUser(u)}
+                  >
+                    <Text style={styles.userResultName}>{u.nombre} {u.apellido}</Text>
+                    <Text style={styles.userResultEmail}>{u.email}</Text>
+                  </TouchableOpacity>
+                ))
+              )}
+            </View>
+          )}
 
           {/* Turno segmented */}
           <View style={styles.segRow}>
@@ -255,7 +349,7 @@ export function GestionHorarios() {
           {/* Sede dropdown */}
           <TouchableOpacity
             style={styles.sedeDropdown}
-            onPress={() => setShowSedeMenu((v) => !v)}
+            onPress={() => { setShowRolMenu(false); setShowSedeMenu((v) => !v); }}
           >
             <Text style={styles.sedeDropdownPrefix}>Sede </Text>
             <Text style={styles.sedeDropdownValue}>{sedeDropdownLabel}</Text>
@@ -283,6 +377,46 @@ export function GestionHorarios() {
                     {s.nombre}
                   </Text>
                   {sedeFilter === s.id && <Ionicons name="checkmark" size={16} color={TURNO_COLOR} />}
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          {/* Rol dropdown */}
+          <TouchableOpacity
+            style={styles.sedeDropdown}
+            onPress={() => { setShowSedeMenu(false); setShowRolMenu((v) => !v); }}
+          >
+            <Text style={styles.sedeDropdownPrefix}>Rol </Text>
+            <Text style={styles.sedeDropdownValue}>{rolDropdownLabel}</Text>
+            <Ionicons name={showRolMenu ? 'chevron-up' : 'chevron-down'} size={15} color={MUTED} />
+          </TouchableOpacity>
+
+          {showRolMenu && (
+            <View style={styles.sedeMenuBox}>
+              <TouchableOpacity
+                style={[styles.sedeMenuItem, rolFilter === null && styles.sedeMenuItemActive]}
+                onPress={() => { setRolFilter(null); setShowRolMenu(false); }}
+              >
+                <Text style={[styles.sedeMenuItemText, rolFilter === null && styles.sedeMenuItemTextActive]}>
+                  Todos
+                </Text>
+                {rolFilter === null && <Ionicons name="checkmark" size={16} color={TURNO_COLOR} />}
+              </TouchableOpacity>
+              {SHIFT_ROLES.map((r) => (
+                <TouchableOpacity
+                  key={r.value}
+                  style={[styles.sedeMenuItem, rolFilter === r.value && styles.sedeMenuItemActive]}
+                  onPress={() => {
+                    setRolFilter(r.value);
+                    setSelectedUser(null); // el backend solo admite un filtro por request
+                    setShowRolMenu(false);
+                  }}
+                >
+                  <Text style={[styles.sedeMenuItemText, rolFilter === r.value && styles.sedeMenuItemTextActive]}>
+                    {r.label}
+                  </Text>
+                  {rolFilter === r.value && <Ionicons name="checkmark" size={16} color={TURNO_COLOR} />}
                 </TouchableOpacity>
               ))}
             </View>
@@ -345,7 +479,7 @@ export function GestionHorarios() {
         ) : (
           <Text style={styles.infoText}>
             <Text style={styles.infoBold}>{dayTurnos.length}</Text>
-            {filter !== 'Todos' || sedeFilter !== null || q ? ` resultado${dayTurnos.length !== 1 ? 's' : ''} · ` : ` turno${dayTurnos.length !== 1 ? 's' : ''} · `}
+            {filter !== 'Todos' || sedeFilter !== null || rolFilter !== null || selectedUser ? ` resultado${dayTurnos.length !== 1 ? 's' : ''} · ` : ` turno${dayTurnos.length !== 1 ? 's' : ''} · `}
             <Text style={styles.infoBold}>{totalForDay}</Text>
             {' total en el día'}
           </Text>
@@ -408,11 +542,18 @@ const styles = StyleSheet.create({
     padding: 6,
     borderRadius: 8,
   },
+  dayLabelBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 4,
+  },
   dayLabel: {
     fontSize: 15,
     fontWeight: '700',
     color: NAVY,
-    flex: 1,
     textAlign: 'center',
   },
   importCard: {
@@ -484,6 +625,51 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: INK,
     paddingVertical: 0,
+  },
+  searchSelectedText: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '600',
+    color: INK,
+  },
+  userResultsBox: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: LINE,
+    maxHeight: 260,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 8,
+    overflow: 'hidden',
+  },
+  userResultsLoading: {
+    paddingVertical: 16,
+  },
+  userResultsEmpty: {
+    fontSize: 13,
+    color: MUTED,
+    textAlign: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+  },
+  userResultItem: {
+    paddingVertical: 11,
+    paddingHorizontal: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: LINE,
+  },
+  userResultName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: INK,
+  },
+  userResultEmail: {
+    fontSize: 12,
+    color: MUTED,
+    marginTop: 2,
   },
   segRow: {
     flexDirection: 'row',

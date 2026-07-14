@@ -115,17 +115,22 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
     const cantidadDias = useMemo(() => wholeDays + (halfDay ? 0.5 : 0), [wholeDays, halfDay]);
 
     const saldoCorrespondiente = useMemo(() => {
-        if (!saldosLicencias || saldosLicencias.length === 0) return null;
+        const ausencias = saldosLicencias?.ausencias;
+        if (!ausencias || ausencias.length === 0) return null;
         if (!tipoLicenciaId) {
-            return saldosLicencias.length === 1 ? saldosLicencias[0] : null;
+            return ausencias.length === 1 ? ausencias[0] : null;
         }
 
-        const porTipo = saldosLicencias.find(s => s.tipo_licencia_id === tipoLicenciaId);
+        const porTipo = ausencias.find(s => s.tipo_licencia_id === tipoLicenciaId);
         if (porTipo) return porTipo;
 
         // Fallback para respuestas con un unico saldo sin tipo_licencia_id.
-        return saldosLicencias.length === 1 ? saldosLicencias[0] : null;
+        return ausencias.length === 1 ? ausencias[0] : null;
     }, [tipoLicenciaId, saldosLicencias]);
+
+    // Franco Compensatorio: saldo puramente informativo (no restringe la creación).
+    const franco = saldosLicencias?.francos;
+    const esFranco = selectedTipo?.codigo === 'FRANCO';
 
     const saldoDisponible = useMemo(() => {
         if (!saldoCorrespondiente) return 0;
@@ -569,6 +574,22 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
                                 </View>
                             )}
 
+                            {/* ── Saldo Franco Compensatorio (informativo) ── */}
+                            {esFranco && (
+                                <View style={[styles.sectionCard, styles.saldoCard]}>
+                                    <Ionicons name="information-circle" size={20} color={colors.lightTint} />
+                                    <View style={{ flex: 1, marginLeft: 12 }}>
+                                        <ThemedText style={styles.saldoTitle}>Saldo de Franco Compensatorio</ThemedText>
+                                        <ThemedText style={styles.saldoSubtitle}>
+                                            {isLoadingSaldos ? '...' : `${franco ?? 0} horas disponibles`}
+                                        </ThemedText>
+                                        <ThemedText style={styles.infoText}>
+                                            Este dato es sólo informativo. No restringe la creación de la solicitud.
+                                        </ThemedText>
+                                    </View>
+                                </View>
+                            )}
+
                             {/* ── Observación ── */}
                             <View style={styles.sectionCard}>
                                 <View style={styles.obsContainer}>
@@ -833,6 +854,7 @@ const styles = StyleSheet.create({
     saldoTitle: { fontSize: 14, fontWeight: '600', color: colors.text },
     saldoSubtitle: { fontSize: 13, color: colors.secondaryText },
     warningText: { fontSize: 12, color: colors.lightTint, marginTop: 4, fontWeight: '500' },
+    infoText: { fontSize: 12, color: colors.secondaryText, marginTop: 4 },
     // Observación
     obsContainer: { flexDirection: 'row', alignItems: 'flex-start' },
     textInput: {

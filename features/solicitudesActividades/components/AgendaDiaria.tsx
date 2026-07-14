@@ -207,9 +207,9 @@ export const AgendaDiaria: React.FC<AgendaDiariaProps> = ({ activities, onDelete
                   return (
                     <TouchableOpacity
                       key={`${activity.id}-${hour}`}
-                      activeOpacity={activity.tipo === 'licencia' || esTurno ? 1 : 0.7}
+                      activeOpacity={esLicencia ? 1 : 0.7}
                       onPress={() => {
-                        if (!esLicencia && !esTurno && onPressActivity) {
+                        if (!esLicencia && onPressActivity) {
                           onPressActivity(activity);
                         }
                       }}

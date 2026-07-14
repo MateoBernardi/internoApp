@@ -77,7 +77,11 @@ export const AgendaSemanal: React.FC<AgendaSemanalProps> = ({
             <View style={styles.activitiesContainer}>
               {/* Turno chip */}
               {turno ? (
-                <View style={styles.turnoChip}>
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => onPressActivity?.(turno)}
+                  style={styles.turnoChip}
+                >
                   <Ionicons name="time-outline" size={13} color="#2f86d6" />
                   <Text style={styles.turnoChipText}>
                     <Text style={styles.turnoChipHora}>{turno.time}–{
@@ -88,7 +92,7 @@ export const AgendaSemanal: React.FC<AgendaSemanalProps> = ({
                     {` · Turno ${turno.turno_code ?? ''}`}
                     {turno.sede_ingreso ? ` · ${turno.sede_ingreso}` : ''}
                   </Text>
-                </View>
+                </TouchableOpacity>
               ) : licencia ? (
                 <View style={styles.licenciaChip}>
                   <Ionicons name="document-text-outline" size={13} color="#7b5ce0" />

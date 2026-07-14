@@ -27,7 +27,7 @@ export const getTiposLicencia = async (accessToken: string): Promise<solicitudLi
     return data;
 };
 
-export const getSaldosLicencia = async (accessToken: string): Promise<solicitudLicencia.SaldoLicencia[]> => {
+export const getSaldosLicencia = async (accessToken: string): Promise<solicitudLicencia.SaldosResponse> => {
     const response = await apiRequest({ method: 'GET', endpoint: '/licencias/saldos', token: accessToken });
 
     if (!response.ok) {
@@ -37,15 +37,17 @@ export const getSaldosLicencia = async (accessToken: string): Promise<solicitudL
     }
 
     const raw = await response.json();
-    const rawList = Array.isArray(raw)
-        ? raw
-        : Array.isArray(raw?.data)
-            ? raw.data
-            : raw
-                ? [raw]
+    // Nuevo shape: objeto { ausencias, francos }. Compatibilidad hacia atrás con el
+    // shape legado (array directo o { data: [...] }).
+    const rawList = Array.isArray(raw?.ausencias)
+        ? raw.ausencias
+        : Array.isArray(raw)
+            ? raw
+            : Array.isArray(raw?.data)
+                ? raw.data
                 : [];
 
-    const data: solicitudLicencia.SaldoLicencia[] = rawList.map((item: any) => {
+    const ausencias: solicitudLicencia.SaldoLicencia[] = rawList.map((item: any) => {
         const diasOtorgados = Number(item?.dias_otorgados ?? 0);
         const diasConsumidos = Number(item?.dias_consumidos ?? 0);
         const diasDisponibles = item?.dias_disponibles !== undefined && item?.dias_disponibles !== null
@@ -65,7 +67,17 @@ export const getSaldosLicencia = async (accessToken: string): Promise<solicitudL
         };
     }).filter((item: solicitudLicencia.SaldoLicencia) => Number.isFinite(item.id));
 
-    return data;
+    // `francos`: saldo neto de Franco Compensatorio en horas (número), ya calculado
+    // por el backend. Compatibilidad con el shape previo que lo enviaba como objeto.
+    let francos: number | null = null;
+    if (raw?.francos != null) {
+        const francosVal = typeof raw.francos === 'object'
+            ? Number(raw.francos.horas_disponibles ?? 0) - Number(raw.francos.horas_consumidas ?? 0)
+            : Number(raw.francos);
+        francos = Number.isFinite(francosVal) ? francosVal : null;
+    }
+
+    return { ausencias, francos };
 };
 
 export const getSolicitudesLicencias = async (accessToken: string, filters?: solicitudLicencia.GetSolicitudesFilters): Promise<solicitudLicencia.SolicitudLicencia[]> => {

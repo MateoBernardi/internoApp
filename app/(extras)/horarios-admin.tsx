@@ -1,10 +1,10 @@
-import { GestionHorarios } from '@/features/horarios/views/GestionHorarios';
+import { HorariosHome } from '@/features/horarios/views/HorariosHome';
 import { StyleSheet, View } from 'react-native';
 
 export default function HorariosAdminScreen() {
   return (
     <View style={styles.container}>
-      <GestionHorarios />
+      <HorariosHome />
     </View>
   );
 }

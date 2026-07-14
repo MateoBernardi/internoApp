@@ -72,13 +72,11 @@ export async function updateHorario(
   token: string,
   payload: UpdateHorarioPayload,
 ): Promise<void> {
-  console.log('Updating horario with payload:', payload);
   const res = await apiRequest({
     method: 'PATCH',
     endpoint: '/horarios/update-shift',
     token,
     body: payload,
   });
-  console.log('updateHorario response:', res);
   if (!res.ok) throwApiError(await extractError(res), res);
 }

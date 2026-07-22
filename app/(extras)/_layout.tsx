@@ -47,6 +47,8 @@ export default function ExtrasLayout() {
       <Stack.Screen name="responder-encuesta" options={{ title: 'Responder Encuesta' }} />
       <Stack.Screen name="solicitudes-licencias" options={{ title: 'Solicitudes de Licencias' }} />
       <Stack.Screen name="horarios-admin" options={{ title: 'Horarios' }} />
+      <Stack.Screen name="kiosco-qr" options={{ title: 'Kiosco QR', headerShown: false }} />
+      <Stack.Screen name="escanear-turno" options={{ title: 'Escanear Turno', headerShown: false }} />
     </Stack>
     </SafeAreaView>
   );

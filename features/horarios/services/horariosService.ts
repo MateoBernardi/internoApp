@@ -1,6 +1,16 @@
 import { apiRequest, throwApiError } from '@/shared/apiRequest';
+import { idempotencyHeaders } from '@/shared/idempotency';
 import Constants from 'expo-constants';
-import type { HorarioDTO, SedeDTO, UpdateHorarioPayload, UploadShiftsResponse } from '../models/HorarioDTO';
+import type {
+  HorarioDTO,
+  HorarioUsuarioDTO,
+  KioskSecretDTO,
+  ScanPayload,
+  ScanResultDTO,
+  SedeDTO,
+  UpdateHorarioPayload,
+  UploadShiftsResponse,
+} from '../models/HorarioDTO';
 
 const API_BASE_URL: string = Constants.expoConfig?.extra?.API_BASE_URL ?? '';
 
@@ -79,4 +89,53 @@ export async function updateHorario(
     body: payload,
   });
   if (!res.ok) throwApiError(await extractError(res), res);
+}
+
+/** Turnos propios del usuario autenticado en un rango de fechas ("YYYY-MM-DD"). */
+export async function getMisHorarios(
+  token: string,
+  fechaInicio: string,
+  fechaFin: string,
+): Promise<HorarioUsuarioDTO[]> {
+  const params = new URLSearchParams({ fechaInicio, fechaFin });
+  const res = await apiRequest({
+    method: 'GET',
+    endpoint: `/horarios/user?${params.toString()}`,
+    token,
+  });
+  if (!res.ok) throwApiError(await extractError(res), res);
+  return res.json();
+}
+
+/** Secreto QR rotativo de una sede (solo cuentas `kiosco`). */
+export async function getKioskSecret(token: string, sedeId: number): Promise<KioskSecretDTO> {
+  const res = await apiRequest({
+    method: 'GET',
+    endpoint: `/horarios/kiosk-secret?sedeId=${sedeId}`,
+    token,
+  });
+  if (!res.ok) throwApiError(await extractError(res), res);
+  return res.json();
+}
+
+/**
+ * Envía un escaneo de entrada/salida. `idempotencyKey` viaja en
+ * `X-Idempotency-Key` para que reintentos de red no dupliquen el marcado.
+ * Lanza un Error con el mensaje del backend en respuestas no-2xx (incluido
+ * el 409 de token/geofence/dispositivo inválido).
+ */
+export async function enviarScan(
+  token: string,
+  payload: ScanPayload,
+  idempotencyKey: string,
+): Promise<ScanResultDTO> {
+  const res = await apiRequest({
+    method: 'PUT',
+    endpoint: '/horarios/scan',
+    token,
+    body: payload,
+    headers: idempotencyHeaders(idempotencyKey),
+  });
+  if (!res.ok) throwApiError(await extractError(res), res);
+  return res.json();
 }

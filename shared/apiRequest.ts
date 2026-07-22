@@ -175,11 +175,16 @@ export async function apiRequest({
  * crudo o el statusText. Centraliza el boilerplate repetido en los servicios.
  */
 export function throwApiError(errorText: string, response: Response): never {
+  // `errorText` puede ser el body JSON crudo o un mensaje ya extraído (texto
+  // plano). El parse va en su propio try para que su SyntaxError nunca se
+  // propague como si fuera el error de la API (antes se filtraba como
+  // "JSON Parse error: ..." en pantalla).
+  let message = errorText;
   try {
     const errData = JSON.parse(errorText);
-    throw new Error(errData.message || errData.error || errorText);
-  } catch (e) {
-    if (e instanceof Error && e.message !== errorText) throw e;
-    throw new Error(errorText || response.statusText);
+    message = errData?.message || errData?.error || errorText;
+  } catch {
+    // No era JSON: se usa el texto tal cual.
   }
+  throw new Error(message || response.statusText);
 }

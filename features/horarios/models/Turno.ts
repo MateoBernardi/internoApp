@@ -30,7 +30,7 @@ export interface Turno {
 const pad = (n: number) => String(n).padStart(2, '0');
 
 // Strips timezone suffix and parses as local time (same pattern as AgendaDiaria.tsx)
-function parseLocal(iso: string): Date {
+export function parseLocal(iso: string): Date {
   const stripped = iso.replace(/([+-]\d{2}:?\d{2}|Z)$/, '').replace(' ', 'T');
   return new Date(stripped);
 }

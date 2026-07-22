@@ -4,6 +4,7 @@ import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { EncuestasPendientes } from '@/features/encuestas/components/EncuestasPendientes';
 import { useGetEncuestas } from '@/features/encuestas/viewmodels/useEncuestas';
+import { TurnoScanCard } from '@/features/horarios/components/TurnoScanCard';
 import { KanbanBoard } from '@/features/kanban/views/KanbanBoard';
 import TablonNovedades from '@/features/novedades/views/TablonNovedades';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
@@ -48,6 +49,7 @@ export default function HomeScreen() {
           {/* Sección superior: novedades y encuestas */}
           <View style={styles.topSection}>
             <TablonNovedades refreshTrigger={refreshTrigger} enabled={isUserContextReady} />
+            <TurnoScanCard />
             {puedeResponderEncuestas && <EncuestasPendientes enabled={shouldEnableHomeQueries} />}
           </View>
 

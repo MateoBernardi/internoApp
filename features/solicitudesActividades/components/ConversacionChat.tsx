@@ -1,6 +1,5 @@
 import { AlertModal } from '@/components/AlertModal';
-import type { FileItem } from '@/components/filePreview';
-import { FileAttachment, FilePreview, InlineImageAttachment, getExt, isImageFile, useOpenFilePreview } from '@/components/filePreview';
+import { FileAttachment, FilePreview, InlineImageAttachment, isImageFile, useOpenFilePreview } from '@/components/filePreview';
 import { ThemedText } from '@/components/themed-text';
 import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
 import { Colors } from '@/constants/theme';
@@ -30,10 +29,12 @@ import {
 } from 'react-native';
 import { UserSelector } from '../../../components/UserSelector';
 import { MESSAGE_STATES, formatDateDDMMYYYY, formatTimeHHMM } from '../conversacion/constants';
+import { buildArchivoFileItem, rutaR2 } from '../conversacion/fileHelpers';
 import { useAdjuntos } from '../conversacion/hooks/useAdjuntos';
 import { useAlertModal } from '../conversacion/hooks/useAlertModal';
 import { useCompartirSelection } from '../conversacion/hooks/useCompartirSelection';
 import { useMarcarVisto } from '../conversacion/hooks/useMarcarVisto';
+import { useMensajesSearch } from '../conversacion/hooks/useMensajesSearch';
 import { useMessagesScroll } from '../conversacion/hooks/useMessagesScroll';
 import { useParticipantesManager } from '../conversacion/hooks/useParticipantesManager';
 import { conversacionStyles } from '../conversacion/styles';
@@ -51,6 +52,7 @@ import {
   useReenviarSolicitud,
   useSolicitudBitacora,
 } from '../viewmodels/useSolicitudes';
+import { MessageBubble } from './MessageBubble';
 import { ParticipantesBlock } from './ParticipantesBlock';
 import { RoleUserSelectionModal } from './RoleUserSelectionModal';
 
@@ -89,9 +91,6 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
   const modalVisible = visible ?? true;
   const handleClose = onClose ?? (() => router.back());
 
-  // ─── Estado UI (debe ir antes de los hooks que dependen de él) ───────────
-  const [showFullBitacora, setShowFullBitacora] = useState(false);
-
   // ─── Queries / mutations ──────────────────────────────────────────────────
   const {
     data: bitacoraData,
@@ -99,7 +98,7 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-  } = useSolicitudBitacora(solicitudId, showFullBitacora);
+  } = useSolicitudBitacora(solicitudId);
   const bitacoraItems = useMemo(
     () => (bitacoraData?.pages ?? []).flatMap(p => p.data),
     [bitacoraData],
@@ -212,11 +211,10 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
 
   // ─── Mensajes / bitácora ──────────────────────────────────────────────────
 
-  const bitacoraVisible = useMemo(() => {
-    if (bitacoraItems.length === 0) return [];
-    if (showFullBitacora) return bitacoraItems;
-    return bitacoraItems.filter(b => MESSAGE_STATES.includes(b.estado));
-  }, [bitacoraItems, showFullBitacora]);
+  const bitacoraVisible = useMemo(
+    () => bitacoraItems.filter(b => MESSAGE_STATES.includes(b.estado)),
+    [bitacoraItems],
+  );
 
   const mensajes = useMemo(() => {
     const descripcion = solicitud.descripcion?.trim();
@@ -260,6 +258,12 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
     if (isExpiredState) return false;
     return messageDraft.trim().length > 0 || pickedFiles.length > 0;
   }, [isExpiredState, messageDraft, pickedFiles]);
+
+  // ─── Búsqueda dentro del chat ─────────────────────────────────────────────
+
+  const mensajesSearch = useMensajesSearch(solicitudId, mensajes, messagesScrollRef, {
+    hasNextPage, isFetchingNextPage, fetchNextPage,
+  });
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
 
@@ -360,6 +364,12 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
                 <Text style={styles.modalHeaderTitle} numberOfLines={1}>{chatTitle}</Text>
                 <Text style={styles.modalHeaderSubtitle} numberOfLines={1}>{chatSubtitle}</Text>
               </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => (mensajesSearch.active ? mensajesSearch.close() : mensajesSearch.setActive(true))}
+                style={styles.closeButton}
+              >
+                <Ionicons name={mensajesSearch.active ? 'close' : 'search-outline'} size={20} color={colors.lightTint} />
+              </TouchableOpacity>
               <TouchableOpacity onPress={() => setShowArchivosModal(true)} style={styles.closeButton}>
                 <Ionicons name="folder-outline" size={22} color={colors.lightTint} />
               </TouchableOpacity>
@@ -367,6 +377,37 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
                 <Ionicons name="chevron-down" size={24} color="#999" />
               </TouchableOpacity>
             </View>
+
+            {mensajesSearch.active && (
+              <View style={localStyles.searchBar}>
+                <Ionicons name="search" size={16} color={colors.secondaryText} />
+                <TextInput
+                  style={localStyles.searchInput}
+                  placeholder="Buscar en la conversación"
+                  placeholderTextColor={colors.secondaryText}
+                  value={mensajesSearch.query}
+                  onChangeText={mensajesSearch.setQuery}
+                  autoFocus
+                />
+                {mensajesSearch.query.trim().length > 0 && (
+                  mensajesSearch.isSearching ? (
+                    <ActivityIndicator size="small" color={colors.lightTint} />
+                  ) : (
+                    <>
+                      <Text style={localStyles.searchCounter}>
+                        {mensajesSearch.matchIds.length > 0 ? `${mensajesSearch.currentIndex + 1}/${mensajesSearch.matchIds.length}` : '0/0'}
+                      </Text>
+                      <TouchableOpacity onPress={mensajesSearch.goPrev} disabled={mensajesSearch.matchIds.length === 0}>
+                        <Ionicons name="chevron-up" size={18} color={mensajesSearch.matchIds.length > 0 ? colors.lightTint : colors.secondaryText} />
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={mensajesSearch.goNext} disabled={mensajesSearch.matchIds.length === 0}>
+                        <Ionicons name="chevron-down" size={18} color={mensajesSearch.matchIds.length > 0 ? colors.lightTint : colors.secondaryText} />
+                      </TouchableOpacity>
+                    </>
+                  )
+                )}
+              </View>
+            )}
 
             <ScrollView
               ref={contentScrollRef}
@@ -419,11 +460,6 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
               <View style={styles.messagesCard}>
                 <View style={styles.sectionHeaderRow}>
                   <ThemedText style={styles.label}>Mensajes</ThemedText>
-                  <TouchableOpacity onPress={() => setShowFullBitacora(p => !p)}>
-                    <Text style={styles.sectionActionText}>
-                      {showFullBitacora ? 'Ocultar información completa' : 'Mostrar información completa'}
-                    </Text>
-                  </TouchableOpacity>
                 </View>
 
                 <View style={styles.bitacoraContainer}>
@@ -473,72 +509,38 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
                         );
 
                         return (
-                          <View key={String(b.id)} style={[styles.bitacoraItem, isOwn ? styles.bitacoraItemOwn : styles.bitacoraItemOther]}>
-                            <View style={styles.bitacoraCard}>
-                              <View style={styles.bitacoraHeader}>
-                                <ThemedText style={styles.bitacoraUser}>{b.usuario_nombre} {b.usuario_apellido}</ThemedText>
-                                <ThemedText style={styles.bitacoraDate}>
-                                  {formatDateDDMMYYYY(new Date(b.created_at))} {formatTimeHHMM(new Date(b.created_at))}
-                                </ThemedText>
-                              </View>
-                              <View style={styles.bitacoraBody}>
-                                {!hideTitle && estadoKey && (
-                                  <ThemedText style={styles.bitacoraAction}>
-                                    {estadoInvitacionMapping[estadoKey]}
-                                  </ThemedText>
-                                )}
-                                {b.observacion && (
-                                  <View style={styles.bitacoraBubble}>
-                                    <ThemedText style={styles.bitacoraText}>{b.observacion}</ThemedText>
-                                  </View>
-                                )}
-                                {archivos.length > 0 && (
-                                  <View style={styles.messageAttachments}>
-                                    {archivos.map((a: any) => (
-                                      // En web no usamos el preview inline de imágenes (abre la
-                                      // página de Cloudflare): las mostramos como adjunto de archivo.
-                                      isImageFile(a.tipo, a.nombre, rutaR2(a)) && Platform.OS !== 'web' ? (
-                                        <InlineImageAttachment
-                                          key={`archivo-${a.id}`}
-                                          archivoId={a.id}
-                                          nombre={typeof a.nombre === 'string' ? a.nombre : 'Imagen'}
-                                          onOpen={(uri) => openWithUri(buildFileItem({ ...a, _resolvedUri: uri }))}
-                                        />
-                                      ) : (
-                                        <FileAttachment
-                                          key={`archivo-${a.id}`}
-                                          file={buildFileItem(a)}
-                                          onOpen={() => handleOpenAsPreview(a)}
-                                        />
-                                      )
-                                    ))}
-                                  </View>
-                                )}
-                                {fechaInicioMsg && fechaFinMsg && (
-                                  <View style={styles.changeBubble}>
-                                    <ThemedText style={styles.changeText}>
-                                      {b.fecha_inicio_nueva ? 'Propuso cambio:' : 'Fechas:'}
-                                    </ThemedText>
-                                    <ThemedText style={styles.changeText}>
-                                      Inicio: {formatDateDDMMYYYY(new Date(fechaInicioMsg))} {formatTimeHHMM(new Date(fechaInicioMsg))}
-                                    </ThemedText>
-                                    <ThemedText style={styles.changeText}>
-                                      Fin: {formatDateDDMMYYYY(new Date(fechaFinMsg))} {formatTimeHHMM(new Date(fechaFinMsg))}
-                                    </ThemedText>
-                                  </View>
-                                )}
-                                {b.__optimistic && (
-                                  <ThemedText style={styles.pendingStatusText}>Enviando…</ThemedText>
-                                )}
-                              </View>
-                            </View>
-                          </View>
+                          <MessageBubble
+                            key={String(b.id)}
+                            id={String(b.id)}
+                            usuarioNombre={b.usuario_nombre}
+                            usuarioApellido={b.usuario_apellido}
+                            createdAt={b.created_at}
+                            observacion={b.observacion}
+                            isOwn={isOwn}
+                            hideTitle={hideTitle}
+                            estadoKey={estadoKey}
+                            archivos={archivos}
+                            fechaInicioMsg={fechaInicioMsg}
+                            fechaFinMsg={fechaFinMsg}
+                            esPropuesta={!!b.fecha_inicio_nueva}
+                            isOptimistic={!!b.__optimistic}
+                            onOpenArchivo={handleOpenAsPreview}
+                            onOpenImage={(archivo, uri) => openWithUri(buildArchivoFileItem({ ...archivo, _resolvedUri: uri }))}
+                            seenBy={b.seen_by}
+                            otherParticipantIds={invitadosSinCreador.map(inv => inv.user_id)}
+                            resolveParticipantName={(uid) => {
+                              const p = displayParticipantes.find(inv => inv.user_id === uid);
+                              return p ? getParticipanteDisplayName(p) : '';
+                            }}
+                            highlighted={mensajesSearch.isCurrentMatch(String(b.id))}
+                            onLayout={(y) => mensajesSearch.registerLayout(String(b.id), y)}
+                          />
                         );
                       })}
                     </ScrollView>
                   ) : (
                     <ThemedText style={{ color: colors.secondaryText, textAlign: 'center', marginTop: 20 }}>
-                      {showFullBitacora ? 'No hay actividad reciente' : 'No hay mensajes'}
+                      No hay mensajes
                     </ThemedText>
                   )}
                 </View>
@@ -687,7 +689,7 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
                               }}
                               onOpenImage={(archivo, uri) => {
                                 setShowArchivosModal(false);
-                                openWithUri(buildFileItem({ ...archivo, _resolvedUri: uri }));
+                                openWithUri(buildArchivoFileItem({ ...archivo, _resolvedUri: uri }));
                               }}
                             />
                           </ScrollView>
@@ -725,30 +727,6 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-// Stored R2 object key; recovers the real extension when the display name was
-// renamed or stripped. Raw DTOs expose it as `ruta_r2`, mapped models as `url`.
-const rutaR2 = (a: any): unknown => a?.ruta_r2 ?? a?.url;
-
-function buildFileItem(archivo: any): FileItem {
-  const tipo: string = typeof archivo.tipo === 'string' ? archivo.tipo : '';
-  const nombre: string = typeof archivo.nombre === 'string' ? archivo.nombre : 'Archivo';
-  const ruta = rutaR2(archivo);
-  return {
-    id: String(archivo.id),
-    kind: isImageFile(tipo, nombre, ruta) ? 'image' : 'file',
-    name: nombre,
-    ext: getExt(tipo, nombre, ruta),
-    size: archivo.tamaño ? formatBytes(archivo.tamaño) : undefined,
-    uri: typeof archivo._resolvedUri === 'string' ? archivo._resolvedUri : '',
-  };
-}
 
 function countByKind(archivos: any[]): { images: number; files: number } {
   let images = 0, files = 0;
@@ -804,7 +782,7 @@ function ArchivosModalContent({
           {files.map(a => (
             <FileAttachment
               key={`file-${a.id}`}
-              file={buildFileItem(a)}
+              file={buildArchivoFileItem(a)}
               onOpen={() => onOpen(a)}
             />
           ))}
@@ -817,6 +795,25 @@ function ArchivosModalContent({
 // ─── Styles ────────────────────────────────────────────────────────────────────
 
 const localStyles = StyleSheet.create({
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.background,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: colors.text,
+    paddingVertical: 2,
+  },
+  searchCounter: {
+    fontSize: 12,
+    color: colors.secondaryText,
+  },
   archivosCard: {
     width: '90%',
     maxWidth: 450,
@@ -881,23 +878,6 @@ const localStyles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#e2543b',
-  },
-  pendingStatusText: {
-    fontSize: 11,
-    fontStyle: 'italic',
-    color: '#9aa3ab',
-    marginTop: 4,
-    alignSelf: 'flex-end',
-  },
-  changeBubble: {
-    marginTop: 6,
-    backgroundColor: colors.background,
-    padding: 8,
-    borderRadius: 8,
-  },
-  changeText: {
-    fontSize: 13,
-    color: colors.text,
   },
   pinnedDatesBar: {
     marginBottom: 8,

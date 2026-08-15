@@ -53,7 +53,6 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
   const [fechaInicio, setFechaInicio] = useState<Date | null>(null);
   const [fechaFin, setFechaFin] = useState<Date | null>(null);
   const [allDay, setAllDay] = useState(false);
-  const [tipoActividad, setTipoActividad] = useState<'REUNION' | 'MANDATO'>('MANDATO');
   const [includeDates, setIncludeDates] = useState(false);
   const [enviarPorSeparado, setEnviarPorSeparado] = useState(false);
   const [showRoleModal, setShowRoleModal] = useState(false);
@@ -99,7 +98,6 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
     setFechaInicio(null);
     setFechaFin(null);
     setAllDay(false);
-    setTipoActividad('MANDATO');
     setIncludeDates(false);
     setSelectedUsers([]);
     setSearchQuery('');
@@ -212,7 +210,7 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
     };
   }, []);
 
-  const hasDates = !fromChatsTab && (tipoActividad === 'REUNION' || includeDates);
+  const hasDates = !fromChatsTab && includeDates;
   const now = ceilToNextMinute(new Date());
   const areDatesMissing = hasDates && (!fechaInicio || !fechaFin);
   const isAllDayCurrentDay = hasDates && allDay && !!fechaInicio && isSameLocalDay(fechaInicio, now);
@@ -364,7 +362,7 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
     const payload: CrearSolicitudRequest = {
       titulo: fromChatsTab ? (esGrupoChat ? titulo.trim() : '') : titulo.trim(),
       descripcion: descripcion.trim(),
-      tipo_actividad: fromChatsTab ? 'CHAT' : tipoActividad,
+      tipo_actividad: fromChatsTab ? 'CHAT' : undefined,
       invitados: invitadoIds,
       crear_de_todos_modos: 0,
       es_grupo: esGrupoChat,
@@ -374,7 +372,7 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
     };
 
     ejecutarCreacion(payload);
-  }, [isFormValid, hasDates, fechaInicio, fechaFin, allDay, tipoActividad, selectedUsers, titulo, descripcion, ejecutarCreacion, showModal, pickedFiles, fromChatsTab, esGrupoChat, enviarPorSeparado]);
+  }, [isFormValid, hasDates, fechaInicio, fechaFin, allDay, selectedUsers, titulo, descripcion, ejecutarCreacion, showModal, pickedFiles, fromChatsTab, esGrupoChat, enviarPorSeparado]);
 
   const handleAgregarAdjunto = useCallback(() => {
     showModal('Adjuntar archivo', 'Elegí una opción', [
@@ -435,31 +433,6 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
                 </View>
               </View>
 
-              {!fromChatsTab && (
-                <View style={[styles.inputSection, { borderBottomWidth: 0, paddingVertical: 10, alignItems: 'center' }]}>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                    <TouchableOpacity
-                      style={[styles.chip, tipoActividad === 'MANDATO' && { borderColor: colors.lightTint, backgroundColor: 'transparent', borderWidth: 1 }]}
-                      onPress={() => {
-                        setTipoActividad('MANDATO');
-                        handleToggleIncludeDates(false);
-                      }}
-                    >
-                      <ThemedText style={[styles.chipText, tipoActividad === 'MANDATO' ? { color: colors.lightTint, fontWeight: 'bold' } : { color: colors.secondaryText }]}>Actividad</ThemedText>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.chip, tipoActividad === 'REUNION' && { borderColor: colors.lightTint, backgroundColor: 'transparent', borderWidth: 1 }]}
-                      onPress={() => {
-                        setTipoActividad('REUNION');
-                        setIncludeDates(true);
-                      }}
-                    >
-                      <ThemedText style={[styles.chipText, tipoActividad === 'REUNION' ? { color: colors.lightTint, fontWeight: 'bold' } : { color: colors.secondaryText }]}>Reunión</ThemedText>
-                    </TouchableOpacity>
-                  </ScrollView>
-                </View>
-              )}
-
               <View style={styles.dateSection}>
                 {selectedUsers.length > 1 && (
                   <View style={[styles.switchRow, { marginTop: 4 }]}>
@@ -475,7 +448,7 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
                   </View>
                 )}
 
-                {!fromChatsTab && tipoActividad === 'MANDATO' && (
+                {!fromChatsTab && (
                   <View style={[styles.switchRow, { marginTop: 4 }]}>
                     <Ionicons name="calendar-outline" size={20} color={colors.secondaryText} style={{ marginRight: 8 }} />
                     <ThemedText style={[styles.dateSectionTitle, { color: colors.secondaryText }]}>Incluir fechas</ThemedText>
@@ -489,7 +462,7 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
                   </View>
                 )}
 
-                {!fromChatsTab && (tipoActividad === 'REUNION' || includeDates) && (
+                {!fromChatsTab && includeDates && (
                   <View style={styles.switchRow}>
                     <Ionicons name="time-outline" size={20} color={colors.lightTint} style={{ marginRight: 8 }} />
                     <ThemedText style={styles.dateSectionTitle}>Todo el día</ThemedText>
@@ -503,7 +476,7 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
                   </View>
                 )}
 
-                {!fromChatsTab && (tipoActividad === 'REUNION' || includeDates) && (
+                {!fromChatsTab && includeDates && (
                   <>
                     <View style={styles.dateRow}>
                       <View style={{ flex: 1 }}>

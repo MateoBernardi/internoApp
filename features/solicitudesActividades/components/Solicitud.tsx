@@ -1,6 +1,5 @@
 import { AlertModal } from '@/components/AlertModal';
-import { FileAttachment, FilePreview, InlineImageAttachment, getExt, isImageFile, useOpenFilePreview } from '@/components/filePreview';
-import type { FileItem } from '@/components/filePreview';
+import { FilePreview, useOpenFilePreview } from '@/components/filePreview';
 import { ThemedText } from '@/components/themed-text';
 import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
 import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
@@ -33,6 +32,7 @@ import { UserSelector } from '../../../components/UserSelector';
 import { useCreateObjetivo } from '../../kanban/hooks/useObjetivos';
 import type { CreateObjetivo, Invitado } from '../../kanban/models/Objetivo';
 import { MESSAGE_STATES, formatDateDDMMYYYY, formatTimeHHMM } from '../conversacion/constants';
+import { buildArchivoFileItem } from '../conversacion/fileHelpers';
 import { useAdjuntos } from '../conversacion/hooks/useAdjuntos';
 import { useAlertModal } from '../conversacion/hooks/useAlertModal';
 import { useCompartirSelection } from '../conversacion/hooks/useCompartirSelection';
@@ -55,6 +55,7 @@ import {
   useReenviarSolicitud,
   useSolicitudBitacora,
 } from '../viewmodels/useSolicitudes';
+import { MessageBubble } from './MessageBubble';
 import { ParticipantesBlock } from './ParticipantesBlock';
 import { RoleUserSelectionModal } from './RoleUserSelectionModal';
 import { ValidacionFechasModal } from './ValidacionFechasModal';
@@ -146,7 +147,6 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
   const [showAcceptModal, setShowAcceptModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showAddToAgendaModal, setShowAddToAgendaModal] = useState(false);
-  const [showFullBitacora, setShowFullBitacora] = useState(false);
   const [acceptObservation, setAcceptObservation] = useState('');
   const [rejectObservation, setRejectObservation] = useState('');
   const [messageDraft, setMessageDraft] = useState('');
@@ -306,11 +306,10 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
 
   // ─── Mensajes / bitácora ──────────────────────────────────────────────────
 
-  const bitacoraVisible = useMemo(() => {
-    if (!bitacora) return [];
-    if (showFullBitacora) return bitacora;
-    return bitacora.filter(b => MESSAGE_STATES.includes(b.estado));
-  }, [bitacora, showFullBitacora]);
+  const bitacoraVisible = useMemo(
+    () => (bitacora ?? []).filter(b => MESSAGE_STATES.includes(b.estado)),
+    [bitacora],
+  );
 
   const mensajes = useMemo(() => {
     const descripcion = solicitud.descripcion?.trim();
@@ -809,11 +808,6 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
               <View style={styles.messagesCard}>
                 <View style={styles.sectionHeaderRow}>
                   <ThemedText style={styles.label}>Mensajes</ThemedText>
-                  <TouchableOpacity onPress={() => setShowFullBitacora(p => !p)}>
-                    <Text style={styles.sectionActionText}>
-                      {showFullBitacora ? 'Ocultar información completa' : 'Mostrar información completa'}
-                    </Text>
-                  </TouchableOpacity>
                 </View>
 
                 <View style={styles.bitacoraContainer}>
@@ -863,69 +857,35 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                         );
 
                         return (
-                          <View key={String(b.id)} style={[styles.bitacoraItem, isOwn ? styles.bitacoraItemOwn : styles.bitacoraItemOther]}>
-                            <View style={styles.bitacoraCard}>
-                              <View style={styles.bitacoraHeader}>
-                                <ThemedText style={styles.bitacoraUser}>{b.usuario_nombre} {b.usuario_apellido}</ThemedText>
-                                <ThemedText style={styles.bitacoraDate}>
-                                  {formatDateDDMMYYYY(new Date(b.created_at))} {formatTimeHHMM(new Date(b.created_at))}
-                                </ThemedText>
-                              </View>
-                              <View style={styles.bitacoraBody}>
-                                {!hideTitle && estadoKey && (
-                                  <ThemedText style={styles.bitacoraAction}>
-                                    {estadoInvitacionMapping[estadoKey]}
-                                  </ThemedText>
-                                )}
-                                {b.observacion && (
-                                  <View style={styles.bitacoraBubble}>
-                                    <ThemedText style={styles.bitacoraText}>{b.observacion}</ThemedText>
-                                  </View>
-                                )}
-                                {archivos.length > 0 && (
-                                  <View style={styles.messageAttachments}>
-                                    {archivos.map((a: any) => (
-                                      // En web no usamos el preview inline de imágenes (abre la
-                                      // página de Cloudflare): las mostramos como adjunto de archivo.
-                                      isImageFile(a.tipo, a.nombre, rutaR2(a)) && Platform.OS !== 'web' ? (
-                                        <InlineImageAttachment
-                                          key={`archivo-${a.id}`}
-                                          archivoId={a.id}
-                                          nombre={typeof a.nombre === 'string' ? a.nombre : 'Imagen'}
-                                          onOpen={(uri) => openWithUri(buildSolicitudFileItem({ ...a, _resolvedUri: uri }))}
-                                        />
-                                      ) : (
-                                        <FileAttachment
-                                          key={`archivo-${a.id}`}
-                                          file={buildSolicitudFileItem(a)}
-                                          onOpen={() => handleOpenAsPreview(a)}
-                                        />
-                                      )
-                                    ))}
-                                  </View>
-                                )}
-                                {fechaInicioMsg && fechaFinMsg && (
-                                  <View style={styles.changeBubble}>
-                                    <ThemedText style={styles.changeText}>
-                                      {b.fecha_inicio_nueva ? 'Propuso cambio:' : 'Fechas:'}
-                                    </ThemedText>
-                                    <ThemedText style={styles.changeText}>
-                                      Inicio: {formatDateDDMMYYYY(new Date(fechaInicioMsg))} {formatTimeHHMM(new Date(fechaInicioMsg))}
-                                    </ThemedText>
-                                    <ThemedText style={styles.changeText}>
-                                      Fin: {formatDateDDMMYYYY(new Date(fechaFinMsg))} {formatTimeHHMM(new Date(fechaFinMsg))}
-                                    </ThemedText>
-                                  </View>
-                                )}
-                              </View>
-                            </View>
-                          </View>
+                          <MessageBubble
+                            key={String(b.id)}
+                            id={String(b.id)}
+                            usuarioNombre={b.usuario_nombre}
+                            usuarioApellido={b.usuario_apellido}
+                            createdAt={b.created_at}
+                            observacion={b.observacion}
+                            isOwn={isOwn}
+                            hideTitle={hideTitle}
+                            estadoKey={estadoKey}
+                            archivos={archivos}
+                            fechaInicioMsg={fechaInicioMsg}
+                            fechaFinMsg={fechaFinMsg}
+                            esPropuesta={!!b.fecha_inicio_nueva}
+                            onOpenArchivo={handleOpenAsPreview}
+                            onOpenImage={(archivo, uri) => openWithUri(buildArchivoFileItem({ ...archivo, _resolvedUri: uri }))}
+                            seenBy={b.seen_by}
+                            otherParticipantIds={invitadosSinCreador.map(inv => inv.user_id)}
+                            resolveParticipantName={(uid) => {
+                              const p = displayParticipantes.find(inv => inv.user_id === uid);
+                              return p ? getParticipanteDisplayName(p) : '';
+                            }}
+                          />
                         );
                       })}
                     </ScrollView>
                   ) : (
                     <ThemedText style={{ color: colors.secondaryText, textAlign: 'center', marginTop: 20 }}>
-                      {showFullBitacora ? 'No hay actividad reciente' : 'No hay cambios relevantes'}
+                      No hay cambios relevantes
                     </ThemedText>
                   )}
                 </View>
@@ -1345,32 +1305,6 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
   );
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function formatSolicitudBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-// Stored R2 object key; recovers the real extension when the display name was
-// renamed or stripped. Raw DTOs expose it as `ruta_r2`, mapped models as `url`.
-const rutaR2 = (a: any): unknown => a?.ruta_r2 ?? a?.url;
-
-function buildSolicitudFileItem(archivo: any): FileItem {
-  const tipo: string = typeof archivo.tipo === 'string' ? archivo.tipo : '';
-  const nombre: string = typeof archivo.nombre === 'string' ? archivo.nombre : 'Archivo';
-  const ruta = rutaR2(archivo);
-  return {
-    id: String(archivo.id),
-    kind: isImageFile(tipo, nombre, ruta) ? 'image' : 'file',
-    name: nombre,
-    ext: getExt(tipo, nombre, ruta),
-    size: archivo.tamaño ? formatSolicitudBytes(archivo.tamaño) : undefined,
-    uri: typeof archivo._resolvedUri === 'string' ? archivo._resolvedUri : '',
-  };
-}
-
 // ─── localStyles ───────────────────────────────────────────────────────────────
 
 const localStyles = StyleSheet.create({
@@ -1413,16 +1347,6 @@ const localStyles = StyleSheet.create({
     color: '#fff',
     fontSize: 13,
     fontWeight: '600',
-  },
-  changeBubble: {
-    marginTop: 6,
-    backgroundColor: colors.background,
-    padding: 8,
-    borderRadius: 8,
-  },
-  changeText: {
-    fontSize: 13,
-    color: colors.text,
   },
   pinnedDatesBar: {
     marginBottom: 8,

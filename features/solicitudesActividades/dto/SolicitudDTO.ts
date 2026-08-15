@@ -17,7 +17,7 @@ export interface SolicitudDTO {
   created_by?: number;
   fecha_inicio: BackendDate | null;
   fecha_fin: BackendDate | null;
-  tipo_actividad: TipoActividadDB;
+  tipo_actividad?: TipoActividadDB;
   invitados: number[];
   estado?: EstadoInvitacionDB | string;
   crear_de_todos_modos: number;
@@ -42,6 +42,13 @@ export interface SolicitudInfoDTO {
   solicitud_id: number;
   titulo: string;
   descripcion: string;
+  ultimo_mensaje?: string | null;
+  // Metadatos del último mensaje/entrada de la bitácora, para el preview de las
+  // listas (icono/leyenda por tipo, flecha enviado/recibido, hora). Opcionales:
+  // se degrada al preview de texto plano si el backend todavía no los envía.
+  ultimo_mensaje_tipo?: 'TEXT' | 'FECHA' | 'IMAGEN' | 'ARCHIVO' | 'APROBACION' | 'RECHAZO';
+  ultimo_mensaje_at?: BackendDate | null;
+  ultimo_mensaje_autor_id?: number | null;
   fecha_inicio: Date;
   fecha_fin: Date;
   nombre_creador: string;
@@ -51,9 +58,17 @@ export interface SolicitudInfoDTO {
   invitados: SolicitudInvitadoDTO[]; //Todos los participantes, incluyendo el creador
   tipo_actividad: string;
   estado: string;
+  seen?: boolean;
   archivos: ArchivoDTO[];
   isHost: boolean;
   es_grupo?: boolean;
+}
+
+export interface SolicitudBitacoraVistoDTO {
+  id_usuario: number;
+  nombre?: string;
+  apellido?: string;
+  seen_at: BackendDate;
 }
 
 export interface SolicitudBitacoraDTO {
@@ -68,6 +83,9 @@ export interface SolicitudBitacoraDTO {
   usuario_apellido?: string;
   archivos?: ArchivoDTO[];
   estado: EstadoInvitacionDB | string;
+  // Participantes que ya vieron esta entrada. Opcional: el mensaje simplemente
+  // no muestra la marca de visto si el backend no lo envía.
+  seen_by?: SolicitudBitacoraVistoDTO[];
 }
 
 export interface SolicitudInvitadoDTO {

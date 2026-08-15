@@ -25,8 +25,7 @@ import { SolicitudesList } from '../components/SolicitudesList';
 
 // Modelos, Hooks y Mappers
 import { SolicitudEnviada } from '../models/Solicitud';
-import { tieneNovedadSinVer } from '../badgeState';
-import { useBuscarSolicitudes, useSolicitudes } from '../viewmodels/useSolicitudes';
+import { useBuscarSolicitudes, useSolicitudes, useSolicitudesUnseen } from '../viewmodels/useSolicitudes';
 
 const colors = Colors['light'];
 
@@ -59,11 +58,10 @@ export default function SolicitudesView({ onRefresh, refreshing }: SolicitudesVi
     debouncedSearch,
     tipoConversacion,
   );
-  // Queries de badge: siempre activas, page 1, para mostrar el dot en la tab inactiva.
-  // Sin type → solicitudes tab badge. Con CHAT → chats tab badge.
-  // Cuando coincide con la display query (mismo key) React Query reutiliza cache → sin llamadas extra.
-  const { data: solBadgeSource } = useSolicitudes(1, 20, !isSearching, undefined);
-  const { data: chatBadgeSource } = useSolicitudes(1, 20, !isSearching, 'CHAT');
+  // Contador real de sin ver por tab, vía el endpoint dedicado (no se limita a
+  // la página cargada como hacía el cómputo cliente-side anterior).
+  const { data: solicitudesUnseenCount = 0 } = useSolicitudesUnseen(true, undefined);
+  const { data: chatsUnseenCount = 0 } = useSolicitudesUnseen(true, 'CHAT');
 
   const solicitudesRaw = isSearching ? (searchResults ?? []) : (data?.data ?? []);
   const solicitudes = useMemo(
@@ -73,24 +71,9 @@ export default function SolicitudesView({ onRefresh, refreshing }: SolicitudesVi
   const totalSolicitudesGlobal = isSearching ? 0 : (data?.total ?? 0);
   const totalPages = isSearching ? 0 : Math.ceil(totalSolicitudesGlobal / 20);
 
-  // Contador de pendientes en la página actual (para el info bar)
-  const { sinVerCount } = useMemo(() => {
-    const count = solicitudes.reduce((acc, sol) => tieneNovedadSinVer(sol) ? acc + 1 : acc, 0);
-    return { sinVerCount: count };
-  }, [solicitudes]);
-
-  // Badges de tabs: cada query alimenta su propia tab.
-  const solicitudesTabBadge = useMemo(() =>
-    (solBadgeSource?.data ?? [])
-      .filter(s => s.tipo_actividad !== 'CHAT')
-      .some(tieneNovedadSinVer),
-    [solBadgeSource],
-  );
-
-  const chatsTabBadge = useMemo(() =>
-    (chatBadgeSource?.data ?? []).some(tieneNovedadSinVer),
-    [chatBadgeSource],
-  );
+  const sinVerCount = solicitudesUnseenCount;
+  const solicitudesTabBadge = solicitudesUnseenCount > 0;
+  const chatsTabBadge = chatsUnseenCount > 0;
 
   // --- HANDLERS ---
   const handleOpenSolicitud = useCallback((solicitud: SolicitudEnviada) => setSelectedSolicitud(solicitud), []);
@@ -172,11 +155,11 @@ export default function SolicitudesView({ onRefresh, refreshing }: SolicitudesVi
               <View style={styles.unseenBadge}>
                 <Ionicons name="alert-circle" size={14} color={colors.tint} />
                 <Text style={styles.unseenText}>
-                  {sinVerCount} {sinVerCount === 1 ? 'sin ver en esta página' : 'sin ver en esta página'}
+                  {sinVerCount} {sinVerCount === 1 ? 'sin ver' : 'sin ver'}
                 </Text>
               </View>
             ) : (
-              <Text style={styles.totalCountText}>Todo al día en esta página</Text>
+              <Text style={styles.totalCountText}>Todo al día</Text>
             )}
           </View>
           {(isFetching || isFetchingSearch) && <ActivityIndicator size="small" color={colors.tint} />}

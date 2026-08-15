@@ -58,6 +58,10 @@ export const mapSolicitudInfoDTOToSolicitudEnviada = (dto: SolicitudInfoDTO): So
   solicitud_id: dto.solicitud_id,
   titulo: dto.titulo,
   descripcion: dto.descripcion,
+  ultimo_mensaje: dto.ultimo_mensaje ?? null,
+  ultimo_mensaje_tipo: dto.ultimo_mensaje_tipo,
+  ultimo_mensaje_at: dto.ultimo_mensaje_at ? new Date(dto.ultimo_mensaje_at) : null,
+  ultimo_mensaje_autor_id: dto.ultimo_mensaje_autor_id ?? null,
   fecha_inicio: dto.fecha_inicio ? new Date(dto.fecha_inicio) : null,
   fecha_fin: dto.fecha_fin ? new Date(dto.fecha_fin) : null,
   nombre_creador: dto.nombre_creador,
@@ -71,6 +75,7 @@ export const mapSolicitudInfoDTOToSolicitudEnviada = (dto: SolicitudInfoDTO): So
   })),
   tipo_actividad: dto.tipo_actividad,
   estado: dto.estado as EstadoInvitacionDB,
+  seen: dto.seen,
   archivos: dto.archivos ?? [],
   is_host: dto.isHost,
   es_grupo: !!dto.es_grupo,
@@ -89,6 +94,12 @@ export function mapSolicitudBitacoraDTOToBitacora(dto: SolicitudBitacoraDTO): Bi
     usuario_apellido: dto.usuario_apellido ?? '',
     estado: normalizeEstado(dto.estado),
     archivos: (dto.archivos ?? []).map(mapArchivoDTOToArchivo),
+    seen_by: dto.seen_by?.map(v => ({
+      id_usuario: v.id_usuario,
+      nombre: v.nombre,
+      apellido: v.apellido,
+      seen_at: parseBackendDate(v.seen_at) ?? new Date(0),
+    })),
   };
 }
 

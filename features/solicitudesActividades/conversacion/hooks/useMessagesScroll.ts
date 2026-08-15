@@ -17,11 +17,20 @@ export function useMessagesScroll({ hasNextPage, isFetchingNextPage, fetchNextPa
   const prevContentHeightRef = useRef(0);
   const scrollOffsetRef = useRef(0);
   const isPrependingRef = useRef(false);
+  // Si el usuario está cerca del final, un crecimiento del contenido (mensaje
+  // nuevo propio o ajeno) se sigue auto-scrolleando. Si scrolleó hacia arriba
+  // para leer historial, un refetch en segundo plano (invalidateQueries de
+  // cualquier mutación, no solo mensajes nuevos) NO debe devolverlo al fondo.
+  const isNearBottomRef = useRef(true);
 
-  const handleMessagesScroll = useCallback((e: { nativeEvent: { contentOffset: { y: number } } }) => {
-    const y = e.nativeEvent.contentOffset.y;
-    scrollOffsetRef.current = y;
-    if (y <= 48 && hasNextPage && !isFetchingNextPage) {
+  const handleMessagesScroll = useCallback((e: {
+    nativeEvent: { contentOffset: { y: number }; contentSize: { height: number }; layoutMeasurement: { height: number } };
+  }) => {
+    const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+    scrollOffsetRef.current = contentOffset.y;
+    const distanceFromBottom = contentSize.height - layoutMeasurement.height - contentOffset.y;
+    isNearBottomRef.current = distanceFromBottom < 120;
+    if (contentOffset.y <= 48 && hasNextPage && !isFetchingNextPage) {
       isPrependingRef.current = true;
       fetchNextPage();
     }
@@ -33,7 +42,11 @@ export function useMessagesScroll({ hasNextPage, isFetchingNextPage, fetchNextPa
       if (delta > 0) messagesScrollRef.current?.scrollTo({ y: scrollOffsetRef.current + delta, animated: false });
       isPrependingRef.current = false;
     } else {
-      messagesScrollRef.current?.scrollToEnd({ animated: false });
+      const isFirstLoad = prevContentHeightRef.current === 0;
+      const grew = h > prevContentHeightRef.current;
+      if (grew && (isFirstLoad || isNearBottomRef.current)) {
+        messagesScrollRef.current?.scrollToEnd({ animated: !isFirstLoad });
+      }
     }
     prevContentHeightRef.current = h;
   }, []);

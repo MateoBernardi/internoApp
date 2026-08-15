@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { SolicitudEnviada } from '../models/Solicitud';
 import { tieneNovedadSinVer } from '../badgeState';
+import { buildUltimoMensajePreview, formatListTimestamp } from '../conversacion/constants';
 
 const colors = Colors['light'];
 
@@ -90,6 +91,7 @@ export function ChatsList({ chats, onRefresh, refreshing, isLoading, onOpenChat,
                         chat={item}
                         displayName={getChatDisplayName(item, currentUserId)}
                         hasBadge={tieneNovedadSinVer(item)}
+                        currentUserId={currentUserId}
                         onPress={() => onOpenChat(item)}
                     />
                 </React.Fragment>
@@ -102,11 +104,20 @@ interface ChatItemProps {
     chat: SolicitudEnviada;
     displayName: string;
     hasBadge: boolean;
+    currentUserId?: number;
     onPress: () => void;
 }
 
-function ChatItem({ chat, displayName, hasBadge, onPress }: ChatItemProps) {
+function ChatItem({ chat, displayName, hasBadge, currentUserId, onPress }: ChatItemProps) {
     const inicial = displayName.charAt(0).toUpperCase();
+    const preview = buildUltimoMensajePreview(chat, currentUserId);
+
+    // Flecha enviado/recibido: solo si el backend informó quién mandó la
+    // última entrada. Sin ese dato no se muestra (degrada al preview simple).
+    const sentByMe = chat.ultimo_mensaje_autor_id != null && currentUserId != null
+        ? chat.ultimo_mensaje_autor_id === currentUserId
+        : null;
+    const timeLabel = chat.ultimo_mensaje_at ? formatListTimestamp(new Date(chat.ultimo_mensaje_at)) : null;
 
     return (
         <TouchableOpacity onPress={onPress} style={styles.itemContainer}>
@@ -118,6 +129,11 @@ function ChatItem({ chat, displayName, hasBadge, onPress }: ChatItemProps) {
                     <ThemedText type="defaultSemiBold" numberOfLines={1} style={styles.itemTitle}>
                         {displayName}
                     </ThemedText>
+                    {!!timeLabel && (
+                        <ThemedText style={[styles.dateText, { color: colors.secondaryText }]}>
+                            {timeLabel}
+                        </ThemedText>
+                    )}
                     {hasBadge && <View style={styles.stateDot} />}
                 </View>
                 {chat.invitados.length > 2 && (
@@ -131,6 +147,26 @@ function ChatItem({ chat, displayName, hasBadge, onPress }: ChatItemProps) {
                             .join(', ')}
                         {chat.invitados.length > 3 ? `, ${chat.invitados.length - 3}+` : ''}
                     </ThemedText>
+                )}
+                {!!preview && (
+                    <View style={styles.previewRow}>
+                        {sentByMe !== null && (
+                            <Ionicons
+                                name={sentByMe ? 'arrow-up-outline' : 'arrow-down-outline'}
+                                size={12}
+                                color={colors.secondaryText}
+                            />
+                        )}
+                        {preview.icon && (
+                            <Ionicons name={preview.icon as any} size={13} color={colors.secondaryText} />
+                        )}
+                        <ThemedText
+                            style={[styles.preview, { color: colors.secondaryText }]}
+                            numberOfLines={1}
+                        >
+                            {preview.text}
+                        </ThemedText>
+                    </View>
                 )}
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.secondaryText} />
@@ -199,9 +235,15 @@ const styles = StyleSheet.create({
         marginTop: 4,
         fontSize: 12,
     },
+    previewRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        marginTop: 2,
+    },
     preview: {
         fontSize: 13,
-        marginTop: 2,
+        flexShrink: 1,
     },
     dateText: {
         fontSize: 12,

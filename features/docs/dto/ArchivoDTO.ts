@@ -17,4 +17,8 @@ export interface ArchivoDTO {
   allowed_roles?: string[];
   usuarios_compartidos?: number[];
   usuarios_asociados?: number[];
+  // URL firmada lista para usar, cuando el endpoint ya la resuelve (p. ej. la
+  // bitácora de una solicitud). Ausente en los listados que la resuelven bajo
+  // demanda vía GET /archivos/:id/url.
+  url?: string;
 }

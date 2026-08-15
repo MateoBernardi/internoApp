@@ -1,6 +1,7 @@
 import { ThemedText } from '@/components/themed-text';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { Colors } from '@/constants/theme';
+import { useAuth } from '@/features/auth/context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
@@ -13,7 +14,8 @@ import {
     View,
 } from 'react-native';
 import { EstadoInvitacionDB, SolicitudEnviada, estadoInvitacionMapping } from '../models/Solicitud';
-import { tieneNovedadSinVer } from '../badgeState';
+import { getGroupSeenState, tieneNovedadSinVer } from '../badgeState';
+import { buildUltimoMensajePreview } from '../conversacion/constants';
 import { useCancelarSolicitud, useOcultarSolicitudInvitado } from '../viewmodels/useSolicitudes';
 
 const colors = Colors['light'];
@@ -106,6 +108,8 @@ interface SolicitudesListProps {
 }
 
 export function SolicitudesList({ solicitudes, onRefresh, refreshing, isLoading, onOpenSolicitud, emptyMessage }: SolicitudesListProps) {
+    const { user } = useAuth();
+    const currentUserId = user?.user_context_id;
     const { mutate: ocultarSolicitud, isPending: isHiding } = useOcultarSolicitudInvitado();
     const { mutate: cancelarSolicitud, isPending: isCancelling } = useCancelarSolicitud();
 
@@ -316,6 +320,7 @@ export function SolicitudesList({ solicitudes, onRefresh, refreshing, isLoading,
                             )}
                             <SolicitudItem
                                 solicitud={item}
+                                currentUserId={currentUserId}
                                 onPress={() => onOpenSolicitud(item)}
                                 onHide={() => handleOcultar(item.solicitud_id)}
                                 isHiding={isHiding}
@@ -351,6 +356,7 @@ function FilterChip({ label, active, onPress }: FilterChipProps) {
 
 interface SolicitudItemProps {
     solicitud: SolicitudEnviada;
+    currentUserId?: number;
     onPress: () => void;
     onHide: () => void;
     isHiding: boolean;
@@ -358,7 +364,7 @@ interface SolicitudItemProps {
     isCancelling: boolean;
 }
 
-function SolicitudItem({ solicitud, onPress, onHide, isHiding, onCancel, isCancelling }: SolicitudItemProps) {
+function SolicitudItem({ solicitud, currentUserId, onPress, onHide, isHiding, onCancel, isCancelling }: SolicitudItemProps) {
     const estadoUI = useMemo(() => getEstadoRelevante(solicitud), [solicitud]);
     const puedeCancelar = solicitud.is_host
         && CANCELABLE_HOST_STATES.includes(solicitud.estado as EstadoInvitacionDB);
@@ -379,6 +385,24 @@ function SolicitudItem({ solicitud, onPress, onHide, isHiding, onCancel, isCance
     const estadoBadgeStyle = getEstadoBadgeStyle(estadoUI);
     const containerColor = getContainerColor(solicitud);
 
+    // Flecha enviado/recibido: solo si el backend informó quién mandó la
+    // última entrada. Sin ese dato no se muestra (degrada al preview simple).
+    // Enviado = flecha arriba, recibido = flecha abajo (misma dirección que
+    // en Chats).
+    const sentByMe = solicitud.ultimo_mensaje_autor_id != null && currentUserId != null
+        ? solicitud.ultimo_mensaje_autor_id === currentUserId
+        : null;
+
+    const descripcionPreview = useMemo(
+        () => buildUltimoMensajePreview(solicitud, currentUserId),
+        [solicitud, currentUserId],
+    );
+
+    // Marca de visto: solo en grupos (más de 2 participantes) y solo sobre lo
+    // que yo mandé, igual que en los mensajes individuales del chat.
+    const groupSeenState = solicitud.invitados.length > 2 ? getGroupSeenState(solicitud) : null;
+    const showSeenMark = sentByMe === true && groupSeenState !== null;
+
     return (
         <TouchableOpacity
             onPress={onPress}
@@ -393,9 +417,30 @@ function SolicitudItem({ solicitud, onPress, onHide, isHiding, onCancel, isCance
                     {solicitud.titulo}
                 </ThemedText>
 
-                <ThemedText numberOfLines={2} style={[styles.description, { color: colors.secondaryText }]}>
-                    {solicitud.descripcion}
-                </ThemedText>
+                {!!descripcionPreview && (
+                    <View style={styles.descriptionRow}>
+                        {sentByMe !== null && (
+                            <Ionicons
+                                name={sentByMe ? 'arrow-up-outline' : 'arrow-down-outline'}
+                                size={12}
+                                color={colors.secondaryText}
+                            />
+                        )}
+                        {descripcionPreview.icon && (
+                            <Ionicons name={descripcionPreview.icon as any} size={13} color={colors.secondaryText} />
+                        )}
+                        <ThemedText numberOfLines={2} style={[styles.description, { color: colors.secondaryText, flex: 1 }]}>
+                            {descripcionPreview.text}
+                        </ThemedText>
+                        {showSeenMark && (
+                            <Ionicons
+                                name={groupSeenState === 'all' ? 'checkmark-done' : 'checkmark'}
+                                size={14}
+                                color={groupSeenState === 'all' ? colors.lightTint : colors.secondaryText}
+                            />
+                        )}
+                    </View>
+                )}
 
                 <View style={styles.badgeRow}>
                     <View style={[styles.badge, { borderColor: tipoBadgeStyle.borderColor, backgroundColor: tipoBadgeStyle.backgroundColor }]}>
@@ -568,9 +613,15 @@ const styles = StyleSheet.create({
         marginTop: 2,
         fontWeight: '500',
     },
+    descriptionRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        marginTop: 4,
+    },
     description: {
         fontSize: 13,
-        marginTop: 4,
+        flexShrink: 1,
     },
     badgeRow: {
         flexDirection: 'row',

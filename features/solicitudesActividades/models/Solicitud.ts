@@ -59,6 +59,10 @@ export interface SolicitudEnviada {
   solicitud_id: number;
   titulo: string;
   descripcion: string;
+  ultimo_mensaje: string | null;
+  ultimo_mensaje_tipo?: 'TEXT' | 'FECHA' | 'IMAGEN' | 'ARCHIVO' | 'APROBACION' | 'RECHAZO';
+  ultimo_mensaje_at?: Date | null;
+  ultimo_mensaje_autor_id?: number | null;
   fecha_inicio: Date | null;
   fecha_fin: Date | null;
   nombre_creador: string;
@@ -67,6 +71,7 @@ export interface SolicitudEnviada {
   invitados: SolicitudInvitado[]; // todos los participantes, incluye al creador
   tipo_actividad: string;
   estado: string;
+  seen?: boolean;
   archivos: ArchivoDTO[];
   is_host: boolean;
   es_grupo: boolean;
@@ -105,7 +110,9 @@ export interface CrearSolicitudRequest {
   descripcion: string;
   fecha_inicio?: Date | null;
   fecha_fin?: Date | null;
-  tipo_actividad: TipoActividadDB;
+  // Sin selector de tipo en la creación: 'CHAT' para conversaciones, undefined
+  // (se omite del payload) para el resto — ya no hay distinción reunión/actividad.
+  tipo_actividad?: TipoActividadDB;
   invitados: number[]; // Array de IDs de usuario_entidad
   crear_de_todos_modos?: number;
   archivosIds?: number[]; // Array de IDs de archivos adjuntos (opcional)
@@ -210,6 +217,13 @@ export interface CancelarSolicitudResponse {
   mensaje?: string;
 }
 
+export interface BitacoraVisto {
+  id_usuario: number;
+  nombre?: string;
+  apellido?: string;
+  seen_at: Date;
+}
+
 export interface BitacoraSolicitud {
   id: number | null;
   solicitud_id?: number;
@@ -228,6 +242,7 @@ export interface BitacoraSolicitud {
   usuario_apellido: string;
   estado: EstadoInvitacionDB;
   archivos?: Archivo[];
+  seen_by?: BitacoraVisto[];
 }
 
 export interface BitacoraPage {

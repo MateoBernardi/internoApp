@@ -93,6 +93,31 @@ export async function getSolicitudBitacora(
     };
 }
 
+export async function buscarBitacora(
+    accessToken: string,
+    params: { solicitudId: number; q: string; limit?: number; cursor?: number },
+): Promise<solicitudes.BitacoraPage> {
+    const urlParams = new URLSearchParams();
+    urlParams.set('solicitud_id', String(params.solicitudId));
+    urlParams.set('q', params.q);
+    urlParams.set('limit', String(params.limit ?? 50));
+    if (params.cursor != null) urlParams.set('cursor', String(params.cursor));
+    const endpoint = `/solicitudes-actividades/solicitudes/bitacora/buscar?${urlParams.toString()}`;
+    const response = await apiRequest({ method: 'GET', endpoint, token: accessToken });
+
+    if (!response.ok) {
+        const errorMsg = await extractErrorText(response);
+        console.error('Error en buscarBitacora:', response.status, errorMsg);
+        throw new Error(errorMsg);
+    }
+
+    const result: { data?: SolicitudBitacoraDTO[]; nextCursor?: number | null } = await response.json();
+    return {
+        data: (result.data ?? []).map(mapSolicitudBitacoraDTOToBitacora),
+        nextCursor: result.nextCursor ?? null,
+    };
+}
+
 export async function getChatArchivos(accessToken: string, solicitudId: number): Promise<Archivo[]> {
     const response = await apiRequest({
         method: 'GET',
@@ -115,10 +140,14 @@ export async function getChatArchivos(accessToken: string, solicitudId: number):
  * Endpoint liviano pensado para prefetch / badge de "Mensajes".
  * GET /solicitudes-actividades/solicitudes/unseen
  */
-export async function getSolicitudesUnseen(accessToken: string): Promise<number> {
+export async function getSolicitudesUnseen(
+    accessToken: string,
+    tipoConversacion?: 'CHAT',
+): Promise<number> {
+    const typeParam = tipoConversacion ? `?type=${tipoConversacion}` : '';
     const response = await apiRequest({
         method: 'GET',
-        endpoint: '/solicitudes-actividades/solicitudes/unseen',
+        endpoint: `/solicitudes-actividades/solicitudes/unseen${typeParam}`,
         token: accessToken,
     });
 

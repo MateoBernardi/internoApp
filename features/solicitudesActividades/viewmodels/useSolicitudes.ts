@@ -261,6 +261,33 @@ export function useActualizarEstadoInvitacion(opts?: { retry?: number }) {
   });
 }
 
+/**
+ * Hook para marcar una solicitud como vista (acuse de lectura). No pisa el
+ * estado de la invitación: solo registra `solicitudes_bitacora_vistas`.
+ */
+export function useMarcarSolicitudVisto() {
+  const { tokens } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: solicitudModels.MarcarSolicitudVistoRequest) => {
+      const accessToken = tokens?.accessToken;
+      if (!accessToken) {
+        throw new Error('No access token available');
+      }
+      return solicitudesApi.marcarSolicitudVisto(accessToken, data);
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: solicitudesQueryKeys.bitacoraBase(variables.solicitud_id),
+      });
+      queryClient.invalidateQueries({
+        queryKey: solicitudesQueryKeys.all,
+      });
+    },
+  });
+}
+
 export function useBuscarSolicitudes(q: string, tipoConversacion?: 'CHAT') {
   const { tokens } = useAuth();
 

@@ -49,6 +49,7 @@ import {
   useActualizarEstadoInvitacion,
   useActualizarInvitadosSolicitud,
   useChatArchivos,
+  useMarcarSolicitudVisto,
   useReenviarSolicitud,
   useSolicitudBitacora,
 } from '../viewmodels/useSolicitudes';
@@ -112,6 +113,7 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
       actualizarEstadoRaw({ ...variables, idempotencyKey: generateIdempotencyKey() }, options),
     [actualizarEstadoRaw],
   );
+  const { mutate: marcarVisto } = useMarcarSolicitudVisto();
   const { mutate: reenviarSolicitud, isPending: isSharing } = useReenviarSolicitud();
   const { mutate: actualizarInvitados } = useActualizarInvitadosSolicitud();
 
@@ -199,6 +201,11 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
     [solicitud.invitados, solicitud.created_by],
   );
 
+  const todosParticipantesIds = useMemo(() =>
+    solicitud.invitados.map(inv => inv.user_id),
+    [solicitud.invitados],
+  );
+
   const todosArchivos = useMemo(() => {
     const archivosBase = chatArchivos ?? [];
     return archivosBase;
@@ -221,6 +228,9 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
     const createdAt = solicitud.fecha_inicio
       ? new Date(solicitud.fecha_inicio).toISOString()
       : new Date().toISOString();
+    // La entrada 'SENT' real (creación) trae su propio acuse de lectura;
+    // la reusamos para que el mensaje original también muestre el tilde.
+    const entradaInicial = (bitacoraItems ?? []).find(b => b.estado === 'SENT');
 
     // La descripción es el mensaje original (el más antiguo). Solo se muestra
     // cuando ya no quedan páginas anteriores por cargar, para que quede arriba
@@ -237,6 +247,7 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
         fecha_inicio_nueva: null,
         fecha_fin_nueva: null,
         archivos: solicitud.archivos ?? [],
+        seen_by: entradaInicial?.seen_by,
       }, ...bitacoraVisible]
       : bitacoraVisible;
 
@@ -252,7 +263,7 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
 
     // Los mensajes optimistas son siempre los más nuevos (van al final).
     return [...base, ...sistema, ...pendingMessages];
-  }, [bitacoraVisible, solicitud, isExpiredState, hasNextPage, pendingMessages]);
+  }, [bitacoraItems, bitacoraVisible, solicitud, isExpiredState, hasNextPage, pendingMessages]);
 
   const canSendMessage = useMemo(() => {
     if (isExpiredState) return false;
@@ -269,7 +280,7 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
 
   // ─── Marcar como visto ────────────────────────────────────────────────────
 
-  useMarcarVisto({ solicitud, solicitudId, isHost, invitadosSinCreador, actualizarEstado });
+  useMarcarVisto({ solicitud, solicitudId, invitadosSinCreador, marcarVisto });
 
   // ─── Enviar mensaje ───────────────────────────────────────────────────────
 
@@ -527,7 +538,7 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
                             onOpenArchivo={handleOpenAsPreview}
                             onOpenImage={(archivo, uri) => openWithUri(buildArchivoFileItem({ ...archivo, _resolvedUri: uri }))}
                             seenBy={b.seen_by}
-                            otherParticipantIds={invitadosSinCreador.map(inv => inv.user_id)}
+                            otherParticipantIds={todosParticipantesIds.filter(id => id !== b.usuario_id)}
                             resolveParticipantName={(uid) => {
                               const p = displayParticipantes.find(inv => inv.user_id === uid);
                               return p ? getParticipanteDisplayName(p) : '';

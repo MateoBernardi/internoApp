@@ -180,6 +180,18 @@ export async function actualizarEstadoInvitacion(accessToken: string, data: soli
     return mapUpdateSolicitudResultToResponse(result);
 }
 
+export async function marcarSolicitudVisto(accessToken: string, data: solicitudes.MarcarSolicitudVistoRequest): Promise<solicitudes.MarcarSolicitudVistoResponse> {
+    const response = await apiRequest({ method: 'POST', endpoint: `/solicitudes-actividades/solicitudes/${data.solicitud_id}/visto`, token: accessToken });
+
+    if (!response.ok) {
+        const errorMsg = await extractErrorText(response);
+        console.error('Error en marcarSolicitudVisto:', response.status, errorMsg);
+        throw new Error(errorMsg);
+    }
+
+    return await response.json();
+}
+
 export async function actualizarInvitadosSolicitud(
     accessToken: string,
     data: solicitudes.ActualizarInvitadosSolicitudRequest,

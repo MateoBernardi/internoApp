@@ -149,6 +149,14 @@ export interface ActualizarEstadoInvitacionResponse {
   rangosOcupados?: RangoOcupado[];
 }
 
+export interface MarcarSolicitudVistoRequest {
+  solicitud_id: number;
+}
+
+export interface MarcarSolicitudVistoResponse {
+  success: boolean;
+}
+
 export interface UpdateSolicitudRequest {
   solicitud_id: number;
   estado: EstadoInvitacionDB;

@@ -8,10 +8,11 @@ import { useArchivoUrl, useUploadArchivo } from '@/features/docs/viewmodels/useA
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  BackHandler,
   Linking,
   Modal,
   ScrollView,
@@ -21,6 +22,7 @@ import {
   View,
 } from 'react-native';
 import { generateIdempotencyKey } from '@/shared/idempotency';
+import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EstadoSolicitud } from '../models/SolicitudLicencia';
 import { formatCantidadLicencia } from '../utils/formatCantidad';
@@ -84,6 +86,15 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
   const solicitudId = Number.isFinite(resolvedId) ? resolvedId : -1;
   const modalVisible = props?.visible ?? true;
   const handleClose = props?.onClose ?? (() => router.back());
+
+  useEffect(() => {
+    if (!modalVisible) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      handleClose();
+      return true;
+    });
+    return () => sub.remove();
+  }, [modalVisible, handleClose]);
 
   // Fetch solicitudes from the correct source based on navigation type
   const { data: solicitudesAdmin } = useGetSolicitudesLicencias(
@@ -294,22 +305,27 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
   const fechaInicio = solicitud ? new Date(solicitud.fecha_inicio) : new Date();
   const fechaFin = solicitud ? new Date(solicitud.fecha_fin) : new Date();
 
+  if (!modalVisible) return null;
+
   if (!solicitud) {
     return (
-      <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={handleClose}>
-        <View style={styles.overlay}>
-          <View style={styles.keyboardContainer}>
-            <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', paddingBottom: insets.bottom }]}>
-              <View style={styles.modalHeader}>
-                <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-                  <Ionicons name="chevron-down" size={24} color="#999" />
-                </TouchableOpacity>
-              </View>
-              <ActivityIndicator size="large" color={colors.lightTint} />
+      <FullScreenPortal>
+      <View style={styles.fullScreen}>
+        <View style={styles.keyboardContainer}>
+          <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', paddingBottom: insets.bottom }]}>
+            <View style={[styles.modalHeader, { paddingTop: insets.top + 10 }]}>
+              <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
+                <Ionicons name="chevron-back" size={24} color="#999" />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
+                <Ionicons name="chevron-down" size={24} color="#999" />
+              </TouchableOpacity>
             </View>
+            <ActivityIndicator size="large" color={colors.lightTint} />
           </View>
         </View>
-      </Modal>
+      </View>
+      </FullScreenPortal>
     );
   }
 
@@ -342,15 +358,18 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
     (isGerencia && solicitud.estado === 'EXPIRADA');
 
   return (
-    <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={handleClose}>
-      <View style={styles.overlay}>
-        <View style={styles.keyboardContainer}>
-          <View style={[styles.container, { paddingBottom: insets.bottom }]}>
-            <View style={styles.modalHeader}>
-              <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-                <Ionicons name="chevron-down" size={24} color="#999" />
-              </TouchableOpacity>
-            </View>
+    <FullScreenPortal>
+    <View style={styles.fullScreen}>
+      <View style={styles.keyboardContainer}>
+        <View style={[styles.container, { paddingBottom: insets.bottom }]}>
+          <View style={[styles.modalHeader, { paddingTop: insets.top + 10 }]}>
+            <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
+              <Ionicons name="chevron-back" size={24} color="#999" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
+              <Ionicons name="chevron-down" size={24} color="#999" />
+            </TouchableOpacity>
+          </View>
             <ScrollView
               style={styles.content}
               contentContainerStyle={styles.contentContainer}
@@ -634,31 +653,30 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
           </View>
         </View>
       </View>
-    </Modal>
+    </FullScreenPortal>
   );
 } const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+  fullScreen: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: colors.componentBackground,
+    zIndex: 1000,
+    elevation: 8,
   },
   keyboardContainer: {
     flex: 1,
-    justifyContent: 'flex-end',
   },
   container: {
     flex: 1,
-    marginTop: '10%',
     backgroundColor: colors.componentBackground,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    overflow: 'hidden',
   },
   modalHeader: {
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: colors.background,
-    alignItems: 'flex-end',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   closeButton: {
     padding: 6,

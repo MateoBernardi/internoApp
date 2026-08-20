@@ -5,9 +5,11 @@ const colors = Colors['light'];
 
 /** Estilos del formulario de creación de solicitud/chat. */
 export const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+  fullScreen: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: colors.componentBackground,
+    zIndex: 1000,
+    elevation: 8,
   },
   keyboardContainer: {
     flex: 1,
@@ -15,11 +17,7 @@ export const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    marginTop: '10%',
     backgroundColor: colors.componentBackground,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    overflow: 'hidden',
   },
   modalHeader: {
     paddingHorizontal: 12,

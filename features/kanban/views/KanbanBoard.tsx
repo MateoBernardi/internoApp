@@ -5,7 +5,7 @@
 
 import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
-import { Colors } from '@/constants/theme';
+import { Breakpoints, Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useMemo, useState } from 'react';
@@ -17,6 +17,7 @@ import {
     StyleSheet,
     Text,
     TouchableOpacity,
+    useWindowDimensions,
     View
 } from 'react-native';
 import { FormObjetivoModal } from '../components/CrearObjetivo';
@@ -108,11 +109,12 @@ interface ColumnProps {
     onMovePress: (objetivo: Objetivo) => void;
     optimisticObjetivoId?: number | null;
     canManage?: boolean;
+    wide?: boolean;
 }
 
-function KanbanColumn({ estado, objetivos, onObjetivoPress, onMovePress, optimisticObjetivoId, canManage = true }: ColumnProps) {
+function KanbanColumn({ estado, objetivos, onObjetivoPress, onMovePress, optimisticObjetivoId, canManage = true, wide = false }: ColumnProps) {
     return (
-        <View style={[styles.column, { backgroundColor: getColumnColor(estado) }]}>
+        <View style={[wide ? styles.columnWide : styles.column, { backgroundColor: getColumnColor(estado) }]}>
             <View style={styles.columnHeader}>
                 <Text style={styles.columnTitle}>{estado}</Text>
                 <View style={styles.columnBadge}>
@@ -153,6 +155,8 @@ function KanbanColumn({ estado, objetivos, onObjetivoPress, onMovePress, optimis
 
 export function KanbanBoard() {
     const { user } = useAuth();
+    const { width } = useWindowDimensions();
+    const isDesktopWide = Platform.OS === 'web' && width >= Breakpoints.desktop;
     const { data: objetivos = [], isLoading, error } = useObjetivos();
     const updateMutation = useUpdateObjetivo();
     const deleteMutation = useDeleteObjetivo();
@@ -370,13 +374,8 @@ export function KanbanBoard() {
                 </TouchableOpacity>
             </View>
 
-            <ScrollView
-                style={styles.boardScroll}
-                horizontal
-                showsHorizontalScrollIndicator={Platform.OS === 'web'}
-                scrollEventThrottle={16}
-            >
-                <View style={styles.board}>
+            {isDesktopWide ? (
+                <View style={styles.boardWide}>
                     {ESTADOS.map((estado) => (
                         <KanbanColumn
                             key={estado}
@@ -385,10 +384,31 @@ export function KanbanBoard() {
                             onObjetivoPress={handleShowDetail}
                             onMovePress={handleOpenMove}
                             optimisticObjetivoId={optimisticObjetivoId}
+                            wide
                         />
                     ))}
                 </View>
-            </ScrollView>
+            ) : (
+                <ScrollView
+                    style={styles.boardScroll}
+                    horizontal
+                    showsHorizontalScrollIndicator={Platform.OS === 'web'}
+                    scrollEventThrottle={16}
+                >
+                    <View style={styles.board}>
+                        {ESTADOS.map((estado) => (
+                            <KanbanColumn
+                                key={estado}
+                                estado={estado}
+                                objetivos={objetivosPorEstado[estado]}
+                                onObjetivoPress={handleShowDetail}
+                                onMovePress={handleOpenMove}
+                                optimisticObjetivoId={optimisticObjetivoId}
+                            />
+                        ))}
+                    </View>
+                </ScrollView>
+            )}
 
             {formModalMinimized && (
                 <View style={styles.minimizedDraftContainer}>
@@ -573,12 +593,24 @@ const styles = StyleSheet.create({
         padding: 12,
         gap: 12,
     },
+    boardWide: {
+        flex: 1,
+        flexDirection: 'row',
+        padding: 12,
+        gap: 12,
+    },
 
     // ============================================
     // Column
     // ============================================
     column: {
         width: 320,
+        borderRadius: 8,
+        overflow: 'hidden',
+        backgroundColor: '#f0f0f0',
+    },
+    columnWide: {
+        flex: 1,
         borderRadius: 8,
         overflow: 'hidden',
         backgroundColor: '#f0f0f0',

@@ -3,8 +3,8 @@ import type { Novedad } from '@/features/novedades/models/Novedades';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
+  BackHandler,
   Keyboard,
-  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -13,6 +13,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
 import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Dropdown } from 'react-native-element-dropdown';
@@ -167,17 +168,27 @@ export function NovedadFormModal({
     onMinimize();
   };
 
+  useEffect(() => {
+    if (!visible) return;
+    const handleBackPress = mode === 'create' && onMinimize ? handleMinimize : onClose;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      handleBackPress();
+      return true;
+    });
+    return () => sub.remove();
+  }, [visible, mode, onMinimize, onClose, loading]);
+
+  if (!visible) return null;
+
   return (
-    <Modal
-      visible={visible}
-      transparent={true}
-      animationType="slide"
-      onRequestClose={mode === 'create' && onMinimize ? handleMinimize : onClose}
-    >
-      <View style={styles.overlay}>
+      <FullScreenPortal>
+      <View style={styles.fullScreen}>
         <ModalKeyboardView style={styles.modalKeyboardAvoiding}>
           <View style={[styles.modalContainer, { paddingBottom: insets.bottom }]}>
-            <View style={styles.modalHeader}>
+            <View style={[styles.modalHeader, { paddingTop: insets.top + 12 }]}>
+              <TouchableOpacity onPress={onClose} style={styles.headerIconButton} disabled={loading}>
+                <Ionicons name="chevron-back" size={24} color="#6b7280" />
+              </TouchableOpacity>
               <View style={styles.modalHeaderActions}>
                 {mode === 'create' && (
                   <TouchableOpacity onPress={handleMinimize} style={styles.headerIconButton} disabled={loading}>
@@ -284,34 +295,31 @@ export function NovedadFormModal({
           </View>
         </ModalKeyboardView>
       </View>
-    </Modal>
+      </FullScreenPortal>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)' // Sombra de fondo
+  fullScreen: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: Colors['light'].componentBackground,
+    zIndex: 1000,
+    elevation: 8,
   },
   modalKeyboardAvoiding: {
     flex: 1,
     width: '100%',
   },
   modalContainer: {
-    // Quita el flex: 1, o usa un alto fijo/porcentaje
     flex: 1,
-    marginTop: '10%', // Empuja el modal hacia abajo
     backgroundColor: Colors['light'].componentBackground,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    overflow: 'hidden',
   },
   modalHeader: {
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomColor: Colors['light'].icon,
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
     alignItems: 'center',
   },
   modalHeaderActions: {

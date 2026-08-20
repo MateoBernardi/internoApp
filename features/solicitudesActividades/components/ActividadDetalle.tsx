@@ -17,13 +17,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Modal,
+  BackHandler,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
 import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ParticipantesBlock } from './ParticipantesBlock';
@@ -535,14 +536,28 @@ export function ActividadDetalle({
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
+  useEffect(() => {
+    if (!modalVisible) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      handleClose();
+      return true;
+    });
+    return () => sub.remove();
+  }, [modalVisible, handleClose]);
+
+  if (!modalVisible) return null;
+
   return (
-    <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={handleClose}>
-      <View style={styles.overlay}>
+    <FullScreenPortal>
+    <View style={styles.fullScreen}>
         <ModalKeyboardView style={styles.keyboardContainer}>
           <View style={[styles.container, { paddingBottom: insets.bottom }]}>
 
             {/* ── Header ──────────────────────────────────────────────────── */}
-            <View style={styles.modalHeader}>
+            <View style={[styles.modalHeader, { paddingTop: insets.top + 12 }]}>
+              <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
+                <Ionicons name="chevron-back" size={24} color="#6b7280" />
+              </TouchableOpacity>
               {isGuest && (
                 <TouchableOpacity
                   style={styles.headerLeaveBtn}
@@ -552,9 +567,6 @@ export function ActividadDetalle({
                   <Ionicons name="exit-outline" size={20} color={colors.error} />
                 </TouchableOpacity>
               )}
-              <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-                <Ionicons name="chevron-down" size={24} color="#6b7280" />
-              </TouchableOpacity>
             </View>
 
             {isLoadingActividad ? (
@@ -881,19 +893,21 @@ export function ActividadDetalle({
             />
           </View>
         </ModalKeyboardView>
-      </View>
 
       <FilePreview file={previewFile} onClose={closePreview} />
-    </Modal>
+    </View>
+    </FullScreenPortal>
   );
 }
 
 // ─── Estilos ──────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+  fullScreen: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: colors.componentBackground,
+    zIndex: 1000,
+    elevation: 8,
   },
   keyboardContainer: {
     flex: 1,
@@ -901,11 +915,7 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    marginTop: '10%',
     backgroundColor: colors.componentBackground,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    overflow: 'hidden',
   },
   // ── Header ────────────────────────────────────────────────────────────────
   modalHeader: {
@@ -913,7 +923,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomColor: Colors['light'].icon,
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
     alignItems: 'center',
     gap: 8,
   },
@@ -926,7 +936,6 @@ const styles = StyleSheet.create({
     padding: 6,
     borderRadius: 16,
     backgroundColor: colors.error + '15',
-    marginRight: 'auto',
   },
   // ── Loading ───────────────────────────────────────────────────────────────
   loadingContainer: {

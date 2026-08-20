@@ -8,9 +8,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import type * as ImagePickerTypes from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useMemo, useState } from 'react';
-import { KeyboardAvoidingView, Modal, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { BackHandler, KeyboardAvoidingView, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { deriveIdempotencyKey } from '@/shared/idempotency';
+import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
 import { KEYBOARD_BEHAVIOR } from '@/shared/ui/keyboard';
 import { useIdempotencyKey } from '@/shared/useIdempotencyKey';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -50,6 +51,15 @@ export default function CrearReporte(props?: CrearReporteProps) {
 	const { mutateAsync: crearReporte, isPending: isCreating } = useCreateReporte();
 	const modalVisible = props?.visible ?? true;
 	const handleClose = props?.onClose ?? (() => router.back());
+
+	useEffect(() => {
+		if (!modalVisible) return;
+		const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+			handleClose();
+			return true;
+		});
+		return () => sub.remove();
+	}, [modalVisible, handleClose]);
 
 	// Obtener user_context_id de props o de los parámetros de navegación
 	const initialUserId = props?.user_context_id || (params.user_context_id as string) || '';
@@ -273,19 +283,21 @@ export default function CrearReporte(props?: CrearReporteProps) {
 		setShowTimePicker(false);
 	}, []);
 
+	if (!modalVisible) return null;
+
 	return (
-		<Modal visible={modalVisible} transparent animationType="slide" onRequestClose={handleClose}>
-			<View style={styles.overlay}>
-				<KeyboardAvoidingView
-					behavior={KEYBOARD_BEHAVIOR}
-					style={styles.keyboardContainer}
-				>
-					<View style={[styles.container, { paddingBottom: insets.bottom }]}>
-						<View style={styles.modalHeader}>
-							<TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-								<Ionicons name="close" size={24} color="#999" />
-							</TouchableOpacity>
-						</View>
+		<FullScreenPortal>
+		<View style={styles.fullScreen}>
+			<KeyboardAvoidingView
+				behavior={KEYBOARD_BEHAVIOR}
+				style={styles.keyboardContainer}
+			>
+				<View style={[styles.container, { paddingBottom: insets.bottom }]}>
+					<View style={[styles.modalHeader, { paddingTop: insets.top + 10 }]}>
+						<TouchableOpacity onPress={handleClose} style={styles.closeButton}>
+							<Ionicons name="chevron-back" size={24} color="#999" />
+						</TouchableOpacity>
+					</View>
 
 						<ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
 							{/* Usuario reportado */}
@@ -461,16 +473,18 @@ export default function CrearReporte(props?: CrearReporteProps) {
 							onClose={() => setAlertModal((prev) => ({ ...prev, visible: false }))}
 						/>
 					</View>
-				</KeyboardAvoidingView>
-			</View>
-		</Modal>
+			</KeyboardAvoidingView>
+		</View>
+		</FullScreenPortal>
 	);
 }
 
 const styles = StyleSheet.create({
-	overlay: {
-		flex: 1,
-		backgroundColor: 'rgba(0,0,0,0.5)',
+	fullScreen: {
+		...StyleSheet.absoluteFillObject,
+		backgroundColor: colors.componentBackground,
+		zIndex: 1000,
+		elevation: 8,
 	},
 	keyboardContainer: {
 		flex: 1,
@@ -478,18 +492,14 @@ const styles = StyleSheet.create({
 	},
 	container: {
 		flex: 1,
-		marginTop: '10%',
 		backgroundColor: colors.componentBackground,
-		borderTopLeftRadius: 16,
-		borderTopRightRadius: 16,
-		overflow: 'hidden',
 	},
 	modalHeader: {
 		paddingHorizontal: 12,
 		paddingVertical: 10,
 		borderBottomWidth: 1,
 		borderBottomColor: colors.background,
-		alignItems: 'flex-end',
+		alignItems: 'flex-start',
 	},
 	closeButton: {
 		padding: 6,

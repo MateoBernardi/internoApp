@@ -8,12 +8,12 @@ import {
   ListRenderItem,
   RefreshControl,
   StyleSheet,
+  Text,
   TouchableOpacity,
   View
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Stack } from 'expo-router';
 // Componentes y Hooks propios
-import { CreateButton } from '@/components/ui/CreateButton';
 import { EstadoSolicitud, SolicitudLicencia } from '../models/SolicitudLicencia';
 import { formatCantidadLicencia } from '../utils/formatCantidad';
 import { useGetSolicitudesUsuario } from '../viewmodels/useSolicitudes';
@@ -35,7 +35,6 @@ const colors = Colors['light'];
 
 
 export function MisSolicitudes() {
-  const insets = useSafeAreaInsets();
   const { hasRole } = useRoleCheck();
   const isConsejo = hasRole('consejo');
 
@@ -113,6 +112,21 @@ export function MisSolicitudes() {
 
   return (
     <View style={styles.container}>
+      {!isConsejo && (
+        <Stack.Screen
+          options={{
+            headerRight: () => (
+              <TouchableOpacity
+                onPress={handleCreateNew}
+                style={styles.createButton}
+                accessibilityLabel="Crear solicitud de licencia"
+              >
+                <Text style={styles.createButtonText}>+</Text>
+              </TouchableOpacity>
+            ),
+          }}
+        />
+      )}
       {(!solicitudes || solicitudes.length === 0) ? (
         <View style={styles.centerContainer}>
           <ThemedText type="subtitle">No hay solicitudes enviadas</ThemedText>
@@ -136,15 +150,6 @@ export function MisSolicitudes() {
               tintColor={colors.tint}
             />
           }
-        />
-      )}
-
-      {/* Botón flotante de creación */}
-      {!isConsejo && (
-        <CreateButton
-          onPress={handleCreateNew}
-          style={{ ...styles.fab, bottom: insets.bottom + 16, right: 36 }}
-          accessibilityLabel="Crear solicitud de licencia"
         />
       )}
 
@@ -297,8 +302,16 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
   },
-  fab: {
-    position: 'absolute',
-    right: 36,
+  createButton: {
+    backgroundColor: colors.lightTint,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginRight: 4,
+  },
+  createButtonText: {
+    color: colors.componentBackground,
+    fontWeight: '700',
+    fontSize: 14,
   },
 });

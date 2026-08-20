@@ -1,5 +1,4 @@
 import { ThemedText } from '@/components/themed-text';
-import { CreateButton } from '@/components/ui/CreateButton';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { Colors } from '@/constants/theme';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
@@ -7,10 +6,10 @@ import React, { useCallback, useState } from 'react';
 import {
 	ScrollView,
 	StyleSheet,
+	Text,
 	TouchableOpacity,
 	View
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EstadoReporte, Reporte } from '../models/Reporte';
 import { useReportes } from '../viewmodels/useReportes';
 import CrearReporte from '../views/CrearReporte';
@@ -27,13 +26,11 @@ interface ReportesEmpleadoProps {
 	userId: string;
 	userNombre?: string;
 	userApellido?: string;
-	fabBehavior?: 'container' | 'viewport';
 }
 
 const colors = Colors['light'];
 
-export function ReportesEmpleado({ userId, userNombre = '', userApellido = '', fabBehavior = 'container' }: ReportesEmpleadoProps) {
-	const insets = useSafeAreaInsets();
+export function ReportesEmpleado({ userId, userNombre = '', userApellido = '' }: ReportesEmpleadoProps) {
 	const { hasRole } = useRoleCheck();
 	const { data: reportes, isLoading, error } = useReportes(userId);
 	const canCreateReporte = hasRole(['gerencia', 'personasRelaciones', 'encargado']);
@@ -70,30 +67,21 @@ export function ReportesEmpleado({ userId, userNombre = '', userApellido = '', f
 		/>
 	), []);
 
-	const renderCreateButton = useCallback(() => {
+	const renderHeader = useCallback(() => {
 		if (!canCreateReporte) return null;
 
-		if (fabBehavior === 'viewport') {
-			return (
-				<View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-					<View style={[styles.viewportFabContainer, { bottom: insets.bottom + 16, right: 36 }]}>
-						<CreateButton
-							onPress={handleCrearReporte}
-							accessibilityLabel="Crear nuevo reporte"
-						/>
-					</View>
-				</View>
-			);
-		}
-
 		return (
-			<CreateButton
-				onPress={handleCrearReporte}
-				style={{ ...styles.createButton, bottom: insets.bottom + 16, right: 36 }}
-				accessibilityLabel="Crear nuevo reporte"
-			/>
+			<View style={styles.header}>
+				<TouchableOpacity
+					style={styles.createButton}
+					onPress={handleCrearReporte}
+					accessibilityLabel="Crear nuevo reporte"
+				>
+					<Text style={styles.createButtonText}>+ Reporte</Text>
+				</TouchableOpacity>
+			</View>
 		);
-	}, [canCreateReporte, fabBehavior, handleCrearReporte, insets.bottom]);
+	}, [canCreateReporte, handleCrearReporte]);
 
 	if (isLoading) {
 		return (
@@ -112,6 +100,7 @@ export function ReportesEmpleado({ userId, userNombre = '', userApellido = '', f
 	if (!reportes || reportes.length === 0) {
 		return (
 			<View style={styles.container}>
+				{renderHeader()}
 				<View style={styles.centerContainer}>
 					<ThemedText type="subtitle">No hay reportes para este usuario</ThemedText>
 				</View>
@@ -124,13 +113,13 @@ export function ReportesEmpleado({ userId, userNombre = '', userApellido = '', f
 						user_apellido={userApellido}
 					/>
 				)}
-				{renderCreateButton()}
 			</View>
 		);
 	}
 
 	return (
 		<View style={styles.container}>
+			{renderHeader()}
 			<ScrollView
 				style={styles.listScroll}
 				contentContainerStyle={styles.listContent}
@@ -164,7 +153,6 @@ export function ReportesEmpleado({ userId, userNombre = '', userApellido = '', f
 					user_apellido={userApellido}
 				/>
 			)}
-			{renderCreateButton()}
 		</View>
 	);
 }
@@ -241,14 +229,26 @@ const styles = StyleSheet.create({
 	errorText: {
 		marginBottom: 8,
 	},
-	createButton: {
-		position: 'absolute',
-		right: 36,
+	header: {
+		flexDirection: 'row',
+		justifyContent: 'flex-end',
+		alignItems: 'center',
+		paddingHorizontal: '4%',
+		paddingVertical: 10,
+		backgroundColor: colors.componentBackground,
+		borderBottomWidth: 1,
+		borderBottomColor: colors.background,
 	},
-	viewportFabContainer: {
-		position: 'absolute',
-		zIndex: 1000,
-		elevation: 10,
+	createButton: {
+		backgroundColor: colors.lightTint,
+		paddingHorizontal: 16,
+		paddingVertical: 8,
+		borderRadius: 8,
+	},
+	createButtonText: {
+		color: '#fff',
+		fontWeight: '700',
+		fontSize: 14,
 	},
 	itemContainer: {
 		paddingHorizontal: '4%',

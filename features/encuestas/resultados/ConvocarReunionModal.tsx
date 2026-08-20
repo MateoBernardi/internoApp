@@ -1,17 +1,19 @@
 import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
 import { Colors } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Modal,
+  BackHandler,
   ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Respuesta } from '../models/Encuesta';
 import { ConvocarReunionesResult, ReunionPersonaRequest, useConvocarReuniones } from '../viewmodels/useEncuestas';
@@ -132,17 +134,34 @@ export const ConvocarReunionModal: React.FC<ConvocarReunionModalProps> = ({
     onClose();
   };
 
-  return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={handleCerrar}>
-      <View style={styles.convocarOverlay}>
-        <View style={[styles.convocarSheet, { paddingBottom: insets.bottom + 16 }]}>
-          <View style={styles.convocarHandle} />
+  useEffect(() => {
+    if (!visible) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      handleCerrar();
+      return true;
+    });
+    return () => sub.remove();
+  }, [visible, handleCerrar]);
 
-          <View style={styles.convocarHeader}>
-            <Text style={styles.convocarTitle}>Solicitud de reunión</Text>
-            <Text style={styles.convocarSubtitle}>
-              {personas.length} persona{personas.length !== 1 ? 's' : ''} · cada una recibe su invitación en el horario que eligió.
-            </Text>
+  if (!visible) return null;
+
+  return (
+    <FullScreenPortal>
+    <View style={localStyles.fullScreen}>
+      <View style={[localStyles.sheetFull, { paddingBottom: insets.bottom + 16 }]}>
+
+          <View style={[styles.convocarHeader, { paddingTop: insets.top + 12 }]}>
+            <View style={localStyles.headerTopRow}>
+              <TouchableOpacity onPress={handleCerrar} style={localStyles.backButton}>
+                <Ionicons name="chevron-back" size={24} color={colors.text} />
+              </TouchableOpacity>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.convocarTitle}>Solicitud de reunión</Text>
+                <Text style={styles.convocarSubtitle}>
+                  {personas.length} persona{personas.length !== 1 ? 's' : ''} · cada una recibe su invitación en el horario que eligió.
+                </Text>
+              </View>
+            </View>
           </View>
 
           <ScrollView style={styles.convocarBody} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 16 }}>
@@ -260,7 +279,6 @@ export const ConvocarReunionModal: React.FC<ConvocarReunionModalProps> = ({
             )}
           </View>
         </View>
-      </View>
 
       {pickerStep === 'date' && (
         <DateTimePicker
@@ -281,6 +299,30 @@ export const ConvocarReunionModal: React.FC<ConvocarReunionModalProps> = ({
           onCancel={onPickerCancel}
         />
       )}
-    </Modal>
+    </View>
+    </FullScreenPortal>
   );
 };
+
+const localStyles = StyleSheet.create({
+  fullScreen: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: colors.componentBackground,
+    zIndex: 1000,
+    elevation: 8,
+  },
+  sheetFull: {
+    flex: 1,
+    backgroundColor: colors.componentBackground,
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  backButton: {
+    padding: 6,
+    borderRadius: 16,
+    backgroundColor: '#f3f4f6',
+  },
+});

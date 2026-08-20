@@ -15,6 +15,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
+  BackHandler,
   Keyboard,
   Modal,
   Platform,
@@ -26,6 +27,7 @@ import {
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
+import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
 import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { UserSelector } from '../../../components/UserSelector';
@@ -648,21 +650,33 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
-  return (
-    <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={handleClose}>
-      <View style={styles.overlay}>
-        <ModalKeyboardView style={styles.keyboardContainer}>
-          <View style={styles.container}>
+  useEffect(() => {
+    if (!modalVisible) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      handleClose();
+      return true;
+    });
+    return () => sub.remove();
+  }, [modalVisible, handleClose]);
 
-            {/* Header */}
-            {/* paddingTop con el inset superior: el marginTop '10%' del container
-               resuelve contra el ancho (~39px) y queda por debajo del status bar/notch
-               de iOS, comiéndose el touch del botón de cerrar. */}
-            <View style={[styles.modalHeader, { paddingTop: insets.top + 5 }]}>
-              <Text style={styles.modalHeaderTitle} numberOfLines={1}>{solicitud.titulo}</Text>
+  if (!modalVisible) return null;
+
+  return (
+    <FullScreenPortal>
+    <View style={styles.fullScreen}>
+      <ModalKeyboardView style={styles.keyboardContainer}>
+        <View style={styles.container}>
+
+          {/* Header */}
+          {/* paddingTop con el inset superior: el marginTop '10%' del container antiguo
+             resolvía contra el ancho (~39px) y quedaba por debajo del status bar/notch
+             de iOS; ahora es full screen, pero el inset sigue siendo necesario para no
+             comerse el touch del botón de cerrar bajo el status bar/notch. */}
+          <View style={[styles.modalHeader, { paddingTop: insets.top + 5 }]}>
               <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-                <Ionicons name="chevron-down" size={24} color="#999" />
+                <Ionicons name="chevron-back" size={24} color="#999" />
               </TouchableOpacity>
+              <Text style={styles.modalHeaderTitle} numberOfLines={1}>{solicitud.titulo}</Text>
             </View>
 
             <ScrollView
@@ -1192,12 +1206,12 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
             />
 
             <OperacionPendienteModal visible={isMutating} />
-          </View>
-        </ModalKeyboardView>
-      </View>
+        </View>
+      </ModalKeyboardView>
 
       <FilePreview file={previewFile} onClose={closePreview} />
-    </Modal>
+    </View>
+    </FullScreenPortal>
   );
 }
 

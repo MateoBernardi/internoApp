@@ -9,9 +9,11 @@ const colors = Colors['light'];
  * estilos propios con `const styles = { ...conversacionStyles, ...localStyles }`.
  */
 export const conversacionStyles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+  fullScreen: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: colors.componentBackground,
+    zIndex: 1000,
+    elevation: 10,
   },
   keyboardContainer: {
     flex: 1,
@@ -20,9 +22,6 @@ export const conversacionStyles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.componentBackground,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    overflow: 'hidden',
   },
   modalHeader: {
     paddingHorizontal: 12,

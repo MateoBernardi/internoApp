@@ -6,6 +6,7 @@ import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { generateIdempotencyKey } from '@/shared/idempotency';
+import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
 import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { adminRoles, allRoles } from '@/shared/users/roles';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,6 +17,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
+  BackHandler,
   Keyboard,
   Modal,
   Platform,
@@ -384,17 +386,32 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
-  return (
-    <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={handleClose}>
-      <View style={styles.overlay}>
-        <ModalKeyboardView style={styles.keyboardContainer}>
-          <View style={[styles.container, { marginTop: insets.top }]}>
+  useEffect(() => {
+    if (!modalVisible) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      handleClose();
+      return true;
+    });
+    return () => sub.remove();
+  }, [modalVisible, handleClose]);
 
-            {/* Header */}
-            {/* paddingTop con el inset superior: el marginTop '10%' del container
-               resuelve contra el ancho (~39px) y queda por debajo del status bar/notch
-               de iOS, comiéndose el touch del botón de cerrar. */}
-            <View style={[styles.modalHeader, { paddingTop: insets.top + 5 }]}>
+  if (!modalVisible) return null;
+
+  return (
+    <FullScreenPortal>
+    <View style={styles.fullScreen}>
+      <ModalKeyboardView style={styles.keyboardContainer}>
+        <View style={styles.container}>
+
+          {/* Header */}
+          {/* paddingTop con el inset superior: el marginTop '10%' del container antiguo
+             resolvía contra el ancho (~39px) y quedaba por debajo del status bar/notch
+             de iOS; ahora es full screen, pero el inset sigue siendo necesario para no
+             comerse el touch del botón de cerrar bajo el status bar/notch. */}
+          <View style={[styles.modalHeader, { paddingTop: insets.top + 5 }]}>
+              <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
+                <Ionicons name="chevron-back" size={24} color="#999" />
+              </TouchableOpacity>
               <TouchableOpacity style={{ flex: 1 }} onPress={() => setShowArchivosModal(true)} activeOpacity={0.75}>
                 <Text style={styles.modalHeaderTitle} numberOfLines={1}>{chatTitle}</Text>
                 <Text style={styles.modalHeaderSubtitle} numberOfLines={1}>{chatSubtitle}</Text>
@@ -410,9 +427,6 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
               </TouchableOpacity>
               <TouchableOpacity onPress={handleAbrirOpciones} style={styles.closeButton}>
                 <Ionicons name="ellipsis-vertical" size={20} color={colors.lightTint} />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-                <Ionicons name="chevron-down" size={24} color="#999" />
               </TouchableOpacity>
             </View>
 
@@ -735,12 +749,12 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
             />
 
             <OperacionPendienteModal visible={isBlockingOperation} />
-          </View>
-        </ModalKeyboardView>
-      </View>
+        </View>
+      </ModalKeyboardView>
 
       <FilePreview file={previewFile} onClose={closePreview} />
-    </Modal>
+    </View>
+    </FullScreenPortal>
   );
 }
 

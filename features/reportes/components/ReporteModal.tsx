@@ -5,16 +5,17 @@ import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { generateIdempotencyKey } from '@/shared/idempotency';
+import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
 import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 import { Image } from 'expo-image';
 import type * as ImagePickerTypes from 'expo-image-picker';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
 	ActivityIndicator,
 	Alert,
-	Modal,
+	BackHandler,
 	ScrollView,
 	StyleSheet,
 	Text,
@@ -72,6 +73,15 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 	const hasSupervisorRole = hasRole(['gerencia', 'personasRelaciones', 'encargado']);
 	const isCreator = !!(user?.user_context_id && reporte.creador_id && user.user_context_id === reporte.creador_id);
 	const canManageFiles = hasSupervisorRole && isCreator;
+
+	useEffect(() => {
+		if (!visible) return;
+		const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+			onClose();
+			return true;
+		});
+		return () => sub.remove();
+	}, [visible, onClose]);
 
 	// ── Helpers ───────────────────────────────────────────────────────────────
 	const showModal = useCallback((title: string, message?: string, actions?: AlertModalAction[]) => {
@@ -285,24 +295,22 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 		);
 	};
 
+	if (!visible) return null;
+
 	return (
-		<Modal
-			visible={visible}
-			transparent={true}
-			animationType="slide"
-			onRequestClose={onClose}
-		>
-			<View style={styles.overlay}>
-				<ModalKeyboardView style={styles.modalKeyboardAvoiding}>
-					<View style={[styles.modalContainer, { paddingBottom: insets.bottom }]}>
-						{/* Header */}
-						<View style={styles.modalHeader}>
-							<View style={styles.modalHeaderActions}>
-								<TouchableOpacity onPress={onClose} style={styles.modalIconButton}>
-									<Ionicons name="close" size={24} color="#999" />
-								</TouchableOpacity>
-							</View>
+		<FullScreenPortal>
+		<>
+		<View style={styles.fullScreen}>
+			<ModalKeyboardView style={styles.modalKeyboardAvoiding}>
+				<View style={[styles.modalContainer, { paddingBottom: insets.bottom }]}>
+					{/* Header */}
+					<View style={[styles.modalHeader, { paddingTop: insets.top + 12 }]}>
+						<View style={styles.modalHeaderActions}>
+							<TouchableOpacity onPress={onClose} style={styles.modalIconButton}>
+								<Ionicons name="chevron-back" size={24} color="#999" />
+							</TouchableOpacity>
 						</View>
+					</View>
 
 						<ScrollView
 							style={styles.modalFormContent}
@@ -412,17 +420,20 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 						/>
 					</View>
 				</ModalKeyboardView>
-			</View>
+		</View>
 
-			<FilePreview file={previewFile} onClose={closePreview} />
-		</Modal>
+		<FilePreview file={previewFile} onClose={closePreview} />
+		</>
+		</FullScreenPortal>
 	);
 }
 
 const styles = StyleSheet.create({
-	overlay: {
-		flex: 1,
-		backgroundColor: 'rgba(0,0,0,0.5)',
+	fullScreen: {
+		...StyleSheet.absoluteFillObject,
+		backgroundColor: '#fff',
+		zIndex: 1000,
+		elevation: 8,
 	},
 	modalKeyboardAvoiding: {
 		flex: 1,
@@ -430,17 +441,13 @@ const styles = StyleSheet.create({
 	},
 	modalContainer: {
 		flex: 1,
-		marginTop: '10%',
 		backgroundColor: '#fff',
-		borderTopLeftRadius: 16,
-		borderTopRightRadius: 16,
-		overflow: 'hidden',
 	},
 	modalHeader: {
 		paddingHorizontal: 16,
 		paddingVertical: 12,
 		flexDirection: 'row',
-		justifyContent: 'flex-end',
+		justifyContent: 'flex-start',
 		alignItems: 'center',
 	},
 	modalHeaderActions: {

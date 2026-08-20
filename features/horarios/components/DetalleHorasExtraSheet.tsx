@@ -1,11 +1,11 @@
 import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
+import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
 import { Colors } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Modal,
-  Platform,
+  BackHandler,
   ScrollView,
   StyleSheet,
   Text,
@@ -70,6 +70,15 @@ export function DetalleHorasExtraSheet({
     }
   }, [visible, displayEmpleado?.userContextId]);
 
+  useEffect(() => {
+    if (!visible) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      onClose();
+      return true;
+    });
+    return () => sub.remove();
+  }, [visible, onClose]);
+
   const isCurrentMonth = mes >= currentMonthISO();
   const movimientosQuery = useMovimientos(displayEmpleado?.userContextId, mes, visible);
   const movimientos = movimientosQuery.data ?? [];
@@ -109,29 +118,25 @@ export function DetalleHorasExtraSheet({
     );
   }
 
+  if (!visible) return null;
+
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
-      statusBarTranslucent={Platform.OS === 'android'}
-    >
-      <View style={styles.overlay}>
-        <ModalKeyboardView style={styles.kavWrapper}>
-          <View style={[styles.container, { paddingBottom: insets.bottom }]}>
-            <ScrollView
-              contentContainerStyle={styles.scrollContent}
-              showsVerticalScrollIndicator={false}
-            >
-              <View style={styles.header}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.title}>{displayEmpleado?.nombre} {displayEmpleado?.apellido}</Text>
-                </View>
-                <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
-                  <Ionicons name="close" size={20} color={MUTED} />
-                </TouchableOpacity>
+    <FullScreenPortal>
+    <View style={styles.fullScreen}>
+      <ModalKeyboardView style={styles.kavWrapper}>
+        <View style={[styles.container, { paddingBottom: insets.bottom }]}>
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
+              <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
+                <Ionicons name="chevron-back" size={20} color={MUTED} />
+              </TouchableOpacity>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.title}>{displayEmpleado?.nombre} {displayEmpleado?.apellido}</Text>
               </View>
+            </View>
 
               {displayEmpleado && (
                 <View style={styles.totalLine}>
@@ -320,17 +325,19 @@ export function DetalleHorasExtraSheet({
                 )}
               </TouchableOpacity>
             </View>
-          </View>
-        </ModalKeyboardView>
-      </View>
-    </Modal>
+        </View>
+      </ModalKeyboardView>
+    </View>
+    </FullScreenPortal>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+  fullScreen: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: colors.componentBackground,
+    zIndex: 1000,
+    elevation: 8,
   },
   kavWrapper: {
     flex: 1,
@@ -338,11 +345,7 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    marginTop: '15%',
     backgroundColor: colors.componentBackground,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    overflow: 'hidden',
   },
   scrollContent: {
     paddingHorizontal: 20,
@@ -354,8 +357,9 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     paddingVertical: 16,
+    gap: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: LINE,
   },

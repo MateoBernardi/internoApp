@@ -6,6 +6,7 @@ import { useRegisterDevice } from '@/features/devices/hooks/useRegisterDevice';
 import { prefetchCoreRealtimeData } from '@/features/realtime/prefetchOrchestrator';
 import { syncPushPayloadToCache } from '@/features/realtime/querySync';
 import '@/shared/silenceConsole';
+import { FullScreenPortalHost } from '@/shared/ui/FullScreenPortal';
 import { installWebAlertPolyfill } from '@/shared/ui/webAlertPolyfill';
 import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import * as Notifications from 'expo-notifications';
@@ -165,13 +166,15 @@ function RootNavigator() {
 
   return (
     <ThemeProvider value={DefaultTheme}>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="(extras)" options={{ headerShown: false }} />
-        <Stack.Screen name="(association)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-      </Stack>
+      <FullScreenPortalHost>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="(extras)" options={{ headerShown: false }} />
+          <Stack.Screen name="(association)" options={{ headerShown: false }} />
+          <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+        </Stack>
+      </FullScreenPortalHost>
       <StatusBar style="dark" />
     </ThemeProvider>
   );

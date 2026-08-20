@@ -1,4 +1,5 @@
 import { Colors } from '@/constants/theme';
+import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { DocsList, PendingFile } from '@/features/docs/components/DocsList';
 import { Archivo, ArchivoUso } from '@/features/docs/models/Archivo';
@@ -14,7 +15,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
-    Modal,
+    BackHandler,
     ScrollView,
     StyleSheet,
     Text,
@@ -115,8 +116,17 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
         );
     }, [visible]);
 
+    useEffect(() => {
+        if (!visible) return;
+        const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+            onClose();
+            return true;
+        });
+        return () => sub.remove();
+    }, [visible, onClose]);
+
     const currentObjetivo = localObjetivo ?? objetivo;
-    if (!currentObjetivo) return null;
+    if (!visible || !currentObjetivo) return null;
 
     // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -325,17 +335,12 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
     };
 
     return (
-        <Modal
-            visible={visible}
-            animationType="slide"
-            transparent={true}
-            onRequestClose={handleClose}
-        >
-            <View style={styles.overlay}>
+        <FullScreenPortal>
+        <>
                 <View style={[styles.container, { paddingBottom: insets.bottom }]}>
-                    <View style={styles.header}>
+                    <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
                         <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-                            <Ionicons name="chevron-down" size={24} color="#6b7280" />
+                            <Ionicons name="chevron-back" size={24} color="#6b7280" />
                         </TouchableOpacity>
                     </View>
 
@@ -530,10 +535,10 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
                         }
                     />
                 </View>
-            </View >
 
             <FilePreview file={previewFile} onClose={closePreview} />
-        </Modal >
+        </>
+        </FullScreenPortal>
     );
 }
 
@@ -574,17 +579,11 @@ function getStateColor(estado: string): string {
 }
 
 const styles = StyleSheet.create({
-    overlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.5)' // Sombra de fondo
-    },
     container: {
-        // Quita el flex: 1, o usa un alto fijo/porcentaje
-        flex: 1,
-        marginTop: '10%', // Empuja el modal hacia abajo
+        ...StyleSheet.absoluteFillObject,
         backgroundColor: Colors['light'].componentBackground,
-        borderTopLeftRadius: 16,
-        borderTopRightRadius: 16,
+        zIndex: 1000,
+        elevation: 10,
         overflow: 'hidden',
     },
     header: {
@@ -592,7 +591,7 @@ const styles = StyleSheet.create({
         paddingVertical: 12,
         borderBottomColor: Colors['light'].icon,
         flexDirection: 'row',
-        justifyContent: 'flex-end',
+        justifyContent: 'flex-start',
         alignItems: 'center',
     },
     headerTitle: {

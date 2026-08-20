@@ -1,7 +1,8 @@
 import { Colors } from "@/constants/theme";
+import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
 import { Ionicons } from '@expo/vector-icons';
-import React from "react";
-import { Alert, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React, { useEffect } from "react";
+import { Alert, BackHandler, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Bitacora, Objetivo } from "../models/Objetivo";
 
@@ -17,13 +18,23 @@ interface DetailModalProps {
 
 export function DetailModal({ visible, objetivo, onClose, onDelete, onInfo, currentUserId }: DetailModalProps) {
     const insets = useSafeAreaInsets();
-    if (!objetivo) return null;
+
+    useEffect(() => {
+        if (!visible) return;
+        const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+            onClose();
+            return true;
+        });
+        return () => sub.remove();
+    }, [visible, onClose]);
+
+    if (!visible || !objetivo) return null;
 
     const isOwner = currentUserId === objetivo.created_by;
 
     return (
-        <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
-            <View style={styles.overlay}>
+        <FullScreenPortal>
+        <View style={styles.fullScreen}>
                 <View style={[styles.modalContainer, { paddingBottom: insets.bottom }]}>
                     <View style={styles.infoBtnFloatingContainer}>
                         <TouchableOpacity onPress={() => onInfo?.(objetivo)} style={styles.infoBtnFloating}>
@@ -31,9 +42,9 @@ export function DetailModal({ visible, objetivo, onClose, onDelete, onInfo, curr
                         </TouchableOpacity>
                     </View>
 
-                    <View style={styles.modalHeader}>
+                    <View style={[styles.modalHeader, { paddingTop: insets.top + 12 }]}>
                         <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-                            <Ionicons name="chevron-down" size={24} color="#999" />
+                            <Ionicons name="chevron-back" size={24} color="#999" />
                         </TouchableOpacity>
                     </View>
 
@@ -153,8 +164,8 @@ export function DetailModal({ visible, objetivo, onClose, onDelete, onInfo, curr
                         </TouchableOpacity>
                     </View>
                 </View>
-            </View>
-        </Modal>
+        </View>
+        </FullScreenPortal>
     );
 }
 
@@ -206,16 +217,15 @@ function getStateColor(estado: string): string {
 // ─── Styles ─────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-    overlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.5)',
+    fullScreen: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: Colors['light'].componentBackground,
+        zIndex: 1000,
+        elevation: 10,
     },
     modalContainer: {
         flex: 1,
-        marginTop: '10%',
         backgroundColor: Colors['light'].componentBackground,
-        borderTopLeftRadius: 16,
-        borderTopRightRadius: 16,
         overflow: 'hidden',
     },
     modalHeader: {
@@ -223,7 +233,7 @@ const styles = StyleSheet.create({
         paddingVertical: 12,
         borderBottomColor: Colors['light'].icon,
         flexDirection: 'row',
-        justifyContent: 'flex-end',
+        justifyContent: 'flex-start',
         alignItems: 'center',
     },
     infoBtn: {

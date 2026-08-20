@@ -14,8 +14,8 @@ import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  BackHandler,
   Keyboard,
-  Modal,
   Platform,
   ScrollView,
   Switch,
@@ -23,6 +23,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
 import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { UserSelector } from '../../../components/UserSelector';
@@ -394,17 +395,28 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
     ]);
   }, [handleTakePhoto, handleSeleccionarArchivo, showModal]);
 
+  useEffect(() => {
+    if (!visible) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      handleClose();
+      return true;
+    });
+    return () => sub.remove();
+  }, [visible, handleClose]);
+
+  if (!visible) return null;
+
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
-      <View style={styles.overlay}>
-        <ModalKeyboardView style={styles.keyboardContainer}>
-          <View style={[styles.container, { paddingBottom: insets.bottom }]}>
-            {/* Header */}
-            <View style={styles.modalHeader}>
-              <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-                <Ionicons name="chevron-down" size={24} color="#999" />
-              </TouchableOpacity>
-            </View>
+    <FullScreenPortal>
+    <View style={styles.fullScreen}>
+      <ModalKeyboardView style={styles.keyboardContainer}>
+        <View style={[styles.container, { paddingBottom: insets.bottom }]}>
+          {/* Header */}
+          <View style={[styles.modalHeader, { paddingTop: insets.top + 10, alignItems: 'flex-start' }]}>
+            <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
+              <Ionicons name="chevron-back" size={24} color="#999" />
+            </TouchableOpacity>
+          </View>
 
             <ScrollView
               style={styles.content}
@@ -637,8 +649,8 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
           onSelectAll={handleSelectAllRoleUsers}
           onDeselectAll={handleDeselectAllRoleUsers}
         />
-      </View>
-    </Modal>
+    </View>
+    </FullScreenPortal>
   );
 }
 

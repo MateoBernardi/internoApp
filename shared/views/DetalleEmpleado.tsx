@@ -83,7 +83,6 @@ export function DetalleEmpleado() {
 						userId={usuario.id.toString()}
 						userNombre={usuario.nombre}
 						userApellido={usuario.apellido}
-						fabBehavior={usuarios.length === 1 ? 'viewport' : 'container'}
 					/>
 				);
 			case 'permisos':

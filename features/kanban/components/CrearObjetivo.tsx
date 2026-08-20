@@ -4,6 +4,7 @@ import { useAuth } from '@/features/auth/context/AuthContext';
 import { ArchivoUso } from '@/features/docs/models/Archivo';
 import { useUploadArchivo } from '@/features/docs/viewmodels/useArchivos';
 import { ApiOperationResult } from '@/shared/types/apiStatus';
+import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
 import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { UserSummary } from '@/shared/users/User';
 import { adminRoles, allRoles } from '@/shared/users/roles';
@@ -13,8 +14,8 @@ import * as DocumentPicker from 'expo-document-picker';
 import React, { useEffect, useState } from 'react';
 import {
     Alert,
+    BackHandler,
     Keyboard,
-    Modal,
     Platform,
     ScrollView,
     StyleSheet,
@@ -376,17 +377,26 @@ export function FormObjetivoModal({
         onMinimize();
     };
 
+    useEffect(() => {
+        if (!visible) return;
+        const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+            (isEditing ? handleClose : (onMinimize ? handleMinimize : handleClose))();
+            return true;
+        });
+        return () => sub.remove();
+    }, [visible, isEditing, onMinimize]);
+
+    if (!visible) return null;
+
     return (
-        <Modal
-            visible={visible}
-            animationType="slide"
-            transparent={true}
-            onRequestClose={isEditing ? handleClose : (onMinimize ? handleMinimize : handleClose)}
-        >
-            <View style={styles.overlay}>
-                <ModalKeyboardView style={styles.modalKeyboardAvoiding}>
+        <FullScreenPortal>
+        <View style={styles.fullScreen}>
+            <ModalKeyboardView style={styles.modalKeyboardAvoiding}>
                     <View style={styles.modalContainer}>
                         <View style={[styles.modalHeader, { paddingTop: insets.top + 12 }]}>
+                            <TouchableOpacity onPress={handleClose} style={styles.modalIconButton} disabled={isLoading}>
+                                <Ionicons name="chevron-back" size={24} color="#6b7280" />
+                            </TouchableOpacity>
                             <View style={styles.modalHeaderActions}>
                                 {!isEditing && (
                                     <TouchableOpacity onPress={handleMinimize} style={styles.modalIconButton} disabled={isLoading}>
@@ -601,28 +611,26 @@ export function FormObjetivoModal({
 
                         </TouchableOpacity>
                     </View>
-                </ModalKeyboardView>
-            </View>
-        </Modal>
+            </ModalKeyboardView>
+        </View>
+        </FullScreenPortal>
     );
 }
 
 
 const styles = StyleSheet.create({
     // ============================================
-    // Modal
+    // Full screen (converted from Modal)
     // ============================================
-    overlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.5)' // Sombra de fondo
+    fullScreen: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: Colors['light'].componentBackground,
+        zIndex: 1000,
+        elevation: 10,
     },
     modalContainer: {
-        // Quita el flex: 1, o usa un alto fijo/porcentaje
         flex: 1,
-        marginTop: '10%', // Empuja el modal hacia abajo
         backgroundColor: Colors['light'].componentBackground,
-        borderTopLeftRadius: 16,
-        borderTopRightRadius: 16,
         overflow: 'hidden',
     },
     modalKeyboardAvoiding: {
@@ -634,7 +642,7 @@ const styles = StyleSheet.create({
         paddingVertical: 12,
         borderBottomColor: Colors['light'].icon,
         flexDirection: 'row',
-        justifyContent: 'flex-end',
+        justifyContent: 'space-between',
         alignItems: 'center',
     },
     modalHeaderActions: {

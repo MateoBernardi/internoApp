@@ -1,11 +1,12 @@
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
+import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Modal,
+  BackHandler,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -63,6 +64,15 @@ export function TurnoDetalle({ activity, visible, onClose }: TurnoDetalleProps) 
     setAceptedAt(activity.acepted_at ?? null);
   }, [modalVisible, activity.acepted_at]);
 
+  useEffect(() => {
+    if (!modalVisible) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      onClose();
+      return true;
+    });
+    return () => sub.remove();
+  }, [modalVisible, onClose]);
+
   const { mutate: aceptar, isPending } = useAceptarTurno();
 
   const planificacionId = activity.planificacion_id;
@@ -92,18 +102,19 @@ export function TurnoDetalle({ activity, visible, onClose }: TurnoDetalleProps) 
     });
   };
 
-  return (
-    <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <View style={[styles.container, { paddingBottom: insets.bottom }]}>
-          {/* Header */}
-          <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Ionicons name="chevron-down" size={24} color="#6b7280" />
-            </TouchableOpacity>
-          </View>
+  if (!modalVisible) return null;
 
-          <View style={styles.content}>
+  return (
+    <FullScreenPortal>
+    <View style={[styles.fullScreen, { paddingBottom: insets.bottom }]}>
+      {/* Header */}
+      <View style={[styles.modalHeader, { paddingTop: insets.top + 12 }]}>
+        <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+          <Ionicons name="chevron-back" size={24} color="#6b7280" />
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.content}>
             {/* Título */}
             <View style={styles.contentBlock}>
               <ThemedText style={styles.label}>Turno</ThemedText>
@@ -182,31 +193,24 @@ export function TurnoDetalle({ activity, visible, onClose }: TurnoDetalleProps) 
                 </TouchableOpacity>
               )}
             </View>
-          </View>
-        </View>
       </View>
-    </Modal>
+    </View>
+    </FullScreenPortal>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
-  container: {
-    marginTop: '10%',
+  fullScreen: {
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: colors.componentBackground,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    overflow: 'hidden',
+    zIndex: 1000,
+    elevation: 8,
   },
   modalHeader: {
     paddingHorizontal: 16,
     paddingVertical: 12,
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'flex-start',
     alignItems: 'center',
   },
   closeButton: {

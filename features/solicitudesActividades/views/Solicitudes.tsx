@@ -13,7 +13,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Componentes UI
 import { ThemedView } from '@/components/themed-view';
-import { CreateButton } from '@/components/ui/CreateButton';
 import { Colors } from '@/constants/theme';
 
 // Componentes de Dominio
@@ -112,16 +111,27 @@ export default function SolicitudesView({ onRefresh, refreshing }: SolicitudesVi
     <ThemedView style={styles.container}>
       {/* BUSCADOR */}
       <View style={[styles.searchContainer, { paddingTop: 10 }]}>
-        <View style={styles.searchBar}>
-          <Ionicons name="search" size={18} color="#999" />
-          <TextInput
-            placeholder="Buscar título, descripción o personas..."
-            value={search}
-            onChangeText={setSearch}
-            style={styles.searchInput}
-            placeholderTextColor="#999"
-            clearButtonMode="while-editing"
-          />
+        <View style={styles.searchRow}>
+          <View style={styles.searchBar}>
+            <Ionicons name="search" size={18} color="#999" />
+            <TextInput
+              placeholder="Buscar título, descripción o personas..."
+              value={search}
+              onChangeText={setSearch}
+              style={styles.searchInput}
+              placeholderTextColor="#999"
+              clearButtonMode="while-editing"
+            />
+          </View>
+
+          <TouchableOpacity
+            style={styles.createButton}
+            onPress={() => setShowCrearSolicitud(true)}
+            accessibilityLabel="Crear nueva solicitud"
+            accessibilityRole="button"
+          >
+            <Text style={styles.createButtonText}>+</Text>
+          </TouchableOpacity>
         </View>
 
         {/* SELECTOR DE PESTAÑAS */}
@@ -214,11 +224,6 @@ export default function SolicitudesView({ onRefresh, refreshing }: SolicitudesVi
         </View>
       )}
 
-      {/* BOTÓN FLOTANTE */}
-      <View style={[styles.floatingButtonContainer, { bottom: insets.bottom + 16, right: 24 }]}>
-        <CreateButton onPress={() => setShowCrearSolicitud(true)} size={56} />
-      </View>
-
       {/* MODALES */}
       {selectedSolicitud && (
         <Solicitud visible solicitud={selectedSolicitud} onClose={handleCloseSolicitud} />
@@ -238,7 +243,13 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
     backgroundColor: colors.background,
   },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   searchBar: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#f0f2f5',
@@ -248,6 +259,20 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   searchInput: { flex: 1, fontSize: 15, color: '#333' },
+  createButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: colors.lightTint,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  createButtonText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 20,
+    lineHeight: 22,
+  },
   tabBar: {
     flexDirection: 'row',
     marginTop: 10,
@@ -347,9 +372,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: 'bold',
     color: colors.text
-  },
-  floatingButtonContainer: {
-    position: 'absolute',
-    zIndex: 10
   },
 });

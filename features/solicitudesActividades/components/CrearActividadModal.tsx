@@ -2,9 +2,9 @@ import { ThemedText } from '@/components/themed-text';
 import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
 import { Colors, UI } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
-  Modal,
+  BackHandler,
   Platform,
   ScrollView,
   StyleSheet,
@@ -13,6 +13,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
 import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NewActivityState } from '../agenda/dateUtils';
@@ -73,30 +74,35 @@ export function CrearActividadModal({
   onDateCancel,
 }: CrearActividadModalProps) {
   const insets = useSafeAreaInsets();
+
+  useEffect(() => {
+    if (!visible) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      onMinimize();
+      return true;
+    });
+    return () => sub.remove();
+  }, [visible, onMinimize]);
+
+  if (!visible) return null;
+
   return (
-    <Modal
-      visible={visible}
-      transparent={true}
-      animationType="slide"
-      onRequestClose={onMinimize}
-    >
-      <View style={styles.overlay}>
-        <ModalKeyboardView style={styles.modalKavWrapper}>
+    <FullScreenPortal>
+    <View style={styles.fullScreen}>
+      <ModalKeyboardView style={styles.modalKavWrapper}>
           <View style={[styles.modalContainer, { paddingBottom: insets.bottom }]}>
             <ScrollView
               contentContainerStyle={styles.modalScrollContent}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
             >
-              <View style={styles.modalHeader}>
-                <View style={styles.modalHeaderActions}>
-                  <TouchableOpacity onPress={onMinimize} style={styles.closeButton}>
-                    <Ionicons name="chevron-down" size={24} color={colors.secondaryText} />
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                    <Ionicons name="close" size={22} color={colors.secondaryText} />
-                  </TouchableOpacity>
-                </View>
+              <View style={[styles.modalHeader, { paddingTop: insets.top + 12 }]}>
+                <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                  <Ionicons name="chevron-back" size={24} color={colors.secondaryText} />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={onMinimize} style={styles.closeButton}>
+                  <Ionicons name="chevron-down" size={24} color={colors.secondaryText} />
+                </TouchableOpacity>
               </View>
 
               {activityDateErrorMessage && (
@@ -217,16 +223,18 @@ export function CrearActividadModal({
               onCancel={onDateCancel}
             />
           )}
-        </ModalKeyboardView>
-      </View>
-    </Modal>
+      </ModalKeyboardView>
+    </View>
+    </FullScreenPortal>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+  fullScreen: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: colors.componentBackground,
+    zIndex: 1000,
+    elevation: 8,
   },
   modalKavWrapper: {
     flex: 1,
@@ -234,11 +242,7 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     flex: 1,
-    marginTop: '10%',
     backgroundColor: colors.componentBackground,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    overflow: 'hidden',
   },
   modalScrollContent: {
     paddingHorizontal: 20,
@@ -251,7 +255,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomColor: colors.icon,
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
     alignItems: 'center',
   },
   modalHeaderActions: {

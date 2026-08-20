@@ -1,6 +1,5 @@
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { CreateButton } from '@/components/ui/CreateButton';
 import { SearchBar } from '@/components/ui/SearchBar';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
@@ -435,6 +434,16 @@ export default function Documentos() {
               </TouchableOpacity>
             )}
           </View>
+
+          {canCreate && (
+            <TouchableOpacity
+              style={styles.createButton}
+              onPress={() => setFabMenuVisible((prev) => !prev)}
+              accessibilityLabel="Crear documento o carpeta"
+            >
+              <Ionicons name="add" size={20} color={colors.componentBackground} />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -455,13 +464,6 @@ export default function Documentos() {
           : <DocumentosEmpresa query={query} selectedFolderId={currentFolderId} listHeader={folderHeader} />}
       </View>
 
-      {canCreate && (
-        <CreateButton
-          onPress={() => setFabMenuVisible(true)}
-          style={{ ...styles.fab, bottom: insets.bottom + 8, right: 36 }}
-        />
-      )}
-
       {modalVisible && (
         <CrearDocumento
           visible={modalVisible}
@@ -477,7 +479,7 @@ export default function Documentos() {
       {canCreate && fabMenuVisible && (
         <View style={styles.fabMenuLayer} pointerEvents="box-none">
           <TouchableOpacity style={styles.fabOverlay} activeOpacity={1} onPress={() => setFabMenuVisible(false)} />
-          <View style={[styles.fabMenu, { bottom: insets.bottom + 76 }]}>
+          <View style={[styles.fabMenu, { top: 60 }]}>
             <TouchableOpacity style={styles.fabMenuItem} onPress={handleCreateDocument}>
               <Ionicons name="document-text-outline" size={18} color={colors.icon} />
               <ThemedText style={styles.fabMenuText}>Crear documento</ThemedText>
@@ -580,13 +582,16 @@ const styles = StyleSheet.create({
     backgroundColor: colors.componentBackground,
   },
   headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: '4%',
     paddingVertical: '3%',
+    gap: 12,
   },
   tabs: {
+    flex: 1,
     flexDirection: 'row',
-    marginHorizontal: '-4%',
-    paddingHorizontal: '4%',
   },
   tab: {
     flex: 1,
@@ -783,8 +788,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  fab: {
-    position: 'absolute',
-    right: 36,
+  createButton: {
+    backgroundColor: colors.lightTint,
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

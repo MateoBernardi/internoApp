@@ -160,6 +160,7 @@ export function mapUpdateSolicitudRequestToPayload(
     ...(request.crear_de_todos_modos !== undefined
       ? { crear_de_todos_modos: request.crear_de_todos_modos }
       : {}),
+    ...(request.titulo !== undefined ? { titulo: request.titulo } : {}),
   };
 }
 

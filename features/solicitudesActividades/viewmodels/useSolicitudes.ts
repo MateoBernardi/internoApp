@@ -151,35 +151,6 @@ export function useCancelarSolicitud() {
 }
 
 /**
- * Hook para reenviar una solicitud a nuevos invitados
- */
-export function useReenviarSolicitud() {
-  const { tokens } = useAuth();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({
-      idempotencyKey,
-      ...data
-    }: solicitudModels.ReenviarSolicitudRequest & { idempotencyKey?: string }) => {
-      const accessToken = tokens?.accessToken;
-      if (!accessToken) {
-        throw new Error('No access token available');
-      }
-      return solicitudesApi.reenviarSolicitud(accessToken, data, idempotencyKey);
-    },
-    onSuccess: () => {
-      // Invalidar las solicitudes creadas
-      queryClient.invalidateQueries({
-        queryKey: solicitudesQueryKeys.all,
-      });
-    },
-    // Reintentos seguros: el mismo X-Idempotency-Key viaja en cada intento.
-    ...IDEMPOTENT_MUTATION_RETRY,
-  });
-}
-
-/**
  * Hook para agregar o quitar invitados de una solicitud existente
  */
 export function useActualizarInvitadosSolicitud() {

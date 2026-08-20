@@ -243,7 +243,6 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
     }
     return (
       titulo.trim().length > 0 &&
-      descripcion.trim().length > 0 &&
       (isConsejo || selectedUsers.length > 0) &&
       !dateErrorMessage
     );
@@ -529,7 +528,7 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
               <View style={styles.messageBox}>
                 <TextInput
                   style={styles.messageInput}
-                  placeholder={fromChatsTab ? 'Escribí el primer mensaje' : 'Escribí un mensaje descriptivo para el/los usuario/s'}
+                  placeholder={fromChatsTab ? 'Escribí el primer mensaje' : 'Escribí un mensaje descriptivo para el/los usuario/s (opcional)'}
                   placeholderTextColor={colors.secondaryText}
                   value={descripcion}
                   onChangeText={setDescripcion}

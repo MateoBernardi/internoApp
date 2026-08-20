@@ -142,6 +142,7 @@ export interface ActualizarEstadoInvitacionRequest {
   observacion?: string | null;
   crear_de_todos_modos?: number;
   archivosIds?: number[];
+  titulo?: string;
 }
 
 export interface ActualizarEstadoInvitacionResponse {
@@ -165,6 +166,7 @@ export interface UpdateSolicitudRequest {
   observacion?: string | null;
   crear_de_todos_modos?: number;
   archivosIds?: number[];
+  titulo?: string;
 }
 
 export interface UpdateSolicitudResponse {
@@ -174,15 +176,6 @@ export interface UpdateSolicitudResponse {
 }
 
 /* ==================== SOLICITUDES ==================== */
-
-export interface ReenviarSolicitudRequest {
-  solicitudId: number;
-  nuevosInvitadosIds: number[]; // IDs de usuario_entidad
-}
-
-export interface ReenviarSolicitudResponse {
-  success: boolean;
-}
 
 export interface ActualizarInvitadosSolicitudRequest {
   solicitudId: number;

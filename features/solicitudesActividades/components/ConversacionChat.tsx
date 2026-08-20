@@ -32,7 +32,6 @@ import { MESSAGE_STATES, formatDateDDMMYYYY, formatTimeHHMM } from '../conversac
 import { buildArchivoFileItem, rutaR2 } from '../conversacion/fileHelpers';
 import { useAdjuntos } from '../conversacion/hooks/useAdjuntos';
 import { useAlertModal } from '../conversacion/hooks/useAlertModal';
-import { useCompartirSelection } from '../conversacion/hooks/useCompartirSelection';
 import { useMarcarVisto } from '../conversacion/hooks/useMarcarVisto';
 import { useMensajesSearch } from '../conversacion/hooks/useMensajesSearch';
 import { useMessagesScroll } from '../conversacion/hooks/useMessagesScroll';
@@ -40,7 +39,6 @@ import { useParticipantesManager } from '../conversacion/hooks/useParticipantesM
 import { conversacionStyles } from '../conversacion/styles';
 import {
   EstadoInvitacionDB,
-  ReenviarSolicitudRequest,
   SolicitudEnviada,
   estadoInvitacionMapping,
 } from '../models/Solicitud';
@@ -50,7 +48,7 @@ import {
   useActualizarInvitadosSolicitud,
   useChatArchivos,
   useMarcarSolicitudVisto,
-  useReenviarSolicitud,
+  useOcultarSolicitudInvitado,
   useSolicitudBitacora,
 } from '../viewmodels/useSolicitudes';
 import { MessageBubble } from './MessageBubble';
@@ -90,7 +88,10 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
   const solicitudId = solicitud.solicitud_id;
   const isHost = solicitud.is_host;
   const modalVisible = visible ?? true;
-  const handleClose = onClose ?? (() => router.back());
+  const handleClose = useCallback(() => {
+    if (onClose) onClose();
+    else router.back();
+  }, [onClose, router]);
 
   // ─── Queries / mutations ──────────────────────────────────────────────────
   const {
@@ -106,7 +107,7 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
   );
   // retry:0 → 1 PUT por envío. El optimista + el refetch en onSettled reconcilian;
   // los reintentos solo duplican peticiones sobre falsos negativos de red.
-  const { mutate: actualizarEstadoRaw } = useActualizarEstadoInvitacion({ retry: 0 });
+  const { mutate: actualizarEstadoRaw, isPending: isUpdatingTitulo } = useActualizarEstadoInvitacion({ retry: 0 });
 
   const actualizarEstado = useCallback<typeof actualizarEstadoRaw>(
     (variables, options) =>
@@ -114,13 +115,13 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
     [actualizarEstadoRaw],
   );
   const { mutate: marcarVisto } = useMarcarSolicitudVisto();
-  const { mutate: reenviarSolicitud, isPending: isSharing } = useReenviarSolicitud();
   const { mutate: actualizarInvitados } = useActualizarInvitadosSolicitud();
+  const { mutate: ocultarSolicitud, isPending: isHidingSolicitud } = useOcultarSolicitudInvitado();
 
   // El modal de bloqueo a pantalla completa se reserva SOLO para acciones
-  // críticas/irreversibles (compartir). El envío usa feedback local
+  // críticas/irreversibles (ocultar conversación). El envío usa feedback local
   // (isSendingMessage + spinner del botón), nunca el overlay global.
-  const isBlockingOperation = isSharing;
+  const isBlockingOperation = isHidingSolicitud;
 
   // ─── Rol / permisos ───────────────────────────────────────────────────────
   const isConsejo = hasRole('consejo');
@@ -139,16 +140,8 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
     pickedFiles, setPickedFiles, handleAgregarAdjunto, handleOpenArchivo, uploadPickedFiles,
   } = useAdjuntos({ showModal });
 
-  const {
-    showShareModal, setShowShareModal,
-    setSearchQuery,
-    selectedUsersToShare, setSelectedUsersToShare,
-    activeRole, setActiveRole,
-    showRoleModal, setShowRoleModal,
-    searchResults, isLoadingUsers,
-    roleUsersData,
-    handleToggleUserShare, handleSelectAllRoleUsers, handleDeselectAllRoleUsers,
-  } = useCompartirSelection();
+  const [showEditTituloModal, setShowEditTituloModal] = useState(false);
+  const [tituloDraft, setTituloDraft] = useState('');
 
   const {
     participantesSelectedUsers,
@@ -214,7 +207,6 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
   // ─── Flags de estado ──────────────────────────────────────────────────────
 
   const isExpiredState = solicitud.estado === 'EXPIRED';
-  const puedeCompartir = isHost && !isExpiredState;
 
   // ─── Mensajes / bitácora ──────────────────────────────────────────────────
 
@@ -337,26 +329,58 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
 
   const handleOpenAsPreview = useCallback((archivo: any) => openFile(archivo), [openFile]);
 
-  // ─── Compartir ────────────────────────────────────────────────────────────
+  // ─── Opciones (editar título / ocultar) ────────────────────────────────────
 
-  const ejecutarCompartir = useCallback(() => {
-    // Key por intento de compartir: vive en las variables de la mutación, así
-    // los reintentos automáticos reusan exactamente la misma.
-    const payload: ReenviarSolicitudRequest & { idempotencyKey?: string } = {
-      solicitudId,
-      nuevosInvitadosIds: selectedUsersToShare.map(u => u.user_context_id),
-      idempotencyKey: generateIdempotencyKey(),
-    };
-    reenviarSolicitud(payload, {
-      onSuccess: () => { setShowShareModal(false); Alert.alert('Éxito', 'Conversación compartida'); },
-      onError: e => Alert.alert('Error', e instanceof Error ? e.message : 'Intenta nuevamente'),
-    });
-  }, [solicitudId, selectedUsersToShare, reenviarSolicitud, setShowShareModal]);
+  const handleAbrirEditarTitulo = useCallback(() => {
+    setTituloDraft(solicitud.titulo);
+    setShowEditTituloModal(true);
+  }, [solicitud.titulo]);
 
-  const confirmCompartir = useCallback(() => {
-    if (selectedUsersToShare.length === 0) { Alert.alert('Error', 'Selecciona al menos un usuario'); return; }
-    ejecutarCompartir();
-  }, [selectedUsersToShare, ejecutarCompartir]);
+  const handleGuardarTitulo = useCallback(() => {
+    const nuevoTitulo = tituloDraft.trim();
+    if (!nuevoTitulo) return;
+    // estado 'SEEN' es el único valor que no dispara una transición de estado
+    // ni queda incluido en MESSAGE_STATES: actualiza el título sin generar un
+    // mensaje visible en la bitácora del chat.
+    actualizarEstado(
+      { solicitud_id: solicitudId, estado: 'SEEN', titulo: nuevoTitulo },
+      {
+        onSuccess: () => setShowEditTituloModal(false),
+        onError: e => Alert.alert('Error', e instanceof Error ? e.message : 'Intenta nuevamente'),
+      },
+    );
+  }, [tituloDraft, actualizarEstado, solicitudId]);
+
+  const handleOcultarConversacion = useCallback(() => {
+    Alert.alert(
+      'Ocultar conversación',
+      'Esta conversación dejará de verse en tu lista. ¿Deseas continuar?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Ocultar',
+          style: 'destructive',
+          onPress: () => ocultarSolicitud(
+            { solicitudId },
+            {
+              onSuccess: handleClose,
+              onError: e => Alert.alert('Error', e instanceof Error ? e.message : 'No se pudo ocultar la conversación'),
+            },
+          ),
+        },
+      ],
+    );
+  }, [ocultarSolicitud, solicitudId, handleClose]);
+
+  const handleAbrirOpciones = useCallback(() => {
+    const actions: { key: string; label: string; onPress: () => void; variant?: 'primary' | 'destructive' | 'neutral' }[] = [];
+    if (solicitud.es_grupo && isHost) {
+      actions.push({ key: 'editar-titulo', label: 'Editar título', onPress: handleAbrirEditarTitulo });
+    }
+    actions.push({ key: 'ocultar', label: 'Ocultar conversación', onPress: handleOcultarConversacion, variant: 'destructive' });
+    actions.push({ key: 'cancel', label: 'Cancelar', onPress: () => { }, variant: 'neutral' });
+    showModal('Opciones', undefined, actions);
+  }, [solicitud.es_grupo, isHost, handleAbrirEditarTitulo, handleOcultarConversacion, showModal]);
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
@@ -383,6 +407,9 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
               </TouchableOpacity>
               <TouchableOpacity onPress={() => setShowArchivosModal(true)} style={styles.closeButton}>
                 <Ionicons name="folder-outline" size={22} color={colors.lightTint} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleAbrirOpciones} style={styles.closeButton}>
+                <Ionicons name="ellipsis-vertical" size={20} color={colors.lightTint} />
               </TouchableOpacity>
               <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
                 <Ionicons name="chevron-down" size={24} color="#999" />
@@ -590,18 +617,6 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
                           <Ionicons name="add-outline" size={20} color={colors.lightTint} />
                         </TouchableOpacity>
 
-                        {/* Compartir (solo host) */}
-                        {puedeCompartir && (
-                          <TouchableOpacity style={styles.messageActionButton} onPress={() => {
-                            setSelectedUsersToShare([]);
-                            setSearchQuery('');
-                            setActiveRole('');
-                            setShowShareModal(true);
-                          }}>
-                            <Ionicons name="person-add-outline" size={20} color={colors.lightTint} />
-                          </TouchableOpacity>
-                        )}
-
                         {/* Enviar */}
                         <TouchableOpacity
                           style={[styles.messageActionButton, styles.messageActionButtonPrimary, !canSendMessage && styles.messageActionButtonDisabled]}
@@ -619,31 +634,35 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
               </View>
             </ScrollView>
 
-            {/* Modal Compartir */}
-            <Modal visible={showShareModal} transparent animationType="fade" onRequestClose={() => setShowShareModal(false)}>
+            {/* Modal Editar título */}
+            <Modal visible={showEditTituloModal} transparent animationType="fade" onRequestClose={() => setShowEditTituloModal(false)}>
               <ModalKeyboardView style={{ flex: 1 }}>
-                <TouchableWithoutFeedback onPress={() => setShowShareModal(false)}>
+                <TouchableWithoutFeedback onPress={() => setShowEditTituloModal(false)}>
                   <View style={styles.modalOverlay}>
                     <TouchableWithoutFeedback onPress={e => e.stopPropagation()}>
                       <View style={styles.modalContent}>
-                        <ThemedText type="subtitle" style={{ marginBottom: 16 }}>Compartir Conversación</ThemedText>
-                        <UserSelector
-                          selectedUsers={selectedUsersToShare}
-                          onSelectUsers={setSelectedUsersToShare}
-                          users={searchResults ?? []}
-                          onSearch={setSearchQuery}
-                          isLoadingUsers={isLoadingUsers}
-                          roles={rolesForSelector}
-                          onSelectRole={role => { setActiveRole(role); setShowRoleModal(true); }}
+                        <ThemedText type="subtitle" style={{ marginBottom: 16 }}>Editar título</ThemedText>
+                        <TextInput
+                          style={localStyles.tituloInput}
+                          value={tituloDraft}
+                          onChangeText={setTituloDraft}
+                          placeholder="Nombre del grupo"
+                          placeholderTextColor={colors.secondaryText}
+                          maxLength={100}
+                          autoFocus
                         />
                         <View style={styles.modalActions}>
-                          <TouchableOpacity onPress={() => setShowShareModal(false)} style={styles.modalBtnCancel}>
+                          <TouchableOpacity onPress={() => setShowEditTituloModal(false)} style={styles.modalBtnCancel}>
                             <ThemedText style={{ color: colors.error }}>Cancelar</ThemedText>
                           </TouchableOpacity>
-                          <TouchableOpacity onPress={confirmCompartir} style={styles.modalBtnConfirm}>
-                            {isSharing
+                          <TouchableOpacity
+                            onPress={handleGuardarTitulo}
+                            style={[styles.modalBtnConfirm, { opacity: tituloDraft.trim().length === 0 ? 0.5 : 1 }]}
+                            disabled={isUpdatingTitulo || tituloDraft.trim().length === 0}
+                          >
+                            {isUpdatingTitulo
                               ? <ActivityIndicator color={colors.background} />
-                              : <ThemedText style={{ color: colors.background }}>Compartir</ThemedText>}
+                              : <ThemedText style={{ color: colors.background }}>Guardar</ThemedText>}
                           </TouchableOpacity>
                         </View>
                       </View>
@@ -652,18 +671,6 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
                 </TouchableWithoutFeedback>
               </ModalKeyboardView>
             </Modal>
-
-            {/* Modal Selección por Rol (compartir) */}
-            <RoleUserSelectionModal
-              visible={showRoleModal}
-              onClose={() => { setShowRoleModal(false); setActiveRole(''); }}
-              roleName={activeRole}
-              roleUsers={roleUsersData ?? []}
-              selectedUsers={selectedUsersToShare}
-              onToggleUser={handleToggleUserShare}
-              onSelectAll={handleSelectAllRoleUsers}
-              onDeselectAll={handleDeselectAllRoleUsers}
-            />
 
             {/* Modal Selección por Rol (participantes) */}
             <RoleUserSelectionModal
@@ -806,6 +813,15 @@ function ArchivosModalContent({
 // ─── Styles ────────────────────────────────────────────────────────────────────
 
 const localStyles = StyleSheet.create({
+  tituloInput: {
+    borderWidth: 1,
+    borderColor: colors.background,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    color: colors.text,
+    marginBottom: 8,
+  },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',

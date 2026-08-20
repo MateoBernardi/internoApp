@@ -35,7 +35,6 @@ import { MESSAGE_STATES, formatDateDDMMYYYY, formatTimeHHMM } from '../conversac
 import { buildArchivoFileItem } from '../conversacion/fileHelpers';
 import { useAdjuntos } from '../conversacion/hooks/useAdjuntos';
 import { useAlertModal } from '../conversacion/hooks/useAlertModal';
-import { useCompartirSelection } from '../conversacion/hooks/useCompartirSelection';
 import { useMarcarVisto } from '../conversacion/hooks/useMarcarVisto';
 import { useMessagesScroll } from '../conversacion/hooks/useMessagesScroll';
 import { useParticipantesManager } from '../conversacion/hooks/useParticipantesManager';
@@ -43,7 +42,6 @@ import { conversacionStyles } from '../conversacion/styles';
 import {
   EstadoInvitacionDB,
   RangoOcupado,
-  ReenviarSolicitudRequest,
   SolicitudEnviada,
   UpdateSolicitudResponse,
   estadoInvitacionMapping,
@@ -53,7 +51,6 @@ import {
   useActualizarEstadoInvitacion,
   useActualizarInvitadosSolicitud,
   useMarcarSolicitudVisto,
-  useReenviarSolicitud,
   useSolicitudBitacora,
 } from '../viewmodels/useSolicitudes';
 import { MessageBubble } from './MessageBubble';
@@ -125,13 +122,12 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
   // animationType="slide"> exterior todavía está en su transición de
   // apertura al montar — en iOS eso puede colgar la app.
   const { mutate: marcarVisto } = useMarcarSolicitudVisto();
-  const { mutate: reenviarSolicitud, isPending: isSharing } = useReenviarSolicitud();
   const { mutate: crearActividad, isPending: isCreatingActividad } = useCrearActividad();
   const { mutateAsync: crearObjetivo, isPending: isCreatingObjetivo } = useCreateObjetivo();
   const { mutate: actualizarInvitados } = useActualizarInvitadosSolicitud();
   const validacion = useValidacionFechas();
 
-  const isMutating = isUpdatingEstado || isSharing
+  const isMutating = isUpdatingEstado
     || isCreatingActividad || isCreatingObjetivo;
 
   // ─── Rol / permisos ───────────────────────────────────────────────────────
@@ -174,17 +170,6 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
   const [showAgendaDatePicker, setShowAgendaDatePicker] = useState<{
     show: boolean; mode: 'date' | 'time'; target: 'start' | 'end';
   }>({ show: false, mode: 'date', target: 'start' });
-
-  const {
-    showShareModal, setShowShareModal,
-    setSearchQuery,
-    selectedUsersToShare, setSelectedUsersToShare,
-    activeRole, setActiveRole,
-    showRoleModal, setShowRoleModal,
-    searchResults, isLoadingUsers,
-    roleUsersData,
-    handleToggleUserShare, handleSelectAllRoleUsers, handleDeselectAllRoleUsers,
-  } = useCompartirSelection();
 
   const {
     participantesSelectedUsers,
@@ -262,7 +247,6 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
   const isAceptarModificacionesFlow = isHost && efectivoEstado === 'MODIFIED';
   // El invitado no puede aceptar mientras la solicitud está en estado "Modificado" (propuso un cambio).
   const aceptarDeshabilitado = !isHost && efectivoEstado === 'MODIFIED';
-  const puedeCompartir = isHost && !isExpiredState && !esActividadCreada;
 
   const puedeAgregarAAgenda = useMemo(() => {
     if (esActividadCreada) return false;
@@ -662,37 +646,6 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
     );
   }, [agendaDateErrorMessage, solicitud, user, validacion, ejecutarAgregarAAgenda, participantesAceptados, agendaFechaInicio, agendaFechaFin]);
 
-  // ─── Compartir ────────────────────────────────────────────────────────────
-
-  const ejecutarCompartir = useCallback(() => {
-    const payload: ReenviarSolicitudRequest = {
-      solicitudId,
-      nuevosInvitadosIds: selectedUsersToShare.map(u => u.user_context_id),
-    };
-    reenviarSolicitud(payload, {
-      onSuccess: () => { setShowShareModal(false); Alert.alert('Éxito', 'Solicitud reenviada'); },
-      onError: e => Alert.alert('Error', e instanceof Error ? e.message : 'Intenta nuevamente'),
-    });
-  }, [solicitudId, selectedUsersToShare, reenviarSolicitud, setShowShareModal]);
-
-  const confirmCompartir = useCallback(() => {
-    if (selectedUsersToShare.length === 0) { Alert.alert('Error', 'Selecciona al menos un usuario'); return; }
-    if (hasDates) {
-      validacion.validate(
-        {
-          fechaInicio: solicitud.fecha_inicio!,
-          fechaFin: solicitud.fecha_fin!,
-          participantes: selectedUsersToShare.map(u => u.user_context_id),
-          tipo_actividad: solicitud.tipo_actividad as 'REUNION' | 'MANDATO',
-          solicitudIdExcluir: solicitudId,
-        },
-        () => ejecutarCompartir(),
-      );
-    } else {
-      ejecutarCompartir();
-    }
-  }, [selectedUsersToShare, hasDates, solicitud, solicitudId, validacion, ejecutarCompartir]);
-
   // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
@@ -970,18 +923,6 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                           <Ionicons name="add-outline" size={20} color={colors.lightTint} />
                         </TouchableOpacity>
 
-                        {/* Compartir (solo host) */}
-                        {puedeCompartir && (
-                          <TouchableOpacity style={styles.messageActionButton} onPress={() => {
-                            setSelectedUsersToShare([]);
-                            setSearchQuery('');
-                            setActiveRole('');
-                            setShowShareModal(true);
-                          }}>
-                            <Ionicons name="person-add-outline" size={20} color={colors.lightTint} />
-                          </TouchableOpacity>
-                        )}
-
                         {/* Rechazar */}
                         {!isFinalState && (
                           <TouchableOpacity style={styles.messageActionButton} onPress={() => {
@@ -1126,52 +1067,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
               </ModalKeyboardView>
             </Modal>
 
-            {/* Modal Compartir */}
-            <Modal visible={showShareModal} transparent animationType="fade" onRequestClose={() => setShowShareModal(false)}>
-              <ModalKeyboardView style={{ flex: 1 }}>
-                <TouchableWithoutFeedback onPress={() => setShowShareModal(false)}>
-                  <View style={styles.modalOverlay}>
-                    <TouchableWithoutFeedback onPress={e => e.stopPropagation()}>
-                      <View style={styles.modalContent}>
-                        <ThemedText type="subtitle" style={{ marginBottom: 16 }}>Compartir Solicitud</ThemedText>
-                        <UserSelector
-                          selectedUsers={selectedUsersToShare}
-                          onSelectUsers={setSelectedUsersToShare}
-                          users={searchResults ?? []}
-                          onSearch={setSearchQuery}
-                          isLoadingUsers={isLoadingUsers}
-                          roles={rolesForSelector}
-                          onSelectRole={role => { setActiveRole(role); setShowRoleModal(true); }}
-                        />
-                        <View style={styles.modalActions}>
-                          <TouchableOpacity onPress={() => setShowShareModal(false)} style={styles.modalBtnCancel}>
-                            <ThemedText style={{ color: colors.error }}>Cancelar</ThemedText>
-                          </TouchableOpacity>
-                          <TouchableOpacity onPress={confirmCompartir} style={styles.modalBtnConfirm}>
-                            {isSharing
-                              ? <ActivityIndicator color={colors.background} />
-                              : <ThemedText style={{ color: colors.background }}>Compartir</ThemedText>}
-                          </TouchableOpacity>
-                        </View>
-                      </View>
-                    </TouchableWithoutFeedback>
-                  </View>
-                </TouchableWithoutFeedback>
-              </ModalKeyboardView>
-            </Modal>
-
             {/* Modal Selección por Rol */}
-            <RoleUserSelectionModal
-              visible={showRoleModal}
-              onClose={() => { setShowRoleModal(false); setActiveRole(''); }}
-              roleName={activeRole}
-              roleUsers={roleUsersData ?? []}
-              selectedUsers={selectedUsersToShare}
-              onToggleUser={handleToggleUserShare}
-              onSelectAll={handleSelectAllRoleUsers}
-              onDeselectAll={handleDeselectAllRoleUsers}
-            />
-
             <RoleUserSelectionModal
               visible={showParticipantesRoleModal}
               onClose={() => { setShowParticipantesRoleModal(false); setParticipantesActiveRole(''); }}

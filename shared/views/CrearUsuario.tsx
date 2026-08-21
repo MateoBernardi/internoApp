@@ -1,17 +1,17 @@
 import { InputWithIcon } from '@/components/InputWithIcon';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Colors } from '@/constants/theme';
 import { useRegisterUser } from '@/features/auth/hooks/useAuthActions';
 import { CreateUserData } from '@/features/auth/types';
-import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
+import { AuthGradientBackground } from '@/shared/ui/AuthGradientBackground';
+import { useAuthFormLayout } from '@/shared/ui/authLayout';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { KEYBOARD_BEHAVIOR } from '@/shared/ui/keyboard';
-const colors = Colors['light'];
 
 // Regex para validaciones
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -29,7 +29,7 @@ type ValidationErrors = {
 
 export default function CrearUsuario() {
   const router = useRouter();
-  const responsiveLayout = useResponsiveLayout();
+  const { maxWidth: webFormMaxWidth, horizontalPadding } = useAuthFormLayout();
   const registerMutation = useRegisterUser();
 
   // Form state
@@ -47,6 +47,12 @@ export default function CrearUsuario() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  const apellidoRef = useRef<TextInput>(null);
+  const usernameRef = useRef<TextInput>(null);
+  const emailRef = useRef<TextInput>(null);
+  const passwordRef = useRef<TextInput>(null);
+  const confirmPasswordRef = useRef<TextInput>(null);
 
   // Validar campo individual
   const validateField = (field: keyof CreateUserData, value: string): string => {
@@ -178,15 +184,8 @@ export default function CrearUsuario() {
     }
   }, [formData, registerMutation, router]);
 
-  // Dynamic button styles
-  const buttonBg = loading ? colors.lightTint : isFormComplete ? colors.lightTint : colors.background;
-  const buttonColor = loading || isFormComplete ? colors.componentBackground : colors.secondaryText;
-  const webFormMaxWidth = useMemo(() => {
-    if (Platform.OS !== 'web') return 380;
-    if (responsiveLayout.isDesktopXl) return 680;
-    if (responsiveLayout.isDesktop) return 560;
-    return 380;
-  }, [responsiveLayout.isDesktop, responsiveLayout.isDesktopXl]);
+  // Dynamic button colors (glass): fondo constante, estado por color de icono/texto
+  const buttonColor = loading || isFormComplete ? glassColors.text : glassColors.disabledText;
 
   return (
     <KeyboardAvoidingView
@@ -194,9 +193,10 @@ export default function CrearUsuario() {
       behavior={KEYBOARD_BEHAVIOR}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
     >
+      <AuthGradientBackground />
       <ScrollView
         style={styles.container}
-        contentContainerStyle={styles.contentContainer}
+        contentContainerStyle={[styles.contentContainer, { paddingHorizontal: horizontalPadding }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
@@ -210,50 +210,65 @@ export default function CrearUsuario() {
             </View>
           ) : null}
 
-          <ThemedView style={[styles.formContainer, { maxWidth: webFormMaxWidth }]}> 
+          <View style={[styles.formContainer, { maxWidth: webFormMaxWidth }]}>
             <InputWithIcon
-              icon="📝"
               placeholder="Nombre"
               value={formData.nombre}
               onChangeText={(v) => handleInputChange('nombre', v)}
               hasError={!!errors.nombre}
               textContentType="givenName"
+              variant="glass"
+              returnKeyType="next"
+              blurOnSubmit={false}
+              onSubmitEditing={() => apellidoRef.current?.focus()}
             />
             {errors.nombre ? <ThemedText style={styles.errorText}>{errors.nombre}</ThemedText> : null}
 
             <InputWithIcon
-              icon="📝"
+              ref={apellidoRef}
               placeholder="Apellido"
               value={formData.apellido}
               onChangeText={(v) => handleInputChange('apellido', v)}
               hasError={!!errors.apellido}
               textContentType="familyName"
+              variant="glass"
+              returnKeyType="next"
+              blurOnSubmit={false}
+              onSubmitEditing={() => usernameRef.current?.focus()}
             />
             {errors.apellido ? <ThemedText style={styles.errorText}>{errors.apellido}</ThemedText> : null}
 
             <InputWithIcon
-              icon="👤"
+              ref={usernameRef}
               placeholder="Usuario"
               value={formData.username}
               onChangeText={(v) => handleInputChange('username', v)}
               hasError={!!errors.username}
               textContentType="username"
+              variant="glass"
+              returnKeyType="next"
+              blurOnSubmit={false}
+              onSubmitEditing={() => emailRef.current?.focus()}
             />
             {errors.username ? <ThemedText style={styles.errorText}>{errors.username}</ThemedText> : null}
 
             <InputWithIcon
-              icon="✉️"
+              ref={emailRef}
               placeholder="Email"
               value={formData.email}
               onChangeText={(v) => handleInputChange('email', v)}
               hasError={!!errors.email}
               keyboardType="email-address"
               textContentType="emailAddress"
+              variant="glass"
+              returnKeyType="next"
+              blurOnSubmit={false}
+              onSubmitEditing={() => passwordRef.current?.focus()}
             />
             {errors.email ? <ThemedText style={styles.errorText}>{errors.email}</ThemedText> : null}
 
             <InputWithIcon
-              icon="🔒"
+              ref={passwordRef}
               placeholder="Contraseña"
               value={formData.password}
               onChangeText={(v) => handleInputChange('password', v)}
@@ -261,11 +276,15 @@ export default function CrearUsuario() {
               onToggleSecure={() => setShowPassword(!showPassword)}
               hasError={!!errors.password}
               textContentType="newPassword"
+              variant="glass"
+              returnKeyType="next"
+              blurOnSubmit={false}
+              onSubmitEditing={() => confirmPasswordRef.current?.focus()}
             />
             {errors.password ? <ThemedText style={styles.errorText}>{errors.password}</ThemedText> : null}
 
             <InputWithIcon
-              icon="🔒"
+              ref={confirmPasswordRef}
               placeholder="Confirmar contraseña"
               value={confirmPassword}
               onChangeText={(v) => {
@@ -277,16 +296,19 @@ export default function CrearUsuario() {
               onToggleSecure={() => setShowConfirmPassword(!showConfirmPassword)}
               hasError={!!errors.confirmPassword}
               textContentType="newPassword"
+              variant="glass"
+              returnKeyType="done"
+              onSubmitEditing={handleSubmit}
             />
             {errors.confirmPassword ? <ThemedText style={styles.errorText}>{errors.confirmPassword}</ThemedText> : null}
 
             <Pressable
-              style={[styles.button, { backgroundColor: buttonBg }]}
+              style={[styles.button, glassStyles.button]}
               onPress={handleSubmit}
               disabled={!isFormComplete || loading}
             >
               {loading ? (
-                <ActivityIndicator color={colors.componentBackground} style={{ marginRight: 8 }} />
+                <ActivityIndicator color={glassColors.text} style={{ marginRight: 8 }} />
               ) : (
                 <Feather name="user-plus" size={20} color={buttonColor} style={{ marginRight: 8 }} />
               )}
@@ -294,7 +316,7 @@ export default function CrearUsuario() {
                 {loading ? 'Creando...' : 'Crear Usuario'}
               </ThemedText>
             </Pressable>
-          </ThemedView>
+          </View>
 
           <View style={styles.linksContainer}>
             <View style={styles.linkRow}>
@@ -313,12 +335,12 @@ export default function CrearUsuario() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.componentBackground,
+    backgroundColor: 'transparent',
   },
   contentContainer: {
     flexGrow: 1,
     justifyContent: 'center',
-    paddingHorizontal: 20,
+    alignItems: 'center',
     paddingVertical: 40,
   },
   formSection: {
@@ -328,62 +350,44 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: '700',
-    color: colors.text,
+    color: glassColors.text,
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 14,
-    color: colors.secondaryText,
+    color: glassColors.textMuted,
     marginBottom: 24,
   },
   formContainer: {
     width: '100%',
     maxWidth: 380,
-    backgroundColor: colors.componentBackground,
-    borderRadius: 16,
-    padding: 24,
     gap: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 8,
   },
   successContainer: {
     marginBottom: 16,
     padding: 12,
-    backgroundColor: '#d4edda',
+    backgroundColor: 'rgba(46,125,50,0.08)',
     borderRadius: 8,
     borderLeftWidth: 4,
-    borderLeftColor: colors.success,
+    borderLeftColor: glassColors.success,
     width: '100%',
     maxWidth: 380,
   },
   successText: {
-    color: '#155724',
+    color: glassColors.success,
     fontSize: 13,
     fontWeight: '500',
     textAlign: 'center',
   },
   errorText: {
-    color: colors.error,
+    color: glassColors.error,
     fontSize: 12,
     marginTop: -4,
     marginBottom: 2,
     marginLeft: 4,
   },
   button: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 24,
     marginTop: 16,
-    elevation: 4,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
   },
   buttonText: {
     fontSize: 16,
@@ -401,11 +405,11 @@ const styles = StyleSheet.create({
   },
   linkLabel: {
     fontSize: 14,
-    color: colors.secondaryText,
+    color: glassColors.textMuted,
   },
   linkText: {
     fontSize: 14,
-    color: colors.tint,
+    color: glassColors.link,
     fontWeight: '600',
     textDecorationLine: 'underline',
   },

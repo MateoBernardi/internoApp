@@ -1,5 +1,6 @@
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
+import { glassStyles } from '@/shared/ui/glass';
 import { UserSummary } from '@/shared/users/User';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useMemo } from 'react';
@@ -115,12 +116,13 @@ export function RoleUserSelectionModal({
       onRequestClose={handleClose}
     >
       <TouchableWithoutFeedback onPress={handleClose}>
-        <View style={[styles.modalOverlay, Platform.OS === 'web' && styles.modalOverlayWeb]}>
+        <View style={[styles.modalOverlay, glassStyles.modalOverlay, Platform.OS === 'web' && styles.modalOverlayWeb]}>
           <TouchableWithoutFeedback>
             <View
               style={[
                 styles.modalContent,
-                { backgroundColor: colors.componentBackground, width: modalWidth },
+                glassStyles.modalCard,
+                { width: modalWidth },
                 Platform.OS === 'web' && styles.modalContentWeb,
               ]}
             >
@@ -138,7 +140,7 @@ export function RoleUserSelectionModal({
 
               {/* Search Role Users */}
               <TextInput
-                style={styles.roleSearchInput}
+                style={[styles.roleSearchInput, glassStyles.fieldGlass]}
                 placeholder="Buscar en este rol..."
                 value={searchQuery}
                 onChangeText={setSearchQuery}
@@ -170,14 +172,7 @@ export function RoleUserSelectionModal({
 
                 <View style={styles.bottomActions}>
                   <TouchableOpacity
-                    style={[
-                      styles.confirmButton,
-                      {
-                        backgroundColor: colors.componentBackground,
-                        borderColor: colors.lightTint,
-                        borderWidth: 1,
-                      },
-                    ]}
+                    style={[styles.confirmButton, glassStyles.button]}
                     onPress={handleClose}
                   >
                     <ThemedText style={{ color: colors.lightTint, fontWeight: 'bold' }}>OK</ThemedText>
@@ -209,14 +204,8 @@ const styles = StyleSheet.create({
     width: '100%',
     minHeight: 420,
     maxHeight: '92%',
-    borderRadius: 16,
     padding: 16,
     overflow: 'hidden',
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
   },
   modalContentWeb: {
     zIndex: 1001,
@@ -229,8 +218,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   roleSearchInput: {
-    backgroundColor: colors.componentBackground,
-    borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
     fontSize: 14,
@@ -241,7 +228,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingBottom: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.componentBackground,
+    borderBottomColor: 'rgba(17,24,28,0.08)',
     marginBottom: 8,
   },
   actionButton: {
@@ -262,7 +249,7 @@ const styles = StyleSheet.create({
   },
   bottomActions: {
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.componentBackground,
+    borderTopColor: 'rgba(17,24,28,0.08)',
     paddingTop: 12,
   },
   userRow: {
@@ -271,7 +258,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.componentBackground,
+    borderBottomColor: 'rgba(17,24,28,0.08)',
   },
   userInfo: {
     flex: 1,

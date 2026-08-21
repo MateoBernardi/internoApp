@@ -2,19 +2,19 @@ import { InputWithIcon } from '@/components/InputWithIcon';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
-import { Colors } from '@/constants/theme';
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { AuthGradientBackground } from '@/shared/ui/AuthGradientBackground';
+import { useAuthFormLayout } from '@/shared/ui/authLayout';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { KEYBOARD_BEHAVIOR } from '@/shared/ui/keyboard';
 import {
   changePasswordWithToken,
   generatePasswordToken,
   validatePasswordToken,
 } from '../users/userApi';
-
-const colors = Colors['light'];
 
 type Step = 'email' | 'token' | 'password' | 'success';
 
@@ -23,6 +23,8 @@ interface CambiarContrasenaViewProps {
 }
 
 export const CambiarContrasenaView: React.FC<CambiarContrasenaViewProps> = ({ onSuccess }) => {
+  const { maxWidth: webFormMaxWidth, horizontalPadding } = useAuthFormLayout();
+
   // Estados del flujo
   const [currentStep, setCurrentStep] = useState<Step>('email');
   const [email, setEmail] = useState('');
@@ -38,6 +40,7 @@ export const CambiarContrasenaView: React.FC<CambiarContrasenaViewProps> = ({ on
   const isProcessingRef = useRef(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const confirmPasswordRef = useRef<TextInput>(null);
 
   // Validaciones
   const isEmailValid = useMemo(() => {
@@ -191,7 +194,7 @@ export const CambiarContrasenaView: React.FC<CambiarContrasenaViewProps> = ({ on
     if (!error) return null;
     return (
       <View style={styles.errorContainer}>
-        <Feather name="alert-circle" size={16} color={colors.error} style={{ marginRight: 8 }} />
+        <Feather name="alert-circle" size={16} color={glassColors.error} style={{ marginRight: 8 }} />
         <ThemedText style={styles.errorText}>{error}</ThemedText>
       </View>
     );
@@ -208,11 +211,13 @@ export const CambiarContrasenaView: React.FC<CambiarContrasenaViewProps> = ({ on
       behavior={KEYBOARD_BEHAVIOR}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
     >
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}
+    <AuthGradientBackground />
+    <ScrollView style={styles.container}
+      contentContainerStyle={[styles.contentContainer, { paddingHorizontal: horizontalPadding }]}
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
     >
-      <ThemedView style={styles.formSection}>
+      <ThemedView style={[styles.formSection, { maxWidth: webFormMaxWidth }]}>
         {/* Header */}
         <View style={styles.headerContainer}>
           <ThemedText style={styles.title}>Recuperar Contraseña</ThemedText>
@@ -226,104 +231,104 @@ export const CambiarContrasenaView: React.FC<CambiarContrasenaViewProps> = ({ on
 
         {/* Paso 1: Email */}
         {currentStep === 'email' && (
-          <ThemedView style={styles.formContainer}>
+          <View style={styles.formContainer}>
             <InputWithIcon
-              icon="✉️"
               placeholder="tu@email.com"
               value={email}
               onChangeText={handleEmailChange}
               keyboardType="email-address"
               textContentType="emailAddress"
               hasError={!!error && !isEmailValid}
+              variant="glass"
+              returnKeyType="done"
+              onSubmitEditing={handleGenerateToken}
             />
             {errorContent}
             <Pressable
-              style={[styles.button, !isEmailValid && styles.buttonDisabled, loading && styles.buttonLoading]}
+              style={[styles.button, glassStyles.button, !isEmailValid && styles.buttonDisabled, loading && styles.buttonLoading]}
               onPress={handleGenerateToken}
               disabled={!isEmailValid || loading}
             >
               {loading ? (
-                <ActivityIndicator color={colors.lightTint} />
+                <ActivityIndicator color={glassColors.text} />
               ) : (
                 <>
-                  <Feather name="send" size={18} color={colors.componentBackground} style={{ marginRight: 8 }} />
+                  <Feather name="send" size={18} color={glassColors.text} style={{ marginRight: 8 }} />
                   <ThemedText style={styles.buttonText}>Enviar Token</ThemedText>
                 </>
               )}
             </Pressable>
-          </ThemedView>
+          </View>
         )}
 
         {/* Paso 2: Token */}
         {currentStep === 'token' && (
-          <ThemedView style={styles.formContainer}>
+          <View style={styles.formContainer}>
             <InputWithIcon
-              icon="🔐"
               placeholder="Ingresa el token"
               value={token}
               onChangeText={handleTokenChange}
               hasError={!!error && !isTokenValid}
+              variant="glass"
+              returnKeyType="done"
+              onSubmitEditing={handleValidateToken}
             />
             {errorContent}
             <View style={styles.buttonGroup}>
               <Pressable
-                style={[styles.buttonSecondary, styles.buttonFlex]}
+                style={[styles.buttonSecondary, glassStyles.buttonSecondary, styles.buttonFlex]}
                 onPress={handleGoBack}
                 disabled={loading}
               >
-                <Feather name="arrow-left" size={18} color={colors.tint} style={{ marginRight: 8 }} />
+                <Feather name="arrow-left" size={18} color={glassColors.text} style={{ marginRight: 8 }} />
                 <ThemedText style={styles.buttonTextSecondary}>Atrás</ThemedText>
               </Pressable>
               <Pressable
-                style={[styles.button, styles.buttonFlex, !isTokenValid && styles.buttonDisabled, loading && styles.buttonLoading]}
+                style={[styles.button, glassStyles.button, styles.buttonFlex, !isTokenValid && styles.buttonDisabled, loading && styles.buttonLoading]}
                 onPress={handleValidateToken}
                 disabled={!isTokenValid || loading}
               >
                 {loading ? (
-                  <ActivityIndicator color={colors.lightTint} />
+                  <ActivityIndicator color={glassColors.text} />
                 ) : (
                   <>
-                    <Feather name="check" size={18} color={colors.componentBackground} style={{ marginRight: 8 }} />
+                    <Feather name="check" size={18} color={glassColors.text} style={{ marginRight: 8 }} />
                     <ThemedText style={styles.buttonText}>Validar</ThemedText>
                   </>
                 )}
               </Pressable>
             </View>
-          </ThemedView>
+          </View>
         )}
 
         {/* Paso 3: Nueva Contraseña */}
         {currentStep === 'password' && (
-          <ThemedView style={styles.formContainer}>
+          <View style={styles.formContainer}>
             <InputWithIcon
-              icon="🔒"
               placeholder="Nueva contraseña (8+ caracteres)"
               value={newPassword}
               onChangeText={handlePasswordChange}
               secureTextEntry={!showPassword}
+              onToggleSecure={() => setShowPassword(!showPassword)}
               hasError={!!error && newPassword.length > 0 && newPassword.length < 8}
+              variant="glass"
+              returnKeyType="next"
+              blurOnSubmit={false}
+              onSubmitEditing={() => confirmPasswordRef.current?.focus()}
             />
-            <Pressable
-              style={styles.togglePassword}
-              onPress={() => setShowPassword(!showPassword)}
-            >
-              <Feather name={showPassword ? 'eye-off' : 'eye'} size={18} color={colors.tint} />
-            </Pressable>
 
             <InputWithIcon
-              icon="🔒"
+              ref={confirmPasswordRef}
               placeholder="Confirmar contraseña"
               value={confirmPassword}
               onChangeText={handleConfirmPasswordChange}
               secureTextEntry={!showConfirmPassword}
+              onToggleSecure={() => setShowConfirmPassword(!showConfirmPassword)}
               hasError={!!error && confirmPassword.length > 0 && newPassword !== confirmPassword}
+              variant="glass"
+              returnKeyType="done"
+              onSubmitEditing={handleChangePassword}
             />
-            <Pressable
-              style={styles.togglePassword}
-              onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-            >
-              <Feather name={showConfirmPassword ? 'eye-off' : 'eye'} size={18} color={colors.tint} />
-            </Pressable>
 
             {newPassword.length > 0 && (
               <View style={styles.passwordStrengthContainer}>
@@ -335,37 +340,37 @@ export const CambiarContrasenaView: React.FC<CambiarContrasenaViewProps> = ({ on
 
             <View style={styles.buttonGroup}>
               <Pressable
-                style={[styles.buttonSecondary, styles.buttonFlex]}
+                style={[styles.buttonSecondary, glassStyles.buttonSecondary, styles.buttonFlex]}
                 onPress={handleGoBack}
                 disabled={loading}
               >
-                <Feather name="arrow-left" size={18} color={colors.tint} style={{ marginRight: 8 }} />
+                <Feather name="arrow-left" size={18} color={glassColors.text} style={{ marginRight: 8 }} />
                 <ThemedText style={styles.buttonTextSecondary}>Atrás</ThemedText>
               </Pressable>
               <Pressable
-                style={[styles.button, styles.buttonFlex, !isPasswordValid && styles.buttonDisabled, loading && styles.buttonLoading]}
+                style={[styles.button, glassStyles.button, styles.buttonFlex, !isPasswordValid && styles.buttonDisabled, loading && styles.buttonLoading]}
                 onPress={handleChangePassword}
                 disabled={!isPasswordValid || loading}
               >
                 {loading ? (
-                  <ActivityIndicator color={colors.lightTint} />
+                  <ActivityIndicator color={glassColors.text} />
                 ) : (
                   <>
-                    <Feather name="save" size={18} color={colors.componentBackground} style={{ marginRight: 8 }} />
+                    <Feather name="save" size={18} color={glassColors.text} style={{ marginRight: 8 }} />
                     <ThemedText style={styles.buttonText}>Cambiar</ThemedText>
                   </>
                 )}
               </Pressable>
             </View>
-          </ThemedView>
+          </View>
         )}
 
         {/* Paso 4: Success */}
         {currentStep === 'success' && (
-          <ThemedView style={styles.formContainer}>
+          <View style={styles.formContainer}>
             <View style={styles.successContainer}>
               <View style={styles.successIconContainer}>
-                <Feather name="check-circle" size={64} color={colors.success} />
+                <Feather name="check-circle" size={64} color={glassColors.success} />
               </View>
               <ThemedText style={styles.successTitle}>¡Éxito!</ThemedText>
               <ThemedText style={styles.successMessage}>
@@ -374,13 +379,13 @@ export const CambiarContrasenaView: React.FC<CambiarContrasenaViewProps> = ({ on
             </View>
 
             <Pressable
-              style={styles.button}
+              style={[styles.button, glassStyles.button]}
               onPress={handleBackToLogin}
             >
-              <Feather name="log-in" size={18} color={colors.componentBackground} style={{ marginRight: 8 }} />
+              <Feather name="log-in" size={18} color={glassColors.text} style={{ marginRight: 8 }} />
               <ThemedText style={styles.buttonText}>Volver a Ingresar</ThemedText>
             </Pressable>
-          </ThemedView>
+          </View>
         )}
 
         {/* Volver al login (visible en email y token steps) */}
@@ -400,20 +405,21 @@ export const CambiarContrasenaView: React.FC<CambiarContrasenaViewProps> = ({ on
 const styles = StyleSheet.create({
   keyboardAvoid: {
     flex: 1,
-    backgroundColor: colors.componentBackground,
+    backgroundColor: 'transparent',
   },
   container: {
     flex: 1,
-    backgroundColor: colors.componentBackground,
+    backgroundColor: 'transparent',
   },
   contentContainer: {
     flexGrow: 1,
     justifyContent: 'center',
-    paddingHorizontal: 20,
+    alignItems: 'center',
     paddingVertical: 40,
   },
   formSection: {
     backgroundColor: 'transparent',
+    width: '100%',
   },
   headerContainer: {
     marginBottom: 32,
@@ -422,82 +428,53 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: '700',
-    color: colors.text,
+    color: glassColors.text,
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 14,
-    color: colors.secondaryText,
+    color: glassColors.textMuted,
     textAlign: 'center',
     lineHeight: 20,
   },
   formContainer: {
-    backgroundColor: colors.componentBackground,
-    borderRadius: 16,
-    padding: 24,
     gap: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 8,
   },
   errorContainer: {
-    backgroundColor: '#fee',
+    backgroundColor: 'rgba(244,67,54,0.08)',
     borderRadius: 8,
     padding: 12,
     borderLeftWidth: 4,
-    borderLeftColor: colors.error,
+    borderLeftColor: glassColors.error,
     flexDirection: 'row',
     alignItems: 'center',
   },
   errorText: {
-    color: colors.error,
+    color: glassColors.error,
     fontSize: 13,
     fontWeight: '500',
     flex: 1,
   },
   button: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.lightTint,
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 24,
     minHeight: 48,
-    elevation: 4,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
   },
   buttonDisabled: {
-    backgroundColor: colors.secondaryText,
     opacity: 0.5,
   },
   buttonLoading: {
     opacity: 0.8,
   },
   buttonText: {
-    color: colors.componentBackground,
+    color: glassColors.text,
     fontSize: 14,
     fontWeight: '600',
     letterSpacing: 0.3,
   },
   buttonSecondary: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.background,
-    borderColor: colors.tint,
-    borderWidth: 1.5,
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 24,
     minHeight: 48,
   },
   buttonTextSecondary: {
-    color: colors.tint,
+    color: glassColors.text,
     fontSize: 14,
     fontWeight: '600',
     letterSpacing: 0.3,
@@ -510,22 +487,15 @@ const styles = StyleSheet.create({
   buttonFlex: {
     flex: 1,
   },
-  togglePassword: {
-    position: 'absolute',
-    right: 40,
-    top: 0,
-    height: '100%',
-    justifyContent: 'center',
-  },
   passwordStrengthContainer: {
     height: 4,
-    backgroundColor: colors.background,
+    backgroundColor: 'rgba(17,24,28,0.08)',
     borderRadius: 2,
     overflow: 'hidden',
   },
   strengthBar: {
     height: '100%',
-    backgroundColor: colors.success,
+    backgroundColor: glassColors.success,
     borderRadius: 2,
   },
   successContainer: {
@@ -538,12 +508,12 @@ const styles = StyleSheet.create({
   successTitle: {
     fontSize: 24,
     fontWeight: '700',
-    color: colors.text,
+    color: glassColors.text,
     marginBottom: 8,
   },
   successMessage: {
     fontSize: 14,
-    color: colors.secondaryText,
+    color: glassColors.textMuted,
     textAlign: 'center',
     lineHeight: 20,
   },
@@ -553,7 +523,7 @@ const styles = StyleSheet.create({
   },
   backToLoginLink: {
     fontSize: 14,
-    color: colors.tint,
+    color: glassColors.link,
     fontWeight: '600',
     textDecorationLine: 'underline',
   },

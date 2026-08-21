@@ -1,4 +1,5 @@
 import { ThemedText } from '@/components/themed-text';
+import { CreateButton } from '@/components/ui/CreateButton';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { Colors } from '@/constants/theme';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
@@ -116,13 +117,10 @@ export function MisSolicitudes() {
         <Stack.Screen
           options={{
             headerRight: () => (
-              <TouchableOpacity
+              <CreateButton
                 onPress={handleCreateNew}
-                style={styles.createButton}
-                accessibilityLabel="Crear solicitud de licencia"
-              >
-                <Text style={styles.createButtonText}>+</Text>
-              </TouchableOpacity>
+                accessibilityLabel="Nueva solicitud de licencia"
+              />
             ),
           }}
         />
@@ -301,17 +299,5 @@ const styles = StyleSheet.create({
   estadoText: {
     fontSize: 11,
     fontWeight: '600',
-  },
-  createButton: {
-    backgroundColor: colors.lightTint,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    marginRight: 4,
-  },
-  createButtonText: {
-    color: colors.componentBackground,
-    fontWeight: '700',
-    fontSize: 14,
   },
 });

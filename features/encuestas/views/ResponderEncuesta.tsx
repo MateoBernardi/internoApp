@@ -1,10 +1,10 @@
 import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
 import { Colors } from '@/constants/theme';
+import { GlassButton } from '@/shared/ui/GlassButton';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-    ActivityIndicator,
     Alert,
     ScrollView,
     StyleSheet,
@@ -29,6 +29,7 @@ const colors = Colors['light'];
 export const ResponderEncuesta: React.FC<ResponderEncuestaProps> = ({ encuesta, onCancelar }) => {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const esHorario = encuesta.preguntas?.some((p) => p.tipo_pregunta === 'horario') ?? false;
   const [respuestas, setRespuestas] = useState<Map<number, Respuesta>>(new Map());
   const { idempotencyKey } = useIdempotencyKey();
   const { mutateAsync: enviarRespuestas, isPending } = useEnviarRespuestasEncuesta();
@@ -311,8 +312,13 @@ export const ResponderEncuesta: React.FC<ResponderEncuestaProps> = ({ encuesta, 
     <View style={styles.container}>
       <View style={styles.contentWrapper} pointerEvents={isPending ? 'none' : 'auto'}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>{encuesta.titulo}</Text>
+          <Text style={styles.headerTitle}>{esHorario ? 'Turnero disponible' : encuesta.titulo}</Text>
           {encuesta.descripcion && <Text style={styles.headerDescripcion}>{encuesta.descripcion}</Text>}
+          {esHorario && (
+            <View style={styles.opcionalBadge}>
+              <Text style={styles.opcionalText}>Votar tu turno es opcional</Text>
+            </View>
+          )}
           {encuesta.es_anonima && (
             <View style={styles.anonimaBadge}>
               <Text style={styles.anonimaText}>Esta encuesta es anonima</Text>
@@ -329,17 +335,21 @@ export const ResponderEncuesta: React.FC<ResponderEncuestaProps> = ({ encuesta, 
         </ScrollView>
 
         <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
-          <TouchableOpacity style={styles.cancelarButton} onPress={onCancelar} disabled={isPending}>
-            <Text style={styles.cancelarButtonText}>Cancelar</Text>
-          </TouchableOpacity>
+          <GlassButton
+            label="Cancelar"
+            onPress={onCancelar}
+            disabled={isPending}
+            variant="secondary"
+            style={styles.cancelarButton}
+          />
 
-          <TouchableOpacity
-            style={[styles.enviarButton, isPending && styles.enviarButtonDisabled]}
+          <GlassButton
+            label="Enviar Respuestas"
             onPress={handleEnviar}
             disabled={isPending}
-          >
-            {isPending ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.enviarButtonText}>Enviar Respuestas</Text>}
-          </TouchableOpacity>
+            loading={isPending}
+            style={styles.enviarButton}
+          />
         </View>
       </View>
 
@@ -384,6 +394,19 @@ const styles = StyleSheet.create({
   anonimaText: {
     fontSize: 12,
     color: colors.lightTint,
+    fontWeight: '600',
+  },
+  opcionalBadge: {
+    backgroundColor: colors.componentBackground,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+    marginBottom: 6,
+  },
+  opcionalText: {
+    fontSize: 12,
+    color: colors.secondaryText,
     fontWeight: '600',
   },
   scrollView: {
@@ -541,32 +564,9 @@ const styles = StyleSheet.create({
   },
   cancelarButton: {
     flex: 1,
-    paddingVertical: 15,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.secondaryText,
-    alignItems: 'center',
-  },
-  cancelarButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.secondaryText,
   },
   enviarButton: {
     flex: 2,
-    paddingVertical: 15,
-    borderRadius: 8,
-    backgroundColor: colors.lightTint,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  enviarButtonDisabled: {
-    opacity: 0.7,
-  },
-  enviarButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
   },
 });
 

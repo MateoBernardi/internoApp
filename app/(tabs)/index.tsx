@@ -11,7 +11,6 @@ import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { useQueryClient } from '@tanstack/react-query';
 import React, { useCallback, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { useSafeTopInset } from '@/hooks/useSafeTopInset';
 
 const colors = Colors['light'];
 
@@ -24,7 +23,6 @@ export default function HomeScreen() {
   const isUserContextReady = Boolean(user?.user_context_id);
   const puedeResponderEncuestas = canRespondEncuestas();
   const shouldEnableHomeQueries = isUserContextReady && puedeResponderEncuestas;
-  const top = useSafeTopInset();
 
   const { isLoading: isLoadingEncuestas } = useGetEncuestas(shouldEnableHomeQueries);
 
@@ -39,7 +37,7 @@ export default function HomeScreen() {
 
   return (
     <ThemedView
-      style={[styles.container, { paddingTop: top }]}
+      style={styles.container}
       lightColor={colors.componentBackground}
     >
       {showHomeSkeleton ? (

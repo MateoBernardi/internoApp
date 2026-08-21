@@ -1,5 +1,5 @@
-import { Colors } from '@/constants/theme';
 import type { Novedad } from '@/features/novedades/models/Novedades';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
@@ -185,7 +185,7 @@ export function NovedadFormModal({
       <View style={styles.fullScreen}>
         <ModalKeyboardView style={styles.modalKeyboardAvoiding}>
           <View style={[styles.modalContainer, { paddingBottom: insets.bottom }]}>
-            <View style={[styles.modalHeader, { paddingTop: insets.top + 12 }]}>
+            <View style={[styles.modalHeader, glassStyles.sheetHeader, { paddingTop: insets.top + 12 }]}>
               <TouchableOpacity onPress={onClose} style={styles.headerIconButton} disabled={loading}>
                 <Ionicons name="chevron-back" size={24} color="#6b7280" />
               </TouchableOpacity>
@@ -285,9 +285,9 @@ export function NovedadFormModal({
             <View style={[styles.uploadButtonContainer]}>
               <TouchableOpacity
                 onPress={handleSubmit}
-                style={[styles.uploadButton, { backgroundColor: Colors['light'].componentBackground }]}
+                style={[styles.uploadButton, glassStyles.button]}
               >
-                <Ionicons name="cloud-upload" size={20} color={Colors['light'].lightTint} />
+                <Ionicons name="cloud-upload" size={20} color={glassColors.link} />
                 <ThemedText style={styles.uploadButtonText}>{'Crear'}</ThemedText>
 
               </TouchableOpacity>
@@ -302,9 +302,8 @@ export function NovedadFormModal({
 const styles = StyleSheet.create({
   fullScreen: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: Colors['light'].componentBackground,
+    ...glassStyles.sheet,
     zIndex: 1000,
-    elevation: 8,
   },
   modalKeyboardAvoiding: {
     flex: 1,
@@ -312,12 +311,10 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     flex: 1,
-    backgroundColor: Colors['light'].componentBackground,
   },
   modalHeader: {
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderBottomColor: Colors['light'].icon,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -330,7 +327,7 @@ const styles = StyleSheet.create({
   headerIconButton: {
     padding: 6,
     borderRadius: 16,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: 'rgba(17,24,28,0.06)',
     marginLeft: 8,
   },
   formScroll: {
@@ -357,13 +354,13 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderColor: '#d1d5db',
+    borderColor: 'rgba(17,24,28,0.12)',
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 15,
     color: '#111827',
-    backgroundColor: '#ffffff',
+    backgroundColor: 'rgba(17,24,28,0.03)',
   },
   textArea: {
     minHeight: 80,
@@ -371,19 +368,19 @@ const styles = StyleSheet.create({
   },
   dropdown: {
     height: 50,
-    borderColor: '#d1d5db',
+    borderColor: 'rgba(17,24,28,0.12)',
     borderWidth: 1,
     borderRadius: 8,
     paddingHorizontal: 12,
-    backgroundColor: 'white',
+    backgroundColor: 'rgba(17,24,28,0.03)',
   },
   placeholderStyle: {
     fontSize: 15,
-    color: '#9ca3af',
+    color: glassColors.placeholder,
   },
   selectedTextStyle: {
     fontSize: 15,
-    color: '#111827',
+    color: glassColors.text,
   },
   modalSubmitFab: {
     alignSelf: 'flex-end',
@@ -391,9 +388,8 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   uploadButtonContainer: {
-    backgroundColor: Colors['light'].componentBackground,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: Colors['light'].icon,
+    borderTopColor: 'rgba(17,24,28,0.08)',
     paddingHorizontal: '4%',
     paddingTop: 10,
   },
@@ -406,7 +402,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   uploadButtonText: {
-    color: Colors['light'].lightTint,
+    color: glassColors.link,
     fontWeight: '600',
     fontSize: 16,
   },

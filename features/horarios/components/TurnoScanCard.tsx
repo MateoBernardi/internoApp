@@ -1,9 +1,11 @@
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
+import { GlassButton } from '@/shared/ui/GlassButton';
+import { glassStyles } from '@/shared/ui/glass';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { TURNO_LABEL } from '../models/Turno';
 import { useTurnoScanActivo } from '../viewmodels/useTurnoScanActivo';
 
@@ -55,7 +57,7 @@ export function TurnoScanCard() {
   };
 
   return (
-    <ThemedView style={styles.card} lightColor={colors.componentBackground}>
+    <ThemedView style={[styles.card, glassStyles.card]} lightColor={colors.componentBackground}>
       <View style={styles.iconContainer}>
         <Ionicons
           name={isEntrada ? 'log-in-outline' : 'log-out-outline'}
@@ -73,11 +75,12 @@ export function TurnoScanCard() {
         </Text>
       </View>
 
-      <TouchableOpacity style={styles.button} onPress={handlePress} activeOpacity={0.8}>
-        <Text style={styles.buttonText}>
-          {isEntrada ? 'Escanear entrada' : 'Escanear salida'}
-        </Text>
-      </TouchableOpacity>
+      <GlassButton
+        label={isEntrada ? 'Escanear entrada' : 'Escanear salida'}
+        onPress={handlePress}
+        style={styles.button}
+        textStyle={styles.buttonText}
+      />
     </ThemedView>
   );
 }
@@ -86,12 +89,10 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingVertical: 14,
-    borderTopWidth: 1,
-    borderTopColor: colors.background,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.background,
+    marginHorizontal: 16,
+    marginBottom: 8,
     gap: 12,
   },
   iconContainer: {
@@ -117,15 +118,11 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   button: {
-    backgroundColor: colors.lightTint,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    borderRadius: 8,
     flexShrink: 0,
   },
   buttonText: {
-    color: '#fff',
     fontSize: 13,
-    fontWeight: '700',
   },
 });

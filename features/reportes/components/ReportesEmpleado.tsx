@@ -1,4 +1,5 @@
 import { ThemedText } from '@/components/themed-text';
+import { CreateButton } from '@/components/ui/CreateButton';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { Colors } from '@/constants/theme';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
@@ -6,7 +7,6 @@ import React, { useCallback, useState } from 'react';
 import {
 	ScrollView,
 	StyleSheet,
-	Text,
 	TouchableOpacity,
 	View
 } from 'react-native';
@@ -72,13 +72,7 @@ export function ReportesEmpleado({ userId, userNombre = '', userApellido = '' }:
 
 		return (
 			<View style={styles.header}>
-				<TouchableOpacity
-					style={styles.createButton}
-					onPress={handleCrearReporte}
-					accessibilityLabel="Crear nuevo reporte"
-				>
-					<Text style={styles.createButtonText}>+ Reporte</Text>
-				</TouchableOpacity>
+				<CreateButton onPress={handleCrearReporte} accessibilityLabel="Nuevo reporte" />
 			</View>
 		);
 	}, [canCreateReporte, handleCrearReporte]);
@@ -238,17 +232,6 @@ const styles = StyleSheet.create({
 		backgroundColor: colors.componentBackground,
 		borderBottomWidth: 1,
 		borderBottomColor: colors.background,
-	},
-	createButton: {
-		backgroundColor: colors.lightTint,
-		paddingHorizontal: 16,
-		paddingVertical: 8,
-		borderRadius: 8,
-	},
-	createButtonText: {
-		color: '#fff',
-		fontWeight: '700',
-		fontSize: 14,
 	},
 	itemContainer: {
 		paddingHorizontal: '4%',

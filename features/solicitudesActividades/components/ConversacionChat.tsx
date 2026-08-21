@@ -7,6 +7,7 @@ import { useAuth } from '@/features/auth/context/AuthContext';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { generateIdempotencyKey } from '@/shared/idempotency';
 import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
+import { glassColors } from '@/shared/ui/glass';
 import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { adminRoles, allRoles } from '@/shared/users/roles';
 import { Ionicons } from '@expo/vector-icons';
@@ -177,17 +178,15 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
     ? `${displayParticipantes.length} participantes · toca para ver archivos`
     : 'Conversación directa · toca para ver archivos';
 
-  const contentScrollRef = useRef<ScrollView>(null);
-
   useEffect(() => {
     if (Platform.OS !== 'android') return;
     const sub = Keyboard.addListener('keyboardDidHide', () => {
       requestAnimationFrame(() => {
-        contentScrollRef.current?.scrollToEnd({ animated: false });
+        messagesScrollRef.current?.scrollToEnd({ animated: false });
       });
     });
     return () => sub.remove();
-  }, []);
+  }, [messagesScrollRef]);
 
   // ─── Derivados del prop solicitud ─────────────────────────────────────────
 
@@ -461,60 +460,58 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
               </View>
             )}
 
-            <ScrollView
-              ref={contentScrollRef}
-              style={styles.content}
-              contentContainerStyle={styles.contentContainer}
-              showsVerticalScrollIndicator={false}
-              nestedScrollEnabled
-            >
-              {/* Participantes (solo grupos) */}
-              {solicitud.es_grupo && (
-                <ParticipantesBlock
-                  participantes={displayParticipantes.map(inv => ({
-                    id: inv.user_id,
-                    nombre: getParticipanteDisplayName(inv),
-                  }))}
-                  onRemove={isHost ? handleQuitarParticipante : undefined}
-                  onAgregar={isHost ? () => setShowParticipantesSelector(p => !p) : undefined}
-                  canManage={isHost}
-                  extraContent={
-                    isHost && showParticipantesSelector ? (
-                      <View style={styles.selectorCard}>
-                        <UserSelector
-                          selectedUsers={participantesSelectedUsers}
-                          onSelectUsers={handleSelectParticipantes}
-                          users={participantesSearchResults ?? []}
-                          roles={rolesForSelector}
-                          isLoadingUsers={isSearchingParticipantes || isLoadingParticipantesRole}
-                          onSearch={setParticipantesSearchQuery}
-                          onSelectRole={role => { setParticipantesActiveRole(role); setShowParticipantesRoleModal(true); }}
-                          showSelectedChips={false}
-                        />
+            <View style={styles.contentBody}>
+              {(solicitud.es_grupo || isExpiredState) && (
+                <ScrollView
+                  style={styles.topSection}
+                  contentContainerStyle={styles.topSectionContent}
+                  showsVerticalScrollIndicator={false}
+                  nestedScrollEnabled
+                >
+                  {/* Participantes (solo grupos) */}
+                  {solicitud.es_grupo && (
+                    <ParticipantesBlock
+                      participantes={displayParticipantes.map(inv => ({
+                        id: inv.user_id,
+                        nombre: getParticipanteDisplayName(inv),
+                      }))}
+                      onRemove={isHost ? handleQuitarParticipante : undefined}
+                      onAgregar={isHost ? () => setShowParticipantesSelector(p => !p) : undefined}
+                      canManage={isHost}
+                      extraContent={
+                        isHost && showParticipantesSelector ? (
+                          <View style={styles.selectorCard}>
+                            <UserSelector
+                              selectedUsers={participantesSelectedUsers}
+                              onSelectUsers={handleSelectParticipantes}
+                              users={participantesSearchResults ?? []}
+                              roles={rolesForSelector}
+                              isLoadingUsers={isSearchingParticipantes || isLoadingParticipantesRole}
+                              onSearch={setParticipantesSearchQuery}
+                              onSelectRole={role => { setParticipantesActiveRole(role); setShowParticipantesRoleModal(true); }}
+                              showSelectedChips={false}
+                            />
+                          </View>
+                        ) : null
+                      }
+                    />
+                  )}
+
+                  {/* Banner expirada */}
+                  {isExpiredState && (
+                    <View style={styles.expiredBanner}>
+                      <Ionicons name="alert-circle-outline" size={20} color="#5F6368" style={{ marginRight: 8 }} />
+                      <View style={{ flex: 1 }}>
+                        <ThemedText style={styles.expiredBannerTitle}>Conversación expirada</ThemedText>
+                        <ThemedText style={styles.expiredBannerText}>No se pueden enviar mensajes.</ThemedText>
                       </View>
-                    ) : null
-                  }
-                />
+                    </View>
+                  )}
+                </ScrollView>
               )}
 
-              {/* Banner expirada */}
-              {isExpiredState && (
-                <View style={styles.expiredBanner}>
-                  <Ionicons name="alert-circle-outline" size={20} color="#5F6368" style={{ marginRight: 8 }} />
-                  <View style={{ flex: 1 }}>
-                    <ThemedText style={styles.expiredBannerTitle}>Conversación expirada</ThemedText>
-                    <ThemedText style={styles.expiredBannerText}>No se pueden enviar mensajes.</ThemedText>
-                  </View>
-                </View>
-              )}
-
-              {/* Mensajes */}
-              <View style={styles.messagesCard}>
-                <View style={styles.sectionHeaderRow}>
-                  <ThemedText style={styles.label}>Mensajes</ThemedText>
-                </View>
-
-                <View style={styles.bitacoraContainer}>
+              {/* Mensajes: usan todo el espacio disponible debajo del encabezado */}
+              <View style={[styles.bitacoraContainer, styles.bitacoraFlex, styles.chatBitacoraContainer]}>
                   {!!solicitud.fecha_inicio && !!solicitud.fecha_fin && hasNextPage && (
                     <View style={styles.pinnedDatesBar}>
                       <ThemedText style={styles.pinnedDatesText}>
@@ -527,10 +524,9 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
                   ) : mensajes.length > 0 ? (
                     <ScrollView
                       ref={messagesScrollRef}
-                      style={styles.messagesList}
-                      contentContainerStyle={styles.messagesListContent}
+                      style={styles.messagesListFlex}
+                      contentContainerStyle={[styles.messagesListContent, styles.chatMessagesListContent]}
                       showsVerticalScrollIndicator={false}
-                      nestedScrollEnabled
                       scrollEventThrottle={16}
                       onScroll={handleMessagesScroll}
                       onContentSizeChange={handleMessagesContentSizeChange}
@@ -598,24 +594,13 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
                 </View>
 
                 {/* Composer */}
-                <View style={styles.messageComposer}>
-                  <TextInput
-                    style={styles.messageComposerInput}
-                    placeholder="Escribir mensaje"
-                    placeholderTextColor={colors.secondaryText}
-                    value={messageDraft}
-                    onChangeText={setMessageDraft}
-                    multiline
-                    textAlignVertical="top"
-                    editable={!isExpiredState}
-                  />
-
+                <View style={[styles.chatComposer, { marginBottom: insets.bottom }]}>
                   {pickedFiles.length > 0 && (
-                    <View style={styles.messageComposerAttachments}>
+                    <View style={styles.chatComposerAttachments}>
                       {pickedFiles.map((f, i) => (
-                        <View key={`${f.uri}-${i}`} style={styles.messageComposerAttachmentRow}>
-                          <ThemedText style={styles.messageComposerAttachmentName} numberOfLines={1}>{f.name}</ThemedText>
-                          <TouchableOpacity onPress={() => setPickedFiles(p => p.filter((_, j) => j !== i))} style={styles.messageComposerAttachmentAction}>
+                        <View key={`${f.uri}-${i}`} style={styles.chatComposerAttachmentRow}>
+                          <ThemedText style={styles.chatComposerAttachmentName} numberOfLines={1}>{f.name}</ThemedText>
+                          <TouchableOpacity onPress={() => setPickedFiles(p => p.filter((_, j) => j !== i))} style={styles.chatComposerAttachmentAction}>
                             <Ionicons name="trash-outline" size={18} color={colors.secondaryText} />
                           </TouchableOpacity>
                         </View>
@@ -623,30 +608,40 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
                     </View>
                   )}
 
-                  <View style={styles.messageActionsRow}>
+                  <View style={styles.chatComposerRow}>
+                    <TextInput
+                      style={styles.chatComposerInput}
+                      placeholder="Escribir mensaje"
+                      placeholderTextColor={colors.secondaryText}
+                      value={messageDraft}
+                      onChangeText={setMessageDraft}
+                      multiline
+                      textAlignVertical="top"
+                      editable={!isExpiredState}
+                    />
+
                     {!isExpiredState && (
                       <>
                         {/* Adjuntar */}
-                        <TouchableOpacity style={styles.messageActionButton} onPress={handleAgregarAdjunto}>
+                        <TouchableOpacity style={styles.chatActionButton} onPress={handleAgregarAdjunto}>
                           <Ionicons name="add-outline" size={20} color={colors.lightTint} />
                         </TouchableOpacity>
 
                         {/* Enviar */}
                         <TouchableOpacity
-                          style={[styles.messageActionButton, styles.messageActionButtonPrimary, !canSendMessage && styles.messageActionButtonDisabled]}
+                          style={[styles.chatActionButton, styles.chatActionButtonPrimary, !canSendMessage && styles.messageActionButtonDisabled]}
                           onPress={handleEnviarMensaje}
                           disabled={!canSendMessage || isSendingMessage}
                         >
                           {isSendingMessage
-                            ? <ActivityIndicator size="small" color={colors.background} />
-                            : <Ionicons name="send" size={20} color={colors.background} />}
+                            ? <ActivityIndicator size="small" color={colors.lightTint} />
+                            : <Ionicons name="send" size={18} color={colors.lightTint} />}
                         </TouchableOpacity>
                       </>
                     )}
                   </View>
                 </View>
-              </View>
-            </ScrollView>
+            </View>
 
             {/* Modal Editar título */}
             <Modal visible={showEditTituloModal} transparent animationType="fade" onRequestClose={() => setShowEditTituloModal(false)}>
@@ -667,7 +662,7 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
                         />
                         <View style={styles.modalActions}>
                           <TouchableOpacity onPress={() => setShowEditTituloModal(false)} style={styles.modalBtnCancel}>
-                            <ThemedText style={{ color: colors.error }}>Cancelar</ThemedText>
+                            <ThemedText style={{ color: glassColors.textMuted }}>Cancelar</ThemedText>
                           </TouchableOpacity>
                           <TouchableOpacity
                             onPress={handleGuardarTitulo}
@@ -675,8 +670,8 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
                             disabled={isUpdatingTitulo || tituloDraft.trim().length === 0}
                           >
                             {isUpdatingTitulo
-                              ? <ActivityIndicator color={colors.background} />
-                              : <ThemedText style={{ color: colors.background }}>Guardar</ThemedText>}
+                              ? <ActivityIndicator color={glassColors.text} />
+                              : <ThemedText style={{ color: glassColors.text }}>Guardar</ThemedText>}
                           </TouchableOpacity>
                         </View>
                       </View>
@@ -925,7 +920,7 @@ const localStyles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
-    backgroundColor: colors.background,
+    backgroundColor: colors.neutralSurface,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.neutralBorder,
   },
@@ -933,6 +928,99 @@ const localStyles = StyleSheet.create({
     fontSize: 12,
     color: colors.text,
     fontWeight: '600',
+  },
+  contentBody: {
+    flex: 1,
+    backgroundColor: colors.componentBackground,
+    paddingHorizontal: 16,
+  },
+  topSection: {
+    flexGrow: 0,
+    maxHeight: '45%',
+  },
+  topSectionContent: {
+    gap: 14,
+  },
+  bitacoraFlex: {
+    flex: 1,
+  },
+  chatBitacoraContainer: {
+    paddingTop: 0,
+  },
+  chatMessagesListContent: {
+    paddingTop: 0,
+    paddingBottom: 10,
+  },
+  messagesListFlex: {
+    flex: 1,
+  },
+  chatComposer: {
+    marginTop: 8,
+  },
+  chatComposerAttachments: {
+    paddingHorizontal: 4,
+    paddingBottom: 8,
+    gap: 6,
+  },
+  chatComposerAttachmentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.neutralSurface,
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+  },
+  chatComposerAttachmentName: {
+    flex: 1,
+    fontSize: 13,
+    color: colors.text,
+    marginRight: 8,
+  },
+  chatComposerAttachmentAction: {
+    padding: 4,
+  },
+  chatComposerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 6,
+    borderRadius: 22,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.neutralBorder,
+    backgroundColor: colors.neutralSurface,
+    paddingLeft: 14,
+    paddingRight: 6,
+    paddingVertical: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  chatComposerInput: {
+    flex: 1,
+    minHeight: 36,
+    maxHeight: 110,
+    paddingVertical: 8,
+    fontSize: 14,
+    color: colors.text,
+  },
+  chatActionButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(17,24,28,0.12)',
+    backgroundColor: 'rgba(17,24,28,0.03)',
+  },
+  chatActionButtonPrimary: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderColor: 'rgba(26,115,232,0.35)',
+    backgroundColor: 'rgba(26,115,232,0.12)',
   },
 });
 

@@ -1,5 +1,6 @@
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { CreateButton } from '@/components/ui/CreateButton';
 import { SearchBar } from '@/components/ui/SearchBar';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
@@ -436,13 +437,10 @@ export default function Documentos() {
           </View>
 
           {canCreate && (
-            <TouchableOpacity
-              style={styles.createButton}
+            <CreateButton
               onPress={() => setFabMenuVisible((prev) => !prev)}
               accessibilityLabel="Crear documento o carpeta"
-            >
-              <Ionicons name="add" size={20} color={colors.componentBackground} />
-            </TouchableOpacity>
+            />
           )}
         </View>
       </View>
@@ -787,13 +785,5 @@ const styles = StyleSheet.create({
   fabMenuText: {
     fontSize: 14,
     fontWeight: '600',
-  },
-  createButton: {
-    backgroundColor: colors.lightTint,
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });

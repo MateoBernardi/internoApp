@@ -3,12 +3,23 @@ import { NovedadCard } from '@/components/NovedadCard';
 import { NovedadFormModal } from '@/components/NovedadFormModal';
 import { NovedadModal } from '@/components/NovedadModal';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
+import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
+import { GlassButton } from '@/shared/ui/GlassButton';
+import { glassStyles } from '@/shared/ui/glass';
 import { useIdempotencyKey } from '@/shared/useIdempotencyKey';
 import React, { useEffect, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import type { Novedad } from '../models/Novedades';
+import { formatNovedadDate, getNovedadCategory } from '../novedadPresentation';
 import { useNovedad } from '../viewmodels/useNovedad';
 
 // Roles que tienen permiso para crear, editar y eliminar novedades
@@ -19,23 +30,12 @@ interface NovedadView extends Novedad {
   fecha: string;
 }
 
-const TIPOS_NOVEDAD = [
-  { id: 1, nombre: 'General' },
-  { id: 2, nombre: 'Eventos' },
-  { id: 3, nombre: 'Supermercado' },
-  { id: 4, nombre: 'Mantenimiento' },
-  { id: 5, nombre: 'Seguridad e Higiene' },
-  { id: 6, nombre: 'Personas y Relaciones' },
-  { id: 7, nombre: 'Capacitación' },
-  { id: 8, nombre: 'Comunicados' },
-  { id: 9, nombre: 'Insumos' },
-  { id: 10, nombre: 'Otros' },
-];
-
 interface TablonNovedadesProps {
   refreshTrigger?: number;
   enabled?: boolean;
 }
+
+const colors = Colors['light'];
 
 interface NovedadCreateDraft {
   titulo: string;
@@ -102,8 +102,8 @@ export default function TablonNovedades({ refreshTrigger, enabled = true }: Tabl
         })
         .map((n) => ({
           ...n,
-          categoria: getTipoString(n.id_etiqueta || 1),
-          fecha: formatFecha(n.createdAt),
+          categoria: getNovedadCategory(n.id_etiqueta),
+          fecha: formatNovedadDate(n.createdAt),
         }));
       setNovedades(viewData);
     }
@@ -111,19 +111,7 @@ export default function TablonNovedades({ refreshTrigger, enabled = true }: Tabl
     setLocalLoading(false);
   };
 
-  const formatFecha = (fecha?: Date | string): string => {
-    if (!fecha) return 'Fecha no disponible';
-    const date = typeof fecha === 'string' ? new Date(fecha) : fecha;
-    const dd = String(date.getDate()).padStart(2, '0');
-    const mm = String(date.getMonth() + 1).padStart(2, '0');
-    const yyyy = date.getFullYear();
-    return `${dd}/${mm}/${yyyy}`;
-  };
 
-  const getTipoString = (tipo: number): string => {
-    const tipoNovedad = TIPOS_NOVEDAD.find((t) => t.id === tipo);
-    return tipoNovedad ? tipoNovedad.nombre : 'General';
-  };
 
   const handleNovedadPress = (novedad: NovedadView) => {
     setSelectedNovedad(novedad);
@@ -184,8 +172,8 @@ export default function TablonNovedades({ refreshTrigger, enabled = true }: Tabl
         regenerateIdempotencyKey();
         const newNovedadView: NovedadView = {
           ...result.data,
-          categoria: getTipoString(result.data.id_etiqueta || 1),
-          fecha: formatFecha(result.data.createdAt),
+          categoria: getNovedadCategory(result.data.id_etiqueta),
+          fecha: formatNovedadDate(result.data.createdAt),
         };
         setNovedades((prev) => [newNovedadView, ...prev]);
       } else {
@@ -203,8 +191,8 @@ export default function TablonNovedades({ refreshTrigger, enabled = true }: Tabl
             n.id === selectedNovedad.id
               ? {
                 ...result.data!,
-                categoria: getTipoString(result.data!.id_etiqueta || 1),
-                fecha: formatFecha(result.data!.createdAt),
+                categoria: getNovedadCategory(result.data!.id_etiqueta),
+                fecha: formatNovedadDate(result.data!.createdAt),
               }
               : n
           )
@@ -274,9 +262,7 @@ export default function TablonNovedades({ refreshTrigger, enabled = true }: Tabl
     return (
       <View style={styles.centerContainer}>
         <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={loadNovedades}>
-          <Text style={styles.retryButtonText}>Reintentar</Text>
-        </TouchableOpacity>
+        <GlassButton label="Reintentar" onPress={loadNovedades} />
       </View>
     );
   }
@@ -293,10 +279,8 @@ export default function TablonNovedades({ refreshTrigger, enabled = true }: Tabl
         contentContainerStyle={styles.scrollContent}
         style={styles.scrollView}
       >
-        {/* Botón para crear novedad */}
         {canCreate && <CrearNovedadCard onPress={handleCreatePress} />}
 
-        {/* Tarjetas de novedades */}
         {novedades.map((novedad) => (
           <NovedadCard
             key={novedad.id}
@@ -332,7 +316,7 @@ export default function TablonNovedades({ refreshTrigger, enabled = true }: Tabl
       />
 
       {canCreate && isFormModalMinimized && (
-        <View style={styles.minimizedDraftContainer}>
+        <View style={[styles.minimizedDraftContainer, glassStyles.pill]}>
           <TouchableOpacity style={styles.minimizedDraftMain} onPress={restoreFormModal}>
             <Ionicons name="chevron-up" size={18} color="#3b82f6" />
             <Text style={styles.minimizedDraftText}>Borrador de novedad</Text>
@@ -348,22 +332,24 @@ export default function TablonNovedades({ refreshTrigger, enabled = true }: Tabl
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#ffff',
+    minHeight: 104,
+    backgroundColor: colors.componentBackground,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#DDE2E8',
   },
   scrollView: {
     flexGrow: 0,
   },
   scrollContent: {
-    paddingLeft: 10,
-    paddingRight: 0,
-    paddingVertical: 16,
-    gap: 4,
+    minHeight: 104,
+    alignItems: 'stretch',
+    paddingVertical: 8,
   },
   centerContainer: {
-    flex: 1,
+    minHeight: 104,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 4,
+    padding: 12,
   },
   loadingText: {
     marginTop: 12,
@@ -376,17 +362,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 16,
   },
-  retryButton: {
-    backgroundColor: '#3b82f6',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-  },
-  retryButtonText: {
-    color: 'white',
-    fontSize: 15,
-    fontWeight: '600',
-  },
   emptyText: {
     fontSize: 16,
     color: '#6b7280',
@@ -396,20 +371,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 16,
     bottom: 18,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 12,
-    paddingLeft: 10,
-    paddingRight: 6,
-    paddingVertical: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.14,
-    shadowRadius: 4,
-    elevation: 4,
   },
   minimizedDraftMain: {
     flexDirection: 'row',

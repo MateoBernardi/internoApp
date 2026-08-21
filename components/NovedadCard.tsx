@@ -1,4 +1,8 @@
 import type { Novedad } from '@/features/novedades/models/Novedades';
+import {
+  getNovedadCategoryColor,
+  getNovedadPriority,
+} from '@/features/novedades/novedadPresentation';
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
@@ -7,52 +11,37 @@ interface NovedadCardProps {
   onPress: () => void;
 }
 
-const getPrioridadInfo = (prioridad: number): { color: string; bg: string; label: string } => {
-  switch (prioridad) {
-    case 1:
-      return { color: '#dc2626', bg: '#fef2f2', label: 'Alta' };
-    case 2:
-      return { color: '#d97706', bg: '#fffbeb', label: 'Media' };
-    case 3:
-      return { color: '#16a34a', bg: '#f0fdf4', label: 'Baja' };
-    default:
-      return { color: '#6b7280', bg: '#f3f4f6', label: '' };
-  }
-};
-
 export function NovedadCard({ novedad, onPress }: NovedadCardProps) {
-  const prioridad = getPrioridadInfo(novedad.prioridad);
+  const prioridad = getNovedadPriority(novedad.prioridad);
+  const categoryColor = getNovedadCategoryColor(novedad.id_etiqueta);
 
   return (
-    <TouchableOpacity style={styles.container} onPress={onPress} activeOpacity={0.7}>
-      <View style={[styles.card, { backgroundColor: '#ffffff' }]}>  
-        {/* Barra superior de color prioridad */}
-        <View style={[styles.topBar, { backgroundColor: prioridad.color }]} />
-
-        <View style={styles.cardContent}>
-          {/* Chip categoría */}
-          <View style={styles.chipRow}>
-            <View style={[styles.categoryChip, { backgroundColor: prioridad.bg }]}>
-              <Text style={[styles.categoryText, { color: prioridad.color }]} numberOfLines={1}>
-                {novedad.categoria}
-              </Text>
-            </View>
-          </View>
-
-          {/* Título */}
-          <Text style={styles.titulo} numberOfLines={2} ellipsizeMode="tail">
-            {novedad.titulo}
+    <TouchableOpacity
+      style={styles.container}
+      onPress={onPress}
+      activeOpacity={0.72}
+      accessibilityRole="button"
+      accessibilityLabel={`${novedad.categoria}: ${novedad.titulo}. Prioridad ${prioridad.label}`}
+    >
+      <View style={styles.card}>
+        <View style={styles.categoryRow}>
+          <View style={[styles.categoryDot, { backgroundColor: categoryColor }]} />
+          <Text style={[styles.categoryText, { color: categoryColor }]} numberOfLines={1}>
+            {novedad.categoria}
           </Text>
+        </View>
 
-          {/* Footer: fecha + prioridad */}
-          <View style={styles.footer}>
-            <Text style={styles.fecha} numberOfLines={1}>{novedad.fecha}</Text>
-            <View style={styles.prioridadRow}>
-              <View style={[styles.dot, { backgroundColor: prioridad.color }]} />
-              <Text style={[styles.prioridadText, { color: prioridad.color }]}>
-                {prioridad.label}
-              </Text>
-            </View>
+        <Text style={styles.titulo} numberOfLines={1} ellipsizeMode="tail">
+          {novedad.titulo}
+        </Text>
+
+        <View style={styles.footer}>
+          <Text style={styles.fecha} numberOfLines={1}>{novedad.fecha}</Text>
+          <View style={[styles.priorityChip, { backgroundColor: prioridad.backgroundColor }]}>
+            <View style={[styles.priorityDot, { backgroundColor: prioridad.color }]} />
+            <Text style={[styles.prioridadText, { color: prioridad.color }]}>
+              {prioridad.label}
+            </Text>
           </View>
         </View>
       </View>
@@ -62,75 +51,67 @@ export function NovedadCard({ novedad, onPress }: NovedadCardProps) {
 
 const styles = StyleSheet.create({
   container: {
-    width: 110,
-    marginHorizontal: 4,
+    width: 140,
+    minHeight: 88,
   },
   card: {
-    height: 110,
-    borderRadius: 14,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  topBar: {
-    height: 4,
-    width: '100%',
-  },
-  cardContent: {
     flex: 1,
-    paddingHorizontal: 10,
-    paddingTop: 8,
-    paddingBottom: 8,
+    minHeight: 88,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRightWidth: 1,
+    borderRightColor: '#C7D0DA',
     justifyContent: 'space-between',
   },
-  chipRow: {
+  categoryRow: {
     flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
-  categoryChip: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-    maxWidth: '100%',
+  categoryDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
   },
   categoryText: {
-    fontSize: 9,
+    flexShrink: 1,
+    fontSize: 10,
     fontWeight: '700',
-    letterSpacing: 0.3,
+    letterSpacing: 0.35,
     textTransform: 'uppercase',
   },
   titulo: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
-    color: '#1f2937',
-    lineHeight: 16,
-    marginTop: 4,
+    color: '#172033',
+    lineHeight: 18,
+    marginVertical: 4,
   },
   footer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 4,
+    gap: 8,
   },
   fecha: {
-    fontSize: 9,
-    color: '#9ca3af',
-    flex: 1,
+    flexShrink: 1,
+    fontSize: 10,
+    color: '#667085',
   },
-  prioridadRow: {
+  priorityChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
+    gap: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 6,
   },
-  dot: {
-    width: 6,
-    height: 6,
+  priorityDot: {
+    width: 5,
+    height: 5,
     borderRadius: 3,
   },
   prioridadText: {
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: '700',
   },
 });

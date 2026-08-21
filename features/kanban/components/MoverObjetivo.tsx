@@ -3,7 +3,7 @@
 // ============================================
 
 import { ThemedText } from '@/components/themed-text';
-import { Colors } from '@/constants/theme';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
@@ -136,7 +136,7 @@ export function MoveModal({
             <View style={styles.overlay}>
                 <ModalKeyboardView style={styles.modalKeyboardAvoiding}>
                     <View style={[styles.modalContainer, { paddingBottom: insets.bottom }]}>
-                        <View style={styles.modalHeader}>
+                        <View style={[styles.modalHeader, glassStyles.sheetHeader]}>
                             <View style={styles.modalHeaderActions}>
                                 <TouchableOpacity onPress={handleClose} style={styles.modalIconButton} disabled={isLoading}>
                                     <Ionicons name="chevron-down" size={24} color="#999" />
@@ -206,9 +206,9 @@ export function MoveModal({
                         <View style={[styles.uploadButtonContainer]}>
                             <TouchableOpacity
                                 onPress={handleMove}
-                                style={[styles.uploadButton, { backgroundColor: isLoading ? '#d1d5db' : Colors['light'].componentBackground }]}
+                                style={[styles.uploadButton, glassStyles.button, isLoading && styles.uploadButtonDisabled]}
                             >
-                                <Ionicons name="cloud-upload" size={20} color={Colors['light'].lightTint} />
+                                <Ionicons name="cloud-upload" size={20} color={glassColors.link} />
                                 <ThemedText style={styles.uploadButtonText}>{'Mover'}</ThemedText>
 
                             </TouchableOpacity>
@@ -227,12 +227,14 @@ const styles = StyleSheet.create({
     // ============================================
     overlay: {
         flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.5)' // Sombra de fondo
+        backgroundColor: 'rgba(17,24,28,0.45)' // Sombra de fondo, misma familia que glassStyles.modalOverlay
     },
     modalContainer: {
         flex: 1,
         marginTop: '10%', // Empuja el modal hacia abajo
-        backgroundColor: Colors['light'].componentBackground,
+        backgroundColor: 'rgba(255,255,255,0.92)',
+        borderWidth: 1,
+        borderColor: 'rgba(17,24,28,0.08)',
         borderTopLeftRadius: 16,
         borderTopRightRadius: 16,
         overflow: 'hidden',
@@ -244,7 +246,6 @@ const styles = StyleSheet.create({
     modalHeader: {
         paddingHorizontal: 16,
         paddingVertical: 12,
-        borderBottomColor: Colors['light'].icon,
         flexDirection: 'row',
         justifyContent: 'flex-end',
         alignItems: 'center',
@@ -262,7 +263,7 @@ const styles = StyleSheet.create({
     modalIconButton: {
         padding: 6,
         borderRadius: 16,
-        backgroundColor: '#f3f4f6',
+        backgroundColor: 'rgba(17,24,28,0.06)',
         marginLeft: 8,
     },
     closeButton: {
@@ -291,9 +292,8 @@ const styles = StyleSheet.create({
         gap: 12,
     },
     uploadButtonContainer: {
-        backgroundColor: Colors['light'].componentBackground,
         borderTopWidth: StyleSheet.hairlineWidth,
-        borderTopColor: Colors['light'].icon,
+        borderTopColor: 'rgba(17,24,28,0.08)',
         paddingHorizontal: '4%',
         paddingTop: 10,
     },
@@ -306,9 +306,12 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     uploadButtonText: {
-        color: Colors['light'].lightTint,
+        color: glassColors.link,
         fontWeight: '600',
         fontSize: 16,
+    },
+    uploadButtonDisabled: {
+        opacity: 0.5,
     },
     // ============================================
     // Forms
@@ -323,14 +326,14 @@ const styles = StyleSheet.create({
         marginBottom: 8,
     },
     input: {
-        backgroundColor: '#f5f5f5',
+        backgroundColor: 'rgba(17,24,28,0.03)',
         borderRadius: 8,
         paddingHorizontal: 12,
         paddingVertical: 10,
         fontSize: 14,
         color: '#1a1a1a',
         borderWidth: 1,
-        borderColor: '#e0e0e0',
+        borderColor: 'rgba(17,24,28,0.12)',
     },
     textArea: {
         height: 100,
@@ -347,14 +350,14 @@ const styles = StyleSheet.create({
         paddingVertical: 10,
         paddingHorizontal: 12,
         borderRadius: 6,
-        backgroundColor: '#f5f5f5',
+        backgroundColor: 'rgba(17,24,28,0.03)',
         borderWidth: 1,
-        borderColor: '#ddd',
+        borderColor: 'rgba(17,24,28,0.12)',
         alignItems: 'center',
     },
     estadoButtonActive: {
-        backgroundColor: '#007AFF',
-        borderColor: '#007AFF',
+        backgroundColor: 'rgba(26,115,232,0.18)',
+        borderColor: 'rgba(26,115,232,0.5)',
     },
     estadoButtonText: {
         fontSize: 12,
@@ -362,7 +365,7 @@ const styles = StyleSheet.create({
         color: '#666',
     },
     estadoButtonTextActive: {
-        color: '#fff',
+        color: glassColors.link,
     },
     // ============================================
     // Objetivo Info

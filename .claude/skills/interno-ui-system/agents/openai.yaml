@@ -1,0 +1,5 @@
+interface:
+  display_name: "Interno UI System"
+  short_description: "Apply InternoApp's established UI language"
+  brand_color: "#174EA6"
+  default_prompt: "Use -ui-system to harmonize this screen with the current InternoApp UI while preserving its behavior."

@@ -8,6 +8,8 @@ import { useAuth } from '@/features/auth/context/AuthContext';
 import { useValidacionFechas } from '@/features/solicitudesActividades/viewmodels/useValidacionFechas';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { generateIdempotencyKey } from '@/shared/idempotency';
+import { GlassButton } from '@/shared/ui/GlassButton';
+import { glassColors } from '@/shared/ui/glass';
 import { adminRoles, allRoles } from '@/shared/users/roles';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -45,6 +47,7 @@ import {
   EstadoInvitacionDB,
   RangoOcupado,
   SolicitudEnviada,
+  SolicitudInvitado,
   UpdateSolicitudResponse,
   estadoInvitacionMapping,
 } from '../models/Solicitud';
@@ -173,6 +176,15 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
     show: boolean; mode: 'date' | 'time'; target: 'start' | 'end';
   }>({ show: false, mode: 'date', target: 'start' });
 
+  // Selección de destinatarios (a quién se les crea la actividad/objetivo)
+  const [selectedActivityParticipantIds, setSelectedActivityParticipantIds] = useState<number[]>([]);
+  const [showObjetivoParticipantesModal, setShowObjetivoParticipantesModal] = useState(false);
+
+  const toggleActivityParticipant = useCallback((id: number) => {
+    setSelectedActivityParticipantIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  }, []);
+
   const {
     participantesSelectedUsers,
     showParticipantesSelector, setShowParticipantesSelector,
@@ -221,15 +233,6 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
     return [...new Set(ids)];
   }, [solicitud.invitados, user]);
 
-  const participantesAceptados = useMemo(() => {
-    const ids: number[] = [];
-    if (solicitud.created_by) ids.push(solicitud.created_by);
-    invitadosSinCreador
-      .filter(inv => inv.estado === 'ACCEPTED')
-      .forEach(inv => ids.push(inv.user_id));
-    return [...new Set(ids)];
-  }, [solicitud.created_by, invitadosSinCreador]);
-
   const todosArchivos = useMemo(() => {
     const archivosBase = solicitud.archivos ?? [];
     const archivosBitacora = (bitacora ?? []).flatMap((b: any) => b.archivos ?? []);
@@ -250,27 +253,26 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
   // El invitado no puede aceptar mientras la solicitud está en estado "Modificado" (propuso un cambio).
   const aceptarDeshabilitado = !isHost && efectivoEstado === 'MODIFIED';
 
-  const puedeAgregarAAgenda = useMemo(() => {
-    if (esActividadCreada) return false;
-    if (solicitud.tipo_actividad === 'REUNION') {
-      const algunAceptado = invitadosSinCreador.some(inv => inv.estado === 'ACCEPTED');
-      return isHost && algunAceptado;
-    }
-    if (solicitud.tipo_actividad === 'MANDATO') return !isHost && efectivoEstado === 'ACCEPTED';
-    return !isHost && efectivoEstado === 'ACCEPTED';
-  }, [solicitud.tipo_actividad, isHost, esActividadCreada, invitadosSinCreador, efectivoEstado]);
+  // Reglas de creación: por cantidad de participantes (no por tipo).
+  // - 2 participantes (creador + 1 invitado): ambos pueden crear una vez que el invitado acepta.
+  // - Más de 2: solo el creador, habilitado apenas algún invitado aceptó.
+  const totalParticipantes = solicitud.invitados.length; // incluye al creador
+  const esCreacionElegible = solicitud.tipo_actividad !== 'CHAT' && !esActividadCreada;
+  const invitadoUnico = totalParticipantes === 2 ? invitadosSinCreador[0] : undefined;
+  const algunInvitadoAceptado = invitadosSinCreador.some(inv => inv.estado === 'ACCEPTED');
 
-  const puedeMandatoSinFechas = useMemo(() =>
-    solicitud.tipo_actividad === 'MANDATO'
-    && efectivoEstado === 'ACCEPTED'
-    && !hasDates,
-    [solicitud.tipo_actividad, efectivoEstado, hasDates],
-  );
+  const puedeCrearActividad = useMemo(() => {
+    if (!esCreacionElegible) return false;
+    if (totalParticipantes === 2) return invitadoUnico?.estado === 'ACCEPTED';
+    return isHost && algunInvitadoAceptado;
+  }, [esCreacionElegible, totalParticipantes, invitadoUnico, isHost, algunInvitadoAceptado]);
 
-  const mostrarBotonAgendaVerde = puedeAgregarAAgenda || puedeMandatoSinFechas;
+  const puedeCrearObjetivo = puedeCrearActividad && !hasDates;
 
-  const isAcceptedWithAgenda = efectivoEstado === 'ACCEPTED' && puedeAgregarAAgenda;
-  const composerFinalState = isFinalState && !isAcceptedWithAgenda && !puedeMandatoSinFechas;
+  const mostrarBotonAgendaVerde = puedeCrearActividad;
+
+  const isAcceptedWithAgenda = efectivoEstado === 'ACCEPTED' && puedeCrearActividad;
+  const composerFinalState = isFinalState && !isAcceptedWithAgenda && !puedeCrearObjetivo;
 
   // ─── Avisos backend ───────────────────────────────────────────────────────
 
@@ -409,15 +411,21 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
       setAgendaFechaInicio(new Date(solicitud.fecha_inicio));
       setAgendaFechaFin(new Date(solicitud.fecha_fin));
     }
+    setSelectedActivityParticipantIds(todosParticipantesIds);
     setShowAddToAgendaModal(true);
-  }, [solicitud]);
+  }, [solicitud, todosParticipantesIds]);
 
-  const buildObjetivoInvitadosTodos = useCallback((): Invitado[] =>
-    todosParticipantesIds.map(uid => ({
+  const openCrearObjetivoModal = useCallback(() => {
+    setSelectedActivityParticipantIds(todosParticipantesIds);
+    setShowObjetivoParticipantesModal(true);
+  }, [todosParticipantesIds]);
+
+  const buildObjetivoInvitadosSeleccionados = useCallback((): Invitado[] =>
+    selectedActivityParticipantIds.map(uid => ({
       user_id: uid,
       rol: uid === user?.user_context_id ? 'ASSIGNEE' : 'VISUALIZER',
     })),
-    [todosParticipantesIds, user],
+    [selectedActivityParticipantIds, user],
   );
 
   const handleCrearObjetivoDesdeSolicitud = useCallback(async () => {
@@ -427,17 +435,18 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
       descripcion: solicitud.descripcion ?? '',
       estado: 'PENDIENTE',
       solicitud_id: solicitudId,
-      invitados: buildObjetivoInvitadosTodos(),
+      invitados: buildObjetivoInvitadosSeleccionados(),
       ...(archivosExistentesIds.length > 0 ? { archivosIds: archivosExistentesIds } : {}),
     };
     try {
       await crearObjetivo(payload);
       setLocalEstado('ACTIVIDAD_CREADA');
+      setShowObjetivoParticipantesModal(false);
       showModal('Éxito', 'Objetivo creado');
     } catch (e) {
       showModal('Error', e instanceof Error ? e.message : 'Intenta nuevamente');
     }
-  }, [solicitud, solicitudId, todosArchivos, buildObjetivoInvitadosTodos, crearObjetivo, showModal]);
+  }, [solicitud, solicitudId, todosArchivos, buildObjetivoInvitadosSeleccionados, crearObjetivo, showModal]);
 
   const handleOpenAsPreview = useCallback((archivo: any) => openFile(archivo), [openFile]);
 
@@ -449,7 +458,12 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
           closeAcceptModal();
           setLocalEstado('ACCEPTED');
           setMessageDraft('');
-          if (!isHost && solicitud.tipo_actividad === 'REUNION') {
+          // Este flujo solo corre para el invitado que acepta (el creador no
+          // "acepta" su propia solicitud), por eso alcanza con chequear que
+          // la solicitud sea 1 a 1: con más participantes, solo el creador
+          // podrá crear la actividad más adelante desde el banner verde.
+          const puedeCrearAhora = solicitud.tipo_actividad !== 'CHAT' && totalParticipantes === 2;
+          if (!puedeCrearAhora) {
             showModal('Éxito', 'Solicitud aceptada');
             return;
           }
@@ -460,20 +474,16 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
             ]);
             return;
           }
-          if (solicitud.tipo_actividad === 'MANDATO') {
-            showModal('Solicitud aceptada', '¿Querés crear una actividad u objetivo?', [
-              { key: 'activity', label: 'Crear actividad', onPress: openCrearActividadModal },
-              { key: 'objetivo', label: 'Crear objetivo', onPress: handleCrearObjetivoDesdeSolicitud },
-              { key: 'later', label: 'Ahora no', onPress: () => { } },
-            ]);
-            return;
-          }
-          showModal('Éxito', 'Solicitud aceptada');
+          showModal('Solicitud aceptada', '¿Querés crear una actividad u objetivo?', [
+            { key: 'activity', label: 'Crear actividad', onPress: openCrearActividadModal },
+            { key: 'objetivo', label: 'Crear objetivo', onPress: openCrearObjetivoModal },
+            { key: 'later', label: 'Ahora no', onPress: () => { } },
+          ]);
         },
         onError: e => Alert.alert('Error', e instanceof Error ? e.message : 'Intenta nuevamente'),
       },
     );
-  }, [solicitudId, actualizarEstado, acceptObservation, closeAcceptModal, solicitud, isHost, hasDates, showModal, openCrearActividadModal, handleCrearObjetivoDesdeSolicitud]);
+  }, [solicitudId, actualizarEstado, acceptObservation, closeAcceptModal, solicitud, totalParticipantes, hasDates, showModal, openCrearActividadModal, openCrearObjetivoModal]);
 
   const confirmAceptarModificaciones = useCallback(() => {
     actualizarEstado(
@@ -603,7 +613,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
   }, [agendaFechaInicio, agendaFechaFin, agendaNow]);
 
   const ejecutarAgregarAAgenda = useCallback(() => {
-    const esReunion = solicitud.tipo_actividad === 'REUNION';
+    const esGrupal = selectedActivityParticipantIds.length > 1;
     crearActividad(
       {
         titulo: solicitud.titulo,
@@ -611,7 +621,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
         fecha_inicio: agendaFechaInicio,
         fecha_fin: agendaFechaFin,
         solicitud_id: solicitudId,
-        ...(esReunion ? { participantes: participantesAceptados } : {}),
+        participantes: selectedActivityParticipantIds,
       },
       {
         onError: e => Alert.alert('Error', e instanceof Error ? e.message : 'Intenta nuevamente'),
@@ -623,30 +633,26 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
           setBackendActividadRangos([]);
           setLocalEstado('ACTIVIDAD_CREADA');
           setShowAddToAgendaModal(false);
-          Alert.alert('Éxito', esReunion
-            ? 'Actividad agregada a la agenda de todos los participantes'
+          Alert.alert('Éxito', esGrupal
+            ? 'Actividad agregada a la agenda de los participantes seleccionados'
             : 'Actividad agregada a tu agenda');
         },
       },
     );
-  }, [agendaFechaInicio, agendaFechaFin, solicitud, solicitudId, crearActividad, participantesAceptados]);
+  }, [agendaFechaInicio, agendaFechaFin, solicitud, solicitudId, crearActividad, selectedActivityParticipantIds]);
 
   const confirmAgregarAAgenda = useCallback(() => {
-    if (agendaDateErrorMessage) return;
-    const esReunion = solicitud.tipo_actividad === 'REUNION';
-    const participantes = esReunion
-      ? [...participantesAceptados]
-      : (user?.user_context_id ? [user.user_context_id] : []);
+    if (agendaDateErrorMessage || selectedActivityParticipantIds.length === 0) return;
     validacion.validate(
       {
         fechaInicio: agendaFechaInicio, fechaFin: agendaFechaFin,
-        participantes,
+        participantes: selectedActivityParticipantIds,
         tipo_actividad: solicitud.tipo_actividad as 'REUNION' | 'MANDATO',
         actividadIdExcluir: null,
       },
       () => ejecutarAgregarAAgenda(),
     );
-  }, [agendaDateErrorMessage, solicitud, user, validacion, ejecutarAgregarAAgenda, participantesAceptados, agendaFechaInicio, agendaFechaFin]);
+  }, [agendaDateErrorMessage, solicitud, validacion, ejecutarAgregarAAgenda, selectedActivityParticipantIds, agendaFechaInicio, agendaFechaFin]);
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
@@ -742,29 +748,27 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                   <View style={{ flex: 1 }}>
                     <ThemedText style={styles.agendaVerdeTitulo}>Solicitud aceptada</ThemedText>
                     <View style={styles.agendaVerdeActions}>
-                      {puedeAgregarAAgenda && (
-                        <TouchableOpacity style={styles.agendaVerdeBtn} onPress={() => {
-                          if (solicitud.fecha_inicio && solicitud.fecha_fin) {
-                            setAgendaFechaInicio(new Date(solicitud.fecha_inicio));
-                            setAgendaFechaFin(new Date(solicitud.fecha_fin));
-                          }
-                          setShowAddToAgendaModal(true);
-                        }} disabled={isCreatingActividad}>
-                          <Ionicons name="calendar" size={16} color="#fff" />
-                          <ThemedText style={styles.agendaVerdeBtnText}>Agregar a agenda</ThemedText>
-                        </TouchableOpacity>
+                      {puedeCrearActividad && (
+                        <GlassButton
+                          variant="success"
+                          label="Agregar a agenda"
+                          onPress={openCrearActividadModal}
+                          disabled={isCreatingActividad}
+                          icon={(color) => <Ionicons name="calendar" size={16} color={color} />}
+                          style={styles.agendaVerdeBtn}
+                          textStyle={styles.agendaVerdeBtnText}
+                        />
                       )}
-                      {puedeMandatoSinFechas && (
-                        <TouchableOpacity
-                          style={[styles.agendaVerdeBtn, styles.agendaVerdeBtnSecondary]}
-                          onPress={handleCrearObjetivoDesdeSolicitud}
+                      {puedeCrearObjetivo && (
+                        <GlassButton
+                          variant="secondary"
+                          label="Crear objetivo"
+                          onPress={openCrearObjetivoModal}
                           disabled={isCreatingObjetivo}
-                        >
-                          <Ionicons name="flag" size={16} color={colors.success} />
-                          <ThemedText style={[styles.agendaVerdeBtnText, { color: colors.success }]}>
-                            Crear objetivo
-                          </ThemedText>
-                        </TouchableOpacity>
+                          icon={() => <Ionicons name="flag" size={16} color={glassColors.success} />}
+                          style={styles.agendaVerdeBtn}
+                          textStyle={[styles.agendaVerdeBtnText, { color: glassColors.success }]}
+                        />
                       )}
                     </View>
                   </View>
@@ -928,7 +932,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                             style={[styles.messageActionButton, isModifyMode && styles.messageActionButtonActive]}
                             onPress={() => isModifyMode ? resetModifyDraft() : setIsModifyMode(true)}
                           >
-                            <Ionicons name="calendar-outline" size={20} color={isModifyMode ? colors.background : colors.lightTint} />
+                            <Ionicons name="calendar-outline" size={20} color={colors.lightTint} />
                           </TouchableOpacity>
                         )}
 
@@ -967,8 +971,8 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                           disabled={!canSubmitComposer || isSendingMessage}
                         >
                           {isSendingMessage
-                            ? <ActivityIndicator size="small" color={colors.background} />
-                            : <Ionicons name="send" size={20} color={colors.background} />}
+                            ? <ActivityIndicator size="small" color={colors.lightTint} />
+                            : <Ionicons name="send" size={20} color={colors.lightTint} />}
                         </TouchableOpacity>
                       </>
                     )}
@@ -1024,7 +1028,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                         )}
                         <View style={styles.modalActions}>
                           <TouchableOpacity onPress={closeAcceptModal} style={styles.modalBtnCancel}>
-                            <ThemedText style={{ color: colors.error }}>Cancelar</ThemedText>
+                            <ThemedText style={{ color: glassColors.textMuted }}>Cancelar</ThemedText>
                           </TouchableOpacity>
                           <TouchableOpacity
                             onPress={isAceptarModificacionesFlow ? confirmAceptarModificaciones : confirmAceptar}
@@ -1032,8 +1036,8 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                             disabled={isUpdatingEstado}
                           >
                             {isUpdatingEstado
-                              ? <ActivityIndicator color={colors.background} />
-                              : <ThemedText style={{ color: colors.background }}>Aceptar</ThemedText>}
+                              ? <ActivityIndicator color={glassColors.text} />
+                              : <ThemedText style={{ color: glassColors.text }}>Aceptar</ThemedText>}
                           </TouchableOpacity>
                         </View>
                       </View>
@@ -1062,16 +1066,16 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                         )}
                         <View style={styles.modalActions}>
                           <TouchableOpacity onPress={closeRejectModal} style={styles.modalBtnCancel}>
-                            <ThemedText style={{ color: colors.error }}>Cancelar</ThemedText>
+                            <ThemedText style={{ color: glassColors.textMuted }}>Cancelar</ThemedText>
                           </TouchableOpacity>
                           <TouchableOpacity
                             onPress={confirmRechazar}
-                            style={[styles.modalBtnConfirm, { backgroundColor: colors.error }]}
+                            style={[styles.modalBtnConfirm, styles.modalBtnConfirmDanger]}
                             disabled={isUpdatingEstado}
                           >
                             {isUpdatingEstado
-                              ? <ActivityIndicator color={colors.background} />
-                              : <ThemedText style={{ color: colors.background }}>Rechazar</ThemedText>}
+                              ? <ActivityIndicator color={glassColors.text} />
+                              : <ThemedText style={{ color: glassColors.text }}>Rechazar</ThemedText>}
                           </TouchableOpacity>
                         </View>
                       </View>
@@ -1129,18 +1133,25 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                             {agendaDateErrorMessage}
                           </ThemedText>
                         )}
+                        <ThemedText style={styles.label}>¿Quién verá esta actividad?</ThemedText>
+                        <ParticipantesCheckList
+                          invitados={displayParticipantes}
+                          selectedIds={selectedActivityParticipantIds}
+                          onToggle={toggleActivityParticipant}
+                          getLabel={getParticipanteDisplayName}
+                        />
                         <View style={styles.modalActions}>
                           <TouchableOpacity onPress={() => setShowAddToAgendaModal(false)} style={styles.modalBtnCancel}>
-                            <ThemedText style={{ color: colors.error }}>Cancelar</ThemedText>
+                            <ThemedText style={{ color: glassColors.textMuted }}>Cancelar</ThemedText>
                           </TouchableOpacity>
                           <TouchableOpacity
                             onPress={confirmAgregarAAgenda}
-                            style={[styles.modalBtnConfirm, { opacity: agendaDateErrorMessage ? 0.5 : 1 }]}
-                            disabled={isCreatingActividad || !!agendaDateErrorMessage}
+                            style={[styles.modalBtnConfirm, { opacity: (agendaDateErrorMessage || selectedActivityParticipantIds.length === 0) ? 0.5 : 1 }]}
+                            disabled={isCreatingActividad || !!agendaDateErrorMessage || selectedActivityParticipantIds.length === 0}
                           >
                             {isCreatingActividad
-                              ? <ActivityIndicator color={colors.background} />
-                              : <ThemedText style={{ color: colors.background }}>Agregar</ThemedText>}
+                              ? <ActivityIndicator color={glassColors.text} />
+                              : <ThemedText style={{ color: glassColors.text }}>Agregar</ThemedText>}
                           </TouchableOpacity>
                         </View>
                       </View>
@@ -1166,6 +1177,42 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                     onCancel={() => setShowAgendaDatePicker(p => ({ ...p, show: false }))}
                   />
                 )}
+              </ModalKeyboardView>
+            </Modal>
+
+            {/* Modal Crear Objetivo: selección de destinatarios */}
+            <Modal visible={showObjetivoParticipantesModal} transparent animationType="fade" onRequestClose={() => setShowObjetivoParticipantesModal(false)}>
+              <ModalKeyboardView style={{ flex: 1 }}>
+                <TouchableWithoutFeedback onPress={() => setShowObjetivoParticipantesModal(false)}>
+                  <View style={styles.modalOverlay}>
+                    <TouchableWithoutFeedback onPress={e => e.stopPropagation()}>
+                      <View style={styles.modalContent}>
+                        <ThemedText type="subtitle" style={{ marginBottom: 8 }}>Crear objetivo</ThemedText>
+                        <ThemedText style={styles.label}>¿Quién verá este objetivo?</ThemedText>
+                        <ParticipantesCheckList
+                          invitados={displayParticipantes}
+                          selectedIds={selectedActivityParticipantIds}
+                          onToggle={toggleActivityParticipant}
+                          getLabel={getParticipanteDisplayName}
+                        />
+                        <View style={styles.modalActions}>
+                          <TouchableOpacity onPress={() => setShowObjetivoParticipantesModal(false)} style={styles.modalBtnCancel}>
+                            <ThemedText style={{ color: glassColors.textMuted }}>Cancelar</ThemedText>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            onPress={handleCrearObjetivoDesdeSolicitud}
+                            style={[styles.modalBtnConfirm, { opacity: selectedActivityParticipantIds.length === 0 ? 0.5 : 1 }]}
+                            disabled={isCreatingObjetivo || selectedActivityParticipantIds.length === 0}
+                          >
+                            {isCreatingObjetivo
+                              ? <ActivityIndicator color={glassColors.text} />
+                              : <ThemedText style={{ color: glassColors.text }}>Crear</ThemedText>}
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    </TouchableWithoutFeedback>
+                  </View>
+                </TouchableWithoutFeedback>
               </ModalKeyboardView>
             </Modal>
 
@@ -1215,6 +1262,37 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
   );
 }
 
+// ─── ParticipantesCheckList ─────────────────────────────────────────────────
+
+function ParticipantesCheckList({ invitados, selectedIds, onToggle, getLabel }: {
+  invitados: SolicitudInvitado[];
+  selectedIds: number[];
+  onToggle: (id: number) => void;
+  getLabel: (inv: SolicitudInvitado) => string;
+}) {
+  return (
+    <ScrollView style={localStyles.checkList} nestedScrollEnabled showsVerticalScrollIndicator>
+      {invitados.map(inv => {
+        const checked = selectedIds.includes(inv.user_id);
+        return (
+          <TouchableOpacity
+            key={inv.user_id}
+            style={localStyles.checkRow}
+            onPress={() => onToggle(inv.user_id)}
+          >
+            <Ionicons
+              name={checked ? 'checkbox' : 'square-outline'}
+              size={20}
+              color={checked ? colors.tint : colors.secondaryText}
+            />
+            <ThemedText style={localStyles.checkRowText}>{getLabel(inv)}</ThemedText>
+          </TouchableOpacity>
+        );
+      })}
+    </ScrollView>
+  );
+}
+
 // ─── localStyles ───────────────────────────────────────────────────────────────
 
 const localStyles = StyleSheet.create({
@@ -1240,21 +1318,11 @@ const localStyles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   agendaVerdeBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: 6,
-    backgroundColor: colors.success,
     paddingHorizontal: 12,
     paddingVertical: 7,
-    borderRadius: 8,
-  },
-  agendaVerdeBtnSecondary: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: colors.success,
   },
   agendaVerdeBtnText: {
-    color: '#fff',
     fontSize: 13,
     fontWeight: '600',
   },
@@ -1295,7 +1363,9 @@ const localStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: 'rgba(17,24,28,0.12)',
+    backgroundColor: 'rgba(17,24,28,0.03)',
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 5,
@@ -1314,7 +1384,8 @@ const localStyles = StyleSheet.create({
     marginTop: 2,
   },
   messageActionButtonActive: {
-    backgroundColor: colors.lightTint,
+    borderColor: 'rgba(26,115,232,0.35)',
+    backgroundColor: 'rgba(26,115,232,0.12)',
   },
   modalInputLabel: {
     fontSize: 12,
@@ -1339,10 +1410,26 @@ const localStyles = StyleSheet.create({
   },
   dateBtn: {
     padding: 10,
-    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: 'rgba(17,24,28,0.12)',
+    backgroundColor: 'rgba(17,24,28,0.03)',
     borderRadius: 8,
     flex: 0.48,
     alignItems: 'center',
+  },
+  checkList: {
+    maxHeight: 160,
+    marginBottom: 12,
+  },
+  checkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 8,
+  },
+  checkRowText: {
+    fontSize: 14,
+    color: colors.text,
   },
 });
 

@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Componentes UI
 import { ThemedView } from '@/components/themed-view';
+import { CreateButton } from '@/components/ui/CreateButton';
 import { Colors } from '@/constants/theme';
 
 // Componentes de Dominio
@@ -124,14 +125,10 @@ export default function SolicitudesView({ onRefresh, refreshing }: SolicitudesVi
             />
           </View>
 
-          <TouchableOpacity
-            style={styles.createButton}
+          <CreateButton
             onPress={() => setShowCrearSolicitud(true)}
-            accessibilityLabel="Crear nueva solicitud"
-            accessibilityRole="button"
-          >
-            <Text style={styles.createButtonText}>+</Text>
-          </TouchableOpacity>
+            accessibilityLabel="Nueva solicitud"
+          />
         </View>
 
         {/* SELECTOR DE PESTAÑAS */}
@@ -259,20 +256,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   searchInput: { flex: 1, fontSize: 15, color: '#333' },
-  createButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: colors.lightTint,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  createButtonText: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 20,
-    lineHeight: 22,
-  },
   tabBar: {
     flexDirection: 'row',
     marginTop: 10,

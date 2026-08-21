@@ -1,5 +1,6 @@
 import type { Novedad } from '@/features/novedades/models/Novedades';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 import React from 'react';
 import {
     Modal,
@@ -73,13 +74,13 @@ export function NovedadModal({
       animationType="fade"
       onRequestClose={onClose}
     >
-      <View style={styles.overlay}>
+      <View style={[styles.overlay, glassStyles.modalOverlay]}>
         {/* Capa para cerrar al tocar fuera del recuadro blanco */}
         <TouchableWithoutFeedback onPress={onClose}>
           <View style={StyleSheet.absoluteFill} />
         </TouchableWithoutFeedback>
 
-        <View style={[styles.modalContainer, { maxWidth: modalMaxWidth }]}> 
+        <View style={[styles.modalContainer, glassStyles.modalCard, { maxWidth: modalMaxWidth }]}>
           <ScrollView 
             showsVerticalScrollIndicator={false}
             // flexGrow asegura que el contenido empuje el modal y sea visible
@@ -116,19 +117,19 @@ export function NovedadModal({
 
             {/* Botones de acción */}
             <View style={styles.buttonContainer}>
-              <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+              <TouchableOpacity style={[styles.closeButton, glassStyles.buttonSecondary]} onPress={onClose}>
                 <Text style={styles.closeButtonText}>Cerrar</Text>
               </TouchableOpacity>
 
               {canEdit && (
                 <View style={styles.editActions}>
                   {onEdit && (
-                    <TouchableOpacity style={styles.editButton} onPress={onEdit}>
+                    <TouchableOpacity style={[styles.editButton, glassStyles.button]} onPress={onEdit}>
                       <Text style={styles.editButtonText}>Modificar</Text>
                     </TouchableOpacity>
                   )}
                   {onDelete && (
-                    <TouchableOpacity style={styles.deleteButton} onPress={onDelete}>
+                    <TouchableOpacity style={[styles.deleteButton, glassStyles.buttonDanger]} onPress={onDelete}>
                       <Text style={styles.deleteButtonText}>Eliminar</Text>
                     </TouchableOpacity>
                   )}
@@ -144,24 +145,13 @@ export function NovedadModal({
 
 const styles = StyleSheet.create({
   overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)', // Fondo oscurecido
-    justifyContent: 'center',
-    alignItems: 'center',
     padding: 20,
   },
   modalContainer: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
     width: '100%',
     maxWidth: 450,
     maxHeight: '80%', // Evita que se salga de la pantalla
     overflow: 'hidden', // Necesario para bordes redondeados con ScrollView
-    elevation: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
   },
   scrollContent: {
     padding: 24,
@@ -234,38 +224,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10,
   },
-  closeButton: {
-    backgroundColor: '#F3F4F6',
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
+  closeButton: {},
   closeButtonText: {
-    color: '#374151',
+    color: glassColors.text,
     fontSize: 16,
     fontWeight: '700',
   },
   editButton: {
     flex: 1,
-    backgroundColor: '#3B82F6',
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
   },
   editButtonText: {
-    color: '#FFFFFF',
+    color: glassColors.link,
     fontSize: 16,
     fontWeight: '700',
   },
   deleteButton: {
     flex: 1,
-    backgroundColor: '#EF4444',
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
   },
   deleteButtonText: {
-    color: '#FFFFFF',
+    color: glassColors.error,
     fontSize: 16,
     fontWeight: '700',
   },

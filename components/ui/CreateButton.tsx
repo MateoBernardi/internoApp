@@ -1,58 +1,30 @@
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { glassColors } from '@/shared/ui/glass';
+import { Ionicons } from '@expo/vector-icons';
 import React, { memo } from 'react';
-import {
-  GestureResponderEvent,
-  StyleSheet,
-  TouchableOpacity,
-  ViewStyle,
-} from 'react-native';
-import { ThemedText } from '../themed-text';
+import { GestureResponderEvent, Pressable, StyleSheet } from 'react-native';
+
+const SIZE = 40;
 
 type CreateButtonProps = {
   onPress: (event: GestureResponderEvent) => void;
-  size?: number;
-  style?: ViewStyle;
-  accessibilityLabel?: string;
+  accessibilityLabel: string;
 };
 
-export const CreateButton = memo(({
-  onPress,
-  size = 56,
-  style,
-  accessibilityLabel = 'Crear nuevo elemento',
-}: CreateButtonProps) => {
-  const colorScheme = useColorScheme();
-
+/**
+ * The one "create new X" trigger used everywhere in the app — same size,
+ * same colors, same icon. Intentionally has no `size`/`style` props so no
+ * call site can drift from any other.
+ */
+export const CreateButton = memo(({ onPress, accessibilityLabel }: CreateButtonProps) => {
   return (
-    <TouchableOpacity
+    <Pressable
       onPress={onPress}
-      style={[
-        styles.button,
-        {
-          width: size,
-          height: size,
-          backgroundColor: Colors['light'].lightTint, // Azul marino
-        },
-        style,
-      ]}
-      activeOpacity={0.7}
-      accessible
-      accessibilityLabel={accessibilityLabel}
+      style={styles.button}
       accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
     >
-      <ThemedText
-        style={[
-          styles.icon,
-          {
-            fontSize: size * 0.5,
-            color: 'white',
-          },
-        ]}
-      >
-        +
-      </ThemedText>
-    </TouchableOpacity>
+      <Ionicons name="add" size={22} color={glassColors.link} />
+    </Pressable>
   );
 });
 
@@ -60,19 +32,17 @@ CreateButton.displayName = 'CreateButton';
 
 const styles = StyleSheet.create({
   button: {
+    width: SIZE,
+    height: SIZE,
+    borderRadius: SIZE / 2,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 12,
-    elevation: 4,
+    backgroundColor: 'rgba(26,115,232,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(26,115,232,0.35)',
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  icon: {
-    fontWeight: 'bold',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
   },
 });

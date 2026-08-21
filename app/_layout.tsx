@@ -14,6 +14,7 @@ import { Redirect, Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect } from 'react';
 import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -184,15 +185,17 @@ export default function RootLayout() {
   // Permitir que AuthProvider y el hook useRegisterDevice se encarguen de registrar el dispositivo
   // cuando el usuario esté autenticado
   return (
-    <SafeAreaProvider>
-      <DesktopGate>
-        <QueryProvider>
-          <AuthProvider>
-            <RootNavigator />
-          </AuthProvider>
-        </QueryProvider>
-      </DesktopGate>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={styles.gestureRoot}>
+      <SafeAreaProvider>
+        <DesktopGate>
+          <QueryProvider>
+            <AuthProvider>
+              <RootNavigator />
+            </AuthProvider>
+          </QueryProvider>
+        </DesktopGate>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 
@@ -208,6 +211,9 @@ if (Platform.OS !== 'web') {
 }
 
 const styles = StyleSheet.create({
+  gestureRoot: {
+    flex: 1,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',

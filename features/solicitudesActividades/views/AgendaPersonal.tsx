@@ -7,7 +7,7 @@ import { TurnoDetalle } from '@/features/horarios/components/TurnoDetalle';
 import { useTurnosPorPeriodo } from '@/features/horarios/viewmodels/useTurnosAgenda';
 import { confirmAction } from '@/shared/ui/confirmAction';
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
@@ -426,6 +426,14 @@ const AgendaPersonal: React.FC = () => {
 
   return (
     <View style={styles.container}>
+      <Stack.Screen
+        options={{
+          headerRight: () => (
+            <CreateButton onPress={openAddActivityModal} accessibilityLabel="Nueva actividad" />
+          ),
+        }}
+      />
+
       {/* Header */}
       <AgendaToolbar
         activeMonth={activeMonth}
@@ -487,7 +495,7 @@ const AgendaPersonal: React.FC = () => {
       </ScrollView>
 
       {isAddFormMinimized && (
-        <View style={[styles.minimizedDraftContainer, { bottom: insets.bottom + UI.spacing.xxl + 68 }]}>
+        <View style={[styles.minimizedDraftContainer, { bottom: insets.bottom + UI.spacing.lg }]}>
           <TouchableOpacity style={styles.minimizedDraftMain} onPress={openAddActivityModal}>
             <Ionicons name="chevron-up" size={18} color="#6b7280" />
             <Text style={styles.minimizedDraftText}>Borrador de actividad</Text>
@@ -497,14 +505,6 @@ const AgendaPersonal: React.FC = () => {
           </TouchableOpacity>
         </View>
       )}
-
-      <View style={[styles.createButtonContainer, { bottom: insets.bottom + 8, right: 36 }]}>
-        <CreateButton
-          onPress={openAddActivityModal}
-          size={56}
-          accessibilityLabel="Crear nueva actividad"
-        />
-      </View>
 
       {/* ==================== Add Activity Modal ==================== */}
       <CrearActividadModal
@@ -620,9 +620,6 @@ const styles = StyleSheet.create({
   minimizedDraftClose: {
     marginLeft: 6,
     padding: 4,
-  },
-  createButtonContainer: {
-    position: 'absolute',
   },
 });
 

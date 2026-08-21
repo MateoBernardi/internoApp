@@ -1,4 +1,5 @@
 import { Colors } from '@/constants/theme';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { DocsList, PendingFile } from '@/features/docs/components/DocsList';
@@ -338,7 +339,7 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
         <FullScreenPortal>
         <>
                 <View style={[styles.container, { paddingBottom: insets.bottom }]}>
-                    <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+                    <View style={[styles.header, glassStyles.sheetHeader, { paddingTop: insets.top + 12 }]}>
                         <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
                             <Ionicons name="chevron-back" size={24} color="#6b7280" />
                         </TouchableOpacity>
@@ -581,15 +582,13 @@ function getStateColor(estado: string): string {
 const styles = StyleSheet.create({
     container: {
         ...StyleSheet.absoluteFillObject,
-        backgroundColor: Colors['light'].componentBackground,
+        ...glassStyles.sheet,
         zIndex: 1000,
-        elevation: 10,
         overflow: 'hidden',
     },
     header: {
         paddingHorizontal: 16,
         paddingVertical: 12,
-        borderBottomColor: Colors['light'].icon,
         flexDirection: 'row',
         justifyContent: 'flex-start',
         alignItems: 'center',
@@ -602,7 +601,7 @@ const styles = StyleSheet.create({
     closeButton: {
         padding: 6,
         borderRadius: 16,
-        backgroundColor: '#f3f4f6',
+        backgroundColor: 'rgba(17,24,28,0.06)',
         marginLeft: 8,
     },
     content: {
@@ -692,8 +691,8 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         borderWidth: 1,
-        borderColor: '#e5e7eb',
-        backgroundColor: '#fff',
+        borderColor: 'rgba(17,24,28,0.1)',
+        backgroundColor: 'rgba(255,255,255,0.7)',
     },
     cancelBtnText: {
         fontSize: 14,
@@ -757,13 +756,13 @@ const styles = StyleSheet.create({
         paddingVertical: 6,
         borderRadius: 999,
         borderWidth: 1,
-        borderColor: Colors.light.tint,
-        backgroundColor: Colors.light.tint + '12',
+        borderColor: 'rgba(26,115,232,0.35)',
+        backgroundColor: 'rgba(26,115,232,0.12)',
     },
     actionButtonText: {
         fontSize: 12,
         fontWeight: '700',
-        color: Colors.light.tint,
+        color: glassColors.link,
     },
     selectorCard: {
         marginTop: 12,
@@ -771,8 +770,8 @@ const styles = StyleSheet.create({
         padding: 12,
         borderRadius: 12,
         borderWidth: 1,
-        borderColor: '#e5e7eb',
-        backgroundColor: '#f9fafb',
+        borderColor: 'rgba(17,24,28,0.12)',
+        backgroundColor: 'rgba(17,24,28,0.03)',
     },
     inviteSection: {
         marginTop: 12,
@@ -888,12 +887,12 @@ const styles = StyleSheet.create({
         paddingVertical: 3,
         borderRadius: 999,
         borderWidth: 1,
-        borderColor: '#e5e7eb',
-        backgroundColor: '#f9fafb',
+        borderColor: 'rgba(17,24,28,0.12)',
+        backgroundColor: 'rgba(17,24,28,0.03)',
     },
     rolePillActive: {
-        borderColor: Colors.light.tint,
-        backgroundColor: Colors.light.tint + '15',
+        borderColor: 'rgba(26,115,232,0.5)',
+        backgroundColor: 'rgba(26,115,232,0.18)',
     },
     rolePillText: {
         fontSize: 10,
@@ -901,6 +900,6 @@ const styles = StyleSheet.create({
         color: '#6b7280',
     },
     rolePillTextActive: {
-        color: Colors.light.tint,
+        color: glassColors.link,
     },
 });

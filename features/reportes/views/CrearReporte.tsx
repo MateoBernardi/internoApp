@@ -12,6 +12,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { BackHandler, KeyboardAvoidingView, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { deriveIdempotencyKey } from '@/shared/idempotency';
 import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
+import { GlassButton } from '@/shared/ui/GlassButton';
 import { KEYBOARD_BEHAVIOR } from '@/shared/ui/keyboard';
 import { useIdempotencyKey } from '@/shared/useIdempotencyKey';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -424,16 +425,14 @@ export default function CrearReporte(props?: CrearReporteProps) {
 							</View>
 						</ScrollView>
 
-						{/* Floating Send Button */}
-						<View style={[styles.uploadButtonContainer]}>
-							<TouchableOpacity
+						<View style={styles.uploadButtonContainer}>
+							<GlassButton
+								label="Crear"
 								onPress={handleCrearReporte}
-								style={[styles.uploadButton, { backgroundColor: Colors['light'].componentBackground }]}
-							>
-								<Ionicons name="cloud-upload" size={20} color={Colors['light'].lightTint} />
-								<ThemedText style={styles.uploadButtonText}>{'Crear'}</ThemedText>
-
-							</TouchableOpacity>
+								loading={isPending}
+								icon={(color) => <Ionicons name="cloud-upload" size={20} color={color} />}
+								style={styles.uploadButton}
+							/>
 						</View>
 
 						{/* Date Picker */}
@@ -609,7 +608,7 @@ const styles = StyleSheet.create({
 		paddingVertical: 6,
 		borderRadius: 8,
 		borderWidth: 1,
-		borderColor: colors.lightTint,
+		borderColor: 'rgba(26,115,232,0.35)',
 	},
 	imageActionText: {
 		fontSize: 13,
@@ -651,16 +650,6 @@ const styles = StyleSheet.create({
 		paddingTop: 10,
 	},
 	uploadButton: {
-		flexDirection: 'row',
-		alignItems: 'center',
-		justifyContent: 'center',
-		paddingVertical: 14,
-		borderRadius: 8,
-		gap: 8,
-	},
-	uploadButtonText: {
-		color: Colors['light'].lightTint,
-		fontWeight: '600',
-		fontSize: 16,
+		alignSelf: 'stretch',
 	},
 });

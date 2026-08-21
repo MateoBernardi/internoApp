@@ -142,10 +142,13 @@ export const conversacionStyles = StyleSheet.create({
   },
   bitacoraCard: {
     width: '90%',
-    backgroundColor: colors.componentBackground,
+    backgroundColor: colors.neutralSurface,
     borderRadius: 10,
     paddingHorizontal: 10,
     paddingVertical: 8,
+  },
+  bitacoraCardOwn: {
+    backgroundColor: colors.lightTint,
   },
   bitacoraHeader: {
     flexDirection: 'row',
@@ -160,24 +163,33 @@ export const conversacionStyles = StyleSheet.create({
     color: colors.text,
     fontSize: 13,
   },
+  bitacoraUserOwn: {
+    color: '#ffffff',
+  },
   bitacoraDate: {
     fontSize: 11,
     color: colors.secondaryText,
+  },
+  bitacoraDateOwn: {
+    color: 'rgba(255,255,255,0.85)',
   },
   bitacoraAction: {
     color: colors.lightTint,
     fontSize: 14,
     fontWeight: '500',
   },
+  bitacoraActionOwn: {
+    color: '#ffffff',
+  },
   bitacoraBubble: {
     marginTop: 6,
-    backgroundColor: colors.background,
-    padding: 8,
-    borderRadius: 8,
   },
   bitacoraText: {
     fontSize: 14,
     color: colors.text,
+  },
+  bitacoraTextOwn: {
+    color: '#ffffff',
   },
   systemMessageContainer: {
     alignItems: 'center',
@@ -265,13 +277,16 @@ export const conversacionStyles = StyleSheet.create({
     borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: 'rgba(17,24,28,0.12)',
+    backgroundColor: 'rgba(17,24,28,0.03)',
   },
   messageActionButtonPrimary: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: colors.lightTint,
+    borderColor: 'rgba(26,115,232,0.35)',
+    backgroundColor: 'rgba(26,115,232,0.12)',
   },
   messageActionButtonDisabled: {
     opacity: 0.5,
@@ -301,14 +316,25 @@ export const conversacionStyles = StyleSheet.create({
     marginTop: 24,
   },
   modalBtnCancel: {
-    padding: 10,
-    marginRight: 10,
-  },
-  modalBtnConfirm: {
-    backgroundColor: colors.tint,
     paddingVertical: 10,
     paddingHorizontal: 20,
-    borderRadius: 8,
+    marginRight: 10,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(17,24,28,0.12)',
+    backgroundColor: 'rgba(17,24,28,0.03)',
+  },
+  modalBtnConfirm: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(26,115,232,0.35)',
+    backgroundColor: 'rgba(26,115,232,0.12)',
+  },
+  modalBtnConfirmDanger: {
+    borderColor: 'rgba(244,67,54,0.35)',
+    backgroundColor: 'rgba(244,67,54,0.12)',
   },
   sectionHeaderRow: {
     flexDirection: 'row',

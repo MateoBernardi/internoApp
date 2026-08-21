@@ -3,22 +3,24 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
-import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
+import { useAuthFormLayout } from '@/shared/ui/authLayout';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useCallback, useMemo, useState } from 'react';
-import { Keyboard, Platform, Pressable, StyleSheet, View } from 'react-native';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
+import { Image, Keyboard, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 const colors = Colors['light'];
 
 export const LoginForm: React.FC = () => {
   const { signIn } = useAuth();
-  const responsiveLayout = useResponsiveLayout();
+  const { maxWidth: webFormMaxWidth, horizontalPadding, logoSize } = useAuthFormLayout();
   const [user, setUser] = useState("");
   const [pass, setPass] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const passRef = useRef<TextInput>(null);
 
   // Validación de formulario
   const isFormValid = useMemo(() => {
@@ -27,13 +29,10 @@ export const LoginForm: React.FC = () => {
     return userTrimmed.length > 0 && passTrimmed.length > 0;
   }, [user, pass]);
 
-  // Colores dinámicos del botón
-  // loading  -> background: lightTint,  icono/texto: componentBackground
-  // válido   -> background: background, icono/texto: lightTint
-  // inválido -> background: background, icono/texto: secondaryText
-  const buttonBackgroundColor = loading ? colors.lightTint : colors.background;
-  const buttonIconColor  = loading ? colors.componentBackground : isFormValid ? colors.lightTint : colors.secondaryText;
-  const buttonTextColor  = loading ? colors.componentBackground : isFormValid ? colors.lightTint : colors.secondaryText;
+  // Colores dinámicos del botón (glass): el fondo se mantiene constante,
+  // el estado se comunica a través del color de icono/texto
+  const buttonIconColor = loading || isFormValid ? glassColors.text : glassColors.disabledText;
+  const buttonTextColor = buttonIconColor;
 
   // Submit handler
   const onSubmit = useCallback(async () => {
@@ -86,35 +85,30 @@ export const LoginForm: React.FC = () => {
     );
   }, [error]);
 
-  const webFormMaxWidth = useMemo(() => {
-    if (Platform.OS !== 'web') return 380;
-    if (responsiveLayout.isDesktopXl) return 640;
-    if (responsiveLayout.isDesktop) return 520;
-    return 380;
-  }, [responsiveLayout.isDesktop, responsiveLayout.isDesktopXl]);
-
-  const formTopPadding = useMemo(() => {
-    if (Platform.OS !== 'web') return 60;
-    if (responsiveLayout.isDesktopXl) return 20;
-    if (responsiveLayout.isDesktop) return 28;
-    return 60;
-  }, [responsiveLayout.isDesktop, responsiveLayout.isDesktopXl]);
-
   return (
-    <ThemedView style={[styles.formSection, { paddingTop: formTopPadding }]}>
-      <ThemedText style={styles.formSubtitle}>Accede a tu cuenta</ThemedText>
-      <ThemedView style={[styles.loginForm, { maxWidth: webFormMaxWidth }]}> 
+    <ThemedView style={[styles.formSection, { paddingHorizontal: horizontalPadding }]}>
+      <Image
+        source={require('@/assets/images/logoItalo.png')}
+        style={[styles.logo, { width: logoSize, height: logoSize }]}
+        resizeMode="contain"
+        accessibilityLabel="Logo Italo"
+      />
+      <ThemedText style={styles.title}>Inicio de Sesión</ThemedText>
+      <View style={[styles.loginForm, { maxWidth: webFormMaxWidth }]}>
         <InputWithIcon
-          icon="👤"
           placeholder="Usuario"
           value={user}
           onChangeText={handleUserChange}
           accessibilityLabel="Campo usuario"
           textContentType="username"
           hasError={!!error && !user.trim()}
+          variant="glass"
+          returnKeyType="next"
+          blurOnSubmit={false}
+          onSubmitEditing={() => passRef.current?.focus()}
         />
         <InputWithIcon
-          icon="🔒"
+          ref={passRef}
           placeholder="Contraseña"
           value={pass}
           onChangeText={handlePassChange}
@@ -124,13 +118,12 @@ export const LoginForm: React.FC = () => {
           returnKeyType="done"
           textContentType="password"
           hasError={!!error && !pass.trim()}
+          variant="glass"
+          onSubmitEditing={onSubmit}
         />
         {errorContent}
         <Pressable
-          style={[
-            styles.loginButton,
-            { backgroundColor: buttonBackgroundColor },
-          ]}
+          style={[styles.loginButton, glassStyles.button]}
           onPress={onSubmit}
           disabled={!isFormValid || loading}
           accessibilityRole="button"
@@ -162,7 +155,7 @@ export const LoginForm: React.FC = () => {
             </Pressable>
           </View>
         </View>
-      </ThemedView>
+      </View>
     </ThemedView>
   );
 };
@@ -170,28 +163,23 @@ export const LoginForm: React.FC = () => {
 const styles = StyleSheet.create({
   formSection: {
     backgroundColor: 'transparent',
-    flex: 1,
+    width: '100%',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 60,
+    paddingVertical: 40,
   },
-  formSubtitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 12,
+  logo: {
+    marginBottom: 16,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: glassColors.text,
+    marginBottom: 24,
   },
   loginForm: {
-    maxWidth: 380,
-    backgroundColor: colors.componentBackground,
-    borderRadius: 16,
-    padding: 24,
+    width: '100%',
+    maxWidth: 340,
     gap: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 8,
   },
   loginButtonText: {
     fontSize: 16,
@@ -206,10 +194,6 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     paddingVertical: 14,
     paddingHorizontal: 32,
-    elevation: 8,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.18,
-    shadowRadius: 16,
   },
   loginCardText: {
     color: colors.componentBackground,
@@ -217,14 +201,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   errorContainer: {
-    backgroundColor: '#fee',
+    backgroundColor: 'rgba(244,67,54,0.08)',
     borderRadius: 8,
     padding: 12,
     borderLeftWidth: 4,
-    borderLeftColor: colors.error,
+    borderLeftColor: glassColors.error,
   },
   errorText: {
-    color: colors.error,
+    color: glassColors.error,
     fontSize: 14,
     fontWeight: '500',
   },
@@ -239,11 +223,11 @@ const styles = StyleSheet.create({
   },
   signupText: {
     fontSize: 14,
-    color: colors.secondaryText,
+    color: glassColors.textMuted,
   },
   signupLink: {
     fontSize: 14,
-    color: colors.tint,
+    color: glassColors.link,
     fontWeight: '600',
     textDecorationLine: 'underline',
   },
@@ -254,7 +238,7 @@ const styles = StyleSheet.create({
   },
   forgotPasswordLink: {
     fontSize: 13,
-    color: colors.tint,
+    color: glassColors.link,
     fontWeight: '500',
     textDecorationLine: 'underline',
   },

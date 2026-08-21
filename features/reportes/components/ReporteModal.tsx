@@ -6,6 +6,7 @@ import { useAuth } from '@/features/auth/context/AuthContext';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { generateIdempotencyKey } from '@/shared/idempotency';
 import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
+import { GlassButton } from '@/shared/ui/GlassButton';
 import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
@@ -280,17 +281,13 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 					/>
 				</View>
 
-				<TouchableOpacity
-					style={[styles.confirmBtn, isPending && styles.confirmBtnDisabled]}
+				<GlassButton
+					label="Confirmar Cambios"
 					onPress={handleAccion}
 					disabled={isPending}
-				>
-					{isPending ? (
-						<ActivityIndicator color="#fff" />
-					) : (
-						<ThemedText style={styles.confirmBtnText}>Confirmar Cambios</ThemedText>
-					)}
-				</TouchableOpacity>
+					loading={isPending}
+					style={styles.confirmBtn}
+				/>
 			</View>
 		);
 	};
@@ -622,25 +619,6 @@ const styles = StyleSheet.create({
 		color: '#111827',
 	},
 	confirmBtn: {
-		backgroundColor: colors.lightTint,
-		borderRadius: 10,
-		paddingVertical: 14,
-		alignItems: 'center',
 		marginTop: 12,
-		shadowColor: colors.lightTint,
-		shadowOffset: { width: 0, height: 4 },
-		shadowOpacity: 0.2,
-		shadowRadius: 8,
-		elevation: 4,
-	},
-	confirmBtnDisabled: {
-		backgroundColor: '#9ca3af',
-		shadowOpacity: 0,
-		elevation: 0,
-	},
-	confirmBtnText: {
-		color: '#fff',
-		fontSize: 16,
-		fontWeight: '700',
 	},
 });

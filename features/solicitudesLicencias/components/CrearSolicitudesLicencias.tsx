@@ -22,6 +22,7 @@ import {
 } from 'react-native';
 import { generateIdempotencyKey } from '@/shared/idempotency';
 import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
+import { GlassButton } from '@/shared/ui/GlassButton';
 import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CreateSolicitudDTO } from '../models/SolicitudLicencia';
@@ -669,16 +670,14 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
 
                         </ScrollView>
 
-                        {/* FAB */}
-                        <View style={[styles.uploadButtonContainer]}>
-                            <TouchableOpacity
+                        <View style={styles.uploadButtonContainer}>
+                            <GlassButton
+                                label="Crear"
                                 onPress={handleCrearSolicitud}
-                                style={[styles.uploadButton, { backgroundColor: Colors['light'].componentBackground }]}
-                            >
-                                <Ionicons name="cloud-upload" size={20} color={Colors['light'].lightTint} />
-                                <ThemedText style={styles.uploadButtonText}>{'Crear'}</ThemedText>
-
-                            </TouchableOpacity>
+                                loading={isPending}
+                                icon={(color) => <Ionicons name="cloud-upload" size={20} color={color} />}
+                                style={styles.uploadButton}
+                            />
                         </View>
 
                         {showDatePicker && (
@@ -891,7 +890,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
         borderStyle: 'dashed',
         borderWidth: 2,
-        borderColor: colors.lightTint,
+        borderColor: 'rgba(26,115,232,0.35)',
         borderRadius: 8,
         alignItems: 'center',
         justifyContent: 'center',
@@ -931,16 +930,6 @@ const styles = StyleSheet.create({
         paddingTop: 10,
     },
     uploadButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 14,
-        borderRadius: 8,
-        gap: 8,
-    },
-    uploadButtonText: {
-        color: Colors['light'].lightTint,
-        fontWeight: '600',
-        fontSize: 16,
+        alignSelf: 'stretch',
     },
 });

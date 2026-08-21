@@ -1,6 +1,6 @@
 import { ThemedText } from '@/components/themed-text';
-import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { ArchivoUso } from '@/features/docs/models/Archivo';
 import { useUploadArchivo } from '@/features/docs/viewmodels/useArchivos';
 import { ApiOperationResult } from '@/shared/types/apiStatus';
@@ -393,7 +393,7 @@ export function FormObjetivoModal({
         <View style={styles.fullScreen}>
             <ModalKeyboardView style={styles.modalKeyboardAvoiding}>
                     <View style={styles.modalContainer}>
-                        <View style={[styles.modalHeader, { paddingTop: insets.top + 12 }]}>
+                        <View style={[styles.modalHeader, glassStyles.sheetHeader, { paddingTop: insets.top + 12 }]}>
                             <TouchableOpacity onPress={handleClose} style={styles.modalIconButton} disabled={isLoading}>
                                 <Ionicons name="chevron-back" size={24} color="#6b7280" />
                             </TouchableOpacity>
@@ -545,7 +545,7 @@ export function FormObjetivoModal({
                                             handleSeleccionarArchivo();
                                         }}
                                     >
-                                        <Ionicons name="add" size={16} color={Colors.light.tint} />
+                                        <Ionicons name="add" size={16} color={glassColors.link} />
                                         <Text style={styles.actionButtonText}>Agregar archivos</Text>
                                     </TouchableOpacity>
                                 </View>
@@ -604,9 +604,9 @@ export function FormObjetivoModal({
                     <View style={[styles.uploadButtonContainer, { paddingBottom: insets.bottom || 10 }]}>
                         <TouchableOpacity
                             onPress={handleSubmit}
-                            style={[styles.uploadButton, { backgroundColor: isLoading ? '#d1d5db' : Colors['light'].componentBackground }]}
+                            style={[styles.uploadButton, glassStyles.button, isLoading && styles.uploadButtonDisabled]}
                         >
-                            <Ionicons name="cloud-upload" size={20} color={Colors['light'].lightTint} />
+                            <Ionicons name="cloud-upload" size={20} color={glassColors.link} />
                             <ThemedText style={styles.uploadButtonText}>{'Crear'}</ThemedText>
 
                         </TouchableOpacity>
@@ -624,13 +624,11 @@ const styles = StyleSheet.create({
     // ============================================
     fullScreen: {
         ...StyleSheet.absoluteFillObject,
-        backgroundColor: Colors['light'].componentBackground,
+        ...glassStyles.sheet,
         zIndex: 1000,
-        elevation: 10,
     },
     modalContainer: {
         flex: 1,
-        backgroundColor: Colors['light'].componentBackground,
         overflow: 'hidden',
     },
     modalKeyboardAvoiding: {
@@ -640,7 +638,6 @@ const styles = StyleSheet.create({
     modalHeader: {
         paddingHorizontal: 16,
         paddingVertical: 12,
-        borderBottomColor: Colors['light'].icon,
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
@@ -653,7 +650,7 @@ const styles = StyleSheet.create({
     modalIconButton: {
         padding: 6,
         borderRadius: 16,
-        backgroundColor: '#f3f4f6',
+        backgroundColor: 'rgba(17,24,28,0.06)',
         marginLeft: 8,
     },
     modalFormContent: {
@@ -663,9 +660,8 @@ const styles = StyleSheet.create({
         padding: 16,
     },
     uploadButtonContainer: {
-        backgroundColor: Colors['light'].componentBackground,
         borderTopWidth: StyleSheet.hairlineWidth,
-        borderTopColor: Colors['light'].icon,
+        borderTopColor: 'rgba(17,24,28,0.08)',
         paddingHorizontal: '4%',
         paddingTop: 10,
     },
@@ -678,9 +674,12 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     uploadButtonText: {
-        color: Colors['light'].lightTint,
+        color: glassColors.link,
         fontWeight: '600',
         fontSize: 16,
+    },
+    uploadButtonDisabled: {
+        opacity: 0.5,
     },
     // ============================================
     // Forms
@@ -695,14 +694,14 @@ const styles = StyleSheet.create({
         marginBottom: 8,
     },
     input: {
-        backgroundColor: '#f5f5f5',
+        backgroundColor: 'rgba(17,24,28,0.03)',
         borderRadius: 8,
         paddingHorizontal: 12,
         paddingVertical: 10,
         fontSize: 14,
         color: '#1a1a1a',
         borderWidth: 1,
-        borderColor: '#e0e0e0',
+        borderColor: 'rgba(17,24,28,0.12)',
     },
     textArea: {
         height: 100,
@@ -719,14 +718,14 @@ const styles = StyleSheet.create({
         paddingVertical: 10,
         paddingHorizontal: 12,
         borderRadius: 6,
-        backgroundColor: '#f5f5f5',
+        backgroundColor: 'rgba(17,24,28,0.03)',
         borderWidth: 1,
-        borderColor: '#ddd',
+        borderColor: 'rgba(17,24,28,0.12)',
         alignItems: 'center',
     },
     estadoButtonActive: {
-        backgroundColor: '#007AFF',
-        borderColor: '#007AFF',
+        backgroundColor: 'rgba(26,115,232,0.18)',
+        borderColor: 'rgba(26,115,232,0.5)',
     },
     estadoButtonText: {
         fontSize: 12,
@@ -734,7 +733,7 @@ const styles = StyleSheet.create({
         color: '#666',
     },
     estadoButtonTextActive: {
-        color: '#fff',
+        color: glassColors.link,
     },
 
     invitedList: {
@@ -748,8 +747,8 @@ const styles = StyleSheet.create({
         padding: 12,
         borderRadius: 10,
         borderWidth: 1,
-        borderColor: '#e5e7eb',
-        backgroundColor: '#f9fafb',
+        borderColor: 'rgba(17,24,28,0.12)',
+        backgroundColor: 'rgba(17,24,28,0.03)',
         gap: 8,
     },
     invitedInfo: {
@@ -777,8 +776,8 @@ const styles = StyleSheet.create({
         alignSelf: 'flex-start',
     },
     invitedRoleButtonActive: {
-        borderColor: Colors.light.tint,
-        backgroundColor: Colors.light.tint + '12',
+        borderColor: 'rgba(26,115,232,0.35)',
+        backgroundColor: 'rgba(26,115,232,0.12)',
     },
     invitedRoleButtonText: {
         fontSize: 11,
@@ -786,7 +785,7 @@ const styles = StyleSheet.create({
         color: '#6b7280',
     },
     invitedRoleButtonTextActive: {
-        color: Colors.light.tint,
+        color: glassColors.link,
     },
     invitedRemoveButton: {
         padding: 6,
@@ -803,10 +802,10 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
         padding: 12,
-        backgroundColor: '#f9fafb',
+        backgroundColor: 'rgba(17,24,28,0.03)',
         borderRadius: 10,
         borderWidth: 1,
-        borderColor: '#e5e7eb',
+        borderColor: 'rgba(17,24,28,0.12)',
     },
     inviteRowActions: {
         flexDirection: 'row',
@@ -837,13 +836,13 @@ const styles = StyleSheet.create({
         paddingVertical: 6,
         borderRadius: 999,
         borderWidth: 1,
-        borderColor: Colors.light.tint,
-        backgroundColor: Colors.light.tint + '12',
+        borderColor: 'rgba(26,115,232,0.35)',
+        backgroundColor: 'rgba(26,115,232,0.12)',
     },
     actionButtonText: {
         fontSize: 12,
         fontWeight: '700',
-        color: Colors.light.tint,
+        color: glassColors.link,
     },
     section: {
         marginTop: 12,

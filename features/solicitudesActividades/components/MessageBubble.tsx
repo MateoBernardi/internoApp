@@ -58,22 +58,22 @@ export function MessageBubble({
       style={[conversacionStyles.bitacoraItem, isOwn ? conversacionStyles.bitacoraItemOwn : conversacionStyles.bitacoraItemOther]}
       onLayout={onLayout ? (e) => onLayout(e.nativeEvent.layout.y) : undefined}
     >
-      <View style={[conversacionStyles.bitacoraCard, highlighted && localStyles.bitacoraCardHighlighted]}>
+      <View style={[conversacionStyles.bitacoraCard, isOwn && conversacionStyles.bitacoraCardOwn, highlighted && localStyles.bitacoraCardHighlighted]}>
         <View style={conversacionStyles.bitacoraHeader}>
-          <ThemedText style={conversacionStyles.bitacoraUser}>{usuarioNombre} {usuarioApellido}</ThemedText>
-          <ThemedText style={conversacionStyles.bitacoraDate}>
+          <ThemedText style={[conversacionStyles.bitacoraUser, isOwn && conversacionStyles.bitacoraUserOwn]}>{usuarioNombre} {usuarioApellido}</ThemedText>
+          <ThemedText style={[conversacionStyles.bitacoraDate, isOwn && conversacionStyles.bitacoraDateOwn]}>
             {formatDateDDMMYYYY(new Date(createdAt))} {formatTimeHHMM(new Date(createdAt))}
           </ThemedText>
         </View>
         <View style={conversacionStyles.bitacoraBody}>
           {!hideTitle && estadoKey && (
-            <ThemedText style={conversacionStyles.bitacoraAction}>
+            <ThemedText style={[conversacionStyles.bitacoraAction, isOwn && conversacionStyles.bitacoraActionOwn]}>
               {estadoInvitacionMapping[estadoKey]}
             </ThemedText>
           )}
           {observacion && (
             <View style={conversacionStyles.bitacoraBubble}>
-              <ThemedText style={conversacionStyles.bitacoraText}>{observacion}</ThemedText>
+              <ThemedText style={[conversacionStyles.bitacoraText, isOwn && conversacionStyles.bitacoraTextOwn]}>{observacion}</ThemedText>
             </View>
           )}
           {archivos.length > 0 && (
@@ -98,20 +98,20 @@ export function MessageBubble({
             </View>
           )}
           {fechaInicioMsg && fechaFinMsg && (
-            <View style={localStyles.changeBubble}>
-              <ThemedText style={localStyles.changeText}>
+            <View style={[localStyles.changeBubble, isOwn && localStyles.changeBubbleOwn]}>
+              <ThemedText style={[localStyles.changeText, isOwn && localStyles.changeTextOwn]}>
                 {esPropuesta ? 'Propuso cambio:' : 'Fechas:'}
               </ThemedText>
-              <ThemedText style={localStyles.changeText}>
+              <ThemedText style={[localStyles.changeText, isOwn && localStyles.changeTextOwn]}>
                 Inicio: {formatDateDDMMYYYY(new Date(fechaInicioMsg))} {formatTimeHHMM(new Date(fechaInicioMsg))}
               </ThemedText>
-              <ThemedText style={localStyles.changeText}>
+              <ThemedText style={[localStyles.changeText, isOwn && localStyles.changeTextOwn]}>
                 Fin: {formatDateDDMMYYYY(new Date(fechaFinMsg))} {formatTimeHHMM(new Date(fechaFinMsg))}
               </ThemedText>
             </View>
           )}
           {isOptimistic && (
-            <ThemedText style={localStyles.pendingStatusText}>Enviando…</ThemedText>
+            <ThemedText style={[localStyles.pendingStatusText, isOwn && localStyles.pendingStatusTextOwn]}>Enviando…</ThemedText>
           )}
           {isOwn && seenBy !== undefined && (
             <TouchableOpacity
@@ -123,7 +123,7 @@ export function MessageBubble({
               <Ionicons
                 name={allSeen ? 'checkmark-done' : 'checkmark'}
                 size={14}
-                color={allSeen ? colors.lightTint : colors.secondaryText}
+                color={allSeen ? '#ffffff' : 'rgba(255,255,255,0.65)'}
               />
             </TouchableOpacity>
           )}
@@ -167,7 +167,7 @@ export function MessageBubble({
 const localStyles = StyleSheet.create({
   bitacoraCardHighlighted: {
     borderWidth: 2,
-    borderColor: colors.lightTint,
+    borderColor: '#FFC107',
   },
   changeBubble: {
     marginTop: 6,
@@ -175,9 +175,15 @@ const localStyles = StyleSheet.create({
     padding: 8,
     borderRadius: 8,
   },
+  changeBubbleOwn: {
+    backgroundColor: 'rgba(255,255,255,0.18)',
+  },
   changeText: {
     fontSize: 13,
     color: colors.text,
+  },
+  changeTextOwn: {
+    color: '#ffffff',
   },
   pendingStatusText: {
     fontSize: 11,
@@ -185,6 +191,9 @@ const localStyles = StyleSheet.create({
     color: '#9aa3ab',
     marginTop: 4,
     alignSelf: 'flex-end',
+  },
+  pendingStatusTextOwn: {
+    color: 'rgba(255,255,255,0.75)',
   },
   seenRow: {
     marginTop: 4,

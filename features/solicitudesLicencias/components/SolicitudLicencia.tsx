@@ -23,6 +23,8 @@ import {
 } from 'react-native';
 import { generateIdempotencyKey } from '@/shared/idempotency';
 import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
+import { GlassButton } from '@/shared/ui/GlassButton';
+import { glassColors } from '@/shared/ui/glass';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EstadoSolicitud } from '../models/SolicitudLicencia';
 import { formatCantidadLicencia } from '../utils/formatCantidad';
@@ -513,20 +515,14 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
                       ? 'Podés agregar otro archivo si lo necesitás.'
                       : 'Esta solicitud requiere documentación adjunta.'}
                   </ThemedText>
-                  <TouchableOpacity
-                    style={[styles.uploadBtn, isUploadingDoc && { opacity: 0.6 }]}
+                  <GlassButton
+                    label="Adjuntar documento"
                     onPress={handleUploadDocument}
                     disabled={isUploadingDoc || isAdjuntando}
-                  >
-                    {isUploadingDoc ? (
-                      <ActivityIndicator size="small" color={colors.componentBackground} />
-                    ) : (
-                      <>
-                        <Ionicons name="cloud-upload-outline" size={20} color={colors.componentBackground} />
-                        <ThemedText style={styles.uploadBtnText}>Adjuntar documento</ThemedText>
-                      </>
-                    )}
-                  </TouchableOpacity>
+                    loading={isUploadingDoc}
+                    icon={(color) => <Ionicons name="cloud-upload-outline" size={20} color={color} />}
+                    style={styles.uploadBtn}
+                  />
                 </View>
               )}
             </ScrollView>
@@ -540,25 +536,25 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
                     {canTakeAction && (
                       <>
                         <TouchableOpacity
-                          style={[styles.fab, { backgroundColor: colors.error, marginBottom: 16 }]}
+                          style={[styles.fab, styles.fabDanger, { marginBottom: 16 }]}
                           onPress={handleRejectPress}
                           disabled={isRejecting}
                         >
                           {isRejecting ? (
-                            <ActivityIndicator size="small" color={colors.componentBackground} />
+                            <ActivityIndicator size="small" color={glassColors.error} />
                           ) : (
-                            <Ionicons name="close" size={24} color={colors.componentBackground} />
+                            <Ionicons name="close" size={24} color={glassColors.error} />
                           )}
                         </TouchableOpacity>
                         <TouchableOpacity
-                          style={[styles.fab, { backgroundColor: colors.success, marginBottom: 16 }]}
+                          style={[styles.fab, styles.fabSuccess, { marginBottom: 16 }]}
                           onPress={handleApprovePress}
                           disabled={isApproving}
                         >
                           {isApproving ? (
-                            <ActivityIndicator size="small" color={colors.componentBackground} />
+                            <ActivityIndicator size="small" color={glassColors.success} />
                           ) : (
-                            <Ionicons name="checkmark" size={24} color={colors.componentBackground} />
+                            <Ionicons name="checkmark" size={24} color={glassColors.success} />
                           )}
                         </TouchableOpacity>
                       </>
@@ -566,14 +562,14 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
 
                     {canCancel && (
                       <TouchableOpacity
-                        style={[styles.fab, { backgroundColor: colors.error, marginBottom: 16 }]}
+                        style={[styles.fab, styles.fabDanger, { marginBottom: 16 }]}
                         onPress={handleCancel}
                         disabled={isCanceling}
                       >
                         {isCanceling ? (
-                          <ActivityIndicator size="small" color={colors.componentBackground} />
+                          <ActivityIndicator size="small" color={glassColors.error} />
                         ) : (
-                          <Ionicons name="close-circle-outline" size={24} color={colors.componentBackground} />
+                          <Ionicons name="close-circle-outline" size={24} color={glassColors.error} />
                         )}
                       </TouchableOpacity>
                     )}
@@ -582,10 +578,10 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
 
                 {/* Menu Button */}
                 <TouchableOpacity
-                  style={[styles.fab, { backgroundColor: colors.secondaryText }]}
+                  style={[styles.fab, styles.fabNeutral]}
                   onPress={() => setMenuOpen(!menuOpen)}
                 >
-                  <Ionicons name={menuOpen ? "close" : "ellipsis-horizontal"} size={24} color={colors.componentBackground} />
+                  <Ionicons name={menuOpen ? "close" : "ellipsis-horizontal"} size={24} color={colors.secondaryText} />
                 </TouchableOpacity>
               </View>
             )}
@@ -622,29 +618,19 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
                   />
 
                   <View style={styles.modalActions}>
-                    <TouchableOpacity
+                    <GlassButton
+                      variant="secondary"
+                      label="Cancelar"
                       onPress={() => setShowObservationModal(false)}
                       style={styles.modalBtnCancel}
-                    >
-                      <ThemedText style={{ color: colors.error }}>Cancelar</ThemedText>
-                    </TouchableOpacity>
+                    />
 
-                    <TouchableOpacity
+                    <GlassButton
+                      variant={actionType === 'approve' ? 'success' : 'danger'}
+                      label={actionType === 'approve' ? 'Aprobar' : 'Rechazar'}
                       onPress={actionType === 'approve' ? confirmApprove : confirmReject}
-                      disabled={isApproving || isRejecting}
-                      style={[
-                        styles.modalBtnConfirm,
-                        { backgroundColor: actionType === 'approve' ? colors.success : colors.error }
-                      ]}
-                    >
-                      {(isApproving || isRejecting) ? (
-                        <ActivityIndicator size="small" color={colors.componentBackground} />
-                      ) : (
-                        <ThemedText style={{ color: colors.componentBackground, fontWeight: '600' }}>
-                          {actionType === 'approve' ? 'Aprobar' : 'Rechazar'}
-                        </ThemedText>
-                      )}
-                    </TouchableOpacity>
+                      loading={isApproving || isRejecting}
+                    />
                   </View>
                 </View>
               </View>
@@ -842,11 +828,23 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
     borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 6,
+    borderWidth: 1,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+  },
+  fabDanger: {
+    backgroundColor: 'rgba(244,67,54,0.12)',
+    borderColor: 'rgba(244,67,54,0.35)',
+  },
+  fabSuccess: {
+    backgroundColor: 'rgba(46,125,50,0.12)',
+    borderColor: 'rgba(46,125,50,0.35)',
+  },
+  fabNeutral: {
+    backgroundColor: 'rgba(17,24,28,0.03)',
+    borderColor: 'rgba(17,24,28,0.12)',
   },
   modalOverlay: {
     flex: 1,
@@ -867,14 +865,7 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
     marginTop: 24,
   },
   modalBtnCancel: {
-    padding: 10,
     marginRight: 10,
-  },
-  modalBtnConfirm: {
-    backgroundColor: colors.lightTint,
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 4,
   },
   input: {
     borderWidth: 1,
@@ -898,17 +889,6 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
     fontWeight: '600',
   },
   uploadBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.lightTint,
-    borderRadius: 8,
-    paddingVertical: 12,
-    gap: 8,
-  },
-  uploadBtnText: {
-    color: colors.componentBackground,
-    fontWeight: '600',
-    fontSize: 14,
+    alignSelf: 'stretch',
   },
 });

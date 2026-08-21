@@ -1,5 +1,6 @@
 import { Colors } from "@/constants/theme";
 import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect } from "react";
 import { Alert, BackHandler, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
@@ -42,7 +43,7 @@ export function DetailModal({ visible, objetivo, onClose, onDelete, onInfo, curr
                         </TouchableOpacity>
                     </View>
 
-                    <View style={[styles.modalHeader, { paddingTop: insets.top + 12 }]}>
+                    <View style={[styles.modalHeader, glassStyles.sheetHeader, { paddingTop: insets.top + 12 }]}>
                         <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
                             <Ionicons name="chevron-back" size={24} color="#999" />
                         </TouchableOpacity>
@@ -141,7 +142,7 @@ export function DetailModal({ visible, objetivo, onClose, onDelete, onInfo, curr
 
                     <View style={styles.modalFooter}>
                         <TouchableOpacity
-                            style={[styles.button, styles.buttonDanger, !isOwner && styles.buttonDisabled]}
+                            style={[styles.button, glassStyles.buttonDanger, !isOwner && styles.buttonDisabled]}
                             onPress={() => {
                                 Alert.alert(
                                     'Eliminar',
@@ -219,19 +220,16 @@ function getStateColor(estado: string): string {
 const styles = StyleSheet.create({
     fullScreen: {
         ...StyleSheet.absoluteFillObject,
-        backgroundColor: Colors['light'].componentBackground,
+        ...glassStyles.sheet,
         zIndex: 1000,
-        elevation: 10,
     },
     modalContainer: {
         flex: 1,
-        backgroundColor: Colors['light'].componentBackground,
         overflow: 'hidden',
     },
     modalHeader: {
         paddingHorizontal: 16,
         paddingVertical: 12,
-        borderBottomColor: Colors['light'].icon,
         flexDirection: 'row',
         justifyContent: 'flex-start',
         alignItems: 'center',
@@ -258,11 +256,14 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         borderRadius: 16,
-        backgroundColor: '#fff',
+        backgroundColor: 'rgba(255,255,255,0.85)',
         borderWidth: 1,
-        borderColor: '#e5e7eb',
+        borderColor: 'rgba(17,24,28,0.1)',
         zIndex: 21,
-        elevation: 6,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 6,
     },
     infoBtnText: {
         fontSize: 22,
@@ -272,7 +273,7 @@ const styles = StyleSheet.create({
     closeBtn: {
         padding: 6,
         borderRadius: 16,
-        backgroundColor: '#f3f4f6',
+        backgroundColor: 'rgba(17,24,28,0.06)',
         marginLeft: 8,
     },
     closeButton: {
@@ -378,7 +379,7 @@ const styles = StyleSheet.create({
     },
     divider: {
         height: 1,
-        backgroundColor: Colors['light'].background,
+        backgroundColor: 'rgba(17,24,28,0.08)',
         marginVertical: 20,
     },
     estatoBadge: {
@@ -486,9 +487,9 @@ const styles = StyleSheet.create({
         paddingTop: 12,
         paddingBottom: 24,
         borderTopWidth: 1,
-        borderTopColor: '#f0f0f0',
+        borderTopColor: 'rgba(17,24,28,0.08)',
         gap: 10,
-        backgroundColor: '#fff',
+        backgroundColor: 'rgba(255,255,255,0.4)',
     },
     button: {
         flex: 1,
@@ -505,13 +506,9 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         fontSize: 13,
     },
-    buttonDanger: {
-        backgroundColor: '#fff1f2',
-        borderWidth: 1,
-        borderColor: '#fecdd3',
-    },
+    buttonDanger: {},
     buttonDangerText: {
-        color: '#e11d48',
+        color: glassColors.error,
         fontWeight: '600',
         fontSize: 13,
     },

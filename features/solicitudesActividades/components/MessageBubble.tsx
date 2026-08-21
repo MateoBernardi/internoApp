@@ -19,6 +19,9 @@ export interface MessageBubbleProps {
   observacion: string | null;
   isOwn: boolean;
   hideTitle: boolean;
+  /** En conversaciones privadas (1 a 1) el nombre es redundante — ya se
+   * diferencia por lado (isOwn) y color de burbuja. */
+  hideName?: boolean;
   estadoKey: EstadoInvitacionDB | null;
   archivos: any[];
   fechaInicioMsg: Date | string | null;
@@ -38,7 +41,7 @@ export interface MessageBubbleProps {
 }
 
 export function MessageBubble({
-  id, usuarioNombre, usuarioApellido, createdAt, observacion, isOwn, hideTitle, estadoKey,
+  id, usuarioNombre, usuarioApellido, createdAt, observacion, isOwn, hideTitle, hideName, estadoKey,
   archivos, fechaInicioMsg, fechaFinMsg, esPropuesta, isOptimistic, onOpenArchivo, onOpenImage,
   seenBy, otherParticipantIds, resolveParticipantName, highlighted, onLayout,
 }: MessageBubbleProps) {
@@ -59,12 +62,11 @@ export function MessageBubble({
       onLayout={onLayout ? (e) => onLayout(e.nativeEvent.layout.y) : undefined}
     >
       <View style={[conversacionStyles.bitacoraCard, isOwn && conversacionStyles.bitacoraCardOwn, highlighted && localStyles.bitacoraCardHighlighted]}>
-        <View style={conversacionStyles.bitacoraHeader}>
-          <ThemedText style={[conversacionStyles.bitacoraUser, isOwn && conversacionStyles.bitacoraUserOwn]}>{usuarioNombre} {usuarioApellido}</ThemedText>
-          <ThemedText style={[conversacionStyles.bitacoraDate, isOwn && conversacionStyles.bitacoraDateOwn]}>
-            {formatDateDDMMYYYY(new Date(createdAt))} {formatTimeHHMM(new Date(createdAt))}
-          </ThemedText>
-        </View>
+        {!hideName && (
+          <View style={conversacionStyles.bitacoraHeader}>
+            <ThemedText style={[conversacionStyles.bitacoraUser, isOwn && conversacionStyles.bitacoraUserOwn]}>{usuarioNombre} {usuarioApellido}</ThemedText>
+          </View>
+        )}
         <View style={conversacionStyles.bitacoraBody}>
           {!hideTitle && estadoKey && (
             <ThemedText style={[conversacionStyles.bitacoraAction, isOwn && conversacionStyles.bitacoraActionOwn]}>
@@ -113,19 +115,26 @@ export function MessageBubble({
           {isOptimistic && (
             <ThemedText style={[localStyles.pendingStatusText, isOwn && localStyles.pendingStatusTextOwn]}>Enviando…</ThemedText>
           )}
-          {isOwn && seenBy !== undefined && (
-            <TouchableOpacity
-              onPress={() => setShowViewers(true)}
-              style={localStyles.seenRow}
-              accessibilityRole="button"
-              accessibilityLabel="Ver quién vio este mensaje"
-            >
-              <Ionicons
-                name={allSeen ? 'checkmark-done' : 'checkmark'}
-                size={14}
-                color={allSeen ? '#ffffff' : 'rgba(255,255,255,0.65)'}
-              />
-            </TouchableOpacity>
+          {!isOptimistic && (
+            <View style={localStyles.metaRow}>
+              <ThemedText style={[conversacionStyles.bitacoraDate, isOwn && conversacionStyles.bitacoraDateOwn]}>
+                {formatDateDDMMYYYY(new Date(createdAt))} {formatTimeHHMM(new Date(createdAt))}
+              </ThemedText>
+              {isOwn && seenBy !== undefined && (
+                <TouchableOpacity
+                  onPress={() => setShowViewers(true)}
+                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Ver quién vio este mensaje"
+                >
+                  <Ionicons
+                    name={allSeen ? 'checkmark-done' : 'checkmark'}
+                    size={14}
+                    color={allSeen ? '#ffffff' : 'rgba(255,255,255,0.65)'}
+                  />
+                </TouchableOpacity>
+              )}
+            </View>
           )}
         </View>
       </View>
@@ -169,6 +178,13 @@ const localStyles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#FFC107',
   },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 6,
+    marginTop: 4,
+  },
   changeBubble: {
     marginTop: 6,
     backgroundColor: colors.background,
@@ -194,11 +210,6 @@ const localStyles = StyleSheet.create({
   },
   pendingStatusTextOwn: {
     color: 'rgba(255,255,255,0.75)',
-  },
-  seenRow: {
-    marginTop: 4,
-    alignSelf: 'flex-end',
-    padding: 2,
   },
   viewersModalContent: {
     maxHeight: '60%',

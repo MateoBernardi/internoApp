@@ -5,9 +5,11 @@ import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { generateIdempotencyKey } from '@/shared/idempotency';
+import { AppBackButton } from '@/shared/ui/AppBackButton';
 import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
 import { GlassButton } from '@/shared/ui/GlassButton';
 import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 import { Image } from 'expo-image';
@@ -26,6 +28,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EstadoReporte, Reporte, ReporteImagen } from '../models/Reporte';
+import { getReporteEstadoPresentation } from '../presentation';
 import { useReporteImagenes, useUnlinkReporteImage, useUpdateReporte, useUploadReporteImage } from '../viewmodels/useReportes';
 
 let ImagePicker: typeof ImagePickerTypes | null = null;
@@ -54,6 +57,7 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 	// ── Estado: formulario de actualización ──────────────────────────────────
 	const [nuevoEstado, setNuevoEstado] = useState<EstadoReporte | null>(null);
 	const [observacion, setObservacion] = useState('');
+	const [isObservationFocused, setIsObservationFocused] = useState(false);
 	const [alertModal, setAlertModal] = useState<{
 		visible: boolean;
 		title: string;
@@ -74,6 +78,7 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 	const hasSupervisorRole = hasRole(['gerencia', 'personasRelaciones', 'encargado']);
 	const isCreator = !!(user?.user_context_id && reporte.creador_id && user.user_context_id === reporte.creador_id);
 	const canManageFiles = hasSupervisorRole && isCreator;
+	const estadoPresentation = getReporteEstadoPresentation(reporte.estado);
 
 	useEffect(() => {
 		if (!visible) return;
@@ -245,7 +250,7 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 
 				<View style={styles.formGroup}>
 					<ThemedText style={styles.label}>Estado</ThemedText>
-					<View style={styles.pickerContainer}>
+					<View style={[glassStyles.fieldGlass, styles.pickerContainer]}>
 						<Picker
 							selectedValue={nuevoEstado || ''}
 							onValueChange={(value: string) => setNuevoEstado(value as EstadoReporte)}
@@ -269,25 +274,22 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 					<ThemedText style={styles.label}>
 						{(isMisReportes && nuevoEstado !== 'DISPUTA') ? 'Observación (opcional)' : 'Observación (obligatoria)'}
 					</ThemedText>
-					<TextInput
-						style={[styles.input, styles.textArea]}
-						placeholder="Escribe aquí tu observación..."
-						placeholderTextColor="#999"
-						value={observacion}
-						onChangeText={setObservacion}
-						multiline
-						numberOfLines={4}
-						textAlignVertical="top"
-					/>
+					<View style={[glassStyles.fieldGlass, styles.input, styles.textArea, isObservationFocused && styles.inputFocused]}>
+						<TextInput
+							style={[styles.observationInput, styles.inputNoOutline]}
+							placeholder="Escribe aquí tu observación..."
+							placeholderTextColor={glassColors.placeholder}
+							value={observacion}
+							onChangeText={setObservacion}
+							multiline
+							numberOfLines={4}
+							textAlignVertical="top"
+							onFocus={() => setIsObservationFocused(true)}
+							onBlur={() => setIsObservationFocused(false)}
+						/>
+					</View>
 				</View>
 
-				<GlassButton
-					label="Confirmar Cambios"
-					onPress={handleAccion}
-					disabled={isPending}
-					loading={isPending}
-					style={styles.confirmBtn}
-				/>
 			</View>
 		);
 	};
@@ -297,15 +299,34 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 	return (
 		<FullScreenPortal>
 		<>
-		<View style={styles.fullScreen}>
+		<View style={[glassStyles.sheet, styles.fullScreen]}>
 			<ModalKeyboardView style={styles.modalKeyboardAvoiding}>
-				<View style={[styles.modalContainer, { paddingBottom: insets.bottom }]}>
+				<View style={[glassStyles.sheet, styles.modalContainer, { paddingBottom: insets.bottom }]}>
 					{/* Header */}
-					<View style={[styles.modalHeader, { paddingTop: insets.top + 12 }]}>
-						<View style={styles.modalHeaderActions}>
-							<TouchableOpacity onPress={onClose} style={styles.modalIconButton}>
-								<Ionicons name="chevron-back" size={24} color="#999" />
-							</TouchableOpacity>
+					<View style={[glassStyles.sheetHeader, styles.modalHeader, { paddingTop: insets.top + 12 }]}>
+						<AppBackButton onPress={onClose} />
+					</View>
+					<View style={styles.metadataSection}>
+						<ThemedText type="title" style={styles.title}>{reporte.titulo}</ThemedText>
+						<View style={styles.infoGrid}>
+							<View style={styles.infoItem}>
+								<ThemedText style={styles.infoLabel}>Categoría</ThemedText>
+								<ThemedText style={styles.infoValue}>{reporte.categoria}</ThemedText>
+							</View>
+							<View style={styles.infoItem}>
+								<ThemedText style={styles.infoLabel}>Estado</ThemedText>
+								<View style={[styles.badge, { backgroundColor: estadoPresentation.backgroundColor }]}>
+									<ThemedText style={[styles.badgeText, { color: estadoPresentation.color }]}>{estadoPresentation.label}</ThemedText>
+								</View>
+							</View>
+							<View style={styles.infoItem}>
+								<ThemedText style={styles.infoLabel}>Fecha incidente</ThemedText>
+								<ThemedText style={styles.infoValue}>{new Date(reporte.fecha_incidente).toLocaleDateString()}</ThemedText>
+							</View>
+							<View style={styles.infoItem}>
+								<ThemedText style={styles.infoLabel}>Creador</ThemedText>
+								<ThemedText style={styles.infoValue}>{reporte.creador_nombre} {reporte.creador_apellido}</ThemedText>
+							</View>
 						</View>
 					</View>
 
@@ -315,31 +336,8 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 							keyboardShouldPersistTaps="handled"
 							showsVerticalScrollIndicator={false}
 						>
-							{/* Información del Reporte */}
-							<ThemedText type="title" style={styles.title}>{reporte.titulo}</ThemedText>
 
-							<View style={styles.infoGrid}>
-								<View style={styles.infoItem}>
-									<ThemedText style={styles.infoLabel}>Categoría</ThemedText>
-									<ThemedText style={styles.infoValue}>{reporte.categoria}</ThemedText>
-								</View>
-								<View style={styles.infoItem}>
-									<ThemedText style={styles.infoLabel}>Estado</ThemedText>
-									<View style={styles.badge}>
-										<ThemedText style={styles.badgeText}>{reporte.estado}</ThemedText>
-									</View>
-								</View>
-								<View style={styles.infoItem}>
-									<ThemedText style={styles.infoLabel}>Fecha incidente</ThemedText>
-									<ThemedText style={styles.infoValue}>{new Date(reporte.fecha_incidente).toLocaleDateString()}</ThemedText>
-								</View>
-								<View style={styles.infoItem}>
-									<ThemedText style={styles.infoLabel}>Creador</ThemedText>
-									<ThemedText style={styles.infoValue}>{reporte.creador_nombre} {reporte.creador_apellido}</ThemedText>
-								</View>
-							</View>
-
-							<View style={styles.descriptionContainer}>
+							<View style={[glassStyles.card, styles.descriptionContainer]}>
 								<ThemedText style={styles.infoLabel}>Mensaje</ThemedText>
 								<ThemedText style={styles.descriptionText}>{reporte.descripcion}</ThemedText>
 							</View>
@@ -351,7 +349,7 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 									{canManageFiles && (
 										<View style={styles.imagePickerRow}>
 											<TouchableOpacity
-												style={styles.actionButton}
+												style={[glassStyles.button, styles.actionButton]}
 												onPress={handlePickFromGallery}
 												disabled={isUploadingImage}
 											>
@@ -359,7 +357,7 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 												<Text style={styles.actionButtonText}>Galería</Text>
 											</TouchableOpacity>
 											<TouchableOpacity
-												style={styles.actionButton}
+												style={[glassStyles.button, styles.actionButton]}
 												onPress={handleTakePhoto}
 												disabled={isUploadingImage}
 											>
@@ -408,6 +406,17 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 
 						</ScrollView>
 
+						{canModify && (
+							<View style={styles.actionBar}>
+								<GlassButton
+									label="Confirmar Cambios"
+									onPress={handleAccion}
+									disabled={isPending}
+									loading={isPending}
+									style={styles.confirmBtn}
+								/>
+							</View>
+						)}
 						<AlertModal
 							visible={alertModal.visible}
 							title={alertModal.title}
@@ -428,7 +437,6 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 const styles = StyleSheet.create({
 	fullScreen: {
 		...StyleSheet.absoluteFillObject,
-		backgroundColor: '#fff',
 		zIndex: 1000,
 		elevation: 8,
 	},
@@ -438,7 +446,6 @@ const styles = StyleSheet.create({
 	},
 	modalContainer: {
 		flex: 1,
-		backgroundColor: '#fff',
 	},
 	modalHeader: {
 		paddingHorizontal: 16,
@@ -452,26 +459,34 @@ const styles = StyleSheet.create({
 		alignItems: 'center',
 	},
 	modalIconButton: {
-		padding: 4,
+		width: 38,
+		height: 38,
+		borderRadius: 19,
+		padding: 0,
+	},
+	metadataSection: {
+		paddingHorizontal: 20,
+		paddingBottom: 16,
+		maxHeight: 240,
 	},
 	modalFormContent: {
 		flex: 1,
 	},
 	modalFormContentContainer: {
 		padding: 20,
-		paddingBottom: 60,
+		paddingBottom: 24,
 	},
 	title: {
 		fontSize: 24,
 		fontWeight: 'bold',
 		color: '#1a1a1a',
-		marginBottom: 20,
+		marginBottom: 12,
 	},
 	infoGrid: {
 		flexDirection: 'row',
 		flexWrap: 'wrap',
 		gap: 16,
-		marginBottom: 20,
+		marginBottom: 0,
 	},
 	infoItem: {
 		width: '45%',
@@ -479,36 +494,30 @@ const styles = StyleSheet.create({
 	infoLabel: {
 		fontSize: 14,
 		fontWeight: '600',
-		color: '#1a1a1a',
+		color: glassColors.text,
 		marginBottom: 8,
 	},
 	infoValue: {
 		fontSize: 15,
-		color: '#111827',
+		color: glassColors.text,
 		fontWeight: '500',
 	},
 	descriptionContainer: {
 		marginBottom: 24,
 		padding: 16,
-		backgroundColor: '#f9fafb',
-		borderRadius: 12,
-		borderWidth: 1,
-		borderColor: '#e5e7eb',
 	},
 	descriptionText: {
 		fontSize: 15,
-		color: '#374151',
+		color: glassColors.text,
 		lineHeight: 22,
 	},
 	badge: {
 		alignSelf: 'flex-start',
-		backgroundColor: colors.lightTint + '15',
 		paddingHorizontal: 10,
 		paddingVertical: 4,
 		borderRadius: 999,
 	},
 	badgeText: {
-		color: colors.lightTint,
 		fontSize: 12,
 		fontWeight: '700',
 	},
@@ -516,7 +525,7 @@ const styles = StyleSheet.create({
 		marginTop: 24,
 		paddingTop: 24,
 		borderTopWidth: 1,
-		borderTopColor: '#f3f4f6',
+		borderTopColor: 'rgba(17,24,28,0.08)',
 		gap: 12,
 	},
 	sectionHeaderRow: {
@@ -527,23 +536,18 @@ const styles = StyleSheet.create({
 	sectionLabel: {
 		fontSize: 16,
 		fontWeight: '700',
-		color: '#111827',
+		color: glassColors.text,
 	},
 	actionButton: {
-		flexDirection: 'row',
-		alignItems: 'center',
 		gap: 4,
 		paddingHorizontal: 10,
 		paddingVertical: 6,
 		borderRadius: 999,
-		borderWidth: 1,
-		borderColor: colors.lightTint,
-		backgroundColor: colors.lightTint + '12',
 	},
 	actionButtonText: {
 		fontSize: 12,
 		fontWeight: '700',
-		color: colors.lightTint,
+		color: glassColors.link,
 	},
 	imagePickerRow: {
 		flexDirection: 'row',
@@ -590,35 +594,46 @@ const styles = StyleSheet.create({
 	label: {
 		fontSize: 14,
 		fontWeight: '600',
-		color: '#374151',
+		color: glassColors.text,
 		marginBottom: 8,
 	},
 	input: {
-		backgroundColor: '#f9fafb',
-		borderRadius: 10,
 		paddingHorizontal: 14,
 		paddingVertical: 12,
-		fontSize: 15,
-		color: '#111827',
-		borderWidth: 1,
-		borderColor: '#e5e7eb',
 	},
 	textArea: {
 		height: 100,
 		paddingTop: 12,
 	},
+	observationInput: {
+		flex: 1,
+		fontSize: 15,
+		color: glassColors.text,
+		padding: 0,
+	},
+	inputFocused: {
+		borderColor: glassColors.link,
+	},
+	inputNoOutline: {
+		outlineStyle: 'none',
+		outlineWidth: 0,
+	} as any,
+	actionBar: {
+		borderTopWidth: 1,
+		borderTopColor: 'rgba(17,24,28,0.08)',
+		paddingHorizontal: 20,
+		paddingTop: 12,
+		paddingBottom: 4,
+		backgroundColor: '#ffffff',
+	},
 	pickerContainer: {
-		backgroundColor: '#f9fafb',
-		borderRadius: 10,
-		borderWidth: 1,
-		borderColor: '#e5e7eb',
 		overflow: 'hidden',
 	},
 	picker: {
 		height: 50,
-		color: '#111827',
+		color: glassColors.text,
 	},
 	confirmBtn: {
-		marginTop: 12,
+		alignSelf: 'stretch',
 	},
 });

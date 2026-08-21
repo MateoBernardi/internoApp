@@ -1,7 +1,7 @@
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { GlassButton } from '@/shared/ui/GlassButton';
-import { glassStyles } from '@/shared/ui/glass';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -58,11 +58,11 @@ export function TurnoScanCard() {
 
   return (
     <ThemedView style={[styles.card, glassStyles.card]} lightColor={colors.componentBackground}>
-      <View style={styles.iconContainer}>
+      <View style={[glassStyles.button, styles.iconContainer]}>
         <Ionicons
           name={isEntrada ? 'log-in-outline' : 'log-out-outline'}
           size={24}
-          color={colors.lightTint}
+          color={glassColors.link}
         />
       </View>
 
@@ -99,7 +99,6 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: colors.lightTint + '15',
     justifyContent: 'center',
     alignItems: 'center',
     flexShrink: 0,

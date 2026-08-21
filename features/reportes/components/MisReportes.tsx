@@ -4,17 +4,13 @@ import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import React, { useCallback, useState } from 'react';
+import { glassStyles } from '@/shared/ui/glass';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
-import { EstadoReporte, Reporte } from '../models/Reporte';
+import { Reporte } from '../models/Reporte';
+import { getReporteEstadoPresentation } from '../presentation';
 import { useReportes } from '../viewmodels/useReportes';
 import { ReporteModal } from './ReporteModal';
 
-const estadoMapping: Record<EstadoReporte, string> = {
-	'PENDIENTE': 'Pendiente',
-	'DISPUTA': 'En disputa',
-	'ASENTADO': 'Asentado',
-	'DESESTIMADO': 'Desestimado',
-};
 
 const colors = Colors['light'];
 
@@ -49,7 +45,7 @@ export function MisReportes() {
 	if (error) {
 		return (
 			<View style={styles.centerContainer}>
-
+				<ThemedText style={styles.errorText}>No se pudieron cargar los reportes.</ThemedText>
 			</View>
 		);
 	}
@@ -66,12 +62,11 @@ export function MisReportes() {
 					renderItem={({ item }) => (
 						<MiReporteItem
 							reporte={item}
-							estadoUI={estadoMapping[item.estado] || item.estado}
 							onPress={() => handleOpenReporte(item)}
 						/>
 					)}
 					keyExtractor={(item) => item.id.toString()}
-					showSeparators={true}
+					showSeparators={false}
 					contentContainerStyle={{ paddingBottom: 80 }}
 				/>
 			)}
@@ -89,33 +84,16 @@ export function MisReportes() {
 
 interface MiReporteItemProps {
 	reporte: Reporte;
-	estadoUI: string;
 	onPress: () => void;
 }
 
-function MiReporteItem({ reporte, estadoUI, onPress }: MiReporteItemProps) {
-	const getEstadoColor = (estado: string): string => {
-		switch (estado) {
-			case 'Pendiente':
-				return '#FF9800';
-			case 'En disputa':
-				return '#F44336';
-			case 'Asentado':
-				return '#4CAF50';
-			case 'Desestimado':
-				return '#9C27B0';
-			default:
-				return colors.icon;
-		}
-	};
+function MiReporteItem({ reporte, onPress }: MiReporteItemProps) {
+	const estado = getReporteEstadoPresentation(reporte.estado);
 
 	return (
 		<TouchableOpacity
 			onPress={onPress}
-			style={[
-				styles.itemContainer,
-				{ backgroundColor: colors.componentBackground },
-			]}
+			style={[glassStyles.card, styles.itemContainer]}
 		>
 			<View style={styles.itemContent}>
 				{/* Nombre y apellido del creador */}
@@ -128,9 +106,9 @@ function MiReporteItem({ reporte, estadoUI, onPress }: MiReporteItemProps) {
 				<View style={styles.footerContainer}>
 					<View style={[
 						styles.estadoBadge,
-						{ backgroundColor: getEstadoColor(estadoUI) + '20' },
+						{ backgroundColor: estado.backgroundColor },
 					]}>
-						<ThemedText style={[styles.estadoText, { color: getEstadoColor(estadoUI) }]}>{estadoUI}</ThemedText>
+						<ThemedText style={[styles.estadoText, { color: estado.color }]}>{estado.label}</ThemedText>
 					</View>
 					<ThemedText style={[styles.dateText, { color: colors.icon }]}>Creado: {new Date(reporte.created_at).toLocaleDateString()}</ThemedText>
 				</View>
@@ -172,7 +150,6 @@ const styles = StyleSheet.create({
 		marginVertical: 4,
 		paddingHorizontal: '3%',
 		paddingVertical: '3%',
-		borderRadius: 8,
 	},
 	itemContent: {
 		flexDirection: 'column',

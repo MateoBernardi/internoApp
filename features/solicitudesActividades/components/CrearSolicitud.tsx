@@ -11,6 +11,8 @@ import { useIdempotencyKey } from '@/shared/useIdempotencyKey';
 import { UserSummary } from '@/shared/users/User';
 import { adminRoles, allRoles } from '@/shared/users/roles';
 import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
+import { GlassButton } from '@/shared/ui/GlassButton';
+import { glassColors } from '@/shared/ui/glass';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -413,8 +415,8 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
         <View style={[styles.container, { paddingBottom: insets.bottom }]}>
           {/* Header */}
           <View style={[styles.modalHeader, { paddingTop: insets.top + 10, alignItems: 'flex-start' }]}>
-            <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-              <Ionicons name="chevron-back" size={24} color="#999" />
+            <TouchableOpacity onPress={handleClose} style={styles.backButton}>
+              <Ionicons name="chevron-back" size={24} color={glassColors.textMuted} />
             </TouchableOpacity>
           </View>
 
@@ -553,7 +555,7 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
                     style={styles.closeButton}
                     activeOpacity={0.7}
                   >
-                    <Ionicons name="add-outline" size={24} color={Colors.light.tint} />
+                    <Ionicons name="add-outline" size={24} color={glassColors.link} />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -588,17 +590,14 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
                 const isBusy = isPending || isUploadingFile;
                 const isDisabled = isBusy || !isFormValid;
                 return (
-                  <TouchableOpacity
+                  <GlassButton
+                    label={isBusy ? 'Enviando…' : 'Enviar'}
                     onPress={handleCrearSolicitud}
                     disabled={isDisabled}
-                    accessibilityState={{ disabled: isDisabled, busy: isBusy }}
-                    style={[styles.uploadButton, { opacity: isDisabled ? 0.5 : 1 }]}
-                  >
-                    <Ionicons name="cloud-upload" size={20} color={isFormValid ? Colors['light'].lightTint : Colors['light'].icon} />
-                    <ThemedText style={styles.uploadButtonText}>
-                      {isBusy ? 'Enviando…' : 'Enviar'}
-                    </ThemedText>
-                  </TouchableOpacity>
+                    loading={isBusy}
+                    icon={(color) => <Ionicons name="cloud-upload" size={20} color={color} style={{ marginRight: 8 }} />}
+                    accessibilityLabel="Enviar solicitud"
+                  />
                 );
               })()}
             </View>

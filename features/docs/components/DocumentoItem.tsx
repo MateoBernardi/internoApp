@@ -1,5 +1,6 @@
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import { Modal, Pressable, StyleSheet, TouchableOpacity, View } from 'react-native';
@@ -77,7 +78,7 @@ function DescripcionModal({
           <View style={styles.modalHeader}>
             <ThemedText style={styles.modalTitle} numberOfLines={1}>{nombre}</ThemedText>
             <TouchableOpacity onPress={onClose} style={styles.modalCloseButton}>
-              <Ionicons name="close" size={20} color={colors.icon} />
+              <Ionicons name="close" size={20} color={glassColors.textMuted} />
             </TouchableOpacity>
           </View>
           <View style={styles.modalDivider} />
@@ -105,11 +106,17 @@ export function DocumentoItem({ archivo, currentUserId, onPress, onOptions, onDe
         Los botones de acción viven fuera del TouchableOpacity para que
         sus onPress no compitan con el onPress del item.
       */}
-      <View style={[styles.itemContainer, { backgroundColor: colors.componentBackground }]}>
+      <View style={[styles.itemContainer, showUnreadBadge && styles.itemContainerUnread]}>
         <TouchableOpacity onPress={onPress} style={styles.itemPressable} activeOpacity={0.7}>
           <Ionicons name={icon as any} size={28} color={color} style={styles.documentIcon} />
           <View style={styles.itemContent}>
-            <ThemedText type="defaultSemiBold" numberOfLines={1}>{archivo.nombre}</ThemedText>
+            <ThemedText
+              type="defaultSemiBold"
+              numberOfLines={1}
+              style={showUnreadBadge ? styles.nombreUnread : undefined}
+            >
+              {archivo.nombre}
+            </ThemedText>
             <ThemedText style={[styles.creador, { color: colors.secondaryText }]}>
               De: {archivo.nombreCreador} {archivo.apellidoCreador}
             </ThemedText>
@@ -128,7 +135,7 @@ export function DocumentoItem({ archivo, currentUserId, onPress, onOptions, onDe
               style={styles.actionButton}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Ionicons name="information-circle-outline" size={20} color={colors.tint} />
+              <Ionicons name="information-circle-outline" size={18} color={glassColors.link} />
             </TouchableOpacity>
           )}
           {onDelete && (
@@ -137,15 +144,15 @@ export function DocumentoItem({ archivo, currentUserId, onPress, onOptions, onDe
               style={styles.actionButton}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Ionicons name="trash" size={20} color={colors.error} />
+              <Ionicons name="trash-outline" size={18} color={glassColors.error} />
             </TouchableOpacity>
           )}
           <TouchableOpacity
             onPress={onOptions}
-            style={[styles.actionButton, styles.moreButton]}
+            style={styles.actionButton}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Ionicons name="ellipsis-vertical" size={18} color={colors.icon} />
+            <Ionicons name="ellipsis-vertical" size={16} color={glassColors.textMuted} />
           </TouchableOpacity>
         </View>
       </View>
@@ -168,9 +175,17 @@ const styles = StyleSheet.create({
     marginVertical: 4,
     paddingHorizontal: '3%',
     paddingVertical: '3%',
-    borderRadius: 8,
     flexDirection: 'row',
     alignItems: 'center',
+    ...glassStyles.card,
+  },
+  // Item con acción pendiente: fill casi sólido + título en negrita para
+  // que resalte por sobre los items normales (nunca se atenúan los normales).
+  itemContainerUnread: {
+    backgroundColor: 'rgba(255,255,255,0.94)',
+  },
+  nombreUnread: {
+    fontWeight: '700',
   },
   // Ocupa todo el espacio disponible menos los botones de acción
   itemPressable: {
@@ -207,29 +222,26 @@ const styles = StyleSheet.create({
     backgroundColor: '#FF3B30',
   },
   actionButton: {
-    padding: 8,
-  },
-  moreButton: {
-    marginRight: -8,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(17,24,28,0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(17,24,28,0.1)',
   },
   // Modal
   modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    ...glassStyles.modalOverlay,
     justifyContent: 'flex-end',
     paddingHorizontal: '4%',
   },
   modalCard: {
-    backgroundColor: colors.componentBackground,
-    borderRadius: 16,
     paddingHorizontal: '5%',
     paddingTop: '4%',
     paddingBottom: '5%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 12,
+    ...glassStyles.modalCard,
   },
   modalHeader: {
     flexDirection: 'row',

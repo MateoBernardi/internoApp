@@ -1,5 +1,5 @@
 import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
-import { Colors } from '@/constants/theme';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
@@ -14,14 +14,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { HorasExtraDTO } from '../models/HorasExtra';
-
-const colors = Colors['light'];
-const AMBER = '#c98a1a';
-const LINE = '#e8eaed';
-const MUTED = '#7a8087';
-const INK = '#1c2024';
-const RED_FLASH = '#e2543b';
-const CARD = '#f6f7f9';
+import { AMBER, INK, LINE, MUTED, RED_FLASH } from '../theme';
 
 function formatHoras(n: number): string {
   return `${Math.round(n * 10) / 10}h`;
@@ -51,6 +44,7 @@ export function LiquidarAmountModal({
   const insets = useSafeAreaInsets();
   const disponible = empleado && empleado.horas > 0 ? empleado.horas : 0;
   const [text, setText] = useState('');
+  const [isInputFocused, setInputFocused] = useState(false);
 
   // Reset del input cada vez que se abre para un nuevo empleado.
   useEffect(() => {
@@ -70,9 +64,9 @@ export function LiquidarAmountModal({
       onRequestClose={onClose}
       statusBarTranslucent={Platform.OS === 'android'}
     >
-      <View style={styles.overlay}>
+      <View style={[glassStyles.modalOverlay, styles.overlay]}>
         <ModalKeyboardView style={styles.kavWrapper}>
-          <View style={[styles.card, { marginBottom: insets.bottom + 24 }]}>
+          <View style={[glassStyles.modalCard, styles.card, { marginBottom: insets.bottom + 24 }]}>
             <View style={styles.header}>
               <Text style={styles.title}>Liquidar horas extra</Text>
               <TouchableOpacity
@@ -90,15 +84,17 @@ export function LiquidarAmountModal({
               </Text>
             )}
 
-            <View style={styles.inputRow}>
+            <View style={[glassStyles.fieldGlass, styles.inputRow, isInputFocused && styles.inputFocused]}>
               <TextInput
-                style={styles.input}
+                style={[styles.input, styles.inputNoOutline]}
                 keyboardType="decimal-pad"
                 value={text}
                 onChangeText={setText}
                 placeholder="0.0"
                 placeholderTextColor={MUTED}
                 editable={!isLiquidando}
+                onFocus={() => setInputFocused(true)}
+                onBlur={() => setInputFocused(false)}
                 autoFocus
               />
               <Text style={styles.inputSuffix}>h</Text>
@@ -140,7 +136,6 @@ export function LiquidarAmountModal({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'flex-end',
   },
   kavWrapper: {
@@ -148,8 +143,6 @@ const styles = StyleSheet.create({
   },
   card: {
     marginHorizontal: 16,
-    backgroundColor: colors.componentBackground,
-    borderRadius: 16,
     padding: 20,
     gap: 14,
   },
@@ -178,10 +171,6 @@ const styles = StyleSheet.create({
   inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: CARD,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: LINE,
     paddingHorizontal: 14,
     height: 52,
     gap: 8,
@@ -238,4 +227,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#ffffff',
   },
+  inputFocused: {
+    borderColor: glassColors.link,
+  },
+  inputNoOutline: {
+    outlineStyle: 'none',
+    outlineWidth: 0,
+  } as any,
 });

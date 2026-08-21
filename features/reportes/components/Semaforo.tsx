@@ -1,6 +1,7 @@
 import { ThemedText } from '@/components/themed-text';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { Colors } from '@/constants/theme';
+import { glassStyles } from '@/shared/ui/glass';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
@@ -132,12 +133,12 @@ function ZonaSection({
 	const config = zonaConfig[zona];
 
 	return (
-		<View style={[styles.zonaSectionContainer, { borderLeftColor: config.color }]}>
+		<View style={[glassStyles.card, styles.zonaSectionContainer, { borderLeftColor: config.color }]}>
 			{/* Header collapsible */}
 			<TouchableOpacity style={[styles.zonaHeader, { backgroundColor: config.backgroundColor }]} onPress={onToggle}>
 				<View style={styles.zonaHeaderContent}>
 					<ThemedText style={styles.zonaTitle}>{config.label}</ThemedText>
-					<View style={styles.zonaCount}>
+					<View style={[glassStyles.pill, styles.zonaCount]}>
 						<ThemedText style={styles.countText}>{items.length}</ThemedText>
 					</View>
 				</View>
@@ -206,7 +207,7 @@ function SemaforoItem({ item, comparingWith }: { item: ReporteStats; comparingWi
 		}
 	};
 	return (
-		<View style={styles.itemContainer}>
+		<View style={[glassStyles.card, styles.itemContainer]}>
 			<ThemedText type="defaultSemiBold" onPress={handlePress} style={{ textDecorationLine: 'underline', color: colors.tint }}>
 				{item.nombre} {item.apellido}
 			</ThemedText>
@@ -238,12 +239,6 @@ const styles = StyleSheet.create({
 		borderLeftWidth: 4,
 		borderRadius: 8,
 		overflow: 'hidden',
-		backgroundColor: colors.background,
-		shadowColor: '#000',
-		shadowOffset: { width: 0, height: 2 },
-		shadowOpacity: 0.08,
-		shadowRadius: 3,
-		elevation: 2,
 	},
 	zonaHeader: {
 		flexDirection: 'row',
@@ -264,7 +259,6 @@ const styles = StyleSheet.create({
 		color: colors.text,
 	},
 	zonaCount: {
-		backgroundColor: 'rgba(255, 255, 255, 0.2)',
 		borderRadius: 12,
 		paddingHorizontal: 8,
 		paddingVertical: 4,
@@ -295,13 +289,6 @@ const styles = StyleSheet.create({
 		marginVertical: 6,
 		paddingHorizontal: 12,
 		paddingVertical: 10,
-		borderRadius: 8,
-		backgroundColor: colors.componentBackground,
-		shadowColor: '#000',
-		shadowOffset: { width: 0, height: 1 },
-		shadowOpacity: 0.05,
-		shadowRadius: 2,
-		elevation: 1,
 	},
 	statsRow: {
 		flexDirection: 'row',

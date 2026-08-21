@@ -3,6 +3,7 @@ import { CreateButton } from '@/components/ui/CreateButton';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { Colors } from '@/constants/theme';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
+import { glassStyles } from '@/shared/ui/glass';
 import React, { useCallback, useState } from 'react';
 import {
   FlatList,
@@ -69,17 +70,6 @@ export function MisSolicitudes() {
   }, []);
 
   // 3. Renderizado de la lista
-  const renderSeparator = useCallback(() => {
-    return (
-      <View
-        style={[
-          styles.separator,
-          { backgroundColor: colors.icon }
-        ]}
-      />
-    );
-  }, [colors]);
-
   const renderItem: ListRenderItem<SolicitudLicencia> = useCallback(
     ({ item }) => {
       const estadoUI = estadoMapping[item.estado];
@@ -138,7 +128,6 @@ export function MisSolicitudes() {
           renderItem={renderItem}
           keyExtractor={(item) => item.id.toString()}
           scrollEnabled={true}
-          ItemSeparatorComponent={renderSeparator}
           contentContainerStyle={[styles.listContent, { paddingBottom: 80 }]}
           refreshControl={
             <RefreshControl
@@ -206,10 +195,7 @@ function MiSolicitudItem({ solicitud, estadoUI, onPress }: MiSolicitudItemProps)
   return (
     <TouchableOpacity
       onPress={onPress}
-      style={[
-        styles.itemContainer,
-        { backgroundColor: colors.componentBackground },
-      ]}
+      style={styles.itemContainer}
     >
       <View style={styles.itemContent}>
         {/* Título: Tipo de Licencia */}
@@ -261,10 +247,6 @@ const styles = StyleSheet.create({
   },
   listContent: {
   },
-  separator: {
-    height: StyleSheet.hairlineWidth,
-    marginHorizontal: '4%',
-  },
   errorText: {
     marginBottom: 8,
   },
@@ -273,7 +255,7 @@ const styles = StyleSheet.create({
     marginVertical: 4,
     paddingHorizontal: '3%',
     paddingVertical: '3%',
-    borderRadius: 8,
+    ...glassStyles.card,
   },
   itemContent: {
     flexDirection: 'column',

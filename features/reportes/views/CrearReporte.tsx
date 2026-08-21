@@ -9,11 +9,13 @@ import { Image } from 'expo-image';
 import type * as ImagePickerTypes from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { BackHandler, KeyboardAvoidingView, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { BackHandler, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { deriveIdempotencyKey } from '@/shared/idempotency';
+import { AppBackButton } from '@/shared/ui/AppBackButton';
 import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
 import { GlassButton } from '@/shared/ui/GlassButton';
-import { KEYBOARD_BEHAVIOR } from '@/shared/ui/keyboard';
+import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { useIdempotencyKey } from '@/shared/useIdempotencyKey';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { uploadReporteImage } from '../services/reportesApi';
@@ -77,6 +79,7 @@ export default function CrearReporte(props?: CrearReporteProps) {
 	const [showDatePicker, setShowDatePicker] = useState(false);
 	const [showTimePicker, setShowTimePicker] = useState(false);
 
+	const [focusedField, setFocusedField] = useState<string | null>(null);
 	// Estado de imágenes pendientes
 	const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
 	const [isUploading, setIsUploading] = useState(false);
@@ -288,23 +291,18 @@ export default function CrearReporte(props?: CrearReporteProps) {
 
 	return (
 		<FullScreenPortal>
-		<View style={styles.fullScreen}>
-			<KeyboardAvoidingView
-				behavior={KEYBOARD_BEHAVIOR}
-				style={styles.keyboardContainer}
-			>
-				<View style={[styles.container, { paddingBottom: insets.bottom }]}>
-					<View style={[styles.modalHeader, { paddingTop: insets.top + 10 }]}>
-						<TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-							<Ionicons name="chevron-back" size={24} color="#999" />
-						</TouchableOpacity>
+		<View style={[glassStyles.sheet, styles.fullScreen]}>
+			<ModalKeyboardView style={styles.keyboardContainer}>
+				<View style={[glassStyles.sheet, styles.container, { paddingBottom: insets.bottom }]}>
+					<View style={[glassStyles.sheetHeader, styles.modalHeader, { paddingTop: insets.top + 10 }]}>
+						<AppBackButton onPress={handleClose} />
 					</View>
 
 						<ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
 							{/* Usuario reportado */}
-							<View style={styles.inputSection}>
+							<View style={[glassStyles.fieldGlass, styles.inputSection, focusedField === 'usuario' && styles.inputFocused]}>
 								<TextInput
-									style={[styles.input, initialUserId && styles.disabledInput]}
+									style={[styles.input, styles.inputNoOutline, initialUserId && styles.disabledInput]}
 									placeholder={userFullName || "ID usuario reportado"}
 									placeholderTextColor={userFullName ? colors.text : colors.secondaryText}
 									value={userFullName || usuarioId}
@@ -312,62 +310,78 @@ export default function CrearReporte(props?: CrearReporteProps) {
 									keyboardType="numeric"
 									editable={!initialUserId}
 									selectTextOnFocus={!initialUserId}
+									onFocus={() => setFocusedField('usuario')}
+									onBlur={() => setFocusedField(null)}
 								/>
 							</View>
 							{/* Título */}
-							<View style={styles.inputSection}>
+							<View style={[glassStyles.fieldGlass, styles.inputSection, focusedField === 'titulo' && styles.inputFocused]}>
 								<TextInput
-									style={styles.input}
+									style={[styles.input, styles.inputNoOutline]}
 									placeholder="Título"
 									placeholderTextColor={colors.secondaryText}
 									value={titulo}
 									onChangeText={setTitulo}
 									maxLength={100}
+									onFocus={() => setFocusedField('titulo')}
+									onBlur={() => setFocusedField(null)}
 								/>
 							</View>
 							{/* Descripción */}
-							<TextInput
-								style={styles.messageInput}
-								placeholder="Descripción"
-								placeholderTextColor={colors.secondaryText}
-								value={descripcion}
-								onChangeText={setDescripcion}
-								multiline
-								textAlignVertical="top"
-							/>
+							<View style={[glassStyles.fieldGlass, styles.messageInputContainer, focusedField === 'descripcion' && styles.inputFocused]}>
+								<TextInput
+									style={[styles.messageInput, styles.inputNoOutline]}
+									placeholder="Descripción"
+									placeholderTextColor={colors.secondaryText}
+									value={descripcion}
+									onChangeText={setDescripcion}
+									multiline
+									textAlignVertical="top"
+									onFocus={() => setFocusedField('descripcion')}
+									onBlur={() => setFocusedField(null)}
+								/>
+							</View>
 							{/* Categoría */}
-							<View style={[styles.inputSection, { borderBottomWidth: 0, paddingVertical: 10, alignItems: 'center' }]}>
-								<TouchableOpacity
-									style={[styles.chip, categoria === 'NEGATIVO' && { borderColor: colors.error, backgroundColor: 'transparent', borderWidth: 1 }]}
-									onPress={() => setCategoria('NEGATIVO')}
-								>
-									<ThemedText style={[styles.chipText, categoria === 'NEGATIVO' ? { color: colors.error, fontWeight: 'bold' } : { color: colors.secondaryText }]}>Negativo</ThemedText>
-								</TouchableOpacity>
-								<TouchableOpacity
-									style={[styles.chip, categoria === 'POSITIVO' && { borderColor: colors.success, backgroundColor: 'transparent', borderWidth: 1 }]}
-									onPress={() => setCategoria('POSITIVO')}
-								>
-									<ThemedText style={[styles.chipText, categoria === 'POSITIVO' ? { color: colors.success, fontWeight: 'bold' } : { color: colors.secondaryText }]}>Positivo</ThemedText>
-								</TouchableOpacity>
+							<View style={styles.categorySection}>
+								<ThemedText style={styles.fieldLabel}>Tipo de reporte</ThemedText>
+								<View style={styles.categoryRow}>
+									<TouchableOpacity
+										style={[glassStyles.fieldGlass, styles.categoryOption, categoria === 'NEGATIVO' && styles.categoryOptionNegative]}
+										onPress={() => setCategoria('NEGATIVO')}
+										accessibilityState={{ selected: categoria === 'NEGATIVO' }}
+									>
+										<Ionicons name="remove-circle-outline" size={22} color={colors.error} />
+										<ThemedText style={[styles.categoryText, { color: colors.error }]}>Negativo</ThemedText>
+									</TouchableOpacity>
+									<TouchableOpacity
+										style={[glassStyles.fieldGlass, styles.categoryOption, categoria === 'POSITIVO' && styles.categoryOptionPositive]}
+										onPress={() => setCategoria('POSITIVO')}
+										accessibilityState={{ selected: categoria === 'POSITIVO' }}
+									>
+										<Ionicons name="add-circle-outline" size={22} color={colors.success} />
+										<ThemedText style={[styles.categoryText, { color: colors.success }]}>Positivo</ThemedText>
+									</TouchableOpacity>
+								</View>
 							</View>
 							{/* Fecha incidente */}
-							<View style={styles.inputSection}>
-								<TouchableOpacity onPress={() => {
-									setShowTimePicker(false);
-									setShowDatePicker(true);
-								}} style={{ flex: 1 }}>
-									<ThemedText style={[styles.dateValue, { color: colors.text }]}>
-										{fechaIncidente.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}
-									</ThemedText>
-								</TouchableOpacity>
-								<TouchableOpacity onPress={() => {
-									setShowDatePicker(false);
-									setShowTimePicker(true);
-								}}>
-									<ThemedText style={[styles.dateValue, styles.timeValue, { color: colors.text }]}>
-										{fechaIncidente.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false })}
-									</ThemedText>
-								</TouchableOpacity>
+							<View style={styles.dateSection}>
+								<ThemedText style={styles.fieldLabel}>Fecha del reporte</ThemedText>
+								<View style={styles.dateRow}>
+									<TouchableOpacity onPress={() => {
+										setShowTimePicker(false);
+										setShowDatePicker(true);
+									}} style={[glassStyles.buttonSecondary, styles.dateButton]}>
+										<ThemedText style={[styles.dateValue, { color: colors.text }]}>
+											{fechaIncidente.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}
+										</ThemedText>
+									</TouchableOpacity>
+									<TouchableOpacity onPress={() => {
+										setShowDatePicker(false);
+										setShowTimePicker(true);
+									}} style={[glassStyles.buttonSecondary, styles.timeButton]}>
+										<ThemedText style={[styles.dateValue, styles.timeValue, { color: colors.text }]}>{fechaIncidente.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false })}</ThemedText>
+									</TouchableOpacity>
+								</View>
 							</View>
 
 							{/* Imágenes */}
@@ -378,7 +392,7 @@ export default function CrearReporte(props?: CrearReporteProps) {
 									</ThemedText>
 									<View style={styles.imagePickerRow}>
 										<TouchableOpacity
-											style={styles.imageActionBtn}
+											style={[glassStyles.button, styles.imageActionBtn]}
 											onPress={handlePickFromGallery}
 											disabled={isPending}
 										>
@@ -386,7 +400,7 @@ export default function CrearReporte(props?: CrearReporteProps) {
 											<ThemedText style={styles.imageActionText}>Galería</ThemedText>
 										</TouchableOpacity>
 										<TouchableOpacity
-											style={styles.imageActionBtn}
+											style={[glassStyles.button, styles.imageActionBtn]}
 											onPress={handleTakePhoto}
 											disabled={isPending}
 										>
@@ -404,14 +418,18 @@ export default function CrearReporte(props?: CrearReporteProps) {
 											contentFit="cover"
 										/>
 										<View style={styles.pendingImageDetails}>
-											<TextInput
-												style={styles.pendingDescInput}
-												placeholder="Descripción (opcional)"
-												placeholderTextColor={colors.secondaryText}
-												value={img.description}
-												onChangeText={(text) => updateImageDescription(idx, text)}
-												maxLength={200}
-											/>
+											<View style={[glassStyles.fieldGlass, focusedField === `image-${idx}` && styles.inputFocused]}>
+												<TextInput
+													style={[styles.pendingDescInput, styles.inputNoOutline]}
+													placeholder="Descripción (opcional)"
+													placeholderTextColor={colors.secondaryText}
+													value={img.description}
+													onChangeText={(text) => updateImageDescription(idx, text)}
+													maxLength={200}
+													onFocus={() => setFocusedField(`image-${idx}`)}
+													onBlur={() => setFocusedField(null)}
+												/>
+											</View>
 										</View>
 										<TouchableOpacity
 											onPress={() => removeImage(idx)}
@@ -472,7 +490,7 @@ export default function CrearReporte(props?: CrearReporteProps) {
 							onClose={() => setAlertModal((prev) => ({ ...prev, visible: false }))}
 						/>
 					</View>
-			</KeyboardAvoidingView>
+			</ModalKeyboardView>
 		</View>
 		</FullScreenPortal>
 	);
@@ -481,7 +499,6 @@ export default function CrearReporte(props?: CrearReporteProps) {
 const styles = StyleSheet.create({
 	fullScreen: {
 		...StyleSheet.absoluteFillObject,
-		backgroundColor: colors.componentBackground,
 		zIndex: 1000,
 		elevation: 8,
 	},
@@ -491,7 +508,6 @@ const styles = StyleSheet.create({
 	},
 	container: {
 		flex: 1,
-		backgroundColor: colors.componentBackground,
 	},
 	modalHeader: {
 		paddingHorizontal: 12,
@@ -500,24 +516,20 @@ const styles = StyleSheet.create({
 		borderBottomColor: colors.background,
 		alignItems: 'flex-start',
 	},
-	closeButton: {
-		padding: 6,
-		borderRadius: 16,
-		backgroundColor: '#f3f4f6',
-		marginLeft: 8,
-	},
 	content: {
 		flex: 1,
 	},
 	contentContainer: {
-		paddingBottom: 80,
+		paddingHorizontal: 16,
+		paddingTop: 16,
+		gap: 12,
+		paddingBottom: 28,
 	},
 	inputSection: {
 		flexDirection: 'row',
-		paddingVertical: '3.5%',
-		paddingHorizontal: '4%',
-		borderBottomWidth: StyleSheet.hairlineWidth,
-		borderBottomColor: colors.background,
+		paddingVertical: 14,
+		paddingHorizontal: 14,
+		minHeight: 48,
 	},
 	input: {
 		flex: 1,
@@ -529,16 +541,57 @@ const styles = StyleSheet.create({
 		color: colors.secondaryText,
 		opacity: 0.6,
 	},
-	chip: {
-		paddingHorizontal: 16,
-		paddingVertical: 8,
-		borderRadius: 20,
-		borderWidth: 1,
-		borderColor: colors.background,
-		marginRight: 8,
+	fieldLabel: {
+		fontSize: 13,
+		fontWeight: '700',
+		color: glassColors.textMuted,
 	},
-	chipText: {
-		fontSize: 14,
+	categorySection: {
+		gap: 8,
+	},
+	categoryRow: {
+		flexDirection: 'row',
+		gap: 10,
+	},
+	categoryOption: {
+		flex: 1,
+		flexDirection: 'row',
+		alignItems: 'center',
+		justifyContent: 'center',
+		gap: 8,
+		minHeight: 52,
+		paddingHorizontal: 12,
+	},
+	categoryOptionNegative: {
+		backgroundColor: 'rgba(244,67,54,0.12)',
+		borderColor: 'rgba(244,67,54,0.45)',
+		borderWidth: 2,
+	},
+	categoryOptionPositive: {
+		backgroundColor: 'rgba(46,125,50,0.12)',
+		borderColor: 'rgba(46,125,50,0.45)',
+		borderWidth: 2,
+	},
+	categoryText: {
+		fontSize: 15,
+		fontWeight: '800',
+	},
+	dateSection: {
+		gap: 8,
+	},
+	dateRow: {
+		flexDirection: 'row',
+		gap: 8,
+		alignItems: 'stretch',
+	},
+	dateButton: {
+		flex: 1,
+		paddingHorizontal: 12,
+		paddingVertical: 10,
+	},
+	timeButton: {
+		paddingHorizontal: 12,
+		paddingVertical: 10,
 	},
 	dateValue: {
 		fontSize: 16,
@@ -547,41 +600,25 @@ const styles = StyleSheet.create({
 	timeValue: {
 		fontWeight: '600',
 	},
+	messageInputContainer: {
+		minHeight: 120,
+	},
 	messageInput: {
 		flex: 1,
 		fontSize: 16,
 		color: colors.text,
-		padding: '4%',
-		minHeight: 120,
+		padding: 14,
 	},
-	fab: {
-		position: 'absolute',
-		bottom: 80,
-		right: 24,
-		width: 56,
-		height: 56,
-		borderRadius: 28,
-		justifyContent: 'center',
-		alignItems: 'center',
-		elevation: 6,
-		shadowColor: '#000',
-		shadowOffset: { width: 0, height: 2 },
-		shadowOpacity: 0.25,
-		shadowRadius: 4,
+	inputFocused: {
+		borderColor: glassColors.link,
 	},
-	fabLoading: {
-		alignItems: 'center',
-		gap: 2,
-	},
-	fabProgressText: {
-		fontSize: 10,
-		color: colors.componentBackground,
-		fontWeight: '700',
-	},
+	inputNoOutline: {
+		outlineStyle: 'none',
+		outlineWidth: 0,
+	} as any,
 	// ── Imágenes ──
 	imageSection: {
-		paddingHorizontal: '4%',
-		paddingVertical: '3%',
+		paddingVertical: 12,
 		borderTopWidth: StyleSheet.hairlineWidth,
 		borderTopColor: colors.background,
 	},
@@ -589,6 +626,8 @@ const styles = StyleSheet.create({
 		flexDirection: 'row',
 		justifyContent: 'space-between',
 		alignItems: 'center',
+		flexWrap: 'wrap',
+		gap: 10,
 		marginBottom: 10,
 	},
 	imageSectionLabel: {
@@ -601,14 +640,10 @@ const styles = StyleSheet.create({
 		gap: 8,
 	},
 	imageActionBtn: {
-		flexDirection: 'row',
-		alignItems: 'center',
 		gap: 4,
 		paddingHorizontal: 10,
 		paddingVertical: 6,
 		borderRadius: 8,
-		borderWidth: 1,
-		borderColor: 'rgba(26,115,232,0.35)',
 	},
 	imageActionText: {
 		fontSize: 13,
@@ -631,9 +666,6 @@ const styles = StyleSheet.create({
 		flex: 1,
 	},
 	pendingDescInput: {
-		borderWidth: 1,
-		borderColor: colors.background,
-		borderRadius: 6,
 		paddingHorizontal: 8,
 		paddingVertical: 6,
 		fontSize: 13,
@@ -643,11 +675,12 @@ const styles = StyleSheet.create({
 		padding: 2,
 	},
 	uploadButtonContainer: {
-		backgroundColor: Colors['light'].componentBackground,
+		backgroundColor: '#ffffff',
 		borderTopWidth: StyleSheet.hairlineWidth,
 		borderTopColor: Colors['light'].icon,
 		paddingHorizontal: '4%',
 		paddingTop: 10,
+		paddingBottom: 10,
 	},
 	uploadButton: {
 		alignSelf: 'stretch',

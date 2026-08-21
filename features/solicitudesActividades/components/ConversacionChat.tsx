@@ -7,7 +7,7 @@ import { useAuth } from '@/features/auth/context/AuthContext';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { generateIdempotencyKey } from '@/shared/idempotency';
 import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
-import { glassColors } from '@/shared/ui/glass';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { adminRoles, allRoles } from '@/shared/users/roles';
 import { Ionicons } from '@expo/vector-icons';
@@ -31,7 +31,7 @@ import {
   View,
 } from 'react-native';
 import { UserSelector } from '../../../components/UserSelector';
-import { MESSAGE_STATES, formatDateDDMMYYYY, formatTimeHHMM } from '../conversacion/constants';
+import { MESSAGE_STATES, formatDateDDMMYYYY, formatDayLabel, formatTimeHHMM, isSameCalendarDay } from '../conversacion/constants';
 import { buildArchivoFileItem, rutaR2 } from '../conversacion/fileHelpers';
 import { useAdjuntos } from '../conversacion/hooks/useAdjuntos';
 import { useAlertModal } from '../conversacion/hooks/useAlertModal';
@@ -132,6 +132,7 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
 
   // ─── Estado UI ────────────────────────────────────────────────────────────
   const [showArchivosModal, setShowArchivosModal] = useState(false);
+  const [showParticipantesModal, setShowParticipantesModal] = useState(false);
   const { previewFile, openFile, openWithUri, closePreview } = useOpenFilePreview();
   const { data: chatArchivos, isLoading: isLoadingArchivos } = useChatArchivos(solicitudId, showArchivosModal);
   const [messageDraft, setMessageDraft] = useState('');
@@ -173,10 +174,6 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
   const chatTitle = solicitud.es_grupo
     ? solicitud.titulo
     : (chatOtherUser ? getParticipanteDisplayName(chatOtherUser) : solicitud.titulo);
-
-  const chatSubtitle = solicitud.es_grupo
-    ? `${displayParticipantes.length} participantes · toca para ver archivos`
-    : 'Conversación directa · toca para ver archivos';
 
   useEffect(() => {
     if (Platform.OS !== 'android') return;
@@ -353,32 +350,42 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
   }, [tituloDraft, actualizarEstado, solicitudId]);
 
   const handleOcultarConversacion = useCallback(() => {
+    // En grupos esto se presenta como "salir" (dejás de ver la conversación),
+    // en privadas como "ocultar" — misma acción subyacente, distinto encuadre.
+    const esGrupo = solicitud.es_grupo;
     Alert.alert(
-      'Ocultar conversación',
-      'Esta conversación dejará de verse en tu lista. ¿Deseas continuar?',
+      esGrupo ? 'Salir de la conversación' : 'Ocultar conversación',
+      esGrupo
+        ? 'Ya no verás esta conversación ni sus mensajes. ¿Deseas continuar?'
+        : 'Esta conversación dejará de verse en tu lista. ¿Deseas continuar?',
       [
         { text: 'Cancelar', style: 'cancel' },
         {
-          text: 'Ocultar',
+          text: esGrupo ? 'Salir' : 'Ocultar',
           style: 'destructive',
           onPress: () => ocultarSolicitud(
             { solicitudId },
             {
               onSuccess: handleClose,
-              onError: e => Alert.alert('Error', e instanceof Error ? e.message : 'No se pudo ocultar la conversación'),
+              onError: e => Alert.alert('Error', e instanceof Error ? e.message : (esGrupo ? 'No se pudo salir de la conversación' : 'No se pudo ocultar la conversación')),
             },
           ),
         },
       ],
     );
-  }, [ocultarSolicitud, solicitudId, handleClose]);
+  }, [solicitud.es_grupo, ocultarSolicitud, solicitudId, handleClose]);
 
   const handleAbrirOpciones = useCallback(() => {
     const actions: { key: string; label: string; onPress: () => void; variant?: 'primary' | 'destructive' | 'neutral' }[] = [];
     if (solicitud.es_grupo && isHost) {
       actions.push({ key: 'editar-titulo', label: 'Editar título', onPress: handleAbrirEditarTitulo });
     }
-    actions.push({ key: 'ocultar', label: 'Ocultar conversación', onPress: handleOcultarConversacion, variant: 'destructive' });
+    actions.push({
+      key: 'ocultar',
+      label: solicitud.es_grupo ? 'Salir de la conversación' : 'Ocultar conversación',
+      onPress: handleOcultarConversacion,
+      variant: 'destructive',
+    });
     actions.push({ key: 'cancel', label: 'Cancelar', onPress: () => { }, variant: 'neutral' });
     showModal('Opciones', undefined, actions);
   }, [solicitud.es_grupo, isHost, handleAbrirEditarTitulo, handleOcultarConversacion, showModal]);
@@ -408,12 +415,15 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
              de iOS; ahora es full screen, pero el inset sigue siendo necesario para no
              comerse el touch del botón de cerrar bajo el status bar/notch. */}
           <View style={[styles.modalHeader, { paddingTop: insets.top + 5 }]}>
-              <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-                <Ionicons name="chevron-back" size={24} color="#999" />
+              <TouchableOpacity onPress={handleClose} style={styles.backButton}>
+                <Ionicons name="chevron-back" size={24} color={glassColors.textMuted} />
               </TouchableOpacity>
-              <TouchableOpacity style={{ flex: 1 }} onPress={() => setShowArchivosModal(true)} activeOpacity={0.75}>
+              <TouchableOpacity
+                style={{ flex: 1 }}
+                onPress={() => solicitud.es_grupo && setShowParticipantesModal(true)}
+                activeOpacity={solicitud.es_grupo ? 0.75 : 1}
+              >
                 <Text style={styles.modalHeaderTitle} numberOfLines={1}>{chatTitle}</Text>
-                <Text style={styles.modalHeaderSubtitle} numberOfLines={1}>{chatSubtitle}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => (mensajesSearch.active ? mensajesSearch.close() : mensajesSearch.setActive(true))}
@@ -461,53 +471,16 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
             )}
 
             <View style={styles.contentBody}>
-              {(solicitud.es_grupo || isExpiredState) && (
-                <ScrollView
-                  style={styles.topSection}
-                  contentContainerStyle={styles.topSectionContent}
-                  showsVerticalScrollIndicator={false}
-                  nestedScrollEnabled
-                >
-                  {/* Participantes (solo grupos) */}
-                  {solicitud.es_grupo && (
-                    <ParticipantesBlock
-                      participantes={displayParticipantes.map(inv => ({
-                        id: inv.user_id,
-                        nombre: getParticipanteDisplayName(inv),
-                      }))}
-                      onRemove={isHost ? handleQuitarParticipante : undefined}
-                      onAgregar={isHost ? () => setShowParticipantesSelector(p => !p) : undefined}
-                      canManage={isHost}
-                      extraContent={
-                        isHost && showParticipantesSelector ? (
-                          <View style={styles.selectorCard}>
-                            <UserSelector
-                              selectedUsers={participantesSelectedUsers}
-                              onSelectUsers={handleSelectParticipantes}
-                              users={participantesSearchResults ?? []}
-                              roles={rolesForSelector}
-                              isLoadingUsers={isSearchingParticipantes || isLoadingParticipantesRole}
-                              onSearch={setParticipantesSearchQuery}
-                              onSelectRole={role => { setParticipantesActiveRole(role); setShowParticipantesRoleModal(true); }}
-                              showSelectedChips={false}
-                            />
-                          </View>
-                        ) : null
-                      }
-                    />
-                  )}
-
-                  {/* Banner expirada */}
-                  {isExpiredState && (
-                    <View style={styles.expiredBanner}>
-                      <Ionicons name="alert-circle-outline" size={20} color="#5F6368" style={{ marginRight: 8 }} />
-                      <View style={{ flex: 1 }}>
-                        <ThemedText style={styles.expiredBannerTitle}>Conversación expirada</ThemedText>
-                        <ThemedText style={styles.expiredBannerText}>No se pueden enviar mensajes.</ThemedText>
-                      </View>
+              {isExpiredState && (
+                <View style={styles.topSection}>
+                  <View style={styles.expiredBanner}>
+                    <Ionicons name="alert-circle-outline" size={20} color="#5F6368" style={{ marginRight: 8 }} />
+                    <View style={{ flex: 1 }}>
+                      <ThemedText style={styles.expiredBannerTitle}>Conversación expirada</ThemedText>
+                      <ThemedText style={styles.expiredBannerText}>No se pueden enviar mensajes.</ThemedText>
                     </View>
-                  )}
-                </ScrollView>
+                  </View>
+                </View>
               )}
 
               {/* Mensajes: usan todo el espacio disponible debajo del encabezado */}
@@ -515,7 +488,7 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
                   {!!solicitud.fecha_inicio && !!solicitud.fecha_fin && hasNextPage && (
                     <View style={styles.pinnedDatesBar}>
                       <ThemedText style={styles.pinnedDatesText}>
-                        Fechas: {formatDateDDMMYYYY(new Date(solicitud.fecha_inicio))} {formatTimeHHMM(new Date(solicitud.fecha_inicio))} {'→'} {formatDateDDMMYYYY(new Date(solicitud.fecha_fin))} {formatTimeHHMM(new Date(solicitud.fecha_fin))}
+                        Fechas: {formatDateDDMMYYYY(new Date(solicitud.fecha_inicio))} {formatTimeHHMM(new Date(solicitud.fecha_inicio))} {'-'} {formatDateDDMMYYYY(new Date(solicitud.fecha_fin))} {formatTimeHHMM(new Date(solicitud.fecha_fin))}
                       </ThemedText>
                     </View>
                   )}
@@ -536,7 +509,7 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
                           <ActivityIndicator size="small" color={colors.lightTint} />
                         </View>
                       )}
-                      {mensajes.map((b: any) => {
+                      {mensajes.map((b: any, index: number) => {
                         const isOwn = b.usuario_id !== null && b.usuario_id === user?.user_context_id;
                         const isDescripcion = b.id === 'descripcion';
                         const isSystem = b.isSystem === true;
@@ -548,41 +521,58 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
                         const fechaFinMsg = b.fecha_fin_nueva ?? (isDescripcion ? solicitud.fecha_fin : null);
                         const archivos = Array.isArray(b.archivos) ? b.archivos : [];
 
-                        if (isSystem) return (
-                          <View key={String(b.id)} style={styles.systemMessageContainer}>
-                            <View style={styles.systemMessageBubble}>
-                              <ThemedText style={styles.systemMessageText}>{b.observacion}</ThemedText>
+                        const currentDate = new Date(b.created_at);
+                        const previousDate = index > 0 ? new Date(mensajes[index - 1].created_at) : null;
+                        const showDaySeparator = !previousDate || !isSameCalendarDay(currentDate, previousDate);
+                        const daySeparator = showDaySeparator && (
+                          <View key={`day-${String(b.id)}`} style={styles.daySeparator}>
+                            <View style={styles.daySeparatorPill}>
+                              <Text style={styles.daySeparatorText}>{formatDayLabel(currentDate)}</Text>
                             </View>
                           </View>
                         );
 
+                        if (isSystem) return (
+                          <React.Fragment key={String(b.id)}>
+                            {daySeparator}
+                            <View style={styles.systemMessageContainer}>
+                              <View style={styles.systemMessageBubble}>
+                                <ThemedText style={styles.systemMessageText}>{b.observacion}</ThemedText>
+                              </View>
+                            </View>
+                          </React.Fragment>
+                        );
+
                         return (
-                          <MessageBubble
-                            key={String(b.id)}
-                            id={String(b.id)}
-                            usuarioNombre={b.usuario_nombre}
-                            usuarioApellido={b.usuario_apellido}
-                            createdAt={b.created_at}
-                            observacion={b.observacion}
-                            isOwn={isOwn}
-                            hideTitle={hideTitle}
-                            estadoKey={estadoKey}
-                            archivos={archivos}
-                            fechaInicioMsg={fechaInicioMsg}
-                            fechaFinMsg={fechaFinMsg}
-                            esPropuesta={!!b.fecha_inicio_nueva}
-                            isOptimistic={!!b.__optimistic}
-                            onOpenArchivo={handleOpenAsPreview}
-                            onOpenImage={(archivo, uri) => openWithUri(buildArchivoFileItem({ ...archivo, _resolvedUri: uri }))}
-                            seenBy={b.seen_by}
-                            otherParticipantIds={todosParticipantesIds.filter(id => id !== b.usuario_id)}
-                            resolveParticipantName={(uid) => {
-                              const p = displayParticipantes.find(inv => inv.user_id === uid);
-                              return p ? getParticipanteDisplayName(p) : '';
-                            }}
-                            highlighted={mensajesSearch.isCurrentMatch(String(b.id))}
-                            onLayout={(y) => mensajesSearch.registerLayout(String(b.id), y)}
-                          />
+                          <React.Fragment key={String(b.id)}>
+                            {daySeparator}
+                            <MessageBubble
+                              id={String(b.id)}
+                              usuarioNombre={b.usuario_nombre}
+                              usuarioApellido={b.usuario_apellido}
+                              createdAt={b.created_at}
+                              observacion={b.observacion}
+                              isOwn={isOwn}
+                              hideTitle={hideTitle}
+                              hideName={!solicitud.es_grupo}
+                              estadoKey={estadoKey}
+                              archivos={archivos}
+                              fechaInicioMsg={fechaInicioMsg}
+                              fechaFinMsg={fechaFinMsg}
+                              esPropuesta={!!b.fecha_inicio_nueva}
+                              isOptimistic={!!b.__optimistic}
+                              onOpenArchivo={handleOpenAsPreview}
+                              onOpenImage={(archivo, uri) => openWithUri(buildArchivoFileItem({ ...archivo, _resolvedUri: uri }))}
+                              seenBy={b.seen_by}
+                              otherParticipantIds={todosParticipantesIds.filter(id => id !== b.usuario_id)}
+                              resolveParticipantName={(uid) => {
+                                const p = displayParticipantes.find(inv => inv.user_id === uid);
+                                return p ? getParticipanteDisplayName(p) : '';
+                              }}
+                              highlighted={mensajesSearch.isCurrentMatch(String(b.id))}
+                              onLayout={(y) => mensajesSearch.registerLayout(String(b.id), y)}
+                            />
+                          </React.Fragment>
                         );
                       })}
                     </ScrollView>
@@ -609,6 +599,12 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
                   )}
 
                   <View style={styles.chatComposerRow}>
+                    {!isExpiredState && (
+                      <TouchableOpacity style={styles.chatActionButton} onPress={handleAgregarAdjunto}>
+                        <Ionicons name="add-outline" size={20} color={colors.lightTint} />
+                      </TouchableOpacity>
+                    )}
+
                     <TextInput
                       style={styles.chatComposerInput}
                       placeholder="Escribir mensaje"
@@ -621,23 +617,15 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
                     />
 
                     {!isExpiredState && (
-                      <>
-                        {/* Adjuntar */}
-                        <TouchableOpacity style={styles.chatActionButton} onPress={handleAgregarAdjunto}>
-                          <Ionicons name="add-outline" size={20} color={colors.lightTint} />
-                        </TouchableOpacity>
-
-                        {/* Enviar */}
-                        <TouchableOpacity
-                          style={[styles.chatActionButton, styles.chatActionButtonPrimary, !canSendMessage && styles.messageActionButtonDisabled]}
-                          onPress={handleEnviarMensaje}
-                          disabled={!canSendMessage || isSendingMessage}
-                        >
-                          {isSendingMessage
-                            ? <ActivityIndicator size="small" color={colors.lightTint} />
-                            : <Ionicons name="send" size={18} color={colors.lightTint} />}
-                        </TouchableOpacity>
-                      </>
+                      <TouchableOpacity
+                        style={[styles.chatActionButton, styles.chatActionButtonPrimary, !canSendMessage && styles.messageActionButtonDisabled]}
+                        onPress={handleEnviarMensaje}
+                        disabled={!canSendMessage || isSendingMessage}
+                      >
+                        {isSendingMessage
+                          ? <ActivityIndicator size="small" color={colors.lightTint} />
+                          : <Ionicons name="send" size={18} color={colors.lightTint} />}
+                      </TouchableOpacity>
                     )}
                   </View>
                 </View>
@@ -679,6 +667,50 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
                   </View>
                 </TouchableWithoutFeedback>
               </ModalKeyboardView>
+            </Modal>
+
+            {/* Modal Participantes (solo grupos, se abre al tocar el nombre del grupo) */}
+            <Modal visible={showParticipantesModal} transparent animationType="fade" onRequestClose={() => setShowParticipantesModal(false)}>
+              <TouchableWithoutFeedback onPress={() => setShowParticipantesModal(false)}>
+                <View style={styles.modalOverlay}>
+                  <TouchableWithoutFeedback onPress={e => e.stopPropagation()}>
+                    <View style={styles.modalContent}>
+                      <View style={localStyles.participantesModalHeader}>
+                        <ThemedText type="subtitle">Participantes</ThemedText>
+                        <TouchableOpacity onPress={() => setShowParticipantesModal(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                          <Ionicons name="close" size={22} color={colors.secondaryText} />
+                        </TouchableOpacity>
+                      </View>
+                      <ParticipantesBlock
+                        initialExpanded
+                        participantes={displayParticipantes.map(inv => ({
+                          id: inv.user_id,
+                          nombre: getParticipanteDisplayName(inv),
+                        }))}
+                        onRemove={isHost ? handleQuitarParticipante : undefined}
+                        onAgregar={isHost ? () => setShowParticipantesSelector(p => !p) : undefined}
+                        canManage={isHost}
+                        extraContent={
+                          isHost && showParticipantesSelector ? (
+                            <View style={styles.selectorCard}>
+                              <UserSelector
+                                selectedUsers={participantesSelectedUsers}
+                                onSelectUsers={handleSelectParticipantes}
+                                users={participantesSearchResults ?? []}
+                                roles={rolesForSelector}
+                                isLoadingUsers={isSearchingParticipantes || isLoadingParticipantesRole}
+                                onSearch={setParticipantesSearchQuery}
+                                onSelectRole={role => { setParticipantesActiveRole(role); setShowParticipantesRoleModal(true); }}
+                                showSelectedChips={false}
+                              />
+                            </View>
+                          ) : null
+                        }
+                      />
+                    </View>
+                  </TouchableWithoutFeedback>
+                </View>
+              </TouchableWithoutFeedback>
             </Modal>
 
             {/* Modal Selección por Rol (participantes) */}
@@ -822,9 +854,15 @@ function ArchivosModalContent({
 // ─── Styles ────────────────────────────────────────────────────────────────────
 
 const localStyles = StyleSheet.create({
+  participantesModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
   tituloInput: {
     borderWidth: 1,
-    borderColor: colors.background,
+    borderColor: 'rgba(17,24,28,0.12)',
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 8,
@@ -837,8 +875,9 @@ const localStyles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
+    backgroundColor: 'rgba(17,24,28,0.03)',
     borderBottomWidth: 1,
-    borderBottomColor: colors.background,
+    borderBottomColor: 'rgba(17,24,28,0.12)',
   },
   searchInput: {
     flex: 1,
@@ -854,14 +893,8 @@ const localStyles = StyleSheet.create({
     width: '90%',
     maxWidth: 450,
     maxHeight: '78%',
-    backgroundColor: '#fff',
-    borderRadius: 20,
     padding: 24,
-    elevation: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    ...glassStyles.modalCard,
   },
   archivosCardTitle: {
     fontSize: 21,
@@ -935,11 +968,7 @@ const localStyles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   topSection: {
-    flexGrow: 0,
-    maxHeight: '45%',
-  },
-  topSectionContent: {
-    gap: 14,
+    paddingTop: 12,
   },
   bitacoraFlex: {
     flex: 1,
@@ -985,17 +1014,15 @@ const localStyles = StyleSheet.create({
     alignItems: 'flex-end',
     gap: 6,
     borderRadius: 22,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.neutralBorder,
-    backgroundColor: colors.neutralSurface,
-    paddingLeft: 14,
-    paddingRight: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(17,24,28,0.12)',
+    backgroundColor: 'rgba(17,24,28,0.03)',
+    paddingHorizontal: 6,
     paddingVertical: 6,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 4,
-    elevation: 3,
   },
   chatComposerInput: {
     flex: 1,

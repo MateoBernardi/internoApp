@@ -5,10 +5,12 @@ import { enviarScan } from '@/features/horarios/services/horariosService';
 import { getDeviceIdentifier } from '@/features/horarios/utils/deviceIdentifier';
 import { generateIdempotencyKey } from '@/shared/idempotency';
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera';
+import { GlassButton } from '@/shared/ui/GlassButton';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 import * as Location from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useRef, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 const colors = Colors['light'];
 
@@ -90,44 +92,42 @@ export default function EscanearTurnoScreen() {
 
   if (!permission) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={colors.lightTint} />
+      <View style={[glassStyles.sheet, styles.centerContainer]}>
+        <ActivityIndicator size="large" color={glassColors.link} />
       </View>
     );
   }
 
   if (!permission.granted) {
     return (
-      <View style={styles.centerContainer}>
+      <View style={[glassStyles.sheet, styles.centerContainer]}>
         <Text style={styles.permissionTitle}>Necesitamos acceso a la cámara</Text>
+        <View style={[glassStyles.card, styles.permissionCard]}>
         <Text style={styles.permissionSubtitle}>
           Se usa únicamente para escanear el código QR de {tipo === 'IN' ? 'entrada' : 'salida'}.
         </Text>
         {permission.canAskAgain ? (
-          <TouchableOpacity style={styles.primaryButton} onPress={requestPermission} activeOpacity={0.8}>
-            <Text style={styles.primaryButtonText}>Dar permiso</Text>
-          </TouchableOpacity>
+          <GlassButton label="Dar permiso" onPress={() => void requestPermission()} style={styles.fullWidthButton} />
         ) : (
           <Text style={styles.permissionSubtitle}>
             Habilitá el permiso de cámara desde la configuración del dispositivo.
           </Text>
         )}
-        <TouchableOpacity style={styles.secondaryButton} onPress={() => router.back()} activeOpacity={0.7}>
-          <Text style={styles.secondaryButtonText}>Volver</Text>
-        </TouchableOpacity>
+          <GlassButton label="Volver" variant="secondary" onPress={() => router.back()} style={styles.fullWidthButton} />
+        </View>
       </View>
     );
   }
 
   if (state === 'result') {
     return (
-      <View style={styles.centerContainer}>
+      <View style={[glassStyles.sheet, styles.centerContainer]}>
+        <View style={[glassStyles.card, styles.resultCard]}>
         <Text style={[styles.resultText, resultIsError && styles.resultTextError]}>
           {resultMessage}
         </Text>
-        <TouchableOpacity style={styles.primaryButton} onPress={() => router.back()} activeOpacity={0.8}>
-          <Text style={styles.primaryButtonText}>Volver al inicio</Text>
-        </TouchableOpacity>
+          <GlassButton label="Volver al inicio" onPress={() => router.back()} style={styles.fullWidthButton} />
+        </View>
       </View>
     );
   }
@@ -150,8 +150,10 @@ export default function EscanearTurnoScreen() {
 
       {state === 'processing' && (
         <View style={styles.processingOverlay}>
-          <ActivityIndicator size="large" color="#ffffff" />
-          <Text style={styles.processingText}>Registrando escaneo...</Text>
+          <View style={[glassStyles.modalCard, styles.processingCard]}>
+            <ActivityIndicator size="large" color={glassColors.link} />
+            <Text style={styles.processingText}>Registrando escaneo...</Text>
+          </View>
         </View>
       )}
     </View>
@@ -163,8 +165,13 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.componentBackground,
     padding: 24,
+  },
+  permissionCard: {
+    width: '100%',
+    maxWidth: 420,
+    padding: 24,
+    alignItems: 'center',
   },
   permissionTitle: {
     fontSize: 18,
@@ -189,26 +196,15 @@ const styles = StyleSheet.create({
   resultTextError: {
     color: colors.error,
   },
-  primaryButton: {
-    backgroundColor: colors.lightTint,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  primaryButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  secondaryButton: {
+  fullWidthButton: {
+    width: '100%',
     marginTop: 14,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
   },
-  secondaryButtonText: {
-    color: colors.secondaryText,
-    fontSize: 13,
-    fontWeight: '600',
+  resultCard: {
+    width: '100%',
+    maxWidth: 420,
+    padding: 24,
+    alignItems: 'center',
   },
   cameraContainer: {
     flex: 1,
@@ -240,9 +236,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  processingCard: {
+    minWidth: 220,
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+    alignItems: 'center',
+  },
   processingText: {
     marginTop: 12,
-    color: '#ffffff',
+    color: glassColors.text,
     fontSize: 14,
     fontWeight: '600',
   },

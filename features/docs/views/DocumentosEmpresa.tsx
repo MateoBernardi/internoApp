@@ -215,10 +215,6 @@ export default function DocumentosEmpresa({ query = '', selectedFolderId, listHe
     />
   );
 
-  const renderSeparator = () => (
-    <View style={[styles.separator, { backgroundColor: colors.secondaryText }]} />
-  );
-
   return (
     <ThemedView style={styles.container}>
       {isLoadingAny ? (
@@ -236,7 +232,7 @@ export default function DocumentosEmpresa({ query = '', selectedFolderId, listHe
           keyExtractor={(item) => item.id.toString()}
           ListHeaderComponent={listHeader}
           contentContainerStyle={styles.listContent}
-          ItemSeparatorComponent={renderSeparator}
+          showSeparators={false}
           ListEmptyComponent={
             <View style={styles.center}>
               <ThemedText>No se encontraron documentos</ThemedText>
@@ -320,9 +316,5 @@ const styles = StyleSheet.create({
   listContent: {
     paddingBottom: 80,
     flexGrow: 1,
-  },
-  separator: {
-    height: StyleSheet.hairlineWidth,
-    marginHorizontal: '4%',
   },
 });

@@ -6,11 +6,12 @@ import { CreateUserData } from '@/features/auth/types';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import { AuthGradientBackground } from '@/shared/ui/AuthGradientBackground';
+import { GlassButton } from '@/shared/ui/GlassButton';
 import { useAuthFormLayout } from '@/shared/ui/authLayout';
-import { glassColors, glassStyles } from '@/shared/ui/glass';
+import { glassColors } from '@/shared/ui/glass';
 import { KEYBOARD_BEHAVIOR } from '@/shared/ui/keyboard';
 
 // Regex para validaciones
@@ -184,8 +185,6 @@ export default function CrearUsuario() {
     }
   }, [formData, registerMutation, router]);
 
-  // Dynamic button colors (glass): fondo constante, estado por color de icono/texto
-  const buttonColor = loading || isFormComplete ? glassColors.text : glassColors.disabledText;
 
   return (
     <KeyboardAvoidingView
@@ -302,20 +301,14 @@ export default function CrearUsuario() {
             />
             {errors.confirmPassword ? <ThemedText style={styles.errorText}>{errors.confirmPassword}</ThemedText> : null}
 
-            <Pressable
-              style={[styles.button, glassStyles.button]}
+            <GlassButton
+              label="Crear Usuario"
               onPress={handleSubmit}
               disabled={!isFormComplete || loading}
-            >
-              {loading ? (
-                <ActivityIndicator color={glassColors.text} style={{ marginRight: 8 }} />
-              ) : (
-                <Feather name="user-plus" size={20} color={buttonColor} style={{ marginRight: 8 }} />
-              )}
-              <ThemedText style={[styles.buttonText, { color: buttonColor }]}>
-                {loading ? 'Creando...' : 'Crear Usuario'}
-              </ThemedText>
-            </Pressable>
+              loading={loading}
+              icon={(color) => <Feather name="user-plus" size={20} color={color} />}
+              style={styles.button}
+            />
           </View>
 
           <View style={styles.linksContainer}>

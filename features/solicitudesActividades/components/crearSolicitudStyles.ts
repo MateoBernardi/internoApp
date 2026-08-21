@@ -1,4 +1,5 @@
 import { Colors, UI } from '@/constants/theme';
+import { glassStyles } from '@/shared/ui/glass';
 import { StyleSheet } from 'react-native';
 
 const colors = Colors['light'];
@@ -27,9 +28,26 @@ export const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   closeButton: {
-    padding: 6,
-    borderRadius: 16,
-    backgroundColor: '#f3f4f6',
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(26,115,232,0.35)',
+    backgroundColor: 'rgba(26,115,232,0.12)',
+  },
+  // Botón de "volver" — gris/neutro, no el azul de acento del resto de los
+  // botones de icono (ver conversacion/styles.ts:backButton, misma receta).
+  backButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(17,24,28,0.12)',
+    backgroundColor: 'rgba(17,24,28,0.03)',
   },
   fabContainer: {
     position: 'absolute',
@@ -44,10 +62,11 @@ export const styles = StyleSheet.create({
   },
   inputSection: {
     flexDirection: 'row',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.componentBackground,
+    marginHorizontal: 16,
+    marginTop: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    ...glassStyles.fieldGlass,
   },
   input: {
     flex: 1,
@@ -114,12 +133,10 @@ export const styles = StyleSheet.create({
     minHeight: 150,
   },
   messageBox: {
+    ...glassStyles.fieldGlass,
     marginHorizontal: 16,
     marginTop: 12,
     borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#e5e7eb',
-    backgroundColor: '#f9fafb',
     overflow: 'hidden',
   },
   messageFooter: {
@@ -128,12 +145,10 @@ export const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   attachmentsList: {
+    ...glassStyles.fieldGlass,
     marginHorizontal: 16,
     marginTop: 8,
     borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#e5e7eb',
-    backgroundColor: '#f9fafb',
     paddingHorizontal: 12,
     paddingVertical: 10,
     gap: 8,
@@ -163,22 +178,9 @@ export const styles = StyleSheet.create({
   uploadButtonContainer: {
     backgroundColor: Colors['light'].componentBackground,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: Colors['light'].icon,
+    borderTopColor: 'rgba(17,24,28,0.08)',
     paddingHorizontal: '4%',
     paddingTop: 10,
-  },
-  uploadButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 8,
-    gap: 8,
-  },
-  uploadButtonText: {
-    color: Colors['light'].lightTint,
-    fontWeight: '600',
-    fontSize: 16,
   },
   section: {
     marginTop: 12,

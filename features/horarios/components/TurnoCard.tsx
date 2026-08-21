@@ -1,14 +1,11 @@
+import { glassStyles } from '@/shared/ui/glass';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { SedeDTO } from '../models/HorarioDTO';
 import { TURNO_CODE, TURNO_LABEL, type Turno } from '../models/Turno';
+import { ACEPTADO_COLOR, TARDE_COLOR, TARDE_SOFT, TURNO_COLOR, TURNO_SOFT } from '../theme';
 
-const TURNO_SOFT = '#e7f2fb';
-const TURNO_COLOR = '#2f86d6';
-const TARDE_SOFT = '#fff8e7';
-const TARDE_COLOR = '#c98a1a';
-const ACEPTADO_COLOR = '#16a34a';
 
 interface TurnoCardProps {
   turno: Turno;
@@ -31,7 +28,7 @@ export const TurnoCard = React.memo(function TurnoCard({ turno, sedes, onPress }
 
   return (
     <TouchableOpacity
-      style={[styles.card, turno.isNew && styles.cardNew]}
+      style={[glassStyles.card, styles.card, turno.isNew && styles.cardNew]}
       onPress={() => onPress(turno)}
       activeOpacity={0.72}
     >
@@ -71,13 +68,9 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 14,
     marginBottom: 9,
-    borderWidth: 1,
-    borderColor: '#e8eaed',
     gap: 10,
   },
   cardNew: {

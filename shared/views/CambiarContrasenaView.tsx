@@ -5,10 +5,11 @@ import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { AuthGradientBackground } from '@/shared/ui/AuthGradientBackground';
+import { GlassButton } from '@/shared/ui/GlassButton';
 import { useAuthFormLayout } from '@/shared/ui/authLayout';
-import { glassColors, glassStyles } from '@/shared/ui/glass';
+import { glassColors } from '@/shared/ui/glass';
 import { KEYBOARD_BEHAVIOR } from '@/shared/ui/keyboard';
 import {
   changePasswordWithToken,
@@ -244,20 +245,14 @@ export const CambiarContrasenaView: React.FC<CambiarContrasenaViewProps> = ({ on
               onSubmitEditing={handleGenerateToken}
             />
             {errorContent}
-            <Pressable
-              style={[styles.button, glassStyles.button, !isEmailValid && styles.buttonDisabled, loading && styles.buttonLoading]}
+            <GlassButton
+              label="Enviar Token"
               onPress={handleGenerateToken}
               disabled={!isEmailValid || loading}
-            >
-              {loading ? (
-                <ActivityIndicator color={glassColors.text} />
-              ) : (
-                <>
-                  <Feather name="send" size={18} color={glassColors.text} style={{ marginRight: 8 }} />
-                  <ThemedText style={styles.buttonText}>Enviar Token</ThemedText>
-                </>
-              )}
-            </Pressable>
+              loading={loading}
+              icon={(color) => <Feather name="send" size={18} color={color} />}
+              style={styles.button}
+            />
           </View>
         )}
 
@@ -275,28 +270,22 @@ export const CambiarContrasenaView: React.FC<CambiarContrasenaViewProps> = ({ on
             />
             {errorContent}
             <View style={styles.buttonGroup}>
-              <Pressable
-                style={[styles.buttonSecondary, glassStyles.buttonSecondary, styles.buttonFlex]}
+              <GlassButton
+                label="Atrás"
+                variant="secondary"
                 onPress={handleGoBack}
                 disabled={loading}
-              >
-                <Feather name="arrow-left" size={18} color={glassColors.text} style={{ marginRight: 8 }} />
-                <ThemedText style={styles.buttonTextSecondary}>Atrás</ThemedText>
-              </Pressable>
-              <Pressable
-                style={[styles.button, glassStyles.button, styles.buttonFlex, !isTokenValid && styles.buttonDisabled, loading && styles.buttonLoading]}
+                icon={(color) => <Feather name="arrow-left" size={18} color={color} />}
+                style={styles.buttonFlex}
+              />
+              <GlassButton
+                label="Validar"
                 onPress={handleValidateToken}
                 disabled={!isTokenValid || loading}
-              >
-                {loading ? (
-                  <ActivityIndicator color={glassColors.text} />
-                ) : (
-                  <>
-                    <Feather name="check" size={18} color={glassColors.text} style={{ marginRight: 8 }} />
-                    <ThemedText style={styles.buttonText}>Validar</ThemedText>
-                  </>
-                )}
-              </Pressable>
+                loading={loading}
+                icon={(color) => <Feather name="check" size={18} color={color} />}
+                style={styles.buttonFlex}
+              />
             </View>
           </View>
         )}
@@ -339,28 +328,22 @@ export const CambiarContrasenaView: React.FC<CambiarContrasenaViewProps> = ({ on
             {errorContent}
 
             <View style={styles.buttonGroup}>
-              <Pressable
-                style={[styles.buttonSecondary, glassStyles.buttonSecondary, styles.buttonFlex]}
+              <GlassButton
+                label="Atrás"
+                variant="secondary"
                 onPress={handleGoBack}
                 disabled={loading}
-              >
-                <Feather name="arrow-left" size={18} color={glassColors.text} style={{ marginRight: 8 }} />
-                <ThemedText style={styles.buttonTextSecondary}>Atrás</ThemedText>
-              </Pressable>
-              <Pressable
-                style={[styles.button, glassStyles.button, styles.buttonFlex, !isPasswordValid && styles.buttonDisabled, loading && styles.buttonLoading]}
+                icon={(color) => <Feather name="arrow-left" size={18} color={color} />}
+                style={styles.buttonFlex}
+              />
+              <GlassButton
+                label="Cambiar"
                 onPress={handleChangePassword}
                 disabled={!isPasswordValid || loading}
-              >
-                {loading ? (
-                  <ActivityIndicator color={glassColors.text} />
-                ) : (
-                  <>
-                    <Feather name="save" size={18} color={glassColors.text} style={{ marginRight: 8 }} />
-                    <ThemedText style={styles.buttonText}>Cambiar</ThemedText>
-                  </>
-                )}
-              </Pressable>
+                loading={loading}
+                icon={(color) => <Feather name="save" size={18} color={color} />}
+                style={styles.buttonFlex}
+              />
             </View>
           </View>
         )}
@@ -378,13 +361,12 @@ export const CambiarContrasenaView: React.FC<CambiarContrasenaViewProps> = ({ on
               </ThemedText>
             </View>
 
-            <Pressable
-              style={[styles.button, glassStyles.button]}
+            <GlassButton
+              label="Volver a Ingresar"
               onPress={handleBackToLogin}
-            >
-              <Feather name="log-in" size={18} color={glassColors.text} style={{ marginRight: 8 }} />
-              <ThemedText style={styles.buttonText}>Volver a Ingresar</ThemedText>
-            </Pressable>
+              icon={(color) => <Feather name="log-in" size={18} color={color} />}
+              style={styles.button}
+            />
           </View>
         )}
 

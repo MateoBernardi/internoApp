@@ -2,6 +2,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
@@ -92,10 +93,11 @@ function getEstadoRelevante(solicitud: SolicitudEnviada): string {
     )[0];
 }
 
-function getContainerColor(solicitud: SolicitudEnviada): string {
-    // El realce de "novedad sin ver" usa el estado propio del usuario (igual que
-    // el resto de los badges), no el estado agregado de los invitados.
-    return tieneNovedadSinVer(solicitud) ? colors.componentBackground : colors.background;
+function getContainerColor(isUnseen: boolean): string {
+    // Sin ver = requiere acción: card más blanca/opaca para resaltar. Vista =
+    // sin acción pendiente: queda en su apariencia glass normal, NUNCA atenuada
+    // (una opacidad baja en todo el contenido se leía como "deshabilitado").
+    return isUnseen ? '#ffffff' : 'rgba(255,255,255,0.6)';
 }
 
 interface SolicitudesListProps {
@@ -240,7 +242,7 @@ export function SolicitudesList({ solicitudes, onRefresh, refreshing, isLoading,
                     <Ionicons
                         name="filter-outline"
                         size={20}
-                        color={activeFilterCount > 0 ? colors.lightTint : colors.secondaryText}
+                        color={activeFilterCount > 0 ? glassColors.link : glassColors.textMuted}
                     />
                     <ThemedText
                         style={[
@@ -313,21 +315,17 @@ export function SolicitudesList({ solicitudes, onRefresh, refreshing, isLoading,
                         <ThemedText style={{ color: colors.icon }}>Sin resultados para los filtros</ThemedText>
                     </View>
                 ) : (
-                    solicitudesFiltradas.map((item, index) => (
-                        <React.Fragment key={item.solicitud_id.toString()}>
-                            {index > 0 && (
-                                <View style={styles.separator} />
-                            )}
-                            <SolicitudItem
-                                solicitud={item}
-                                currentUserId={currentUserId}
-                                onPress={() => onOpenSolicitud(item)}
-                                onHide={() => handleOcultar(item.solicitud_id)}
-                                isHiding={isHiding}
-                                onCancel={() => handleCancelar(item.solicitud_id)}
-                                isCancelling={isCancelling}
-                            />
-                        </React.Fragment>
+                    solicitudesFiltradas.map((item) => (
+                        <SolicitudItem
+                            key={item.solicitud_id.toString()}
+                            solicitud={item}
+                            currentUserId={currentUserId}
+                            onPress={() => onOpenSolicitud(item)}
+                            onHide={() => handleOcultar(item.solicitud_id)}
+                            isHiding={isHiding}
+                            onCancel={() => handleCancelar(item.solicitud_id)}
+                            isCancelling={isCancelling}
+                        />
                     ))
                 )}
             </ScrollView>
@@ -383,7 +381,8 @@ function SolicitudItem({ solicitud, currentUserId, onPress, onHide, isHiding, on
     const tipoLabel = formatTipoSolicitud(solicitud.tipo_actividad);
     const tipoBadgeStyle = getTipoBadgeStyle(solicitud.tipo_actividad);
     const estadoBadgeStyle = getEstadoBadgeStyle(estadoUI);
-    const containerColor = getContainerColor(solicitud);
+    const isUnseen = tieneNovedadSinVer(solicitud);
+    const containerColor = getContainerColor(isUnseen);
 
     // Flecha enviado/recibido: solo si el backend informó quién mandó la
     // última entrada. Sin ese dato no se muestra (degrada al preview simple).
@@ -413,7 +412,11 @@ function SolicitudItem({ solicitud, currentUserId, onPress, onHide, isHiding, on
                     {contextoTexto}
                 </ThemedText>
 
-                <ThemedText type="defaultSemiBold" numberOfLines={1}>
+                <ThemedText
+                    type="defaultSemiBold"
+                    numberOfLines={1}
+                    style={isUnseen && styles.tituloUnseen}
+                >
                     {solicitud.titulo}
                 </ThemedText>
 
@@ -506,25 +509,25 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
     filterToggleActive: {
-        borderColor: colors.lightTint,
-        backgroundColor: colors.lightTint + '12',
+        borderColor: 'rgba(26,115,232,0.35)',
+        backgroundColor: 'rgba(26,115,232,0.12)',
     },
     filterToggleInactive: {
-        borderColor: '#d1d5db',
-        backgroundColor: '#f8fafc',
+        borderColor: 'rgba(17,24,28,0.12)',
+        backgroundColor: 'rgba(17,24,28,0.03)',
     },
     filterToggleTextActive: {
-        color: colors.lightTint,
+        color: glassColors.link,
     },
     filterToggleTextInactive: {
-        color: colors.secondaryText,
+        color: glassColors.textMuted,
     },
     filterBadge: {
         minWidth: 18,
         height: 18,
         borderRadius: 9,
         paddingHorizontal: 4,
-        backgroundColor: colors.lightTint,
+        backgroundColor: glassColors.link,
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -536,17 +539,14 @@ const styles = StyleSheet.create({
     clearText: {
         fontSize: 13,
         fontWeight: '600',
-        color: colors.lightTint,
+        color: glassColors.link,
     },
     filterPanel: {
         marginHorizontal: '4%',
         marginBottom: 6,
         padding: 12,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: colors.neutralBorder,
-        backgroundColor: colors.componentBackground,
         gap: 10,
+        ...glassStyles.card,
     },
     filterGroup: {
         gap: 6,
@@ -566,20 +566,20 @@ const styles = StyleSheet.create({
         paddingVertical: 6,
         borderRadius: 999,
         borderWidth: 1,
-        borderColor: '#d1d5db',
-        backgroundColor: 'transparent',
+        borderColor: 'rgba(17,24,28,0.12)',
+        backgroundColor: 'rgba(17,24,28,0.03)',
     },
     filterChipActive: {
-        borderColor: colors.lightTint,
-        backgroundColor: colors.lightTint + '18',
+        borderColor: 'rgba(26,115,232,0.35)',
+        backgroundColor: 'rgba(26,115,232,0.12)',
     },
     filterChipText: {
         fontSize: 12,
         fontWeight: '600',
-        color: colors.secondaryText,
+        color: glassColors.textMuted,
     },
     filterChipTextActive: {
-        color: colors.lightTint,
+        color: glassColors.link,
     },
     noResults: {
         alignItems: 'center',
@@ -592,21 +592,24 @@ const styles = StyleSheet.create({
         paddingHorizontal: '4%',
         paddingVertical: 100,
     },
-    separator: {
-        height: StyleSheet.hairlineWidth,
-        backgroundColor: colors.secondaryText,
-        marginHorizontal: '4%',
-        opacity: 0.3
-    },
     itemContainer: {
         marginHorizontal: '4%',
         marginVertical: 4,
         paddingHorizontal: '3%',
         paddingVertical: '3%',
         borderRadius: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(17,24,28,0.08)',
+        shadowColor: '#101828',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 6,
     },
     itemContent: {
         flexDirection: 'column',
+    },
+    tituloUnseen: {
+        color: '#000000',
     },
     contexto: {
         fontSize: 12,
@@ -654,7 +657,9 @@ const styles = StyleSheet.create({
         borderRadius: 14,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: colors.error + '14',
+        backgroundColor: 'rgba(244,67,54,0.12)',
+        borderWidth: 1,
+        borderColor: 'rgba(244,67,54,0.35)',
     },
     hideButtonDisabled: {
         opacity: 0.6,

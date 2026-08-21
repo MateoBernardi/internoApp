@@ -1,3 +1,4 @@
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
@@ -23,6 +24,9 @@ interface Props {
   isRemovable?: (id: number) => boolean;
   extraContent?: React.ReactNode;
   renderRowSub?: (id: number) => React.ReactNode;
+  /** Arranca expandido — para cuando ya se llegó acá con un tap explícito
+   * (ej. modal de participantes) y no hace falta un segundo paso. */
+  initialExpanded?: boolean;
 }
 
 function initials(nombre: string): string {
@@ -38,8 +42,9 @@ export function ParticipantesBlock({
   isRemovable,
   extraContent,
   renderRowSub,
+  initialExpanded = false,
 }: Props) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(initialExpanded);
   const [query, setQuery] = useState('');
 
   const stackAvatars = participantes.slice(0, 4);
@@ -87,7 +92,7 @@ export function ParticipantesBlock({
           <Ionicons
             name={expanded ? 'chevron-up' : 'chevron-down'}
             size={18}
-            color={'#9aa3ab'}
+            color={glassColors.textMuted}
           />
         </TouchableOpacity>
 
@@ -95,11 +100,11 @@ export function ParticipantesBlock({
           <View style={s.expandedSection}>
             {participantes.length > 6 && (
               <View style={s.searchBar}>
-                <Ionicons name="search" size={15} color={'#9aa3ab'} />
+                <Ionicons name="search" size={15} color={glassColors.textMuted} />
                 <TextInput
                   style={s.searchInput}
                   placeholder="Buscar participante"
-                  placeholderTextColor={'#9aa3ab'}
+                  placeholderTextColor={glassColors.placeholder}
                   value={query}
                   onChangeText={setQuery}
                 />
@@ -155,24 +160,21 @@ export function ParticipantesBlock({
 
 const s = StyleSheet.create({
   addPill: {
-    borderWidth: 2,
-    borderColor: '#2b1f5c',
+    borderWidth: 1,
+    borderColor: 'rgba(26,115,232,0.35)',
     borderRadius: 999,
     paddingVertical: 6,
     paddingHorizontal: 14,
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(26,115,232,0.12)',
   },
   addPillText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#2b1f5c',
+    color: glassColors.link,
   },
   card: {
-    backgroundColor: '#f6f7f9',
-    borderWidth: 1,
-    borderColor: '#e8eaed',
-    borderRadius: 14,
     overflow: 'hidden',
+    ...glassStyles.card,
   },
   collapsedRow: {
     flexDirection: 'row',
@@ -189,7 +191,7 @@ const s = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: '#cfe0f7',
+    backgroundColor: 'rgba(26,115,232,0.12)',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
@@ -201,13 +203,13 @@ const s = StyleSheet.create({
   avatarXsText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#3b6fd4',
+    color: glassColors.link,
   },
   overflowChip: {
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: '#e1e5ea',
+    backgroundColor: 'rgba(17,24,28,0.08)',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
@@ -216,7 +218,7 @@ const s = StyleSheet.create({
   overflowText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#5a6068',
+    color: glassColors.textMuted,
   },
   caption: {
     flex: 1,
@@ -224,16 +226,16 @@ const s = StyleSheet.create({
   captionTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#1c2024',
+    color: glassColors.text,
   },
   captionSub: {
     fontSize: 12,
-    color: '#7a8087',
+    color: glassColors.textMuted,
     marginTop: 1,
   },
   expandedSection: {
     borderTopWidth: 1,
-    borderTopColor: '#e8eaed',
+    borderTopColor: 'rgba(17,24,28,0.08)',
   },
   searchBar: {
     flexDirection: 'row',
@@ -241,13 +243,14 @@ const s = StyleSheet.create({
     gap: 8,
     paddingVertical: 10,
     paddingHorizontal: 12,
+    backgroundColor: 'rgba(17,24,28,0.03)',
     borderBottomWidth: 1,
-    borderBottomColor: '#e8eaed',
+    borderBottomColor: 'rgba(17,24,28,0.08)',
   },
   searchInput: {
     flex: 1,
     fontSize: 14,
-    color: '#1c2024',
+    color: glassColors.text,
   },
   list: {
     maxHeight: 160,
@@ -256,7 +259,7 @@ const s = StyleSheet.create({
   },
   emptyFilter: {
     textAlign: 'center',
-    color: '#7a8087',
+    color: glassColors.textMuted,
     fontSize: 14,
     paddingVertical: 16,
   },
@@ -272,14 +275,14 @@ const s = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: '#cfe0f7',
+    backgroundColor: 'rgba(26,115,232,0.12)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarSmText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#3b6fd4',
+    color: glassColors.link,
   },
   rowInfo: {
     flex: 1,
@@ -287,25 +290,27 @@ const s = StyleSheet.create({
   rowName: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#1c2024',
+    color: glassColors.text,
   },
   rowSub: {
     fontSize: 12,
-    color: '#7a8087',
+    color: glassColors.textMuted,
     marginTop: 1,
   },
   removeBtn: {
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: '#9aa3ab',
+    borderWidth: 1,
+    borderColor: 'rgba(244,67,54,0.35)',
+    backgroundColor: 'rgba(244,67,54,0.12)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   removeBtnText: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#fff',
+    color: glassColors.error,
     lineHeight: 24,
     textAlign: 'center',
   },
@@ -316,10 +321,10 @@ const s = StyleSheet.create({
     paddingVertical: 9,
     paddingHorizontal: 14,
     borderTopWidth: 1,
-    borderTopColor: '#e8eaed',
+    borderTopColor: 'rgba(17,24,28,0.08)',
   },
   footerCount: {
     fontSize: 12,
-    color: '#7a8087',
+    color: glassColors.textMuted,
   },
 });

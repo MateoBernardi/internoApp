@@ -3,6 +3,7 @@ import { SearchBar } from '@/components/ui/SearchBar';
 import { Colors } from '@/constants/theme';
 import type { UserSummary } from '@/shared/users/User';
 import { useSearchUsers } from '@/shared/users/useUser';
+import { glassStyles } from '@/shared/ui/glass';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
@@ -92,7 +93,7 @@ export default function CrearReporteEncargado() {
 	return (
 		<View style={styles.container}>
 			{isComparingMode && (
-				<View style={styles.compareBanner}>
+				<View style={[glassStyles.fieldGlass, styles.compareBanner]}>
 					<ThemedText style={styles.compareBannerText}>
 						Selecciona un empleado para comparar
 					</ThemedText>
@@ -157,25 +158,7 @@ const styles = StyleSheet.create({
 		flex: 1,
 		backgroundColor: colors.componentBackground,
 	},
-	header: {
-		flexDirection: 'row',
-		alignItems: 'center',
-		justifyContent: 'space-between',
-		paddingHorizontal: '4%',
-		paddingVertical: '3%',
-	},
-	headerTitle: {
-		fontSize: 18,
-		color: colors.text,
-		fontWeight: '600',
-		flex: 1,
-		textAlign: 'center',
-	},
-	iconButton: {
-		padding: 8,
-	},
 	compareBanner: {
-		backgroundColor: colors.lightTint + '15',
 		paddingVertical: '2.5%',
 		paddingHorizontal: '4%',
 	},

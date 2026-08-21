@@ -1,6 +1,7 @@
 import { ThemedText } from '@/components/themed-text';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { Colors } from '@/constants/theme';
+import { glassStyles } from '@/shared/ui/glass';
 import React, { useCallback, useState } from 'react';
 import {
 	StyleSheet,
@@ -54,10 +55,6 @@ export function PermisosPorEmpleado({ usuarioId }: PermisosPorEmpleadoProps) {
 		setSelectedSolicitudId(null);
 	}, []);
 
-	const Separator = useCallback(() => (
-		<View style={[styles.separator, { backgroundColor: colors.icon }]} />
-	), []);
-
 	if (isLoading) {
 		return <ScreenSkeleton rows={3} showHeader={false} />;
 	}
@@ -77,17 +74,15 @@ export function PermisosPorEmpleado({ usuarioId }: PermisosPorEmpleadoProps) {
 	return (
 		<View style={styles.container}>
 			<View style={{ paddingBottom: 80 }}>
-				{data.map((item, index) => {
+				{data.map((item) => {
 					const estadoUI = estadoMapping[item.estado] || item.estado;
 					return (
-						<React.Fragment key={item.id.toString()}>
-							{index > 0 && <Separator />}
-							<PermisoItem
-								item={item}
-								estadoUI={estadoUI}
-								onPress={() => handleOpenSolicitud(item.id)}
-							/>
-						</React.Fragment>
+						<PermisoItem
+							key={item.id.toString()}
+							item={item}
+							estadoUI={estadoUI}
+							onPress={() => handleOpenSolicitud(item.id)}
+						/>
 					);
 				})}
 			</View>
@@ -154,8 +149,7 @@ const styles = StyleSheet.create({
 		marginVertical: 4,
 		paddingHorizontal: '3%',
 		paddingVertical: '3%',
-		borderRadius: 8,
-		backgroundColor: colors.componentBackground,
+		...glassStyles.card,
 	},
 	itemContent: {
 		flexDirection: 'column',
@@ -178,9 +172,5 @@ const styles = StyleSheet.create({
 	estadoText: {
 		fontSize: 11,
 		fontWeight: '600',
-	},
-	separator: {
-		height: 1,
-		marginHorizontal: '4%',
 	},
 });

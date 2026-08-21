@@ -1,11 +1,9 @@
 import { ThemedText } from '@/components/themed-text';
-import { Colors } from '@/constants/theme';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Modal, Pressable, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-const colors = Colors.light;
 
 export interface DocumentOptionAction {
   key: string;
@@ -31,7 +29,9 @@ export function DocumentOptionsModal({ visible, fileName, title = 'Opciones de a
           <Pressable style={styles.sheet}>
             <View style={styles.header}>
               <ThemedText style={styles.title}>{title}</ThemedText>
-              <ThemedText style={styles.subtitle} numberOfLines={1}>{fileName}</ThemedText>
+              {!!fileName && (
+                <ThemedText style={styles.subtitle} numberOfLines={1}>{fileName}</ThemedText>
+              )}
             </View>
 
             <View style={styles.actionsContainer}>
@@ -47,7 +47,7 @@ export function DocumentOptionsModal({ visible, fileName, title = 'Opciones de a
                   <Ionicons
                     name={action.icon}
                     size={18}
-                    color={action.destructive ? colors.error : colors.icon}
+                    color={action.destructive ? glassColors.error : glassColors.link}
                   />
                   <ThemedText style={[styles.actionText, action.destructive && styles.actionTextDestructive]}>
                     {action.label}
@@ -71,14 +71,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.42)',
+    ...glassStyles.modalOverlay,
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: colors.componentBackground,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    width: '100%',
+    backgroundColor: '#ffffff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     paddingHorizontal: 16,
     paddingTop: 14,
     paddingBottom: 22,
@@ -93,13 +93,13 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 13,
-    color: colors.secondaryText,
+    color: glassColors.textMuted,
   },
   actionsContainer: {
-    borderRadius: 10,
+    borderRadius: 12,
     overflow: 'hidden',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.icon,
+    borderWidth: 1,
+    borderColor: 'rgba(17,24,28,0.08)',
   },
   actionButton: {
     minHeight: 46,
@@ -108,26 +108,28 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingHorizontal: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.icon,
-    backgroundColor: colors.componentBackground,
+    borderBottomColor: 'rgba(17,24,28,0.08)',
+    backgroundColor: '#ffffff',
   },
   actionText: {
     fontSize: 15,
     fontWeight: '500',
   },
   actionTextDestructive: {
-    color: colors.error,
+    color: glassColors.error,
   },
   cancelButton: {
     minHeight: 44,
-    borderRadius: 10,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.icon,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(17,24,28,0.12)',
+    backgroundColor: 'rgba(17,24,28,0.03)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   cancelText: {
     fontSize: 15,
     fontWeight: '600',
+    color: glassColors.text,
   },
 });

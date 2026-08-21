@@ -1,14 +1,10 @@
+import { glassStyles } from '@/shared/ui/glass';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { HorasExtraDTO } from '../models/HorasExtra';
+import { AMBER, CARD, INK, MUTED, NAVY } from '../theme';
 
-const AMBER = '#c98a1a';
-const NAVY = '#2b1f5c';
-const MUTED = '#7a8087';
-const INK = '#1c2024';
-const LINE = '#e8eaed';
-const CARD = '#f6f7f9';
 
 function initials(nombre: string, apellido: string): string {
   return `${nombre?.[0] ?? ''}${apellido?.[0] ?? ''}`.toUpperCase();
@@ -32,7 +28,7 @@ export const EmpleadoHorasExtraCard = React.memo(function EmpleadoHorasExtraCard
   onLiquidar,
 }: EmpleadoHorasExtraCardProps) {
   return (
-    <TouchableOpacity style={styles.card} onPress={() => onPress(empleado)} activeOpacity={0.72}>
+    <TouchableOpacity style={[glassStyles.card, styles.card]} onPress={() => onPress(empleado)} activeOpacity={0.72}>
       <View style={styles.avatar}>
         <Text style={styles.avatarText}>{initials(empleado.nombre, empleado.apellido)}</Text>
       </View>
@@ -70,13 +66,9 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 14,
     marginBottom: 9,
-    borderWidth: 1,
-    borderColor: LINE,
     gap: 10,
   },
   avatar: {

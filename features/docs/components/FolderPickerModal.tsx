@@ -1,11 +1,9 @@
 import { ThemedText } from '@/components/themed-text';
-import { Colors } from '@/constants/theme';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useMemo } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Carpeta } from '../models/Carpeta';
-
-const colors = Colors.light;
 
 interface FolderPickerModalProps {
   visible: boolean;
@@ -62,7 +60,7 @@ export function FolderPickerModal({
           <View style={styles.header}>
             <ThemedText style={styles.title}>{title}</ThemedText>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Ionicons name="close" size={20} color={colors.icon} />
+              <Ionicons name="close" size={18} color={glassColors.textMuted} />
             </TouchableOpacity>
           </View>
 
@@ -84,10 +82,10 @@ export function FolderPickerModal({
                   <Ionicons
                     name={isVirtual ? 'folder-open-outline' : 'folder-outline'}
                     size={18}
-                    color={isSelected ? colors.tint : colors.icon}
+                    color={isSelected ? glassColors.link : glassColors.textMuted}
                   />
                   <ThemedText style={styles.rowText}>{item.name}</ThemedText>
-                  {isSelected && <Ionicons name="checkmark" size={18} color={colors.tint} />}
+                  {isSelected && <Ionicons name="checkmark" size={18} color={glassColors.link} />}
                 </TouchableOpacity>
               );
             })}
@@ -100,16 +98,14 @@ export function FolderPickerModal({
 
 const styles = StyleSheet.create({
   backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    justifyContent: 'center',
+    ...glassStyles.modalOverlay,
     paddingHorizontal: '6%',
   },
   card: {
     maxHeight: '70%',
-    backgroundColor: colors.componentBackground,
-    borderRadius: 12,
+    width: '100%',
     paddingVertical: 10,
+    ...glassStyles.modalCard,
   },
   header: {
     flexDirection: 'row',
@@ -117,15 +113,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: '4%',
     paddingBottom: 8,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.icon,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(17,24,28,0.08)',
   },
   title: {
     fontSize: 16,
     fontWeight: '600',
   },
   closeButton: {
-    padding: 4,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(17,24,28,0.03)',
   },
   listContent: {
     paddingHorizontal: '3%',
@@ -135,14 +136,14 @@ const styles = StyleSheet.create({
   },
   row: {
     minHeight: 42,
-    borderRadius: 8,
+    borderRadius: 10,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 10,
     gap: 8,
   },
   rowSelected: {
-    backgroundColor: '#E6F4FE',
+    backgroundColor: 'rgba(26,115,232,0.12)',
   },
   indent: {
     height: 1,

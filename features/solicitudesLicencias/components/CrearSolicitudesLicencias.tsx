@@ -1,9 +1,12 @@
+import { AlertModal } from '@/components/AlertModal';
 import { ThemedText } from '@/components/themed-text';
 import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
 import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
 import { Colors } from '@/constants/theme';
 import { ArchivoUso } from '@/features/docs/models/Archivo';
 import { useUploadArchivo } from '@/features/docs/viewmodels/useArchivos';
+import { useAlertModal } from '@/features/solicitudesActividades/conversacion/hooks/useAlertModal';
+import { conversacionStyles } from '@/features/solicitudesActividades/conversacion/styles';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import type * as ImagePickerTypes from 'expo-image-picker';
@@ -23,6 +26,7 @@ import {
 import { generateIdempotencyKey } from '@/shared/idempotency';
 import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
 import { GlassButton } from '@/shared/ui/GlassButton';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CreateSolicitudDTO } from '../models/SolicitudLicencia';
@@ -103,6 +107,7 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
     const { mutate: crearSolicitud, isPending } = useCreateSolicitudLicencia();
     const { mutate: adjuntarArchivoMutation, isPending: isAdjuntando } = useAdjuntarArchivo();
     const { mutateAsync: uploadArchivo } = useUploadArchivo();
+    const { alertModal, showModal, closeAlert, onModalDismiss } = useAlertModal();
 
     // --- Derivados ---
     const selectedTipo = useMemo(() =>
@@ -212,19 +217,19 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
                 size: asset.size,
             });
         } catch {
-            Alert.alert('Error', 'No se pudo seleccionar el archivo.');
+            showModal('Error', 'No se pudo seleccionar el archivo.');
         }
-    }, []);
+    }, [showModal]);
 
     // --- Tomar Foto (cámara) ---
     const handleTomarFoto = useCallback(async () => {
         if (!ImagePicker) {
-            Alert.alert('No disponible', 'La cámara no está disponible en este dispositivo.');
+            showModal('No disponible', 'La cámara no está disponible en este dispositivo.');
             return;
         }
         const { status } = await ImagePicker.requestCameraPermissionsAsync();
         if (status !== 'granted') {
-            Alert.alert('Permiso denegado', 'Se necesita acceso a la cámara para tomar fotos.');
+            showModal('Permiso denegado', 'Se necesita acceso a la cámara para tomar fotos.');
             return;
         }
         const result = await ImagePicker.launchCameraAsync({ mediaTypes: 'images', quality: 0.8 });
@@ -238,7 +243,7 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
                 size: asset.fileSize,
             });
         }
-    }, []);
+    }, [showModal]);
 
     // --- Menú de adjunto (cámara / archivo), igual que en Chats ---
     const handleAgregarAdjunto = useCallback(() => {
@@ -254,7 +259,7 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
         if (isPending || isSubmittingRef.current) return;
         if (!tipoLicenciaId) return;
         if (!fechaInicio) {
-            Alert.alert('La fecha de inicio es requerida.');
+            showModal('La fecha de inicio es requerida.');
             return;
         }
 
@@ -299,11 +304,11 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
                         const archivosSubidos = archivoSubido?.exitosos;
                         if (!archivosSubidos || archivosSubidos.length === 0) {
                             setIsUploadingFile(false);
-                            Alert.alert(
+                            showModal(
                                 'Solicitud creada',
-                                'La solicitud fue creada pero no se pudo obtener el archivo para adjuntarlo.'
+                                'La solicitud fue creada pero no se pudo obtener el archivo para adjuntarlo.',
+                                [{ key: 'ok', label: 'Aceptar', onPress: handleClose, variant: 'primary' }]
                             );
-                            handleClose();
                             return;
                         }
                         adjuntarArchivoMutation(
@@ -311,48 +316,52 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
                             {
                                 onSuccess: () => {
                                     setIsUploadingFile(false);
-                                    Alert.alert('Éxito', 'Solicitud enviada con archivo adjunto.');
-                                    handleClose();
+                                    showModal('Éxito', 'Solicitud enviada con archivo adjunto.', [
+                                        { key: 'ok', label: 'Aceptar', onPress: handleClose, variant: 'primary' },
+                                    ]);
                                 },
                                 onError: () => {
                                     setIsUploadingFile(false);
-                                    Alert.alert('Solicitud creada', 'La solicitud fue creada pero no se pudo adjuntar el archivo. Podés adjuntarlo desde el detalle.');
-                                    handleClose();
+                                    showModal('Solicitud creada', 'La solicitud fue creada pero no se pudo adjuntar el archivo. Podés adjuntarlo desde el detalle.', [
+                                        { key: 'ok', label: 'Aceptar', onPress: handleClose, variant: 'primary' },
+                                    ]);
                                 },
                             }
                         );
                     } catch {
                         setIsUploadingFile(false);
-                        Alert.alert('Solicitud creada', 'La solicitud fue creada pero no se pudo subir el archivo. Podés adjuntarlo desde el detalle.');
-                        handleClose();
+                        showModal('Solicitud creada', 'La solicitud fue creada pero no se pudo subir el archivo. Podés adjuntarlo desde el detalle.', [
+                            { key: 'ok', label: 'Aceptar', onPress: handleClose, variant: 'primary' },
+                        ]);
                     }
                 } else {
-                    Alert.alert('Éxito', 'Solicitud enviada correctamente.');
-                    handleClose();
+                    showModal('Éxito', 'Solicitud enviada correctamente.', [
+                        { key: 'ok', label: 'Aceptar', onPress: handleClose, variant: 'primary' },
+                    ]);
                 }
             },
             onError: (err: any) => {
                 isSubmittingRef.current = false;
-                Alert.alert('Error', err?.message || 'Intenta nuevamente');
+                showModal('Error', err?.message || 'Intenta nuevamente');
             },
         });
-    }, [isPending, crearSolicitud, tipoLicenciaId, fechaInicio, effectiveMode, cantidadDias, horas, observacion, archivoAdjunto, uploadArchivo, adjuntarArchivoMutation, handleClose]);
+    }, [isPending, crearSolicitud, tipoLicenciaId, fechaInicio, effectiveMode, cantidadDias, horas, observacion, archivoAdjunto, uploadArchivo, adjuntarArchivoMutation, handleClose, showModal]);
 
     const handleCrearSolicitud = useCallback(() => {
         if (!isFormValid || isPending) return;
         if (selectedTipo?.requiere_adjunto && !archivoAdjunto) {
-            Alert.alert(
+            showModal(
                 'Adjunto Requerido',
                 'Esta solicitud requiere documentación. Si continuás sin adjuntarla, quedará en estado "Pendiente Documentación".',
                 [
-                    { text: 'Cancelar', style: 'cancel' },
-                    { text: 'Crear sin adjunto', style: 'destructive', onPress: procederCrearSolicitud },
+                    { key: 'cancel', label: 'Cancelar', onPress: () => { } },
+                    { key: 'confirm', label: 'Crear sin adjunto', onPress: procederCrearSolicitud, variant: 'destructive' },
                 ]
             );
         } else {
             procederCrearSolicitud();
         }
-    }, [isFormValid, isPending, selectedTipo, archivoAdjunto, procederCrearSolicitud]);
+    }, [isFormValid, isPending, selectedTipo, archivoAdjunto, procederCrearSolicitud, showModal]);
 
     const isSubmitting = isPending || isUploadingFile || isAdjuntando;
 
@@ -373,12 +382,9 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
         <View style={styles.fullScreen}>
                 <ModalKeyboardView style={styles.keyboardContainer}>
                     <View style={[styles.container, { paddingBottom: insets.bottom }]}>
-                        <View style={[styles.modalHeader, { paddingTop: insets.top + 10 }]}>
-                            <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-                                <Ionicons name="chevron-back" size={24} color="#999" />
-                            </TouchableOpacity>
-                            <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-                                <Ionicons name="close" size={24} color="#999" />
+                        <View style={[conversacionStyles.modalHeader, { paddingTop: insets.top + 10, alignItems: 'flex-start' }]}>
+                            <TouchableOpacity onPress={handleClose} style={conversacionStyles.backButton}>
+                                <Ionicons name="chevron-back" size={24} color={glassColors.textMuted} />
                             </TouchableOpacity>
                         </View>
                         <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: 120 }}>
@@ -709,6 +715,7 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
                     </View>
                 </ModalKeyboardView>
                 <OperacionPendienteModal visible={isPending} />
+                <AlertModal {...alertModal} onClose={closeAlert} onDismiss={onModalDismiss} />
         </View>
         </FullScreenPortal>
     );
@@ -728,29 +735,12 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: colors.componentBackground,
     },
-    modalHeader: {
-        paddingHorizontal: 12,
-        paddingVertical: 10,
-        borderBottomWidth: 1,
-        borderBottomColor: colors.background,
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    },
-    closeButton: {
-        padding: 6,
-        borderRadius: 16,
-        backgroundColor: '#f3f4f6',
-    },
     content: { flex: 1 },
     sectionCard: {
-        backgroundColor: colors.componentBackground,
         marginHorizontal: 16,
         marginTop: 16,
-        borderRadius: 12,
         padding: 16,
-        borderWidth: 1,
-        borderColor: colors.background,
+        ...glassStyles.card,
     },
     rowInfo: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
     sectionLabel: { marginLeft: 8, fontSize: 14, color: colors.lightTint, fontWeight: '600' },
@@ -770,27 +760,24 @@ const styles = StyleSheet.create({
     modeToggleContainer: {
         flexDirection: 'row',
         marginBottom: 16,
-        borderRadius: 8,
         overflow: 'hidden',
-        borderWidth: 1,
-        borderColor: colors.background,
+        ...glassStyles.fieldGlass,
     },
     modeToggleBtn: {
         flex: 1,
         paddingVertical: 10,
         alignItems: 'center',
-        backgroundColor: colors.componentBackground,
     },
     modeToggleBtnActive: {
-        backgroundColor: colors.lightTint,
+        backgroundColor: 'rgba(26,115,232,0.12)',
     },
     modeToggleText: {
         fontSize: 14,
         fontWeight: '600',
-        color: colors.secondaryText,
+        color: glassColors.textMuted,
     },
     modeToggleTextActive: {
-        color: colors.componentBackground,
+        color: glassColors.link,
     },
     // Stepper
     stepperSection: {
@@ -847,7 +834,7 @@ const styles = StyleSheet.create({
     // Tipo de licencia
     selectInput: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4 },
     selectText: { flex: 1, marginLeft: 12, fontSize: 16 },
-    dropdownList: { marginTop: 12, borderTopWidth: 1, borderTopColor: colors.background },
+    dropdownList: { marginTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(17,24,28,0.12)' },
     dropdownItem: {
         flexDirection: 'row',
         justifyContent: 'space-between',

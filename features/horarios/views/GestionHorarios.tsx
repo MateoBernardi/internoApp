@@ -8,16 +8,19 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
+import { GlassTabSelector } from '@/components/ui/GlassTabSelector';
+import { glassStyles } from '@/shared/ui/glass';
+import { SearchBar } from '@/components/ui/SearchBar';
 import { allRoles } from '@/shared/users/roles';
 import type { UserSummary } from '@/shared/users/User';
 import { useSearchUsers } from '@/shared/users/useUser';
 import { EditarTurnoSheet } from '../components/EditarTurnoSheet';
 import { TurnoCard } from '../components/TurnoCard';
+import { HorariosToast } from '../components/HorariosToast';
 import type { UpdateHorarioPayload } from '../models/HorarioDTO';
 import { mapHorarioDTOToTurno, TURNO_LABEL, type Turno } from '../models/Turno';
 import type { HorariosByDateFilter } from '../services/horariosService';
@@ -28,15 +31,8 @@ import {
   useUploadShifts,
 } from '../viewmodels/useHorarios';
 
-const NAVY = '#2b1f5c';
-const TURNO_COLOR = '#2f86d6';
-const LINE = '#e8eaed';
-const MUTED = '#7a8087';
-const INK = '#1c2024';
-const CARD = '#f6f7f9';
+import { CARD, INK, LINE, MUTED, NAVY, RED_FLASH, TURNO_COLOR } from '../theme';
 const PANEL = '#eef0f2';
-const GREEN_FLASH = '#22c55e';
-const RED_FLASH = '#e2543b';
 
 const DAY_NAMES = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
@@ -220,11 +216,7 @@ export function GestionHorarios() {
 
   return (
     <View style={styles.container}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
+      <View style={styles.topSection}>
         <Text style={styles.subtitle}>Turnos del día · tocá uno para editarlo</Text>
 
         {/* Day navigator */}
@@ -284,33 +276,16 @@ export function GestionHorarios() {
         {/* Filters */}
         <View style={styles.filters}>
           {/* Search */}
-          <View style={styles.searchBox}>
-            <Ionicons name="search" size={16} color={MUTED} style={styles.searchIcon} />
-            {selectedUser ? (
-              <Text style={styles.searchSelectedText} numberOfLines={1}>
-                {selectedUser.nombre} {selectedUser.apellido}
-              </Text>
-            ) : (
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Buscar empleado"
-                placeholderTextColor={MUTED}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-              />
-            )}
-            {(selectedUser !== null || searchQuery.length > 0) && (
-              <TouchableOpacity
-                onPress={clearUserSearch}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Ionicons name="close" size={16} color={MUTED} />
-              </TouchableOpacity>
-            )}
-          </View>
+          <SearchBar
+            placeholder="Buscar empleado"
+            value={selectedUser ? `${selectedUser.nombre} ${selectedUser.apellido}` : searchQuery}
+            onChangeText={(value) => { if (!selectedUser) setSearchQuery(value); }}
+            onClear={clearUserSearch}
+            style={styles.searchBar}
+          />
 
           {!selectedUser && searchQuery.trim().length > 1 && (
-            <View style={styles.userResultsBox}>
+            <View style={[glassStyles.modalCard, styles.userResultsBox]}>
               {userSearchQuery.isFetching ? (
                 <ActivityIndicator size="small" color={MUTED} style={styles.userResultsLoading} />
               ) : userResults.length === 0 ? (
@@ -331,24 +306,15 @@ export function GestionHorarios() {
           )}
 
           {/* Turno segmented */}
-          <View style={styles.segRow}>
-            {FILTER_OPTS.map((f) => {
-              const active = filter === f.value;
-              return (
-                <TouchableOpacity
-                  key={f.value}
-                  style={[styles.segBtn, active && styles.segBtnActive]}
-                  onPress={() => setFilter(f.value)}
-                >
-                  <Text style={[styles.segLabel, active && styles.segLabelActive]}>{f.label}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+          <GlassTabSelector
+            tabs={FILTER_OPTS.map((option) => ({ key: option.value, label: option.label }))}
+            activeKey={filter}
+            onChange={(key) => setFilter(key as TurnoFilter)}
+          />
 
           {/* Sede dropdown */}
           <TouchableOpacity
-            style={styles.sedeDropdown}
+            style={[glassStyles.fieldGlass, styles.sedeDropdown]}
             onPress={() => { setShowRolMenu(false); setShowSedeMenu((v) => !v); }}
           >
             <Text style={styles.sedeDropdownPrefix}>Sede </Text>
@@ -357,7 +323,7 @@ export function GestionHorarios() {
           </TouchableOpacity>
 
           {showSedeMenu && (
-            <View style={styles.sedeMenuBox}>
+            <View style={[glassStyles.modalCard, styles.sedeMenuBox]}>
               <TouchableOpacity
                 style={[styles.sedeMenuItem, sedeFilter === null && styles.sedeMenuItemActive]}
                 onPress={() => { setSedeFilter(null); setShowSedeMenu(false); }}
@@ -384,7 +350,7 @@ export function GestionHorarios() {
 
           {/* Rol dropdown */}
           <TouchableOpacity
-            style={styles.sedeDropdown}
+            style={[glassStyles.fieldGlass, styles.sedeDropdown]}
             onPress={() => { setShowSedeMenu(false); setShowRolMenu((v) => !v); }}
           >
             <Text style={styles.sedeDropdownPrefix}>Rol </Text>
@@ -393,7 +359,7 @@ export function GestionHorarios() {
           </TouchableOpacity>
 
           {showRolMenu && (
-            <View style={styles.sedeMenuBox}>
+            <View style={[glassStyles.modalCard, styles.sedeMenuBox]}>
               <TouchableOpacity
                 style={[styles.sedeMenuItem, rolFilter === null && styles.sedeMenuItemActive]}
                 onPress={() => { setRolFilter(null); setShowRolMenu(false); }}
@@ -424,6 +390,13 @@ export function GestionHorarios() {
         </View>
 
         {/* List */}
+      </View>
+      <ScrollView
+        style={styles.listScroll}
+        contentContainerStyle={styles.listContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.list}>
           {horariosQuery.isFetching && !horariosQuery.data ? (
             <View style={styles.centerState}>
@@ -498,14 +471,11 @@ export function GestionHorarios() {
       />
 
       {/* Toast */}
-      {toast !== '' && (
-        <Animated.View
-          style={[styles.toast, toastError && styles.toastError, { opacity: toastAnim }]}
-        >
-          <View style={[styles.toastDot, toastError && styles.toastDotError]} />
-          <Text style={styles.toastText}>{toast}</Text>
-        </Animated.View>
-      )}
+      <HorariosToast
+        message={toast}
+        error={toastError}
+        opacity={toastAnim}
+      />
     </View>
   );
 }
@@ -514,6 +484,23 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#ffffff',
+  },
+  topSection: {
+    paddingHorizontal: 18,
+    paddingTop: 4,
+    flexShrink: 0,
+  },
+  searchBar: {
+    marginHorizontal: 0,
+    marginVertical: 0,
+  },
+  listScroll: {
+    flex: 1,
+  },
+  listContent: {
+    paddingHorizontal: 18,
+    paddingTop: 8,
+    paddingBottom: 16,
   },
   scrollContent: {
     paddingHorizontal: 18,
@@ -606,43 +593,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     zIndex: 10,
   },
-  searchBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: CARD,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: LINE,
-    paddingHorizontal: 12,
-    height: 42,
-    gap: 8,
-  },
-  searchIcon: {
-    flexShrink: 0,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 15,
-    color: INK,
-    paddingVertical: 0,
-  },
-  searchSelectedText: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: '600',
-    color: INK,
-  },
   userResultsBox: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: LINE,
     maxHeight: 260,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 8,
     overflow: 'hidden',
   },
   userResultsLoading: {
@@ -671,37 +623,9 @@ const styles = StyleSheet.create({
     color: MUTED,
     marginTop: 2,
   },
-  segRow: {
-    flexDirection: 'row',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: LINE,
-    overflow: 'hidden',
-  },
-  segBtn: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: 'center',
-    backgroundColor: CARD,
-  },
-  segBtnActive: {
-    backgroundColor: NAVY,
-  },
-  segLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: MUTED,
-  },
-  segLabelActive: {
-    color: '#ffffff',
-  },
   sedeDropdown: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: CARD,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: LINE,
     paddingHorizontal: 14,
     paddingVertical: 11,
   },
@@ -717,15 +641,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   sedeMenuBox: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: LINE,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 8,
     overflow: 'hidden',
   },
   sedeMenuItem: {
@@ -792,40 +707,6 @@ const styles = StyleSheet.create({
   infoBold: {
     fontWeight: '700',
     color: INK,
-  },
-  toast: {
-    position: 'absolute',
-    bottom: 72,
-    alignSelf: 'center',
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1c2024',
-    paddingVertical: 10,
-    paddingHorizontal: 18,
-    borderRadius: 999,
-    gap: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 10,
-  },
-  toastError: {
-    backgroundColor: '#3a1515',
-  },
-  toastDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: GREEN_FLASH,
-  },
-  toastDotError: {
-    backgroundColor: RED_FLASH,
-  },
-  toastText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '600',
   },
   licenciaCard: {
     flexDirection: 'row',

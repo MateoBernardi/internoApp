@@ -1,3 +1,4 @@
+import { AlertModal } from '@/components/AlertModal';
 import { ThemedText } from '@/components/themed-text';
 import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
 import { Colors } from '@/constants/theme';
@@ -5,18 +6,20 @@ import { useAuth } from '@/features/auth/context/AuthContext';
 import { DocsList } from '@/features/docs/components/DocsList';
 import { ArchivoUso } from '@/features/docs/models/Archivo';
 import { useArchivoUrl, useUploadArchivo } from '@/features/docs/viewmodels/useArchivos';
+import { useAlertModal } from '@/features/solicitudesActividades/conversacion/hooks/useAlertModal';
+import { conversacionStyles } from '@/features/solicitudesActividades/conversacion/styles';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   BackHandler,
   Linking,
   Modal,
   ScrollView,
   StyleSheet,
+  Text,
   TextInput,
   TouchableOpacity,
   View,
@@ -24,7 +27,7 @@ import {
 import { generateIdempotencyKey } from '@/shared/idempotency';
 import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
 import { GlassButton } from '@/shared/ui/GlassButton';
-import { glassColors } from '@/shared/ui/glass';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EstadoSolicitud } from '../models/SolicitudLicencia';
 import { formatCantidadLicencia } from '../utils/formatCantidad';
@@ -115,12 +118,12 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
     useCancelarSolicitudLicencia();
   const { mutate: adjuntarArchivoMutation, isPending: isAdjuntando } = useAdjuntarArchivo();
   const { mutateAsync: uploadArchivoAsync } = useUploadArchivo();
+  const { alertModal, showModal, closeAlert, onModalDismiss } = useAlertModal();
 
   // States
   const [showObservationModal, setShowObservationModal] = useState(false);
   const [observationText, setObservationText] = useState('');
   const [actionType, setActionType] = useState<'approve' | 'reject' | null>(null);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [selectedArchivoId, setSelectedArchivoId] = useState<number | undefined>();
   const [isUploadingDoc, setIsUploadingDoc] = useState(false);
 
@@ -142,12 +145,12 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
   React.useEffect(() => {
     if (archivoUrl && selectedArchivoId) {
       Linking.openURL(archivoUrl).catch((err) => {
-        Alert.alert('Error', 'No se pudo abrir el archivo');
+        showModal('Error', 'No se pudo abrir el archivo');
         console.error('Error opening file:', err);
       });
       setSelectedArchivoId(undefined);
     }
-  }, [archivoUrl, selectedArchivoId]);
+  }, [archivoUrl, selectedArchivoId, showModal]);
 
   const handleOpenFile = useCallback((archivoId: number) => {
     setSelectedArchivoId(archivoId);
@@ -157,7 +160,6 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
     setActionType('approve');
     setObservationText('');
     setShowObservationModal(true);
-    setMenuOpen(false);
   }, []);
 
   const confirmApprove = useCallback(() => {
@@ -165,32 +167,27 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
       { solicitudId, observacion: observationText },
       {
         onSuccess: () => {
-          Alert.alert('Éxito', 'Solicitud aprobada correctamente');
           setShowObservationModal(false);
-          handleClose();
+          showModal('Éxito', 'Solicitud aprobada correctamente', [
+            { key: 'ok', label: 'Aceptar', onPress: handleClose, variant: 'primary' },
+          ]);
         },
         onError: (error: any) => {
-          Alert.alert(
-            'Error',
-            error instanceof Error
-              ? error.message
-              : 'Intenta nuevamente'
-          );
+          showModal('Error', error instanceof Error ? error.message : 'Intenta nuevamente');
         },
       }
     );
-  }, [solicitudId, aprobarSolicitud, observationText, handleClose]);
+  }, [solicitudId, aprobarSolicitud, observationText, handleClose, showModal]);
 
   const handleRejectPress = useCallback(() => {
     setActionType('reject');
     setObservationText('');
     setShowObservationModal(true);
-    setMenuOpen(false);
   }, []);
 
   const confirmReject = useCallback(() => {
     if (!observationText.trim()) {
-      Alert.alert('Error', 'Debes proporcionar una observación para rechazar');
+      showModal('Error', 'Debes proporcionar una observación para rechazar');
       return;
     }
 
@@ -198,48 +195,40 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
       { solicitudId, observacion: observationText },
       {
         onSuccess: () => {
-          Alert.alert('Éxito', 'Solicitud rechazada correctamente');
           setShowObservationModal(false);
-          handleClose();
+          showModal('Éxito', 'Solicitud rechazada correctamente', [
+            { key: 'ok', label: 'Aceptar', onPress: handleClose, variant: 'primary' },
+          ]);
         },
         onError: (error: any) => {
-          Alert.alert(
-            'Error',
-            error instanceof Error
-              ? error.message
-              : 'Intenta nuevamente'
-          );
+          showModal('Error', error instanceof Error ? error.message : 'Intenta nuevamente');
         },
       }
     );
-  }, [solicitudId, rechazarSolicitud, observationText, handleClose]);
+  }, [solicitudId, rechazarSolicitud, observationText, handleClose, showModal]);
 
   const handleCancel = useCallback(() => {
-    setMenuOpen(false);
-    Alert.alert('Cancelar solicitud', '¿Deseas cancelar esta solicitud?', [
-      { text: 'No', onPress: () => { } },
+    showModal('Cancelar solicitud', '¿Deseas cancelar esta solicitud?', [
+      { key: 'no', label: 'No', onPress: () => { } },
       {
-        text: 'Sí, cancelar',
+        key: 'yes',
+        label: 'Sí, cancelar',
+        variant: 'destructive',
         onPress: () => {
           cancelarSolicitud(solicitudId, {
             onSuccess: () => {
-              Alert.alert('Éxito', 'Solicitud cancelada');
-              handleClose();
+              showModal('Éxito', 'Solicitud cancelada', [
+                { key: 'ok', label: 'Aceptar', onPress: handleClose, variant: 'primary' },
+              ]);
             },
             onError: (error: any) => {
-              Alert.alert(
-                'Error',
-                error instanceof Error
-                  ? error.message
-                  : 'Intenta nuevamente'
-              );
+              showModal('Error', error instanceof Error ? error.message : 'Intenta nuevamente');
             },
           });
         },
-        style: 'destructive',
       },
     ]);
-  }, [solicitudId, cancelarSolicitud, handleClose]);
+  }, [solicitudId, cancelarSolicitud, handleClose, showModal]);
 
   const handleUploadDocument = useCallback(async () => {
     try {
@@ -287,22 +276,22 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
           {
             onSuccess: () => {
               setIsUploadingDoc(false);
-              Alert.alert('Éxito', 'Documento adjuntado correctamente.');
+              showModal('Éxito', 'Documento adjuntado correctamente.');
             },
             onError: () => {
               setIsUploadingDoc(false);
-              Alert.alert('Error', 'No se pudo adjuntar el documento.');
+              showModal('Error', 'No se pudo adjuntar el documento.');
             },
           }
         );
       } catch {
         setIsUploadingDoc(false);
-        Alert.alert('Error', 'No se pudo subir el archivo.');
+        showModal('Error', 'No se pudo subir el archivo.');
       }
     } catch {
-      Alert.alert('Error', 'No se pudo abrir el selector de archivos.');
+      showModal('Error', 'No se pudo abrir el selector de archivos.');
     }
-  }, [solicitudId, uploadArchivoAsync, adjuntarArchivoMutation]);
+  }, [solicitudId, uploadArchivoAsync, adjuntarArchivoMutation, showModal]);
 
   const fechaInicio = solicitud ? new Date(solicitud.fecha_inicio) : new Date();
   const fechaFin = solicitud ? new Date(solicitud.fecha_fin) : new Date();
@@ -315,12 +304,9 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
       <View style={styles.fullScreen}>
         <View style={styles.keyboardContainer}>
           <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', paddingBottom: insets.bottom }]}>
-            <View style={[styles.modalHeader, { paddingTop: insets.top + 10 }]}>
-              <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-                <Ionicons name="chevron-back" size={24} color="#999" />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-                <Ionicons name="chevron-down" size={24} color="#999" />
+            <View style={[conversacionStyles.modalHeader, { paddingTop: insets.top + 10 }]}>
+              <TouchableOpacity onPress={handleClose} style={conversacionStyles.backButton}>
+                <Ionicons name="chevron-back" size={24} color={glassColors.textMuted} />
               </TouchableOpacity>
             </View>
             <ActivityIndicator size="large" color={colors.lightTint} />
@@ -364,13 +350,14 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
     <View style={styles.fullScreen}>
       <View style={styles.keyboardContainer}>
         <View style={[styles.container, { paddingBottom: insets.bottom }]}>
-          <View style={[styles.modalHeader, { paddingTop: insets.top + 10 }]}>
-            <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-              <Ionicons name="chevron-back" size={24} color="#999" />
+          <View style={[conversacionStyles.modalHeader, { paddingTop: insets.top + 10 }]}>
+            <TouchableOpacity onPress={handleClose} style={conversacionStyles.backButton}>
+              <Ionicons name="chevron-back" size={24} color={glassColors.textMuted} />
             </TouchableOpacity>
-            <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-              <Ionicons name="chevron-down" size={24} color="#999" />
-            </TouchableOpacity>
+            <Text style={[conversacionStyles.modalHeaderTitle, styles.headerTitleCentered]} numberOfLines={1}>
+              {solicitud.tipo_nombre ?? 'Solicitud de Licencia'}
+            </Text>
+            <View style={styles.headerSpacer} pointerEvents="none" />
           </View>
             <ScrollView
               style={styles.content}
@@ -466,18 +453,20 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
 
                 {solicitud.fecha_respuesta && (
                   <>
+                    {solicitud.aprobador_nombre && (
+                      <View style={styles.historyItem}>
+                        <ThemedText style={styles.historyLabel}>Respondido por:</ThemedText>
+                        <ThemedText style={styles.historyValue}>
+                          {solicitud.aprobador_nombre} {solicitud.aprobador_apellido}
+                        </ThemedText>
+                      </View>
+                    )}
+
                     <View style={styles.historyItem}>
                       <ThemedText style={styles.historyLabel}>Respondido:</ThemedText>
-                      <View style={{ flex: 1, alignItems: 'flex-end' }}>
-                        <ThemedText style={styles.historyValue}>
-                          {new Date(solicitud.fecha_respuesta).toLocaleDateString('es-ES')}
-                        </ThemedText>
-                        {solicitud.aprobador_nombre && (
-                          <ThemedText style={[styles.historySubValue, { color: colors.secondaryText }]}>
-                            por {solicitud.aprobador_nombre} {solicitud.aprobador_apellido}
-                          </ThemedText>
-                        )}
-                      </View>
+                      <ThemedText style={styles.historyValue}>
+                        {new Date(solicitud.fecha_respuesta).toLocaleDateString('es-ES')}
+                      </ThemedText>
                     </View>
 
                     {solicitud.observacion_respuesta && (
@@ -527,62 +516,37 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
               )}
             </ScrollView>
 
-            {/* Footer Actions (FABs) */}
+            {/* Footer Actions */}
             {(canTakeAction || canCancel) && (
-              <View style={styles.fabContainer}>
-                {/* Secondary Actions (Revealed via Menu) */}
-                {menuOpen && (
+              <View style={styles.footerActions}>
+                {canTakeAction && (
                   <>
-                    {canTakeAction && (
-                      <>
-                        <TouchableOpacity
-                          style={[styles.fab, styles.fabDanger, { marginBottom: 16 }]}
-                          onPress={handleRejectPress}
-                          disabled={isRejecting}
-                        >
-                          {isRejecting ? (
-                            <ActivityIndicator size="small" color={glassColors.error} />
-                          ) : (
-                            <Ionicons name="close" size={24} color={glassColors.error} />
-                          )}
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={[styles.fab, styles.fabSuccess, { marginBottom: 16 }]}
-                          onPress={handleApprovePress}
-                          disabled={isApproving}
-                        >
-                          {isApproving ? (
-                            <ActivityIndicator size="small" color={glassColors.success} />
-                          ) : (
-                            <Ionicons name="checkmark" size={24} color={glassColors.success} />
-                          )}
-                        </TouchableOpacity>
-                      </>
-                    )}
-
-                    {canCancel && (
-                      <TouchableOpacity
-                        style={[styles.fab, styles.fabDanger, { marginBottom: 16 }]}
-                        onPress={handleCancel}
-                        disabled={isCanceling}
-                      >
-                        {isCanceling ? (
-                          <ActivityIndicator size="small" color={glassColors.error} />
-                        ) : (
-                          <Ionicons name="close-circle-outline" size={24} color={glassColors.error} />
-                        )}
-                      </TouchableOpacity>
-                    )}
+                    <GlassButton
+                      variant="danger"
+                      label="Rechazar"
+                      onPress={handleRejectPress}
+                      disabled={isRejecting}
+                      style={styles.footerActionBtn}
+                    />
+                    <GlassButton
+                      variant="success"
+                      label="Aprobar"
+                      onPress={handleApprovePress}
+                      disabled={isApproving}
+                      style={styles.footerActionBtn}
+                    />
                   </>
                 )}
 
-                {/* Menu Button */}
-                <TouchableOpacity
-                  style={[styles.fab, styles.fabNeutral]}
-                  onPress={() => setMenuOpen(!menuOpen)}
-                >
-                  <Ionicons name={menuOpen ? "close" : "ellipsis-horizontal"} size={24} color={colors.secondaryText} />
-                </TouchableOpacity>
+                {canCancel && (
+                  <GlassButton
+                    variant="danger"
+                    label="Cancelar solicitud"
+                    onPress={handleCancel}
+                    disabled={isCanceling}
+                    style={styles.footerActionBtn}
+                  />
+                )}
               </View>
             )}
 
@@ -593,8 +557,8 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
               animationType="slide"
               onRequestClose={() => setShowObservationModal(false)}
             >
-              <View style={styles.modalOverlay}>
-                <View style={styles.modalContent}>
+              <View style={glassStyles.modalOverlay}>
+                <View style={[styles.observationModalContent, glassStyles.modalCard]}>
                   <ThemedText type="subtitle" style={{ marginBottom: 16 }}>
                     {actionType === 'approve' ? 'Aprobar Solicitud' : 'Rechazar Solicitud'}
                   </ThemedText>
@@ -614,7 +578,7 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
                     onChangeText={setObservationText}
                     multiline
                     numberOfLines={4}
-                    style={styles.input}
+                    style={[glassStyles.fieldGlass, styles.input]}
                   />
 
                   <View style={styles.modalActions}>
@@ -636,6 +600,7 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
               </View>
             </Modal>
             <OperacionPendienteModal visible={isApproving || isRejecting || isCanceling || isAdjuntando} />
+            <AlertModal {...alertModal} onClose={closeAlert} onDismiss={onModalDismiss} />
           </View>
         </View>
       </View>
@@ -655,25 +620,22 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
     flex: 1,
     backgroundColor: colors.componentBackground,
   },
-  modalHeader: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.background,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  // El título usa flex:1 entre el back button y este spacer del mismo ancho
+  // (40, igual a conversacionStyles.backButton) para quedar centrado en toda
+  // la barra, ya que este header solo tiene un ícono (a diferencia del de
+  // chat, que tiene varios y por eso no se centra globalmente).
+  headerTitleCentered: {
+    textAlign: 'center',
   },
-  closeButton: {
-    padding: 6,
-    borderRadius: 16,
-    backgroundColor: '#f3f4f6',
+  headerSpacer: {
+    width: 40,
+    height: 40,
   },
   content: {
     flex: 1,
   },
   contentContainer: {
-    paddingBottom: 100,
+    paddingBottom: 24,
   },
   estadoSection: {
     paddingVertical: 16,
@@ -785,11 +747,6 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
     fontWeight: '600',
     textAlign: 'right',
   },
-  historySubValue: {
-    fontSize: 11,
-    marginTop: 2,
-    textAlign: 'right',
-  },
   observationBox: {
     backgroundColor: colors.componentBackground,
     padding: 12,
@@ -814,50 +771,21 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
     fontSize: 11,
     marginTop: 2,
   },
-  fabContainer: {
-    position: 'absolute',
-    bottom: 80,
-    right: 24,
-    flexDirection: 'column',
-    justifyContent: 'flex-end',
-    alignItems: 'flex-end',
+  footerActions: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.background,
   },
-  fab: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-  },
-  fabDanger: {
-    backgroundColor: 'rgba(244,67,54,0.12)',
-    borderColor: 'rgba(244,67,54,0.35)',
-  },
-  fabSuccess: {
-    backgroundColor: 'rgba(46,125,50,0.12)',
-    borderColor: 'rgba(46,125,50,0.35)',
-  },
-  fabNeutral: {
-    backgroundColor: 'rgba(17,24,28,0.03)',
-    borderColor: 'rgba(17,24,28,0.12)',
-  },
-  modalOverlay: {
+  footerActionBtn: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
-  modalContent: {
+  observationModalContent: {
     width: '85%',
-    backgroundColor: colors.componentBackground,
-    borderRadius: 16,
     padding: 24,
-    elevation: 5,
   },
   modalActions: {
     flexDirection: 'row',
@@ -868,14 +796,13 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
     marginRight: 10,
   },
   input: {
-    borderWidth: 1,
-    borderColor: colors.background,
     borderRadius: 8,
     paddingVertical: 8,
     paddingHorizontal: 12,
     fontSize: 16,
     textAlignVertical: 'top',
     minHeight: 100,
+    color: colors.text,
   },
   uploadSection: {
     padding: 16,

@@ -1,13 +1,11 @@
 import { ThemedText } from '@/components/themed-text';
-import { Colors } from '@/constants/theme';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { ActivityIndicator, Modal, Pressable, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArchivoViewerResponse } from '../models/Archivo';
 import { formatDateTimeDDMMYYYYHHMM } from '../utils/dateTime';
-
-const colors = Colors.light;
 
 type ArchivoViewersModalProps = {
     visible: boolean;
@@ -37,14 +35,14 @@ export function ArchivoViewersModal({
                                 <ThemedText numberOfLines={1} style={styles.subtitle}>{fileName}</ThemedText>
                             </View>
                             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                                <Ionicons name="close" size={20} color={colors.icon} />
+                                <Ionicons name="close" size={18} color={glassColors.textMuted} />
                             </TouchableOpacity>
                         </View>
 
                         <View style={styles.body}>
                             {isLoading ? (
                                 <View style={styles.centerBox}>
-                                    <ActivityIndicator size="small" color={colors.tint} />
+                                    <ActivityIndicator size="small" color={glassColors.link} />
                                     <ThemedText style={styles.loadingText}>Cargando visualizaciones...</ThemedText>
                                 </View>
                             ) : errorMessage ? (
@@ -62,13 +60,13 @@ export function ArchivoViewersModal({
                                             <ThemedText style={styles.viewerName}>{viewer.nombre} {viewer.apellido}</ThemedText>
                                             <ThemedText style={styles.viewerDate}>{formatDateTimeDDMMYYYYHHMM(viewer.visto_en)}</ThemedText>
                                         </View>
-                                        <Ionicons name="eye-outline" size={16} color={colors.secondaryText} />
+                                        <Ionicons name="eye-outline" size={16} color={glassColors.textMuted} />
                                     </View>
                                 ))
                             )}
                         </View>
 
-                        <TouchableOpacity style={styles.closeCta} onPress={onClose}>
+                        <TouchableOpacity style={styles.closeCtaButton} onPress={onClose}>
                             <ThemedText style={styles.closeCtaText}>Cerrar</ThemedText>
                         </TouchableOpacity>
                     </Pressable>
@@ -83,14 +81,13 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     overlay: {
-        flex: 1,
+        ...glassStyles.modalOverlay,
         justifyContent: 'flex-end',
-        backgroundColor: 'rgba(0,0,0,0.42)',
     },
     sheet: {
-        backgroundColor: colors.componentBackground,
-        borderTopLeftRadius: 16,
-        borderTopRightRadius: 16,
+        backgroundColor: '#ffffff',
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
         paddingHorizontal: 16,
         paddingTop: 16,
         paddingBottom: 22,
@@ -112,19 +109,22 @@ const styles = StyleSheet.create({
     },
     subtitle: {
         fontSize: 13,
-        color: colors.secondaryText,
+        color: glassColors.textMuted,
     },
     closeButton: {
         width: 32,
         height: 32,
-        borderRadius: 8,
+        borderRadius: 16,
         alignItems: 'center',
         justifyContent: 'center',
+        backgroundColor: 'rgba(17,24,28,0.03)',
+        borderWidth: 1,
+        borderColor: 'rgba(17,24,28,0.12)',
     },
     body: {
-        borderRadius: 10,
-        borderWidth: StyleSheet.hairlineWidth,
-        borderColor: colors.icon,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(17,24,28,0.08)',
         overflow: 'hidden',
     },
     centerBox: {
@@ -136,21 +136,21 @@ const styles = StyleSheet.create({
     },
     loadingText: {
         fontSize: 13,
-        color: colors.secondaryText,
+        color: glassColors.textMuted,
     },
     emptyText: {
         fontSize: 13,
-        color: colors.secondaryText,
+        color: glassColors.textMuted,
     },
     errorText: {
         fontSize: 13,
-        color: colors.error,
+        color: glassColors.error,
         textAlign: 'center',
     },
     viewerRow: {
         minHeight: 54,
         borderBottomWidth: StyleSheet.hairlineWidth,
-        borderBottomColor: colors.icon,
+        borderBottomColor: 'rgba(17,24,28,0.08)',
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -167,18 +167,20 @@ const styles = StyleSheet.create({
     },
     viewerDate: {
         fontSize: 12,
-        color: colors.secondaryText,
+        color: glassColors.textMuted,
     },
-    closeCta: {
+    closeCtaButton: {
         minHeight: 44,
-        borderRadius: 10,
-        borderWidth: StyleSheet.hairlineWidth,
-        borderColor: colors.icon,
+        borderRadius: 18,
+        borderWidth: 1,
+        borderColor: 'rgba(17,24,28,0.12)',
+        backgroundColor: 'rgba(17,24,28,0.03)',
         alignItems: 'center',
         justifyContent: 'center',
     },
     closeCtaText: {
         fontSize: 15,
         fontWeight: '600',
+        color: glassColors.text,
     },
 });

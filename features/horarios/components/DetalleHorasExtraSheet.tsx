@@ -1,5 +1,7 @@
 import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
+import { AppBackButton } from '@/shared/ui/AppBackButton';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { Colors } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef, useState } from 'react';
@@ -23,15 +25,8 @@ import {
 } from '../utils/dateRange';
 import { useMovimientos, useObjetivosHoras, useUpsertObjetivoHoras } from '../viewmodels/useHorasExtra';
 
+import { AMBER, CARD, INK, LINE, MUTED, RED_FLASH, TURNO_COLOR, TURNO_SOFT } from '../theme';
 const colors = Colors['light'];
-const AMBER = '#c98a1a';
-const TURNO_SOFT = '#e7f2fb';
-const TURNO_COLOR = '#2f86d6';
-const LINE = '#e8eaed';
-const MUTED = '#7a8087';
-const INK = '#1c2024';
-const RED_FLASH = '#e2543b';
-const CARD = '#f6f7f9';
 
 function formatHoras(n: number): string {
   return `${Math.round(n * 10) / 10}h`;
@@ -63,6 +58,7 @@ export function DetalleHorasExtraSheet({
   const [mes, setMes] = useState(currentMonthISO);
   const [editingObjetivo, setEditingObjetivo] = useState(false);
   const [objetivoText, setObjetivoText] = useState('');
+  const [isObjetivoFocused, setObjetivoFocused] = useState(false);
   useEffect(() => {
     if (visible) {
       setMes(currentMonthISO());
@@ -122,17 +118,12 @@ export function DetalleHorasExtraSheet({
 
   return (
     <FullScreenPortal>
-    <View style={styles.fullScreen}>
+    <View style={[glassStyles.sheet, styles.fullScreen]}>
       <ModalKeyboardView style={styles.kavWrapper}>
-        <View style={[styles.container, { paddingBottom: insets.bottom }]}>
-          <ScrollView
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-          >
+        <View style={[glassStyles.sheet, styles.container, { paddingBottom: insets.bottom }]}>
+          <View style={styles.boundedTop}>
             <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
-              <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
-                <Ionicons name="chevron-back" size={20} color={MUTED} />
-              </TouchableOpacity>
+              <AppBackButton onPress={onClose} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.title}>{displayEmpleado?.nombre} {displayEmpleado?.apellido}</Text>
               </View>
@@ -156,9 +147,9 @@ export function DetalleHorasExtraSheet({
                 <View style={styles.objetivoLine}>
                   {editingObjetivo ? (
                     <View style={styles.objetivoEditRow}>
-                      <View style={styles.objetivoInputRow}>
+                      <View style={[glassStyles.fieldGlass, styles.objetivoInputRow, isObjetivoFocused && styles.inputFocused]}>
                         <TextInput
-                          style={styles.objetivoInput}
+                          style={[styles.objetivoInput, styles.inputNoOutline]}
                           keyboardType="decimal-pad"
                           value={objetivoText}
                           onChangeText={setObjetivoText}
@@ -166,6 +157,8 @@ export function DetalleHorasExtraSheet({
                           placeholderTextColor={MUTED}
                           editable={!upsertObjetivo.isPending}
                           autoFocus
+                          onFocus={() => setObjetivoFocused(true)}
+                          onBlur={() => setObjetivoFocused(false)}
                         />
                         <Text style={styles.objetivoInputSuffix}>h</Text>
                       </View>
@@ -251,6 +244,12 @@ export function DetalleHorasExtraSheet({
                   <Ionicons name="chevron-forward" size={20} color={isCurrentMonth ? MUTED : TURNO_COLOR} />
                 </TouchableOpacity>
               </View>
+              </View>
+              <ScrollView
+                style={styles.movimientosScroll}
+                contentContainerStyle={styles.scrollContent}
+                showsVerticalScrollIndicator={false}
+              >
 
               <View style={styles.movList}>
                 {movimientosQuery.isFetching && !movimientosQuery.data ? (
@@ -349,14 +348,14 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingTop: 4,
+    paddingTop: 14,
     paddingBottom: 24,
     flexGrow: 1,
     gap: 14,
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'flex-start',
     paddingVertical: 16,
     gap: 10,
@@ -367,11 +366,6 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '700',
     color: INK,
-  },
-  closeBtn: {
-    padding: 6,
-    borderRadius: 16,
-    backgroundColor: '#f3f4f6',
   },
   totalLine: {
     backgroundColor: TURNO_SOFT,
@@ -435,13 +429,12 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: LINE,
     paddingHorizontal: 10,
     height: 38,
     gap: 6,
+  },
+  inputFocused: {
+    borderColor: glassColors.link,
   },
   objetivoInput: {
     flex: 1,
@@ -496,8 +489,8 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     borderColor: LINE,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
     gap: 10,
   },
   movRowLeft: {
@@ -583,4 +576,18 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
   },
+  boundedTop: {
+    flexGrow: 0,
+    paddingHorizontal: 20,
+    paddingBottom: 14,
+    gap: 14,
+  },
+  movimientosScroll: {
+    flex: 1,
+    minHeight: 0,
+  },
+  inputNoOutline: {
+    outlineStyle: 'none',
+    outlineWidth: 0,
+  } as any,
 });

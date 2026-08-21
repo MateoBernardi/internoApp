@@ -1,5 +1,6 @@
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 import React from 'react';
 import type { StyleProp, TextStyle, ViewStyle } from 'react-native';
 import { Modal, Pressable, StyleSheet, TouchableOpacity, View } from 'react-native';
@@ -72,21 +73,17 @@ export function AlertModal({ visible, title, message, actions, onClose, onDismis
 
 const styles = StyleSheet.create({
     overlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.45)',
-        alignItems: 'center',
-        justifyContent: 'center',
         padding: 24,
+        ...glassStyles.modalOverlay,
     },
     card: {
         width: '100%',
         maxWidth: 420,
-        borderRadius: 16,
-        backgroundColor: colors.componentBackground,
         paddingHorizontal: 18,
         paddingTop: 16,
         paddingBottom: 20,
         gap: 18,
+        ...glassStyles.modalCard,
     },
     header: {
         gap: 8,
@@ -104,28 +101,31 @@ const styles = StyleSheet.create({
         gap: 10,
     },
     actionButton: {
-        borderRadius: 12,
+        ...glassStyles.buttonSecondary,
         paddingVertical: 10,
         paddingHorizontal: 12,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#f3f4f6',
     },
     actionText: {
         fontSize: 14,
         fontWeight: '600',
-        color: colors.text,
+        color: glassColors.textMuted,
     },
     actionPrimary: {
-        backgroundColor: colors.lightTint,
+        borderRadius: 18,
+        borderWidth: 1,
+        borderColor: 'rgba(26,115,232,0.35)',
+        backgroundColor: 'rgba(26,115,232,0.12)',
     },
     actionPrimaryText: {
-        color: colors.componentBackground,
+        color: glassColors.link,
     },
     actionDestructive: {
-        backgroundColor: colors.error,
+        borderRadius: 18,
+        borderWidth: 1,
+        borderColor: 'rgba(244,67,54,0.35)',
+        backgroundColor: 'rgba(244,67,54,0.12)',
     },
     actionDestructiveText: {
-        color: colors.componentBackground,
+        color: glassColors.error,
     },
 });

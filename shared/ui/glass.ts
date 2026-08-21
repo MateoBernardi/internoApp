@@ -81,10 +81,12 @@ export const glassStyles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  // Centered dialog box. Higher opacity than `card` since it sits over a
-  // dark overlay with no page content behind it to blur.
+  // Centered dialog box. Solid, not translucent: a modal floats over the
+  // dimmed overlay with nothing reliable behind it to blur, so any dialog
+  // content (forms, file pickers, lists) needs full contrast/opacity to
+  // read cleanly. Only page-level chrome (cards, fields, buttons) is glass.
   modalCard: {
-    backgroundColor: 'rgba(255,255,255,0.92)',
+    backgroundColor: '#ffffff',
     borderWidth: 1,
     borderColor: 'rgba(17,24,28,0.08)',
     borderRadius: 20,

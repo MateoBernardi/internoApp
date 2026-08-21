@@ -1,26 +1,22 @@
+import { OwnFlatList } from '@/components/FlatList';
 import { ThemedText } from '@/components/themed-text';
 import { CreateButton } from '@/components/ui/CreateButton';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { Colors } from '@/constants/theme';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
 import React, { useCallback, useState } from 'react';
+import { glassStyles } from '@/shared/ui/glass';
 import {
-	ScrollView,
 	StyleSheet,
 	TouchableOpacity,
 	View
 } from 'react-native';
-import { EstadoReporte, Reporte } from '../models/Reporte';
+import { Reporte } from '../models/Reporte';
+import { getReporteEstadoPresentation } from '../presentation';
 import { useReportes } from '../viewmodels/useReportes';
 import CrearReporte from '../views/CrearReporte';
 import { ReporteModal } from './ReporteModal';
 
-const estadoMapping: Record<EstadoReporte, string> = {
-	'PENDIENTE': 'Pendiente',
-	'DISPUTA': 'En disputa',
-	'ASENTADO': 'Asentado',
-	'DESESTIMADO': 'Desestimado',
-};
 
 interface ReportesEmpleadoProps {
 	userId: string;
@@ -57,21 +53,13 @@ export function ReportesEmpleado({ userId, userNombre = '', userApellido = '' }:
 		setCreateModalVisible(false);
 	}, []);
 
-	const Separator = useCallback(() => (
-		<View
-			style={{
-				height: StyleSheet.hairlineWidth,
-				backgroundColor: colors.secondaryText,
-				marginHorizontal: '4%',
-			}}
-		/>
-	), []);
 
 	const renderHeader = useCallback(() => {
 		if (!canCreateReporte) return null;
 
 		return (
 			<View style={styles.header}>
+				<ThemedText style={styles.createLegend}>Generar nuevo reporte</ThemedText>
 				<CreateButton onPress={handleCrearReporte} accessibilityLabel="Nuevo reporte" />
 			</View>
 		);
@@ -86,7 +74,7 @@ export function ReportesEmpleado({ userId, userNombre = '', userApellido = '' }:
 	if (error) {
 		return (
 			<View style={styles.centerContainer}>
-
+				<ThemedText style={styles.errorText}>No se pudieron cargar los reportes.</ThemedText>
 			</View>
 		);
 	}
@@ -114,22 +102,19 @@ export function ReportesEmpleado({ userId, userNombre = '', userApellido = '' }:
 	return (
 		<View style={styles.container}>
 			{renderHeader()}
-			<ScrollView
-				style={styles.listScroll}
+			<OwnFlatList
+				data={reportes}
+				renderItem={({ item }) => (
+					<MiReporteItem
+						reporte={item}
+						onPress={() => handleOpenReporte(item)}
+					/>
+				)}
+				keyExtractor={(item) => item.id.toString()}
+				showSeparators={false}
 				contentContainerStyle={styles.listContent}
 				showsVerticalScrollIndicator={false}
-			>
-				{reportes.map((item, index) => (
-					<React.Fragment key={item.id.toString()}>
-						{index > 0 && <Separator />}
-						<MiReporteItem
-							reporte={item}
-							estadoUI={estadoMapping[item.estado] || item.estado}
-							onPress={() => handleOpenReporte(item)}
-						/>
-					</React.Fragment>
-				))}
-			</ScrollView>
+			/>
 			{selectedReporte && (
 				<ReporteModal
 					visible={modalVisible}
@@ -153,33 +138,16 @@ export function ReportesEmpleado({ userId, userNombre = '', userApellido = '' }:
 
 interface MiReporteItemProps {
 	reporte: Reporte;
-	estadoUI: string;
 	onPress: () => void;
 }
 
-function MiReporteItem({ reporte, estadoUI, onPress }: MiReporteItemProps) {
-	const getEstadoColor = (estado: string): string => {
-		switch (estado) {
-			case 'Pendiente':
-				return '#FF9800';
-			case 'En disputa':
-				return '#F44336';
-			case 'Asentado':
-				return '#4CAF50';
-			case 'Desestimado':
-				return '#9C27B0';
-			default:
-				return colors.icon;
-		}
-	};
+function MiReporteItem({ reporte, onPress }: MiReporteItemProps) {
+	const estado = getReporteEstadoPresentation(reporte.estado);
 
 	return (
 		<TouchableOpacity
 			onPress={onPress}
-			style={[
-				styles.itemContainer,
-				{ backgroundColor: colors.componentBackground },
-			]}
+			style={[glassStyles.card, styles.itemContainer]}
 		>
 			<View style={styles.itemContent}>
 				{/* Nombre y apellido del creador */}
@@ -192,9 +160,9 @@ function MiReporteItem({ reporte, estadoUI, onPress }: MiReporteItemProps) {
 				<View style={styles.footerContainer}>
 					<View style={[
 						styles.estadoBadge,
-						{ backgroundColor: getEstadoColor(estadoUI) + '20' },
+						{ backgroundColor: estado.backgroundColor },
 					]}>
-						<ThemedText style={[styles.estadoText, { color: getEstadoColor(estadoUI) }]}>{estadoUI}</ThemedText>
+						<ThemedText style={[styles.estadoText, { color: estado.color }]}>{estado.label}</ThemedText>
 					</View>
 					<ThemedText style={[styles.dateText, { color: colors.text }]}>Creado: {new Date(reporte.created_at).toLocaleDateString()}</ThemedText>
 				</View>
@@ -227,16 +195,23 @@ const styles = StyleSheet.create({
 		flexDirection: 'row',
 		justifyContent: 'flex-end',
 		alignItems: 'center',
+		gap: 10,
 		paddingHorizontal: '4%',
 		paddingVertical: 10,
 		backgroundColor: colors.componentBackground,
 		borderBottomWidth: 1,
 		borderBottomColor: colors.background,
 	},
+	createLegend: {
+		fontSize: 14,
+		fontWeight: '700',
+		color: colors.text,
+	},
 	itemContainer: {
-		paddingHorizontal: '4%',
-		paddingVertical: '2%',
-		backgroundColor: colors.componentBackground,
+		marginHorizontal: '4%',
+		marginVertical: 4,
+		paddingHorizontal: '3%',
+		paddingVertical: '3%',
 	},
 	itemContent: {
 		flexDirection: 'column',

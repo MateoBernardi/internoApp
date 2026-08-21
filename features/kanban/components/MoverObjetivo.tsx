@@ -3,6 +3,7 @@
 // ============================================
 
 import { ThemedText } from '@/components/themed-text';
+import { GlassButton } from '@/shared/ui/GlassButton';
 import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
@@ -133,15 +134,14 @@ export function MoveModal({
             transparent={true}
             onRequestClose={handleClose}
         >
-            <View style={styles.overlay}>
+            <View style={[glassStyles.modalOverlay, styles.overlay]}>
                 <ModalKeyboardView style={styles.modalKeyboardAvoiding}>
-                    <View style={[styles.modalContainer, { paddingBottom: insets.bottom }]}>
+                    <View style={[glassStyles.sheet, styles.modalContainer, { paddingBottom: insets.bottom }]}>
                         <View style={[styles.modalHeader, glassStyles.sheetHeader]}>
-                            <View style={styles.modalHeaderActions}>
-                                <TouchableOpacity onPress={handleClose} style={styles.modalIconButton} disabled={isLoading}>
-                                    <Ionicons name="chevron-down" size={24} color="#999" />
-                                </TouchableOpacity>
-                            </View>
+                            <ThemedText style={styles.modalTitle}>Mover objetivo</ThemedText>
+                            <TouchableOpacity onPress={handleClose} style={styles.modalIconButton} disabled={isLoading}>
+                                <Ionicons name="chevron-down" size={24} color={glassColors.textMuted} />
+                            </TouchableOpacity>
                         </View>
 
                         <ScrollView
@@ -156,6 +156,13 @@ export function MoveModal({
                             showsVerticalScrollIndicator={false}
                         >
                             <View style={styles.formGroup}>
+                                <View style={[glassStyles.card, styles.objetivoInfo]}>
+                                    <Text style={styles.infoTitle}>{objetivo.titulo}</Text>
+                                    <Text style={styles.infoEstado}>
+                                        Estado actual: <Text style={styles.infoEstadoStrong}>{objetivo.estado}</Text>
+                                    </Text>
+                                </View>
+
                                 <Text style={styles.label}>Mover a</Text>
                                 <View style={styles.estadoButtons}>
                                     {ESTADOS.filter((e) => e !== objetivo.estado).map((est) => (
@@ -187,7 +194,7 @@ export function MoveModal({
                             <View style={styles.formGroup}>
                                 <Text style={styles.label}>Observación (opcional)</Text>
                                 <TextInput
-                                    style={[styles.input, styles.textArea]}
+                                    style={[glassStyles.fieldGlass, styles.input, styles.textArea]}
                                     placeholder="Añade una nota sobre este cambio"
                                     value={observacion}
                                     onChangeText={(value) => {
@@ -204,14 +211,13 @@ export function MoveModal({
                         </ScrollView>
 
                         <View style={[styles.uploadButtonContainer]}>
-                            <TouchableOpacity
+                            <GlassButton
+                                label="Mover objetivo"
                                 onPress={handleMove}
-                                style={[styles.uploadButton, glassStyles.button, isLoading && styles.uploadButtonDisabled]}
-                            >
-                                <Ionicons name="cloud-upload" size={20} color={glassColors.link} />
-                                <ThemedText style={styles.uploadButtonText}>{'Mover'}</ThemedText>
-
-                            </TouchableOpacity>
+                                loading={isLoading}
+                                icon={(color) => <Ionicons name="swap-horizontal-outline" size={20} color={color} />}
+                                style={styles.uploadButton}
+                            />
                         </View>
                     </View>
                 </ModalKeyboardView>
@@ -227,12 +233,11 @@ const styles = StyleSheet.create({
     // ============================================
     overlay: {
         flex: 1,
-        backgroundColor: 'rgba(17,24,28,0.45)' // Sombra de fondo, misma familia que glassStyles.modalOverlay
     },
     modalContainer: {
         flex: 1,
         marginTop: '10%', // Empuja el modal hacia abajo
-        backgroundColor: 'rgba(255,255,255,0.92)',
+        backgroundColor: '#ffffff',
         borderWidth: 1,
         borderColor: 'rgba(17,24,28,0.08)',
         borderTopLeftRadius: 16,
@@ -247,7 +252,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
         paddingVertical: 12,
         flexDirection: 'row',
-        justifyContent: 'flex-end',
+        justifyContent: 'space-between',
         alignItems: 'center',
     },
     modalTitle: {
@@ -371,8 +376,6 @@ const styles = StyleSheet.create({
     // Objetivo Info
     // ============================================
     objetivoInfo: {
-        backgroundColor: '#f5f5f5',
-        borderRadius: 8,
         padding: 12,
         borderLeftWidth: 3,
         borderLeftColor: '#007AFF',
@@ -385,6 +388,10 @@ const styles = StyleSheet.create({
     },
     infoEstado: {
         fontSize: 12,
-        color: '#666',
+        color: glassColors.textMuted,
+    },
+    infoEstadoStrong: {
+        color: glassColors.text,
+        fontWeight: '800',
     },
 });

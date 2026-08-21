@@ -1,5 +1,6 @@
 
 import { ThemedText } from '@/components/themed-text';
+import { glassStyles } from '@/shared/ui/glass';
 import { Colors } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
@@ -25,7 +26,7 @@ export function UpgradedEmployee() {
 	const iniciales = `${empleado.nombre?.[0] ?? ''}${empleado.apellido?.[0] ?? ''}`.toUpperCase();
 
 	return (
-		<View style={styles.card}>
+		<View style={[glassStyles.card, styles.card]}>
 			<View style={styles.iconCircle}>
 				<ThemedText style={styles.iconText}>{iniciales}</ThemedText>
 			</View>
@@ -45,19 +46,10 @@ const styles = StyleSheet.create({
 	card: {
 		width: 140,
 		minHeight: 180,
-		backgroundColor: colors.componentBackground,
-		borderRadius: 20,
-		borderWidth: 3,
-		borderColor: '#9C27B0',
 		alignItems: 'center',
 		justifyContent: 'center',
 		paddingHorizontal: 10,
 		paddingVertical: 14,
-		shadowColor: '#000',
-		shadowOffset: { width: 0, height: 2 },
-		shadowOpacity: 0.12,
-		shadowRadius: 8,
-		elevation: 4,
 		margin: 12,
 		alignSelf: 'center',
 	},

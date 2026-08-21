@@ -2,6 +2,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
+import { glassColors } from '@/shared/ui/glass';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useMemo } from 'react';
 import {
@@ -84,17 +85,15 @@ export function ChatsList({ chats, onRefresh, refreshing, isLoading, onOpenChat,
                 />
             }
         >
-            {chatsDeduplicados.map((item, index) => (
-                <React.Fragment key={item.solicitud_id.toString()}>
-                    {index > 0 && <View style={styles.separator} />}
-                    <ChatItem
-                        chat={item}
-                        displayName={getChatDisplayName(item, currentUserId)}
-                        hasBadge={tieneNovedadSinVer(item)}
-                        currentUserId={currentUserId}
-                        onPress={() => onOpenChat(item)}
-                    />
-                </React.Fragment>
+            {chatsDeduplicados.map((item) => (
+                <ChatItem
+                    key={item.solicitud_id.toString()}
+                    chat={item}
+                    displayName={getChatDisplayName(item, currentUserId)}
+                    hasBadge={tieneNovedadSinVer(item)}
+                    currentUserId={currentUserId}
+                    onPress={() => onOpenChat(item)}
+                />
             ))}
         </ScrollView>
     );
@@ -120,13 +119,20 @@ function ChatItem({ chat, displayName, hasBadge, currentUserId, onPress }: ChatI
     const timeLabel = chat.ultimo_mensaje_at ? formatListTimestamp(new Date(chat.ultimo_mensaje_at)) : null;
 
     return (
-        <TouchableOpacity onPress={onPress} style={styles.itemContainer}>
+        <TouchableOpacity
+            onPress={onPress}
+            style={[styles.itemContainer, { backgroundColor: hasBadge ? '#ffffff' : 'rgba(255,255,255,0.6)' }]}
+        >
             <View style={styles.avatar}>
                 <ThemedText style={styles.avatarText}>{inicial}</ThemedText>
             </View>
             <View style={styles.itemContent}>
                 <View style={styles.itemHeader}>
-                    <ThemedText type="defaultSemiBold" numberOfLines={1} style={styles.itemTitle}>
+                    <ThemedText
+                        type="defaultSemiBold"
+                        numberOfLines={1}
+                        style={[styles.itemTitle, hasBadge && styles.tituloUnseen]}
+                    >
                         {displayName}
                     </ThemedText>
                     {!!timeLabel && (
@@ -182,12 +188,6 @@ const styles = StyleSheet.create({
         paddingHorizontal: '4%',
         paddingVertical: 100,
     },
-    separator: {
-        height: StyleSheet.hairlineWidth,
-        backgroundColor: colors.secondaryText,
-        marginHorizontal: '4%',
-        opacity: 0.3,
-    },
     itemContainer: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -197,23 +197,34 @@ const styles = StyleSheet.create({
         paddingHorizontal: '3%',
         paddingVertical: '3%',
         borderRadius: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(17,24,28,0.08)',
+        shadowColor: '#101828',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 6,
     },
     avatar: {
         width: 44,
         height: 44,
         borderRadius: 22,
-        backgroundColor: colors.lightTint + '22',
+        backgroundColor: 'rgba(26,115,232,0.12)',
+        borderWidth: 1,
+        borderColor: 'rgba(26,115,232,0.35)',
         alignItems: 'center',
         justifyContent: 'center',
     },
     avatarText: {
         fontSize: 18,
         fontWeight: '700',
-        color: colors.lightTint,
+        color: glassColors.link,
     },
     itemContent: {
         flex: 1,
         flexDirection: 'column',
+    },
+    tituloUnseen: {
+        color: '#000000',
     },
     itemHeader: {
         flexDirection: 'row',

@@ -1,4 +1,6 @@
 import { Colors } from "@/constants/theme";
+import { AppBackButton } from '@/shared/ui/AppBackButton';
+import { GlassButton } from '@/shared/ui/GlassButton';
 import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
 import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,7 +19,7 @@ interface DetailModalProps {
     currentUserId?: number;
 }
 
-export function DetailModal({ visible, objetivo, onClose, onDelete, onInfo, currentUserId }: DetailModalProps) {
+export function DetailModal({ visible, objetivo, onClose, onDelete, onInfo, onMove, currentUserId }: DetailModalProps) {
     const insets = useSafeAreaInsets();
 
     useEffect(() => {
@@ -37,19 +39,16 @@ export function DetailModal({ visible, objetivo, onClose, onDelete, onInfo, curr
         <FullScreenPortal>
         <View style={styles.fullScreen}>
                 <View style={[styles.modalContainer, { paddingBottom: insets.bottom }]}>
-                    <View style={styles.infoBtnFloatingContainer}>
-                        <TouchableOpacity onPress={() => onInfo?.(objetivo)} style={styles.infoBtnFloating}>
-                            <Text style={styles.infoBtnText}>ⓘ</Text>
-                        </TouchableOpacity>
-                    </View>
 
                     <View style={[styles.modalHeader, glassStyles.sheetHeader, { paddingTop: insets.top + 12 }]}>
-                        <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-                            <Ionicons name="chevron-back" size={24} color="#999" />
+                        <AppBackButton onPress={onClose} />
+                        <TouchableOpacity onPress={() => onInfo?.(objetivo)} style={[glassStyles.buttonSecondary, styles.infoBtn]}>
+                            <Ionicons name="information-circle-outline" size={22} color={glassColors.link} />
                         </TouchableOpacity>
                     </View>
 
                     <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 8 }}>
+                        <View style={[glassStyles.card, styles.summaryCard]}>
                         <Text style={styles.metaAuthor}>
                             {objetivo.created_by_username}
                             <Text style={styles.metaDate}>
@@ -69,6 +68,7 @@ export function DetailModal({ visible, objetivo, onClose, onDelete, onInfo, curr
                         <Text style={[objetivo.descripcion ? styles.description : styles.descriptionEmpty, { marginTop: 14 }]}>
                             {objetivo.descripcion || '—'}
                         </Text>
+                        </View>
 
                         {objetivo.bitacora && objetivo.bitacora.length > 0 && (
                             <View style={styles.divider} />
@@ -76,6 +76,7 @@ export function DetailModal({ visible, objetivo, onClose, onDelete, onInfo, curr
 
                         {objetivo.bitacora && objetivo.bitacora.length > 0 && (
                             <View style={styles.timeline}>
+                            <Text style={styles.timelineTitle}>Actividad</Text>
                                 {objetivo.bitacora.map((entry, idx) => {
                                     const isLast = idx === objetivo.bitacora.length - 1;
 
@@ -141,8 +142,18 @@ export function DetailModal({ visible, objetivo, onClose, onDelete, onInfo, curr
                     </ScrollView>
 
                     <View style={styles.modalFooter}>
-                        <TouchableOpacity
-                            style={[styles.button, glassStyles.buttonDanger, !isOwner && styles.buttonDisabled]}
+                        <GlassButton
+                            label="Mover objetivo"
+                            onPress={() => onMove?.(objetivo)}
+                            icon={(color) => <Ionicons name="swap-horizontal-outline" size={18} color={color} />}
+                            style={styles.footerButton}
+                        />
+                        <GlassButton
+                            label="Eliminar"
+                            variant="danger"
+                            disabled={!isOwner}
+                            icon={(color) => <Ionicons name="trash-outline" size={18} color={color} />}
+                            style={styles.footerButton}
                             onPress={() => {
                                 Alert.alert(
                                     'Eliminar',
@@ -157,12 +168,7 @@ export function DetailModal({ visible, objetivo, onClose, onDelete, onInfo, curr
                                     ]
                                 );
                             }}
-                            disabled={!isOwner}
-                        >
-                            <Text style={[styles.buttonDangerText, !isOwner && styles.buttonDisabledText]}>
-                                Eliminar
-                            </Text>
-                        </TouchableOpacity>
+                        />
                     </View>
                 </View>
         </View>
@@ -231,59 +237,26 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
         paddingVertical: 12,
         flexDirection: 'row',
-        justifyContent: 'flex-start',
+        justifyContent: 'space-between',
         alignItems: 'center',
     },
     infoBtn: {
-        width: 32,
-        height: 32,
+        width: 38,
+        height: 38,
         alignItems: 'center',
         justifyContent: 'center',
-        borderRadius: 16,
-    },
-    infoBtnFloatingContainer: {
-        ...StyleSheet.absoluteFillObject,
-        justifyContent: 'flex-end',
-        alignItems: 'flex-end',
-        padding: 46,
-        paddingBottom: 124,
-        pointerEvents: 'box-none',
-        zIndex: 20,
-    },
-    infoBtnFloating: {
-        width: 62,
-        height: 32,
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderRadius: 16,
-        backgroundColor: 'rgba(255,255,255,0.85)',
-        borderWidth: 1,
-        borderColor: 'rgba(17,24,28,0.1)',
-        zIndex: 21,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.08,
-        shadowRadius: 6,
-    },
-    infoBtnText: {
-        fontSize: 22,
-        color: '#1e3a8a',
-        lineHeight: 26,
-    },
-    closeBtn: {
-        padding: 6,
-        borderRadius: 16,
-        backgroundColor: 'rgba(17,24,28,0.06)',
-        marginLeft: 8,
-    },
-    closeButton: {
-        fontSize: 14,
-        fontWeight: '600',
+        borderRadius: 19,
+        padding: 0,
     },
     modalContent: {
         flex: 1,
         paddingHorizontal: 16,
         paddingTop: 18,
+    },
+    summaryCard: {
+        padding: 16,
+        marginBottom: 4,
+        gap: 4,
     },
     metaAuthor: {
         fontSize: 12,
@@ -395,6 +368,12 @@ const styles = StyleSheet.create({
         color: '#fff',
         letterSpacing: 0.3,
     },
+    timelineTitle: {
+        fontSize: 15,
+        fontWeight: '800',
+        color: glassColors.text,
+        marginBottom: 14,
+    },
     timeline: {
         paddingLeft: 4,
         paddingBottom: 8,
@@ -489,14 +468,12 @@ const styles = StyleSheet.create({
         borderTopWidth: 1,
         borderTopColor: 'rgba(17,24,28,0.08)',
         gap: 10,
-        backgroundColor: 'rgba(255,255,255,0.4)',
+        backgroundColor: '#ffffff',
     },
-    button: {
+    footerButton: {
         flex: 1,
-        paddingVertical: 11,
-        borderRadius: 10,
-        alignItems: 'center',
-        justifyContent: 'center',
+        paddingHorizontal: 12,
+        paddingVertical: 12,
     },
     buttonPrimary: {
         backgroundColor: Colors.light.tint,

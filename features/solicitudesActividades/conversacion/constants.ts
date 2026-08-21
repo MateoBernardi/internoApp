@@ -27,6 +27,23 @@ export function formatListTimestamp(date: Date): string {
   return isToday ? formatTimeHHMM(date) : formatDateDDMMYYYY(date);
 }
 
+/** true si ambas fechas caen en el mismo día calendario (hora local). */
+export function isSameCalendarDay(a: Date, b: Date): boolean {
+  return a.getFullYear() === b.getFullYear()
+    && a.getMonth() === b.getMonth()
+    && a.getDate() === b.getDate();
+}
+
+/** Etiqueta del separador de día al estilo WhatsApp: "Hoy" / "Ayer" / fecha corta. */
+export function formatDayLabel(date: Date): string {
+  const now = new Date();
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (isSameCalendarDay(date, now)) return 'Hoy';
+  if (isSameCalendarDay(date, yesterday)) return 'Ayer';
+  return formatDateDDMMYYYY(date);
+}
+
 export type UltimoMensajeTipo = 'TEXT' | 'FECHA' | 'IMAGEN' | 'ARCHIVO' | 'APROBACION' | 'RECHAZO';
 
 /**

@@ -3,6 +3,9 @@ import { UserSelector } from '@/components/UserSelector';
 import { Colors } from '@/constants/theme';
 import { RoleUserSelectionModal } from '@/features/solicitudesActividades/components/RoleUserSelectionModal';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
+import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
+import { GlassButton } from '@/shared/ui/GlassButton';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { adminRoles, allRoles } from '@/shared/users/roles';
 import { UserSummary } from '@/shared/users/User';
 import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
@@ -11,7 +14,6 @@ import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Modal,
   ScrollView,
   StyleSheet,
   TextInput,
@@ -280,19 +282,17 @@ export function EditCarpetaModal({
     });
   };
 
+  if (!visible) return null;
+
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent={true}
-      onRequestClose={onClose}
-    >
-      <View style={styles.overlay}>
+    <FullScreenPortal>
+      <View style={styles.fullScreen}>
         <View style={styles.container}>
-          <View style={[styles.header, { paddingTop: insets.top || 12 }]}>
-            <TouchableOpacity onPress={onClose} style={styles.iconButton}>
-              <Ionicons name="close" size={24} color={colors.icon} />
+          <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+            <TouchableOpacity onPress={onClose} style={styles.backButton}>
+              <Ionicons name="chevron-back" size={24} color={glassColors.textMuted} />
             </TouchableOpacity>
+            <ThemedText style={styles.headerTitle} numberOfLines={1}>Editar carpeta</ThemedText>
           </View>
 
           <ModalKeyboardView style={styles.flex}>
@@ -460,40 +460,34 @@ export function EditCarpetaModal({
           </ModalKeyboardView>
 
           <View style={[styles.bottomBar, { paddingBottom: insets.bottom || 16 }]}>
-            <TouchableOpacity
-              style={[styles.saveButton, { backgroundColor: !isFormValid || isSaving ? colors.icon : colors.lightTint }]}
+            <GlassButton
+              variant="primary"
+              label="Guardar cambios"
               onPress={handleSubmit}
-              disabled={!isFormValid || isSaving}
-            >
-              {isSaving ? (
-                <ActivityIndicator size="small" color={colors.componentBackground} />
-              ) : (
-                <>
-                  <Ionicons name="checkmark" size={20} color={colors.componentBackground} />
-                  <ThemedText style={styles.saveButtonText}>Guardar Cambios</ThemedText>
-                </>
-              )}
-            </TouchableOpacity>
+              disabled={!isFormValid}
+              loading={isSaving}
+              icon={(color) => <Ionicons name="checkmark" size={20} color={color} />}
+              style={styles.saveButton}
+            />
           </View>
         </View>
       </View>
-    </Modal>
+    </FullScreenPortal>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)' // Sombra de fondo
+  fullScreen: {
+    ...StyleSheet.absoluteFillObject,
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#ffffff',
+    zIndex: 1000,
+    elevation: 8,
   },
   container: {
-    // Quita el flex: 1, o usa un alto fijo/porcentaje
     flex: 1,
-    marginTop: '10%', // Empuja el modal hacia abajo
-    backgroundColor: Colors['light'].componentBackground,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    overflow: 'hidden',
+    backgroundColor: '#ffffff',
   },
   flex: {
     flex: 1,
@@ -501,21 +495,25 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomColor: Colors['light'].icon,
+    paddingBottom: 12,
     flexDirection: 'row',
-    justifyContent: 'flex-end',
     alignItems: 'center',
+    gap: 12,
   },
-  iconButton: {
-    padding: 6,
-    borderRadius: 16,
-    backgroundColor: '#f3f4f6',
-    marginLeft: 8,
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(17,24,28,0.12)',
+    backgroundColor: 'rgba(17,24,28,0.03)',
   },
   headerTitle: {
+    flex: 1,
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   content: {
     flex: 1,
@@ -534,22 +532,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   input: {
-    backgroundColor: colors.componentBackground,
-    borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: colors.icon,
+    color: glassColors.text,
+    ...glassStyles.fieldGlass,
   },
   collapsibleButton: {
     minHeight: 44,
-    borderWidth: 1,
-    borderColor: colors.icon,
-    borderRadius: 8,
     paddingHorizontal: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    ...glassStyles.fieldGlass,
   },
   collapsibleTitle: {
     fontSize: 14,
@@ -558,14 +552,14 @@ const styles = StyleSheet.create({
   permisosPanel: {
     marginTop: 10,
     borderWidth: 1,
-    borderColor: colors.icon,
-    borderRadius: 8,
+    borderColor: 'rgba(17,24,28,0.1)',
+    borderRadius: 10,
     padding: 10,
     gap: 12,
   },
   sectionDivider: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.icon,
+    backgroundColor: 'rgba(17,24,28,0.12)',
   },
   permisosStateRow: {
     flexDirection: 'row',
@@ -599,8 +593,9 @@ const styles = StyleSheet.create({
   editableChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.icon,
+    borderWidth: 1,
+    borderColor: 'rgba(17,24,28,0.12)',
+    backgroundColor: 'rgba(17,24,28,0.03)',
     borderRadius: 999,
     paddingLeft: 10,
     paddingRight: 6,
@@ -618,23 +613,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   bottomBar: {
-    backgroundColor: colors.componentBackground,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.icon,
+    backgroundColor: '#ffffff',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(17,24,28,0.08)',
     paddingHorizontal: '4%',
     paddingTop: 12,
   },
   saveButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 8,
-    gap: 8,
-  },
-  saveButtonText: {
-    color: colors.componentBackground,
-    fontWeight: '600',
-    fontSize: 16,
+    width: '100%',
   },
 });

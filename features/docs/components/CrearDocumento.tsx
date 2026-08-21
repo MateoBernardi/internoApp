@@ -1,5 +1,9 @@
 import { fileTypeColor, getExt, isImageFile } from '@/components/filePreview';
 import { deriveIdempotencyKey, generateIdempotencyKey } from '@/shared/idempotency';
+import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
+import { GlassButton } from '@/shared/ui/GlassButton';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
+import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { showGlobalToast } from '@/shared/ui/toast';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,7 +15,6 @@ import {
   Alert,
   Animated,
   Image,
-  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -28,21 +31,21 @@ import {
 } from '../services/archivosApi';
 import { ARCHIVOS_KEYS } from '../viewmodels/useArchivos';
 
-// ─── Design tokens (shared with the file preview module) ─────────────────────────
-const INK = '#1c2024';
-const MUTED = '#7a8087';
-const MUTED2 = '#9aa3ab';
-const LINE = '#e8eaed';
-const CARD = '#f6f7f9';
-const PANEL = '#eef0f2';
-const BLUE = '#2f78e8';
-const BLUE_BTN = '#5b86f0';
-const BLUE_BTN_DISABLED = '#aebfe8';
-const NAVY = '#2b1f5c';
-const GREEN = '#1f9d57';
-const PROGRESS_TRACK = '#e3e6ea';
-const REMOVE_BG = '#dfe3e8';
-const REMOVE_GLYPH = '#6b727a';
+// ─── Design tokens ─────────────────────────────────────────────────────────────
+const INK = glassColors.text;
+const MUTED = glassColors.textMuted;
+const MUTED2 = glassColors.placeholder;
+const LINE = 'rgba(17,24,28,0.08)';
+const CARD = 'rgba(17,24,28,0.03)';
+const PANEL = 'rgba(17,24,28,0.06)';
+const BLUE = glassColors.link;
+const BLUE_BTN = '#1a73e8';
+const BLUE_BTN_DISABLED = 'rgba(26,115,232,0.35)';
+const NAVY = glassColors.link;
+const GREEN = glassColors.success;
+const PROGRESS_TRACK = 'rgba(17,24,28,0.08)';
+const REMOVE_BG = 'rgba(17,24,28,0.06)';
+const REMOVE_GLYPH = glassColors.textMuted;
 
 // ─── Types ───────────────────────────────────────────────────────────────────────
 type FileStatus = 'pending' | 'uploading' | 'done';
@@ -337,86 +340,93 @@ export function CrearDocumento({ visible, onClose, initialFiles, initialFolderId
   }, [uploading, pendingFiles.length, onClose]);
 
   // ─── Render ──────────────────────────────────────────────────────────────────
+  if (!visible) return null;
+
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={handleClose}>
-      <View style={s.overlay}>
-        <View style={[s.sheet, { paddingTop: insets.top || 12 }]}>
-          {/* Header */}
-          <View style={s.header}>
-            <View style={s.headerText}>
-              <Text style={s.title} numberOfLines={2}>Archivos seleccionados</Text>
-              <Text style={s.subtitle} numberOfLines={1}>{subtitle}</Text>
+    <FullScreenPortal>
+      <View style={s.fullScreen}>
+        <ModalKeyboardView style={s.keyboardContainer}>
+          <View style={[s.container, { paddingBottom: insets.bottom }]}>
+            {/* Header */}
+            <View style={[s.header, { paddingTop: insets.top + 10 }]}>
+              <TouchableOpacity
+                onPress={handleClose}
+                style={s.backButton}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name="chevron-back" size={24} color={glassColors.textMuted} />
+              </TouchableOpacity>
+              <View style={s.headerText}>
+                <Text style={s.title} numberOfLines={1}>Archivos seleccionados</Text>
+                <Text style={s.subtitle} numberOfLines={1}>{subtitle}</Text>
+              </View>
             </View>
-            <TouchableOpacity
-              onPress={handleClose}
-              style={s.closeBtn}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Ionicons name="close" size={22} color="#5a6068" />
-            </TouchableOpacity>
-          </View>
 
-          {/* Body */}
-          {files.length === 0 ? (
-            <EmptyState onSelect={handleSelectFiles} />
-          ) : (
-            <ScrollView
-              style={s.list}
-              contentContainerStyle={s.listContent}
-              showsVerticalScrollIndicator={false}
-            >
-              {files.map(file => (
-                <FileRow key={file.id} file={file} onRemove={uploading ? undefined : removeFile} />
-              ))}
+            {/* Body */}
+            {files.length === 0 ? (
+              <EmptyState onSelect={handleSelectFiles} />
+            ) : (
+              <ScrollView
+                style={s.list}
+                contentContainerStyle={s.listContent}
+                showsVerticalScrollIndicator={false}
+              >
+                {files.map(file => (
+                  <FileRow key={file.id} file={file} onRemove={uploading ? undefined : removeFile} />
+                ))}
 
-              {/* Add more — available whenever not actively uploading */}
-              {!uploading && (
-                <TouchableOpacity style={s.addMore} onPress={handleSelectFiles} activeOpacity={0.7}>
-                  <Ionicons name="add" size={18} color={NAVY} />
-                  <Text style={s.addMoreText}>Seleccionar más archivos</Text>
-                </TouchableOpacity>
-              )}
-            </ScrollView>
-          )}
+                {/* Add more — available whenever not actively uploading */}
+                {!uploading && (
+                  <TouchableOpacity style={s.addMore} onPress={handleSelectFiles} activeOpacity={0.7}>
+                    <Ionicons name="add" size={18} color={NAVY} />
+                    <Text style={s.addMoreText}>Seleccionar más archivos</Text>
+                  </TouchableOpacity>
+                )}
+              </ScrollView>
+            )}
 
-          {/* Footer */}
-          {files.length > 0 && (
-            <View style={[s.footer, { paddingBottom: (insets.bottom || 0) + 14 }]}>
-              {uploading && (
-                <View style={[s.footerBtn, { backgroundColor: BLUE_BTN_DISABLED }]}>
-                  <ActivityIndicator size="small" color="#fff" style={{ marginRight: 10 }} />
-                  <Text style={s.footerBtnLabel}>
-                    Subiendo… {completedInBatch}/{batchSizeRef.current}
-                  </Text>
-                </View>
-              )}
-
-              {hasPending && (
-                <>
-                  <View style={s.footerSummary}>
-                    <Text style={s.footerSummaryLabel}>Listos para subir</Text>
-                    <Text style={s.footerSummaryValue} numberOfLines={1}>
-                      {pendingFiles.length} · {formatBytes(pendingBytes)}
+            {/* Footer */}
+            {files.length > 0 && (
+              <View style={[s.footer, { paddingBottom: (insets.bottom || 0) + 14 }]}>
+                {uploading && (
+                  <View style={[s.footerBtn, s.footerBtnUploading]}>
+                    <ActivityIndicator size="small" color={glassColors.text} style={{ marginRight: 10 }} />
+                    <Text style={s.footerBtnLabel}>
+                      Subiendo… {completedInBatch}/{batchSizeRef.current}
                     </Text>
                   </View>
-                  <TouchableOpacity style={s.footerBtn} onPress={startUpload} activeOpacity={0.85}>
-                    <Ionicons name="cloud-upload-outline" size={20} color="#fff" style={{ marginRight: 10 }} />
-                    <Text style={s.footerBtnLabel}>Subir {pendingLabel}</Text>
-                  </TouchableOpacity>
-                </>
-              )}
+                )}
 
-              {allDone && (
-                <View style={[s.footerBtn, s.footerBtnDone]}>
-                  <Ionicons name="checkmark" size={20} color="#fff" style={{ marginRight: 8 }} />
-                  <Text style={s.footerBtnLabel}>Subida completa</Text>
-                </View>
-              )}
-            </View>
-          )}
-        </View>
+                {hasPending && (
+                  <>
+                    <View style={s.footerSummary}>
+                      <Text style={s.footerSummaryLabel}>Listos para subir</Text>
+                      <Text style={s.footerSummaryValue} numberOfLines={1}>
+                        {pendingFiles.length} · {formatBytes(pendingBytes)}
+                      </Text>
+                    </View>
+                    <GlassButton
+                      variant="primary"
+                      label={`Subir ${pendingLabel}`}
+                      onPress={startUpload}
+                      icon={(color) => <Ionicons name="cloud-upload-outline" size={20} color={color} />}
+                      style={s.footerGlassButton}
+                    />
+                  </>
+                )}
+
+                {allDone && (
+                  <View style={[s.footerBtn, s.footerBtnDone]}>
+                    <Ionicons name="checkmark" size={20} color={glassColors.success} style={{ marginRight: 8 }} />
+                    <Text style={[s.footerBtnLabel, { color: glassColors.success }]}>Subida completa</Text>
+                  </View>
+                )}
+              </View>
+            )}
+          </View>
+        </ModalKeyboardView>
       </View>
-    </Modal>
+    </FullScreenPortal>
   );
 }
 
@@ -519,44 +529,56 @@ function EmptyState({ onSelect }: { onSelect: () => void }) {
       </View>
       <Text style={s.emptyTitle}>No hay archivos</Text>
       <Text style={s.emptySub}>Seleccioná uno o varios archivos para adjuntar.</Text>
-      <TouchableOpacity style={s.emptyBtn} onPress={onSelect} activeOpacity={0.85}>
-        <Ionicons name="add" size={18} color="#fff" style={{ marginRight: 8 }} />
-        <Text style={s.emptyBtnText}>Seleccionar archivos</Text>
-      </TouchableOpacity>
+      <GlassButton
+        variant="primary"
+        label="Seleccionar archivos"
+        onPress={onSelect}
+        icon={(color) => <Ionicons name="add" size={18} color={color} />}
+      />
     </View>
   );
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────────
 const s = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' },
-  sheet: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '94%',
-    flexShrink: 1,
+  fullScreen: {
+    ...StyleSheet.absoluteFillObject,
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#ffffff',
+    zIndex: 1000,
+    elevation: 8,
+  },
+  keyboardContainer: {
+    flex: 1,
+    width: '100%',
+  },
+  container: {
+    flex: 1,
+    backgroundColor: '#ffffff',
   },
 
   // Header
   header: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingHorizontal: 20,
-    paddingTop: 22,
-    paddingBottom: 6,
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    gap: 12,
   },
-  headerText: { flex: 1, minWidth: 0, paddingRight: 12 },
-  title: { fontSize: 20, fontWeight: '800', color: INK, lineHeight: 25, letterSpacing: -0.2 },
-  subtitle: { fontSize: 13.5, color: MUTED, marginTop: 5 },
-  closeBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: PANEL,
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(17,24,28,0.12)',
+    backgroundColor: 'rgba(17,24,28,0.03)',
   },
+  headerText: { flex: 1, minWidth: 0 },
+  title: { fontSize: 20, fontWeight: '800', color: INK, lineHeight: 25, letterSpacing: -0.2 },
+  subtitle: { fontSize: 13.5, color: MUTED, marginTop: 3 },
 
   // List
   list: { flexGrow: 0 },
@@ -626,7 +648,7 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1.6,
     borderStyle: 'dashed',
-    borderColor: '#c2c7cd',
+    borderColor: 'rgba(17,24,28,0.18)',
     borderRadius: 13,
     paddingVertical: 14,
     backgroundColor: '#fff',
@@ -653,15 +675,6 @@ const s = StyleSheet.create({
   },
   emptyTitle: { fontSize: 17, fontWeight: '700', color: INK, marginBottom: 6 },
   emptySub: { fontSize: 13.5, color: MUTED, textAlign: 'center', maxWidth: 240, marginBottom: 18 },
-  emptyBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: BLUE_BTN,
-    borderRadius: 13,
-    paddingVertical: 13,
-    paddingHorizontal: 22,
-  },
-  emptyBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
 
   // Footer
   footer: {
@@ -679,14 +692,18 @@ const s = StyleSheet.create({
   },
   footerSummaryLabel: { fontSize: 13, color: MUTED },
   footerSummaryValue: { fontSize: 13, fontWeight: '600', color: INK },
-  footerBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: BLUE_BTN,
-    borderRadius: 14,
+  footerGlassButton: {
     paddingVertical: 16,
   },
-  footerBtnDone: { backgroundColor: GREEN },
-  footerBtnLabel: { fontSize: 16.5, fontWeight: '700', color: '#fff' },
+  footerBtn: {
+    ...glassStyles.buttonSecondary,
+    paddingVertical: 16,
+  },
+  footerBtnUploading: {
+    ...glassStyles.button,
+  },
+  footerBtnDone: {
+    ...glassStyles.buttonSuccess,
+  },
+  footerBtnLabel: { fontSize: 16.5, fontWeight: '700', color: glassColors.text },
 });

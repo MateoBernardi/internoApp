@@ -10,6 +10,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { KEYBOARD_BEHAVIOR } from '@/shared/ui/keyboard';
+import { glassStyles } from '@/shared/ui/glass';
 const colors = Colors['light'];
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -193,13 +194,13 @@ export default function EditarUsuario() {
             <ThemedText style={styles.subtitle}>Modificá tus datos de cuenta</ThemedText>
 
             {/* Section 1: Account data */}
-            <ThemedView style={styles.formContainer}>
+            <ThemedView style={[glassStyles.card, styles.formContainer]}>
               <ThemedText style={styles.sectionTitle}>Datos de la Cuenta</ThemedText>
 
               {/* Read-only: Nombre */}
               <View style={styles.readonlyField}>
                 <ThemedText style={styles.readonlyLabel}>Nombre</ThemedText>
-                <View style={styles.readonlyValue}>
+                <View style={[glassStyles.fieldGlass, styles.readonlyValue]}>
                   <ThemedText style={styles.readonlyText}>{user.nombre}</ThemedText>
                 </View>
               </View>
@@ -207,7 +208,7 @@ export default function EditarUsuario() {
               {/* Read-only: Apellido */}
               <View style={styles.readonlyField}>
                 <ThemedText style={styles.readonlyLabel}>Apellido</ThemedText>
-                <View style={styles.readonlyValue}>
+                <View style={[glassStyles.fieldGlass, styles.readonlyValue]}>
                   <ThemedText style={styles.readonlyText}>{user.apellido}</ThemedText>
                 </View>
               </View>
@@ -225,13 +226,13 @@ export default function EditarUsuario() {
               ) : (
                 <>
                   {successMessage ? (
-                    <View style={styles.successContainer}>
+                    <View style={[glassStyles.successBox, styles.successContainer]}>
                       <ThemedText style={styles.successText}>{successMessage}</ThemedText>
                     </View>
                   ) : null}
 
                   <InputWithIcon
-                    icon="👤"
+                    variant="glass"
                     placeholder={user.username}
                     value={username}
                     onChangeText={(v) => handleUserDataChange('username', v)}
@@ -241,7 +242,7 @@ export default function EditarUsuario() {
                   {errors.username ? <ThemedText style={styles.errorText}>{errors.username}</ThemedText> : null}
 
                   <InputWithIcon
-                    icon="✉️"
+                    variant="glass"
                     placeholder={user.email}
                     value={email}
                     onChangeText={(v) => handleUserDataChange('email', v)}
@@ -284,17 +285,17 @@ export default function EditarUsuario() {
             </ThemedView>
 
             {/* Section 2: Change password */}
-            <ThemedView style={[styles.formContainer, { marginTop: 20 }]}>
+            <ThemedView style={[glassStyles.card, styles.formContainer, { marginTop: 20 }]}>
               <ThemedText style={styles.sectionTitle}>Cambiar Contraseña</ThemedText>
 
               {successPasswordMessage ? (
-                <View style={styles.successContainer}>
+                <View style={[glassStyles.successBox, styles.successContainer]}>
                   <ThemedText style={styles.successText}>{successPasswordMessage}</ThemedText>
                 </View>
               ) : null}
 
               <InputWithIcon
-                icon="🔒"
+                variant="glass"
                 placeholder="Contraseña actual"
                 value={oldPassword}
                 onChangeText={(v) => handlePasswordChange('oldPassword', v)}
@@ -306,7 +307,7 @@ export default function EditarUsuario() {
               {errors.oldPassword ? <ThemedText style={styles.errorText}>{errors.oldPassword}</ThemedText> : null}
 
               <InputWithIcon
-                icon="🔒"
+                variant="glass"
                 placeholder="Nueva contraseña"
                 value={newPassword}
                 onChangeText={(v) => handlePasswordChange('newPassword', v)}
@@ -318,7 +319,7 @@ export default function EditarUsuario() {
               {errors.newPassword ? <ThemedText style={styles.errorText}>{errors.newPassword}</ThemedText> : null}
 
               <InputWithIcon
-                icon="🔒"
+                variant="glass"
                 placeholder="Confirmar contraseña"
                 value={confirmPassword}
                 onChangeText={(v) => handlePasswordChange('confirmPassword', v)}
@@ -380,15 +381,8 @@ const styles = StyleSheet.create({
   formContainer: {
     width: '100%',
     maxWidth: 380,
-    backgroundColor: colors.componentBackground,
-    borderRadius: 16,
     padding: '6%',
     gap: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 8,
   },
   readonlyField: {
     marginBottom: 4,
@@ -400,22 +394,14 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   readonlyValue: {
-    borderWidth: 1,
-    borderColor: '#e0e3e7',
-    borderRadius: 12,
     paddingHorizontal: '3%',
     paddingVertical: '2.5%',
-    backgroundColor: colors.background,
   },
   readonlyText: {
     fontSize: 14,
     color: colors.text,
   },
   successContainer: {
-    padding: '3%',
-    backgroundColor: '#d4edda',
-    borderRadius: 8,
-    borderLeftWidth: 4,
     borderLeftColor: colors.success,
   },
   successText: {

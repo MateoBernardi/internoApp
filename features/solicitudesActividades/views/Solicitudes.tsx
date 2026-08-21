@@ -5,7 +5,6 @@ import {
     ActivityIndicator,
     StyleSheet,
     Text,
-    TextInput,
     TouchableOpacity,
     View,
 } from 'react-native';
@@ -14,6 +13,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 // Componentes UI
 import { ThemedView } from '@/components/themed-view';
 import { CreateButton } from '@/components/ui/CreateButton';
+import { GlassTabSelector } from '@/components/ui/GlassTabSelector';
+import { SearchBar } from '@/components/ui/SearchBar';
 import { Colors } from '@/constants/theme';
 
 // Componentes de Dominio
@@ -110,47 +111,30 @@ export default function SolicitudesView({ onRefresh, refreshing }: SolicitudesVi
 
   return (
     <ThemedView style={styles.container}>
-      {/* BUSCADOR */}
+      {/* SELECTOR DE PESTAÑAS + BUSCADOR */}
       <View style={[styles.searchContainer, { paddingTop: 10 }]}>
+        <GlassTabSelector
+          tabs={[
+            { key: 'solicitudes', label: 'Solicitudes', showBadge: solicitudesTabBadge },
+            { key: 'chats', label: 'Chats', showBadge: chatsTabBadge },
+          ]}
+          activeKey={activeTab}
+          onChange={(key) => handleChangeTab(key as 'solicitudes' | 'chats')}
+        />
+
         <View style={styles.searchRow}>
-          <View style={styles.searchBar}>
-            <Ionicons name="search" size={18} color="#999" />
-            <TextInput
-              placeholder="Buscar título, descripción o personas..."
-              value={search}
-              onChangeText={setSearch}
-              style={styles.searchInput}
-              placeholderTextColor="#999"
-              clearButtonMode="while-editing"
-            />
-          </View>
+          <SearchBar
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Buscar título, descripción o personas..."
+            onClear={() => setSearch('')}
+            style={styles.searchBarStyle}
+          />
 
           <CreateButton
             onPress={() => setShowCrearSolicitud(true)}
             accessibilityLabel="Nueva solicitud"
           />
-        </View>
-
-        {/* SELECTOR DE PESTAÑAS */}
-        <View style={styles.tabBar}>
-          <TouchableOpacity
-            style={[styles.tabItem, !isChatsTab && styles.tabItemActive]}
-            onPress={() => handleChangeTab('solicitudes')}
-          >
-            <View style={styles.tabLabelRow}>
-              <Text style={[styles.tabText, !isChatsTab && styles.tabTextActive]}>Solicitudes</Text>
-              {solicitudesTabBadge && <View style={styles.tabBadgeDot} />}
-            </View>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tabItem, isChatsTab && styles.tabItemActive]}
-            onPress={() => handleChangeTab('chats')}
-          >
-            <View style={styles.tabLabelRow}>
-              <Text style={[styles.tabText, isChatsTab && styles.tabTextActive]}>Chats</Text>
-              {chatsTabBadge && <View style={styles.tabBadgeDot} />}
-            </View>
-          </TouchableOpacity>
         </View>
       </View>
 
@@ -234,70 +218,22 @@ export default function SolicitudesView({ onRefresh, refreshing }: SolicitudesVi
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
+  container: { flex: 1, backgroundColor: colors.componentBackground },
   searchContainer: {
     paddingHorizontal: 16,
     paddingBottom: 8,
-    backgroundColor: colors.background,
+    backgroundColor: colors.componentBackground,
+    gap: 10,
   },
   searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  searchBar: {
+  searchBarStyle: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f0f2f5',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    height: 44,
-    gap: 8,
-  },
-  searchInput: { flex: 1, fontSize: 15, color: '#333' },
-  tabBar: {
-    flexDirection: 'row',
-    marginTop: 10,
-    backgroundColor: '#f0f2f5',
-    borderRadius: 12,
-    padding: 4,
-    gap: 4,
-  },
-  tabItem: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 8,
-    borderRadius: 9,
-  },
-  tabItemActive: {
-    backgroundColor: colors.componentBackground,
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 2,
-    shadowOffset: { width: 0, height: 1 },
-  },
-  tabText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#6b7280',
-  },
-  tabTextActive: {
-    color: colors.tint,
-  },
-  tabLabelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  tabBadgeDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-    backgroundColor: colors.error,
-    flexShrink: 0,
+    marginHorizontal: 0,
+    marginVertical: 0,
   },
   headerInfo: {
     flexDirection: 'row',

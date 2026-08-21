@@ -1,6 +1,7 @@
 import { ThemedText } from '@/components/themed-text';
 import { SearchBar } from '@/components/ui/SearchBar';
 import { Colors } from '@/constants/theme';
+import { glassStyles } from '@/shared/ui/glass';
 import { useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
@@ -38,7 +39,7 @@ export function Reportes() {
 		<View style={styles.container}>
 			{/* Banner de comparación */}
 			{params.comparingWith && (
-				<View style={{ backgroundColor: colors.lightTint + '15', paddingVertical: '2.5%', paddingHorizontal: '4%' }}>
+				<View style={[glassStyles.fieldGlass, styles.compareBanner]}>
 					<ThemedText style={{ color: colors.lightTint, fontWeight: '600', textAlign: 'center', fontSize: 14 }}>
 						Seleccioná un empleado para comparar
 					</ThemedText>
@@ -98,6 +99,12 @@ const styles = StyleSheet.create({
 	container: {
 		flex: 1,
 		backgroundColor: colors.componentBackground,
+	},
+	compareBanner: {
+		paddingVertical: '2.5%',
+		paddingHorizontal: '4%',
+		marginHorizontal: '3%',
+		marginBottom: 10,
 	},
 	searchBarContainer: {
 		paddingHorizontal: '3%',

@@ -13,7 +13,7 @@ import { glassColors } from '@/shared/ui/glass';
 import { adminRoles, allRoles } from '@/shared/users/roles';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -35,7 +35,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { UserSelector } from '../../../components/UserSelector';
 import { useCreateObjetivo } from '../../kanban/hooks/useObjetivos';
 import type { CreateObjetivo, Invitado } from '../../kanban/models/Objetivo';
-import { MESSAGE_STATES, formatDateDDMMYYYY, formatTimeHHMM } from '../conversacion/constants';
+import { MESSAGE_STATES, formatDateDDMMYYYY, formatDayLabel, formatTimeHHMM, isSameCalendarDay } from '../conversacion/constants';
 import { buildArchivoFileItem } from '../conversacion/fileHelpers';
 import { useAdjuntos } from '../conversacion/hooks/useAdjuntos';
 import { useAlertModal } from '../conversacion/hooks/useAlertModal';
@@ -204,20 +204,18 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
     hasNextPage, isFetchingNextPage, fetchNextPage,
   });
 
-  const contentScrollRef = useRef<ScrollView>(null);
-
   useEffect(() => {
     if (Platform.OS !== 'android') return;
+    // rAF lets KeyboardAvoidingView remove its padding and the layout settle
+    // before we scroll, so scrollToEnd resolves against the full viewport and
+    // re-clamps the stale offset.
     const sub = Keyboard.addListener('keyboardDidHide', () => {
-      // rAF lets KeyboardAvoidingView remove its padding and the layout settle
-      // before we scroll, so scrollToEnd resolves against the full viewport and
-      // re-clamps the stale offset.
       requestAnimationFrame(() => {
-        contentScrollRef.current?.scrollToEnd({ animated: false });
+        messagesScrollRef.current?.scrollToEnd({ animated: false });
       });
     });
     return () => sub.remove();
-  }, []);
+  }, [messagesScrollRef]);
 
   // ─── Derivados del prop solicitud ─────────────────────────────────────────
 
@@ -340,6 +338,21 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
 
     return [...base, ...sistema];
   }, [bitacora, bitacoraVisible, solicitud, esActividadCreada, isExpiredState, hasNextPage]);
+
+  // La propuesta de fecha vigente es la del mensaje más reciente que trae
+  // fecha_inicio_nueva/fecha_fin_nueva — solo se muestra mientras el estado
+  // efectivo siga "MODIFIED" (todavía no fue aceptada ni rechazada).
+  const isPendingModificacion = efectivoEstado === 'MODIFIED' || efectivoEstado === 'MODIFIED_BY_HOST';
+  const latestProposedDate = useMemo(() => {
+    if (!isPendingModificacion) return null;
+    for (let i = mensajes.length - 1; i >= 0; i--) {
+      const item = mensajes[i] as any;
+      if (item.fecha_inicio_nueva && item.fecha_fin_nueva) {
+        return { inicio: item.fecha_inicio_nueva, fin: item.fecha_fin_nueva };
+      }
+    }
+    return null;
+  }, [mensajes, isPendingModificacion]);
 
   // ─── Modificar fechas ─────────────────────────────────────────────────────
 
@@ -679,19 +692,19 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
              de iOS; ahora es full screen, pero el inset sigue siendo necesario para no
              comerse el touch del botón de cerrar bajo el status bar/notch. */}
           <View style={[styles.modalHeader, { paddingTop: insets.top + 5 }]}>
-              <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-                <Ionicons name="chevron-back" size={24} color="#999" />
+              <TouchableOpacity onPress={handleClose} style={styles.backButton}>
+                <Ionicons name="chevron-back" size={24} color={glassColors.textMuted} />
               </TouchableOpacity>
               <Text style={styles.modalHeaderTitle} numberOfLines={1}>{solicitud.titulo}</Text>
             </View>
 
-            <ScrollView
-              ref={contentScrollRef}
-              style={styles.content}
-              contentContainerStyle={[styles.contentContainer, { paddingBottom: insets.bottom + 24 }]}
-              showsVerticalScrollIndicator={false}
-              nestedScrollEnabled
-            >
+            <View style={styles.contentBody}>
+              <ScrollView
+                style={styles.topSection}
+                contentContainerStyle={styles.topSectionContent}
+                showsVerticalScrollIndicator={false}
+                nestedScrollEnabled
+              >
               {/* Participantes */}
               <ParticipantesBlock
                 participantes={displayParticipantes.map(inv => ({
@@ -723,6 +736,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
               <View style={styles.contentBlock}>
                 <View style={styles.badgeRow}>
                   <View style={styles.chip}>
+                    <Ionicons name="pricetag-outline" size={12} color={colors.lightTint} style={{ marginRight: 5 }} />
                     <ThemedText style={styles.chipText}>
                       {formatTipoActividad(solicitud.tipo_actividad)}
                     </ThemedText>
@@ -774,18 +788,27 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                   </View>
                 </View>
               )}
+              </ScrollView>
 
-              {/* Mensajes */}
-              <View style={styles.messagesCard}>
+              {/* Mensajes: usa todo el espacio restante debajo de participantes/banners */}
+              <View style={[styles.messagesCard, styles.messagesCardFlex]}>
                 <View style={styles.sectionHeaderRow}>
                   <ThemedText style={styles.label}>Mensajes</ThemedText>
                 </View>
 
-                <View style={styles.bitacoraContainer}>
+                <View style={[styles.bitacoraContainer, styles.bitacoraFlex]}>
+                  {latestProposedDate && (
+                    <View style={styles.proposedDateBanner}>
+                      <Ionicons name="time-outline" size={16} color={colors.warning} style={{ marginRight: 8 }} />
+                      <ThemedText style={styles.proposedDateText}>
+                        Fecha propuesta: {formatDateDDMMYYYY(new Date(latestProposedDate.inicio))} {formatTimeHHMM(new Date(latestProposedDate.inicio))} {'→'} {formatDateDDMMYYYY(new Date(latestProposedDate.fin))} {formatTimeHHMM(new Date(latestProposedDate.fin))}
+                      </ThemedText>
+                    </View>
+                  )}
                   {hasDates && hasNextPage && (
                     <View style={styles.pinnedDatesBar}>
                       <ThemedText style={styles.pinnedDatesText}>
-                        Fechas: {formatDateDDMMYYYY(new Date(solicitud.fecha_inicio!))} {formatTimeHHMM(new Date(solicitud.fecha_inicio!))} {'→'} {formatDateDDMMYYYY(new Date(solicitud.fecha_fin!))} {formatTimeHHMM(new Date(solicitud.fecha_fin!))}
+                        Fechas: {formatDateDDMMYYYY(new Date(solicitud.fecha_inicio!))} {formatTimeHHMM(new Date(solicitud.fecha_inicio!))} {'-'} {formatDateDDMMYYYY(new Date(solicitud.fecha_fin!))} {formatTimeHHMM(new Date(solicitud.fecha_fin!))}
                       </ThemedText>
                     </View>
                   )}
@@ -794,7 +817,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                   ) : mensajes.length > 0 ? (
                     <ScrollView
                       ref={messagesScrollRef}
-                      style={styles.messagesList}
+                      style={styles.messagesListFlex}
                       contentContainerStyle={styles.messagesListContent}
                       showsVerticalScrollIndicator={false}
                       nestedScrollEnabled
@@ -807,7 +830,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                           <ActivityIndicator size="small" color={colors.lightTint} />
                         </View>
                       )}
-                      {mensajes.map((b: any) => {
+                      {mensajes.map((b: any, index: number) => {
                         const isOwn = b.usuario_id !== null && b.usuario_id === user?.user_context_id;
                         const isDescripcion = b.id === 'descripcion';
                         const isSystem = b.isSystem === true;
@@ -819,38 +842,54 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                         const fechaFinMsg = b.fecha_fin_nueva ?? (isDescripcion ? solicitud.fecha_fin : null);
                         const archivos = Array.isArray(b.archivos) ? b.archivos : [];
 
-                        if (isSystem) return (
-                          <View key={String(b.id)} style={styles.systemMessageContainer}>
-                            <View style={styles.systemMessageBubble}>
-                              <ThemedText style={styles.systemMessageText}>{b.observacion}</ThemedText>
+                        const currentDate = new Date(b.created_at);
+                        const previousDate = index > 0 ? new Date(mensajes[index - 1].created_at) : null;
+                        const showDaySeparator = !previousDate || !isSameCalendarDay(currentDate, previousDate);
+                        const daySeparator = showDaySeparator && (
+                          <View key={`day-${String(b.id)}`} style={styles.daySeparator}>
+                            <View style={styles.daySeparatorPill}>
+                              <Text style={styles.daySeparatorText}>{formatDayLabel(currentDate)}</Text>
                             </View>
                           </View>
                         );
 
+                        if (isSystem) return (
+                          <React.Fragment key={String(b.id)}>
+                            {daySeparator}
+                            <View style={styles.systemMessageContainer}>
+                              <View style={styles.systemMessageBubble}>
+                                <ThemedText style={styles.systemMessageText}>{b.observacion}</ThemedText>
+                              </View>
+                            </View>
+                          </React.Fragment>
+                        );
+
                         return (
-                          <MessageBubble
-                            key={String(b.id)}
-                            id={String(b.id)}
-                            usuarioNombre={b.usuario_nombre}
-                            usuarioApellido={b.usuario_apellido}
-                            createdAt={b.created_at}
-                            observacion={b.observacion}
-                            isOwn={isOwn}
-                            hideTitle={hideTitle}
-                            estadoKey={estadoKey}
-                            archivos={archivos}
-                            fechaInicioMsg={fechaInicioMsg}
-                            fechaFinMsg={fechaFinMsg}
-                            esPropuesta={!!b.fecha_inicio_nueva}
-                            onOpenArchivo={handleOpenAsPreview}
-                            onOpenImage={(archivo, uri) => openWithUri(buildArchivoFileItem({ ...archivo, _resolvedUri: uri }))}
-                            seenBy={b.seen_by}
-                            otherParticipantIds={todosParticipantesIds.filter(id => id !== b.usuario_id)}
-                            resolveParticipantName={(uid) => {
-                              const p = displayParticipantes.find(inv => inv.user_id === uid);
-                              return p ? getParticipanteDisplayName(p) : '';
-                            }}
-                          />
+                          <React.Fragment key={String(b.id)}>
+                            {daySeparator}
+                            <MessageBubble
+                              id={String(b.id)}
+                              usuarioNombre={b.usuario_nombre}
+                              usuarioApellido={b.usuario_apellido}
+                              createdAt={b.created_at}
+                              observacion={b.observacion}
+                              isOwn={isOwn}
+                              hideTitle={hideTitle}
+                              estadoKey={estadoKey}
+                              archivos={archivos}
+                              fechaInicioMsg={fechaInicioMsg}
+                              fechaFinMsg={fechaFinMsg}
+                              esPropuesta={!!b.fecha_inicio_nueva}
+                              onOpenArchivo={handleOpenAsPreview}
+                              onOpenImage={(archivo, uri) => openWithUri(buildArchivoFileItem({ ...archivo, _resolvedUri: uri }))}
+                              seenBy={b.seen_by}
+                              otherParticipantIds={todosParticipantesIds.filter(id => id !== b.usuario_id)}
+                              resolveParticipantName={(uid) => {
+                                const p = displayParticipantes.find(inv => inv.user_id === uid);
+                                return p ? getParticipanteDisplayName(p) : '';
+                              }}
+                            />
+                          </React.Fragment>
                         );
                       })}
                     </ScrollView>
@@ -862,7 +901,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                 </View>
 
                 {/* Composer */}
-                <View style={styles.messageComposer}>
+                <View style={[styles.messageComposer, { marginBottom: insets.bottom }]}>
                   {isModifyMode && (
                     <View style={styles.inlineDateSection}>
                       <View style={styles.inlineDateRow}>
@@ -979,7 +1018,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                   </View>
                 </View>
               </View>
-            </ScrollView>
+            </View>
 
             {/* Date picker inline */}
             {showDatePicker.show && (
@@ -1296,6 +1335,31 @@ function ParticipantesCheckList({ invitados, selectedIds, onToggle, getLabel }: 
 // ─── localStyles ───────────────────────────────────────────────────────────────
 
 const localStyles = StyleSheet.create({
+  // Sin scroll de pantalla completa: participantes/chip/banners quedan en un
+  // bloque acotado arriba, y la tarjeta de mensajes ocupa el resto del alto
+  // disponible con su propio scroll interno (mismo patrón que ConversacionChat).
+  contentBody: {
+    flex: 1,
+    paddingHorizontal: 16,
+  },
+  topSection: {
+    flexGrow: 0,
+    maxHeight: '42%',
+  },
+  topSectionContent: {
+    paddingTop: 8,
+    paddingBottom: 8,
+    gap: 14,
+  },
+  bitacoraFlex: {
+    flex: 1,
+  },
+  messagesCardFlex: {
+    flex: 1,
+  },
+  messagesListFlex: {
+    flex: 1,
+  },
   agendaVerdeBanner: {
     borderRadius: 10,
     borderWidth: 1,
@@ -1325,6 +1389,23 @@ const localStyles = StyleSheet.create({
   agendaVerdeBtnText: {
     fontSize: 13,
     fontWeight: '600',
+  },
+  proposedDateBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: colors.warning + '12',
+    borderWidth: 1,
+    borderColor: colors.warning + '40',
+  },
+  proposedDateText: {
+    flex: 1,
+    fontSize: 12,
+    color: colors.warning,
+    fontWeight: '700',
   },
   pinnedDatesBar: {
     marginBottom: 8,

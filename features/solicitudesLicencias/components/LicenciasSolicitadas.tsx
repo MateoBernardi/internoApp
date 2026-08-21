@@ -1,6 +1,7 @@
 import { ThemedText } from '@/components/themed-text';
 import { SearchBar } from '@/components/ui/SearchBar';
 import { Colors } from '@/constants/theme';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { useSearchUsers } from '@/shared/users/useUser';
 import { Ionicons } from '@expo/vector-icons'; // Importar iconos
 import React, { useCallback, useMemo, useState } from 'react';
@@ -9,7 +10,6 @@ import {
   FlatList,
   ListRenderItem,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   TouchableOpacity,
   View,
@@ -41,7 +41,7 @@ export function LicenciasSolicitadas() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedSolicitudId, setSelectedSolicitudId] = useState<number | null>(null);
   const [detalleVisible, setDetalleVisible] = useState(false);
-  const [selectedEstado, setSelectedEstado] = useState<string>('ALL');
+  const [estadoFilter, setEstadoFilter] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
 
   const { data: solicitudes, isLoading, refetch, isRefetching } = useGetSolicitudesLicencias({});
@@ -79,18 +79,20 @@ export function LicenciasSolicitadas() {
       filtered = filtered.filter(s => s.usuario_id === selectedUserId);
     }
 
-    if (selectedEstado !== 'ALL') {
-      filtered = filtered.filter(s => s.estado === selectedEstado);
+    if (estadoFilter.length > 0) {
+      filtered = filtered.filter(s => estadoFilter.includes(s.estado));
     }
 
     return filtered;
-  }, [solicitudes, selectedUserId, selectedEstado]);
+  }, [solicitudes, selectedUserId, estadoFilter]);
+
+  const toggleEstadoFilter = useCallback((value: string) => {
+    setEstadoFilter(prev => prev.includes(value) ? prev.filter(v => v !== value) : [...prev, value]);
+  }, []);
+
+  const clearFilters = useCallback(() => setEstadoFilter([]), []);
 
   const users = searchResults || [];
-
-  const renderSeparator = useCallback(() => (
-    <View style={[styles.separator, { backgroundColor: colors.icon }]} />
-  ), []);
 
   const renderItem: ListRenderItem<SolicitudLicencia> = useCallback(({ item }) => {
     // Obtenemos el texto del mapeo (excluimos 'ALL' aquí)
@@ -153,39 +155,62 @@ export function LicenciasSolicitadas() {
         </View>
       )}
 
-      {/* Filtros Collapsible */}
-      <View style={styles.filtersSection}>
+      {/* Barra de filtros — mismo patrón que el inbox de Solicitudes */}
+      <View style={styles.filterBar}>
         <TouchableOpacity
-          onPress={() => setShowFilters(!showFilters)}
-          style={styles.filterToggle}
+          onPress={() => setShowFilters(v => !v)}
+          style={[
+            styles.filterToggle,
+            estadoFilter.length > 0 ? styles.filterToggleActive : styles.filterToggleInactive,
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel="Filtrar"
         >
-          <Ionicons name={showFilters ? "chevron-up" : "options-outline"} size={18} color={colors.lightTint} />
-          <ThemedText style={styles.filterToggleText}>
-            Estado: {estadoMapping[selectedEstado]}
+          <Ionicons
+            name="filter-outline"
+            size={20}
+            color={estadoFilter.length > 0 ? glassColors.link : glassColors.textMuted}
+          />
+          <ThemedText
+            style={[
+              styles.filterToggleText,
+              estadoFilter.length > 0 ? styles.filterToggleTextActive : styles.filterToggleTextInactive,
+            ]}
+          >
+            Filtrar
           </ThemedText>
+          {estadoFilter.length > 0 && (
+            <View style={styles.filterBadge}>
+              <ThemedText style={styles.filterBadgeText}>{estadoFilter.length}</ThemedText>
+            </View>
+          )}
         </TouchableOpacity>
-
-        {showFilters && (
-          <View style={styles.collapsibleContent}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsScroll}>
-              {Object.entries(estadoMapping).map(([key, value]) => (
-                <TouchableOpacity
-                  key={key}
-                  onPress={() => setSelectedEstado(key)}
-                  style={[
-                    styles.chip,
-                    selectedEstado === key && styles.chipSelected
-                  ]}
-                >
-                  <ThemedText style={[styles.chipText, selectedEstado === key && styles.chipTextSelected, { color: selectedEstado === key ? colors.componentBackground : colors.text }]}>
-                    {value}
-                  </ThemedText>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
+        {estadoFilter.length > 0 && (
+          <TouchableOpacity onPress={clearFilters}>
+            <ThemedText style={styles.clearText}>Limpiar</ThemedText>
+          </TouchableOpacity>
         )}
       </View>
+
+      {showFilters && (
+        <View style={styles.filterPanel}>
+          <View style={styles.filterGroup}>
+            <ThemedText style={styles.filterGroupLabel}>Estado</ThemedText>
+            <View style={styles.chipRow}>
+              {Object.entries(estadoMapping)
+                .filter(([key]) => key !== 'ALL')
+                .map(([key, value]) => (
+                  <FilterChip
+                    key={key}
+                    label={value}
+                    active={estadoFilter.includes(key)}
+                    onPress={() => toggleEstadoFilter(key)}
+                  />
+                ))}
+            </View>
+          </View>
+        </View>
+      )}
 
       {/* Lista o Mensaje Vacío Personalizado */}
       {filteredSolicitudes.length === 0 ? (
@@ -205,7 +230,6 @@ export function LicenciasSolicitadas() {
           data={filteredSolicitudes}
           renderItem={renderItem}
           keyExtractor={(item) => item.id.toString()}
-          ItemSeparatorComponent={renderSeparator}
           contentContainerStyle={{ paddingBottom: 80 }}
           refreshControl={
             <RefreshControl
@@ -227,6 +251,25 @@ export function LicenciasSolicitadas() {
         />
       )}
     </View>
+  );
+}
+
+interface FilterChipProps {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+}
+
+function FilterChip({ label, active, onPress }: FilterChipProps) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      style={[styles.filterChip, active && styles.filterChipActive]}
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+    >
+      <ThemedText style={[styles.filterChipText, active && styles.filterChipTextActive]}>{label}</ThemedText>
+    </TouchableOpacity>
   );
 }
 
@@ -290,38 +333,108 @@ const styles = StyleSheet.create({
   },
   suggestionText: { fontSize: 14, color: colors.text },
 
-  // Filtros Collapsible
-  filtersSection: { marginHorizontal: '4%', marginBottom: 10 },
+  // Filtros — mismo patrón que SolicitudesList (inbox de Solicitudes)
+  filterBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: '4%',
+    paddingVertical: 6,
+  },
   filterToggle: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
-    gap: 6
-  },
-  filterToggleText: { color: colors.tint, fontWeight: '600', fontSize: 14 },
-  collapsibleContent: { marginTop: 5 },
-  chipsScroll: { flexDirection: 'row', paddingVertical: 5 },
-  chip: {
-    paddingHorizontal: '4%',
-    paddingVertical: '2%',
-    borderRadius: 20,
-    backgroundColor: colors.componentBackground,
-    marginRight: 8,
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 999,
     borderWidth: 1,
-    borderColor: colors.background
   },
-  chipSelected: { backgroundColor: colors.lightTint, borderColor: colors.lightTint },
-  chipText: { fontSize: 13, color: colors.secondaryText },
-  chipTextSelected: { color: colors.componentBackground, fontWeight: '600' },
+  filterToggleText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  filterToggleActive: {
+    borderColor: 'rgba(26,115,232,0.35)',
+    backgroundColor: 'rgba(26,115,232,0.12)',
+  },
+  filterToggleInactive: {
+    borderColor: 'rgba(17,24,28,0.12)',
+    backgroundColor: 'rgba(17,24,28,0.03)',
+  },
+  filterToggleTextActive: {
+    color: glassColors.link,
+  },
+  filterToggleTextInactive: {
+    color: glassColors.textMuted,
+  },
+  filterBadge: {
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 4,
+    backgroundColor: glassColors.link,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  clearText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: glassColors.link,
+  },
+  filterPanel: {
+    marginHorizontal: '4%',
+    marginBottom: 6,
+    padding: 12,
+    gap: 10,
+    ...glassStyles.card,
+  },
+  filterGroup: {
+    gap: 6,
+  },
+  filterGroupLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.secondaryText,
+  },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  filterChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(17,24,28,0.12)',
+    backgroundColor: 'rgba(17,24,28,0.03)',
+  },
+  filterChipActive: {
+    borderColor: 'rgba(26,115,232,0.35)',
+    backgroundColor: 'rgba(26,115,232,0.12)',
+  },
+  filterChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: glassColors.textMuted,
+  },
+  filterChipTextActive: {
+    color: glassColors.link,
+  },
 
   // Lista
-  itemContainer: { padding: '4%', marginHorizontal: '4%', marginVertical: 4, backgroundColor: colors.componentBackground, borderRadius: 12 },
+  itemContainer: { padding: '4%', marginHorizontal: '4%', marginVertical: 4, ...glassStyles.card },
   itemContent: { gap: 4 },
   footerContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 },
   dateText: { fontSize: 12, color: colors.secondaryText },
   estadoBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
   estadoText: { fontSize: 11, fontWeight: '700', color: colors.text },
-  separator: { height: 1, marginHorizontal: '4%' },
 
   // Empty State
   emptyTitle: { fontSize: 16, fontWeight: '600', color: colors.text, marginTop: 12, textAlign: 'center' },

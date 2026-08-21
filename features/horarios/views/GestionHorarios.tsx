@@ -32,7 +32,6 @@ import {
 } from '../viewmodels/useHorarios';
 
 import { CARD, INK, LINE, MUTED, NAVY, RED_FLASH, TURNO_COLOR } from '../theme';
-const PANEL = '#eef0f2';
 
 const DAY_NAMES = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
@@ -555,10 +554,10 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   importIcon: {
+    ...glassStyles.fieldGlass,
     width: 38,
     height: 38,
     borderRadius: 10,
-    backgroundColor: PANEL,
     alignItems: 'center',
     justifyContent: 'center',
   },

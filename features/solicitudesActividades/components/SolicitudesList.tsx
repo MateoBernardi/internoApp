@@ -413,9 +413,9 @@ function SolicitudItem({ solicitud, currentUserId, onPress, onHide, isHiding, on
                 </ThemedText>
 
                 <ThemedText
-                    type="defaultSemiBold"
+                    type={isUnseen ? 'defaultSemiBold' : 'default'}
                     numberOfLines={1}
-                    style={isUnseen && styles.tituloUnseen}
+                    style={isUnseen ? styles.tituloUnseen : styles.tituloSeen}
                 >
                     {solicitud.titulo}
                 </ThemedText>
@@ -432,7 +432,7 @@ function SolicitudItem({ solicitud, currentUserId, onPress, onHide, isHiding, on
                         {descripcionPreview.icon && (
                             <Ionicons name={descripcionPreview.icon as any} size={13} color={colors.secondaryText} />
                         )}
-                        <ThemedText numberOfLines={2} style={[styles.description, { color: colors.secondaryText, flex: 1 }]}>
+                        <ThemedText numberOfLines={1} style={[styles.description, { color: colors.secondaryText, flex: 1 }]}>
                             {descripcionPreview.text}
                         </ThemedText>
                         {showSeenMark && (
@@ -610,6 +610,10 @@ const styles = StyleSheet.create({
     },
     tituloUnseen: {
         color: '#000000',
+    },
+    tituloSeen: {
+        color: colors.secondaryText,
+        fontWeight: '400',
     },
     contexto: {
         fontSize: 12,

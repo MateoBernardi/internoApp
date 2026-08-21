@@ -160,7 +160,7 @@ const styles = StyleSheet.create({
   closeBtn: {
     padding: 6,
     borderRadius: 16,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: 'rgba(17,24,28,0.03)',
   },
   subtitle: {
     fontSize: 13,

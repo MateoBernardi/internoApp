@@ -7,8 +7,10 @@ import { useAuth } from '@/features/auth/context/AuthContext';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { generateIdempotencyKey } from '@/shared/idempotency';
 import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
-import { glassColors, glassStyles } from '@/shared/ui/glass';
+import { focusBorderStyles, glassColors, glassStyles } from '@/shared/ui/glass';
 import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
+import { useFocusBorder } from '@/shared/ui/useFocusBorder';
+import { useSafeBottomInset } from '@/hooks/useSafeBottomInset';
 import { adminRoles, allRoles } from '@/shared/users/roles';
 import { Ionicons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
@@ -85,6 +87,10 @@ interface ConversacionChatProps {
 export function ConversacionChat({ solicitud, visible, onClose }: ConversacionChatProps) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const bottomInset = useSafeBottomInset();
+  const searchFocus = useFocusBorder();
+  const composerFocus = useFocusBorder();
+  const tituloFocus = useFocusBorder();
   const { user } = useAuth();
   const { hasRole } = useRoleCheck();
 
@@ -440,14 +446,16 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
             </View>
 
             {mensajesSearch.active && (
-              <View style={localStyles.searchBar}>
+              <View style={[localStyles.searchBar, searchFocus.isFocused && { borderBottomColor: glassColors.link }]}>
                 <Ionicons name="search" size={16} color={colors.secondaryText} />
                 <TextInput
-                  style={localStyles.searchInput}
+                  style={[localStyles.searchInput, focusBorderStyles.inputNoOutline]}
                   placeholder="Buscar en la conversación"
                   placeholderTextColor={colors.secondaryText}
                   value={mensajesSearch.query}
                   onChangeText={mensajesSearch.setQuery}
+                  onFocus={searchFocus.onFocus}
+                  onBlur={searchFocus.onBlur}
                   autoFocus
                 />
                 {mensajesSearch.query.trim().length > 0 && (
@@ -584,7 +592,7 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
                 </View>
 
                 {/* Composer */}
-                <View style={[styles.chatComposer, { marginBottom: insets.bottom }]}>
+                <View style={[styles.chatComposer, { marginBottom: bottomInset }]}>
                   {pickedFiles.length > 0 && (
                     <View style={styles.chatComposerAttachments}>
                       {pickedFiles.map((f, i) => (
@@ -598,7 +606,7 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
                     </View>
                   )}
 
-                  <View style={styles.chatComposerRow}>
+                  <View style={[styles.chatComposerRow, composerFocus.isFocused && { borderColor: glassColors.link }]}>
                     {!isExpiredState && (
                       <TouchableOpacity style={styles.chatActionButton} onPress={handleAgregarAdjunto}>
                         <Ionicons name="add-outline" size={20} color={colors.lightTint} />
@@ -606,13 +614,14 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
                     )}
 
                     <TextInput
-                      style={styles.chatComposerInput}
+                      style={[styles.chatComposerInput, focusBorderStyles.inputNoOutline]}
                       placeholder="Escribir mensaje"
                       placeholderTextColor={colors.secondaryText}
                       value={messageDraft}
                       onChangeText={setMessageDraft}
+                      onFocus={composerFocus.onFocus}
+                      onBlur={composerFocus.onBlur}
                       multiline
-                      textAlignVertical="top"
                       editable={!isExpiredState}
                     />
 
@@ -640,9 +649,15 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
                       <View style={styles.modalContent}>
                         <ThemedText type="subtitle" style={{ marginBottom: 16 }}>Editar título</ThemedText>
                         <TextInput
-                          style={localStyles.tituloInput}
+                          style={[
+                            localStyles.tituloInput,
+                            focusBorderStyles.inputNoOutline,
+                            tituloFocus.isFocused && { borderColor: glassColors.link },
+                          ]}
                           value={tituloDraft}
                           onChangeText={setTituloDraft}
+                          onFocus={tituloFocus.onFocus}
+                          onBlur={tituloFocus.onBlur}
                           placeholder="Nombre del grupo"
                           placeholderTextColor={colors.secondaryText}
                           maxLength={100}
@@ -1011,7 +1026,7 @@ const localStyles = StyleSheet.create({
   },
   chatComposerRow: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     gap: 6,
     borderRadius: 22,
     borderWidth: 1,

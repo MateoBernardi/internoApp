@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect } from "react";
 import { Alert, BackHandler, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeBottomInset } from '@/hooks/useSafeBottomInset';
 import { Bitacora, Objetivo } from "../models/Objetivo";
 
 interface DetailModalProps {
@@ -21,6 +22,7 @@ interface DetailModalProps {
 
 export function DetailModal({ visible, objetivo, onClose, onDelete, onInfo, onMove, currentUserId }: DetailModalProps) {
     const insets = useSafeAreaInsets();
+    const bottomInset = useSafeBottomInset();
 
     useEffect(() => {
         if (!visible) return;
@@ -38,7 +40,7 @@ export function DetailModal({ visible, objetivo, onClose, onDelete, onInfo, onMo
     return (
         <FullScreenPortal>
         <View style={styles.fullScreen}>
-                <View style={[styles.modalContainer, { paddingBottom: insets.bottom }]}>
+                <View style={[styles.modalContainer, { paddingBottom: bottomInset }]}>
 
                     <View style={[styles.modalHeader, glassStyles.sheetHeader, { paddingTop: insets.top + 12 }]}>
                         <AppBackButton onPress={onClose} />
@@ -147,6 +149,7 @@ export function DetailModal({ visible, objetivo, onClose, onDelete, onInfo, onMo
                             onPress={() => onMove?.(objetivo)}
                             icon={(color) => <Ionicons name="swap-horizontal-outline" size={18} color={color} />}
                             style={styles.footerButton}
+                            textStyle={styles.footerButtonText}
                         />
                         <GlassButton
                             label="Eliminar"
@@ -154,6 +157,7 @@ export function DetailModal({ visible, objetivo, onClose, onDelete, onInfo, onMo
                             disabled={!isOwner}
                             icon={(color) => <Ionicons name="trash-outline" size={18} color={color} />}
                             style={styles.footerButton}
+                            textStyle={styles.footerButtonText}
                             onPress={() => {
                                 Alert.alert(
                                     'Eliminar',
@@ -246,7 +250,8 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         borderRadius: 19,
-        padding: 0,
+        paddingHorizontal: 0,
+        paddingVertical: 0,
     },
     modalContent: {
         flex: 1,
@@ -467,13 +472,16 @@ const styles = StyleSheet.create({
         paddingBottom: 24,
         borderTopWidth: 1,
         borderTopColor: 'rgba(17,24,28,0.08)',
-        gap: 10,
+        gap: 14,
         backgroundColor: '#ffffff',
     },
     footerButton: {
         flex: 1,
-        paddingHorizontal: 12,
-        paddingVertical: 12,
+        paddingHorizontal: 14,
+        paddingVertical: 15,
+    },
+    footerButtonText: {
+        fontWeight: '500',
     },
     buttonPrimary: {
         backgroundColor: Colors.light.tint,

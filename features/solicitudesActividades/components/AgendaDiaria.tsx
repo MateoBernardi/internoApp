@@ -1,3 +1,4 @@
+import { glassColors } from '@/shared/ui/glass';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -296,7 +297,7 @@ const styles = StyleSheet.create({
   dayHeaderText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#111827',
+    color: glassColors.text,
   },
   listContent: {
     paddingBottom: 16,
@@ -306,7 +307,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 8,
     minHeight: 56,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e5e7eb',
+    borderBottomColor: 'rgba(17,24,28,0.08)',
   },
   hourLabelColumn: {
     width: 54,
@@ -314,7 +315,7 @@ const styles = StyleSheet.create({
   },
   hourLabelText: {
     fontSize: 12,
-    color: '#6b7280',
+    color: glassColors.textMuted,
     fontWeight: '600',
   },
   hourContentColumn: {
@@ -335,7 +336,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     marginBottom: 4,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: 'rgba(17,24,28,0.08)',
   },
   activityCardConnectBottom: {
     borderBottomLeftRadius: 0,
@@ -371,11 +372,11 @@ const styles = StyleSheet.create({
   timeText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#202124',
+    color: glassColors.text,
   },
   endTimeText: {
     fontSize: 12,
-    color: '#5f6368',
+    color: glassColors.textMuted,
     marginTop: 4,
   },
   contentColumn: {
@@ -384,7 +385,7 @@ const styles = StyleSheet.create({
   titleText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#202124',
+    color: glassColors.text,
   },
   licenseLabel: {
     fontSize: 12,
@@ -406,7 +407,7 @@ const styles = StyleSheet.create({
   },
   descriptionText: {
     fontSize: 13,
-    color: '#5f6368',
+    color: glassColors.textMuted,
     marginTop: 4,
   },
   deleteButton: {

@@ -1,5 +1,6 @@
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -41,7 +42,7 @@ export function ListaEncuestasPendientes() {
         return (
           <TouchableOpacity
             key={item.id.toString()}
-            style={styles.encuestaCard}
+            style={[glassStyles.card, styles.encuestaCard]}
             onPress={() => handleResponderEncuesta(item)}
             activeOpacity={0.7}
           >
@@ -86,15 +87,9 @@ const styles = StyleSheet.create({
     padding: 15,
   },
   encuestaCard: {
-    backgroundColor: colors.componentBackground,
-    borderRadius: 12,
+    borderRadius: 14,
     padding: 16,
     marginBottom: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -102,25 +97,25 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   alertBadge: {
-    backgroundColor: colors.componentBackground,
+    backgroundColor: 'rgba(255,152,0,0.12)',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 6,
   },
   alertText: {
     fontSize: 12,
-    color: colors.text,
+    color: colors.warning,
     fontWeight: '600',
   },
   anonimaBadge: {
-    backgroundColor: colors.componentBackground,
+    backgroundColor: 'rgba(17,24,28,0.03)',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 6,
   },
   anonimaText: {
     fontSize: 12,
-    color: colors.text,
+    color: glassColors.textMuted,
     fontWeight: '600',
   },
   titulo: {

@@ -1,4 +1,5 @@
 import { CreateButton } from '@/components/ui/CreateButton';
+import { glassStyles } from '@/shared/ui/glass';
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 
@@ -9,7 +10,7 @@ interface CrearNovedadCardProps {
 export function CrearNovedadCard({ onPress }: CrearNovedadCardProps) {
   return (
     <View style={styles.container}>
-      <View style={styles.card}>
+      <View style={[glassStyles.card, styles.card]}>
         <CreateButton onPress={onPress} accessibilityLabel="Nueva novedad" />
       </View>
     </View>
@@ -19,15 +20,14 @@ export function CrearNovedadCard({ onPress }: CrearNovedadCardProps) {
 const styles = StyleSheet.create({
   container: {
     width: 132,
-    minHeight: 88,
+    minHeight: 92,
+    marginRight: 10,
   },
   card: {
     flex: 1,
-    minHeight: 88,
+    minHeight: 92,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 12,
-    borderRightWidth: 1,
-    borderRightColor: '#C7D0DA',
   },
 });

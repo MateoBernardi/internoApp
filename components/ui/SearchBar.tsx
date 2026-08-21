@@ -1,4 +1,6 @@
 import { Colors } from '@/constants/theme';
+import { focusBorderStyles, glassColors } from '@/shared/ui/glass';
+import { useFocusBorder } from '@/shared/ui/useFocusBorder';
 import React, { memo } from 'react';
 import {
   StyleSheet,
@@ -31,6 +33,7 @@ export const SearchBar = memo(({
   accessibilityLabel = 'Buscador',
 }: SearchBarProps) => {
   const colors = Colors['light'];
+  const focus = useFocusBorder();
 
   return (
     <View
@@ -38,7 +41,7 @@ export const SearchBar = memo(({
         styles.container,
         {
           backgroundColor: colors.componentBackground,
-          borderColor: colors.lightTint,
+          borderColor: focus.isFocused ? glassColors.link : 'rgba(17,24,28,0.12)',
           borderWidth: 1,
         },
         style,
@@ -50,13 +53,14 @@ export const SearchBar = memo(({
           {
             color: colors.text,
           },
+          focusBorderStyles.inputNoOutline,
         ]}
         placeholder={placeholder}
         placeholderTextColor={colors.secondaryText}
         value={value}
         onChangeText={onChangeText}
-        onFocus={onFocus}
-        onBlur={onBlur}
+        onFocus={() => { focus.onFocus(); onFocus?.(); }}
+        onBlur={() => { focus.onBlur(); onBlur?.(); }}
         accessible
         accessibilityLabel={accessibilityLabel}
         accessibilityRole="search"
@@ -96,6 +100,8 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     paddingVertical: 8,
+    textAlignVertical: 'center',
+    includeFontPadding: false,
   },
   clearIcon: {
     fontSize: 16,

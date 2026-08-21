@@ -45,6 +45,7 @@ import Animated, {
     runOnJS,
     withSpring,
     withTiming,
+    type AnimatedRef,
     type SharedValue,
 } from 'react-native-reanimated';
 import { FormObjetivoModal } from '../components/CrearObjetivo';
@@ -92,8 +93,11 @@ const BOARD_CONTENT_WIDTH =
     VISIBLE_ESTADOS.length * COLUMN_WIDTH +
     (VISIBLE_ESTADOS.length - 1) * COLUMN_GAP +
     BOARD_PADDING * 2;
-const AUTO_SCROLL_EDGE = 60;
-const AUTO_SCROLL_SPEED = 160;
+// Al arrastrar una card en mobile, si el dedo cruza más del 50% del ancho
+// de columna por fuera de la columna "ancla" actual, saltamos automáticamente
+// a la columna adyacente (en vez de auto-scroll continuo por proximidad al borde).
+const COLUMN_SCROLL_OVERLAP_RATIO = 0.5;
+const COLUMN_SCROLL_DURATION_MS = 380;
 const DRAG_OVERLAY_WIDTH = 220;
 const LONG_PRESS_MS = 220;
 const DRAG_END_LINGER_MS = 160;
@@ -261,7 +265,11 @@ interface DragContext {
     touchX: SharedValue<number>;
     touchY: SharedValue<number>;
     isDraggingSV: SharedValue<boolean>;
-    autoScrollDir: SharedValue<number>;
+    scrollAnchorEstado: SharedValue<string | null>;
+    isAutoScrollingSV: SharedValue<boolean>;
+    scrollCooldown: SharedValue<number>;
+    boardScrollRef: AnimatedRef<any>;
+    boardContentWidthSV: SharedValue<number>;
     boardViewportOrigin: SharedValue<ViewportRect>;
     scrollOffsetX: SharedValue<number>;
     columnLocalRects: SharedValue<Record<string, ColumnRect>>;
@@ -311,7 +319,11 @@ function ObjetivoItem({
         touchX,
         touchY,
         isDraggingSV,
-        autoScrollDir,
+        scrollAnchorEstado,
+        isAutoScrollingSV,
+        scrollCooldown,
+        boardScrollRef,
+        boardContentWidthSV,
         boardViewportOrigin,
         scrollOffsetX,
         columnLocalRects,
@@ -359,6 +371,8 @@ function ObjetivoItem({
                 columnCardRects.value
             );
             isDraggingSV.value = true;
+            scrollAnchorEstado.value = objetivo.estado;
+            isAutoScrollingSV.value = false;
             runOnJS(onDragStateChange)(objetivo);
             runOnJS(triggerDragHaptic)();
         })
@@ -384,14 +398,54 @@ function ObjetivoItem({
                 )
                 : null;
 
-            if (!isDesktopWideSV.value) {
-                const origin = boardViewportOrigin.value;
-                if (e.absoluteX < origin.x + AUTO_SCROLL_EDGE) {
-                    autoScrollDir.value = -1;
-                } else if (e.absoluteX > origin.x + origin.width - AUTO_SCROLL_EDGE) {
-                    autoScrollDir.value = 1;
-                } else {
-                    autoScrollDir.value = 0;
+            // En mobile: si el dedo se corre más del 50% del ancho de la
+            // columna "ancla" por fuera de ella, saltamos automáticamente a
+            // la columna adyacente para que el scroll horizontal siga a la card.
+            if (!isDesktopWideSV.value && !isAutoScrollingSV.value) {
+                const anchor = scrollAnchorEstado.value;
+                const anchorRect = anchor ? columnLocalRects.value[anchor] : null;
+                if (anchorRect) {
+                    const anchorScreenLeft =
+                        boardViewportOrigin.value.x + (anchorRect.x - scrollOffsetX.value);
+                    const anchorScreenRight = anchorScreenLeft + anchorRect.width;
+                    const threshold = anchorRect.width * COLUMN_SCROLL_OVERLAP_RATIO;
+                    const currentIndex = VISIBLE_ESTADOS.indexOf(anchor as VisibleEstado);
+
+                    let nextAnchor: VisibleEstado | null = null;
+                    if (
+                        e.absoluteX - anchorScreenRight > threshold &&
+                        currentIndex < VISIBLE_ESTADOS.length - 1
+                    ) {
+                        nextAnchor = VISIBLE_ESTADOS[currentIndex + 1];
+                    } else if (anchorScreenLeft - e.absoluteX > threshold && currentIndex > 0) {
+                        nextAnchor = VISIBLE_ESTADOS[currentIndex - 1];
+                    }
+
+                    if (nextAnchor) {
+                        const targetRect = columnLocalRects.value[nextAnchor];
+                        if (targetRect) {
+                            isAutoScrollingSV.value = true;
+                            scrollAnchorEstado.value = nextAnchor;
+                            const maxOffset = Math.max(
+                                0,
+                                boardContentWidthSV.value - boardViewportOrigin.value.width
+                            );
+                            const targetX = Math.min(
+                                Math.max(targetRect.x - BOARD_PADDING, 0),
+                                maxOffset
+                            );
+                            scrollTo(boardScrollRef, targetX, 0, true);
+                            scrollCooldown.value = withTiming(
+                                1,
+                                { duration: COLUMN_SCROLL_DURATION_MS },
+                                (finished) => {
+                                    if (finished) {
+                                        isAutoScrollingSV.value = false;
+                                    }
+                                }
+                            );
+                        }
+                    }
                 }
             }
         })
@@ -408,7 +462,8 @@ function ObjetivoItem({
             hoveredEstado.value = null;
             hoveredIndex.value = null;
             isDraggingSV.value = false;
-            autoScrollDir.value = 0;
+            scrollAnchorEstado.value = null;
+            isAutoScrollingSV.value = false;
             runOnJS(onDragStateChange)(null);
         });
 
@@ -700,6 +755,13 @@ function KanbanColumn({
                 contentContainerStyle={objetivos.length === 0 ? styles.emptyScrollContent : undefined}
                 nestedScrollEnabled
                 scrollEnabled={!isDragging}
+                // El wrapper de RNGH activa `disallowInterruption` por default, lo que
+                // hace que el scroll nativo de la columna gane la carrera de gestos
+                // contra el Pan de una card durante la ventana de long-press, incluso
+                // con `simultaneousWithExternalGesture` declarado en el Pan — rompiendo
+                // el reordenamiento dentro de una misma columna en mobile. Lo relajamos
+                // acá para que esa relación "simultánea" se respete de verdad.
+                disallowInterruption={false}
                 showsVerticalScrollIndicator={false}
                 scrollEventThrottle={16}
                 onScroll={verticalScrollHandler}
@@ -825,7 +887,9 @@ export function KanbanBoard() {
     const touchX = useSharedValue(0);
     const touchY = useSharedValue(0);
     const isDraggingSV = useSharedValue(false);
-    const autoScrollDir = useSharedValue(0);
+    const scrollAnchorEstado = useSharedValue<string | null>(null);
+    const isAutoScrollingSV = useSharedValue(false);
+    const scrollCooldown = useSharedValue(0);
     const scrollOffsetX = useSharedValue(0);
     const boardViewportOrigin = useSharedValue<ViewportRect>({ x: 0, y: 0, width: 0, height: 0 });
     const columnLocalRects = useSharedValue<Record<string, ColumnRect>>({});
@@ -864,25 +928,14 @@ export function KanbanBoard() {
         },
     });
 
-    const scrollBoardOnNative = useCallback((x: number) => {
-        boardScrollRef.current?.scrollTo?.({ x, y: 0, animated: false });
-    }, [boardScrollRef]);
-
-    useFrameCallback((frameInfo) => {
-        if (isDesktopWideSV.value || !isDraggingSV.value || autoScrollDir.value === 0) {
-            return;
-        }
-        const elapsedMs = Math.min(frameInfo.timeSincePreviousFrame ?? 16, 32);
-        const step = AUTO_SCROLL_SPEED * (elapsedMs / 1000) * autoScrollDir.value;
-        const maxOffset = Math.max(0, boardContentWidthSV.value - boardViewportOrigin.value.width);
-        const next = Math.min(Math.max(scrollOffsetX.value + step, 0), maxOffset);
-        scrollOffsetX.value = next;
-        if (Platform.OS === 'web') {
-            scrollTo(boardScrollRef, next, 0, false);
-        } else {
-            runOnJS(scrollBoardOnNative)(next);
-        }
-
+    // Mientras el board hace el salto animado a la columna vecina (tras cruzar
+    // el 50% del umbral en el Pan de la card), el dedo no necesariamente se
+    // mueve, así que no llegan nuevos eventos `onUpdate`. Este frame callback
+    // mantiene hoveredEstado/hoveredIndex al día usando el scrollOffsetX que
+    // va cambiando por la animación, para que el placeholder de drop no quede
+    // desactualizado durante el salto.
+    useFrameCallback(() => {
+        if (isDesktopWideSV.value || !isDraggingSV.value) return;
         const activeId = activeDragId.value;
         if (activeId === null) return;
 
@@ -890,7 +943,7 @@ export function KanbanBoard() {
             touchX.value,
             touchY.value,
             boardViewportOrigin.value,
-            next,
+            scrollOffsetX.value,
             columnLocalRects.value
         );
         hoveredEstado.value = targetEstado;
@@ -1162,7 +1215,11 @@ export function KanbanBoard() {
         touchX,
         touchY,
         isDraggingSV,
-        autoScrollDir,
+        scrollAnchorEstado,
+        isAutoScrollingSV,
+        scrollCooldown,
+        boardScrollRef,
+        boardContentWidthSV,
         boardViewportOrigin,
         scrollOffsetX,
         columnLocalRects,
@@ -1181,7 +1238,11 @@ export function KanbanBoard() {
         touchX,
         touchY,
         isDraggingSV,
-        autoScrollDir,
+        scrollAnchorEstado,
+        isAutoScrollingSV,
+        scrollCooldown,
+        boardScrollRef,
+        boardContentWidthSV,
         boardViewportOrigin,
         scrollOffsetX,
         columnLocalRects,

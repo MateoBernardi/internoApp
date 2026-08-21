@@ -1,3 +1,4 @@
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -62,7 +63,7 @@ export const AgendaSemanal: React.FC<AgendaSemanalProps> = ({
         );
 
         return (
-          <View style={[styles.dayCard, day.isToday && styles.dayCardToday, turno && styles.dayCardTurno]}>
+          <View style={[glassStyles.card, styles.dayCard, day.isToday && styles.dayCardToday, turno && styles.dayCardTurno]}>
             <TouchableOpacity style={styles.dayHeader} onPress={() => onPressDay?.(day.dateStr)}>
               <Text style={[styles.dayLabel, day.isToday && styles.dayLabelToday]}>
                 {day.dayLabel}
@@ -161,20 +162,17 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   dayCard: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 8,
     borderLeftWidth: 4,
-    borderLeftColor: '#dadce0',
+    borderLeftColor: 'rgba(17,24,28,0.14)',
     paddingHorizontal: 12,
     paddingVertical: 12,
     marginHorizontal: 8,
     marginBottom: 8,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e0e0e0',
   },
   dayCardToday: {
-    backgroundColor: '#f1f3f4',
-    borderLeftColor: '#1a73e8',
+    backgroundColor: 'rgba(26,115,232,0.06)',
+    borderLeftColor: glassColors.link,
   },
   dayCardTurno: {
     borderLeftColor: '#2f86d6',
@@ -217,7 +215,7 @@ const styles = StyleSheet.create({
   },
   sinTurnoText: {
     fontSize: 12,
-    color: '#9aa3ab',
+    color: glassColors.placeholder,
     fontStyle: 'italic',
     marginBottom: 4,
   },
@@ -232,54 +230,45 @@ const styles = StyleSheet.create({
   },
   dayHeader: {
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: 'rgba(17,24,28,0.08)',
     paddingBottom: 8,
     marginBottom: 8,
   },
   dayLabel: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#202124',
+    color: glassColors.text,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   dayLabelToday: {
-    color: '#1a73e8',
+    color: glassColors.link,
   },
   dayDate: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#5f6368',
+    color: glassColors.textMuted,
     marginTop: 4,
   },
   dayDateToday: {
-    color: '#1a73e8',
+    color: glassColors.link,
   },
   activitiesContainer: {
     gap: 6,
   },
   emptyText: {
     fontSize: 12,
-    color: '#9AA0A6',
+    color: glassColors.placeholder,
     fontStyle: 'italic',
     paddingVertical: 4,
   },
   activityCard: {
     flexDirection: 'row',
-    backgroundColor: '#f9f9f9',
+    backgroundColor: 'rgba(17,24,28,0.03)',
     borderRadius: 6,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#dadce0',
+    borderColor: 'rgba(17,24,28,0.08)',
     padding: 10,
-  },
-  timeColumn: {
-    marginRight: 8,
-    minWidth: 40,
-  },
-  timeText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#202124',
   },
   contentColumn: {
     flex: 1,
@@ -287,7 +276,7 @@ const styles = StyleSheet.create({
   titleText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#202124',
+    color: glassColors.text,
   },
   deleteButton: {
     paddingLeft: 8,

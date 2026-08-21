@@ -9,7 +9,9 @@ import { useValidacionFechas } from '@/features/solicitudesActividades/viewmodel
 import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { generateIdempotencyKey } from '@/shared/idempotency';
 import { GlassButton } from '@/shared/ui/GlassButton';
-import { glassColors } from '@/shared/ui/glass';
+import { focusBorderStyles, glassColors } from '@/shared/ui/glass';
+import { useFocusBorder } from '@/shared/ui/useFocusBorder';
+import { useSafeBottomInset } from '@/hooks/useSafeBottomInset';
 import { adminRoles, allRoles } from '@/shared/users/roles';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -91,6 +93,8 @@ interface SolicitudProps {
 export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const bottomInset = useSafeBottomInset();
+  const composerFocus = useFocusBorder();
   const { user } = useAuth();
   const { hasRole } = useRoleCheck();
 
@@ -684,7 +688,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
     <FullScreenPortal>
     <View style={styles.fullScreen}>
       <ModalKeyboardView style={styles.keyboardContainer}>
-        <View style={styles.container}>
+        <View style={[styles.container, { paddingBottom: bottomInset }]}>
 
           {/* Header */}
           {/* paddingTop con el inset superior: el marginTop '10%' del container antiguo
@@ -901,7 +905,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                 </View>
 
                 {/* Composer */}
-                <View style={[styles.messageComposer, { marginBottom: insets.bottom }]}>
+                <View style={[styles.messageComposer, composerFocus.isFocused && { borderColor: glassColors.link }]}>
                   {isModifyMode && (
                     <View style={styles.inlineDateSection}>
                       <View style={styles.inlineDateRow}>
@@ -940,11 +944,13 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                   )}
 
                   <TextInput
-                    style={styles.messageComposerInput}
+                    style={[styles.messageComposerInput, focusBorderStyles.inputNoOutline]}
                     placeholder={isModifyMode ? 'Observación (opcional)' : 'Escribir mensaje'}
                     placeholderTextColor={colors.secondaryText}
                     value={messageDraft}
                     onChangeText={setMessageDraft}
+                    onFocus={composerFocus.onFocus}
+                    onBlur={composerFocus.onBlur}
                     multiline
                     textAlignVertical="top"
                   />

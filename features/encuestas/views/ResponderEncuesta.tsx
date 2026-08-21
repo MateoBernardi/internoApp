@@ -1,6 +1,7 @@
 import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
 import { Colors } from '@/constants/theme';
 import { GlassButton } from '@/shared/ui/GlassButton';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
@@ -31,6 +32,7 @@ export const ResponderEncuesta: React.FC<ResponderEncuestaProps> = ({ encuesta, 
   const router = useRouter();
   const esHorario = encuesta.preguntas?.some((p) => p.tipo_pregunta === 'horario') ?? false;
   const [respuestas, setRespuestas] = useState<Map<number, Respuesta>>(new Map());
+  const [focusedPreguntaId, setFocusedPreguntaId] = useState<number | null>(null);
   const { idempotencyKey } = useIdempotencyKey();
   const { mutateAsync: enviarRespuestas, isPending } = useEnviarRespuestasEncuesta();
 
@@ -183,13 +185,20 @@ export const ResponderEncuesta: React.FC<ResponderEncuestaProps> = ({ encuesta, 
 
         {pregunta.tipo_pregunta === 'texto' && (
           <TextInput
-            style={styles.textInput}
+            style={[
+              styles.textInput,
+              styles.inputNoOutline,
+              focusedPreguntaId === preguntaId && styles.inputFocused,
+            ]}
             placeholder="Escribe tu respuesta aqui..."
+            placeholderTextColor={glassColors.placeholder}
             multiline
             numberOfLines={4}
             value={respuestas.get(preguntaId)?.respuesta_texto || ''}
             onChangeText={(texto) => handleTextoChange(preguntaId, texto)}
             editable={!isPending}
+            onFocus={() => setFocusedPreguntaId(preguntaId)}
+            onBlur={() => setFocusedPreguntaId(null)}
           />
         )}
 
@@ -385,7 +394,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   anonimaBadge: {
-    backgroundColor: colors.componentBackground,
+    backgroundColor: 'rgba(26,115,232,0.08)',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 6,
@@ -397,7 +406,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   opcionalBadge: {
-    backgroundColor: colors.componentBackground,
+    backgroundColor: 'rgba(17,24,28,0.03)',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 6,
@@ -414,15 +423,10 @@ const styles = StyleSheet.create({
     padding: 15,
   },
   preguntaCard: {
-    backgroundColor: colors.componentBackground,
+    ...glassStyles.card,
     borderRadius: 12,
     padding: 16,
     marginBottom: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   preguntaHeader: {
     marginBottom: 15,
@@ -455,7 +459,7 @@ const styles = StyleSheet.create({
   },
   ratingButtonSelected: {
     borderColor: colors.lightTint,
-    backgroundColor: colors.componentBackground,
+    backgroundColor: 'rgba(26,115,232,0.08)',
   },
   ratingText: {
     fontSize: 18,
@@ -466,8 +470,7 @@ const styles = StyleSheet.create({
     color: colors.lightTint,
   },
   textInput: {
-    borderWidth: 1,
-    borderColor: colors.background,
+    ...glassStyles.fieldGlass,
     borderRadius: 8,
     padding: 12,
     fontSize: 14,
@@ -475,6 +478,13 @@ const styles = StyleSheet.create({
     minHeight: 100,
     textAlignVertical: 'top',
   },
+  inputFocused: {
+    borderColor: glassColors.link,
+  },
+  inputNoOutline: {
+    outlineStyle: 'none',
+    outlineWidth: 0,
+  } as any,
   opcionesContainer: {
     gap: 10,
   },
@@ -488,7 +498,7 @@ const styles = StyleSheet.create({
   },
   opcionButtonSelected: {
     borderColor: colors.lightTint,
-    backgroundColor: colors.componentBackground,
+    backgroundColor: 'rgba(26,115,232,0.08)',
   },
   radioCircle: {
     width: 20,
@@ -537,7 +547,7 @@ const styles = StyleSheet.create({
   },
   siNoButtonSelected: {
     borderColor: colors.lightTint,
-    backgroundColor: colors.componentBackground,
+    backgroundColor: 'rgba(26,115,232,0.08)',
   },
   siNoText: {
     fontSize: 14,

@@ -1,3 +1,4 @@
+import { GlassTabSelector } from '@/components/ui/GlassTabSelector';
 import { UserSelector } from '@/components/UserSelector';
 import { Colors } from '@/constants/theme';
 import { RoleUserSelectionModal } from '@/features/solicitudesActividades/components/RoleUserSelectionModal';
@@ -128,29 +129,21 @@ export const GestionParticipantesModal: React.FC<GestionParticipantesModalProps>
         <View style={[styles.convocarSheet, { paddingBottom: insets.bottom + 8 }]}>
             <View style={styles.convocarHeader}>
             <Text style={styles.convocarTitle}>Gestionar participantes</Text>
-            <TouchableOpacity onPress={handleClose} style={{ position: 'absolute', right: 20, top: 10, padding: 6, borderRadius: 16, backgroundColor: '#f3f4f6' }}>
+            <TouchableOpacity onPress={handleClose} style={{ position: 'absolute', right: 20, top: 10, padding: 6, borderRadius: 16, backgroundColor: 'rgba(17,24,28,0.03)' }}>
               <Ionicons name="chevron-down" size={22} color={colors.secondaryText} />
             </TouchableOpacity>
           </View>
 
           {/* Tabs */}
           <View style={styles.tabBar}>
-            <TouchableOpacity
-              style={[styles.tabButton, tab === 'agregar' && styles.tabButtonActive]}
-              onPress={() => setTab('agregar')}
-            >
-              <Text style={[styles.tabButtonText, tab === 'agregar' && styles.tabButtonTextActive]}>
-                Agregar
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.tabButton, tab === 'quitar' && styles.tabButtonActive]}
-              onPress={() => setTab('quitar')}
-            >
-              <Text style={[styles.tabButtonText, tab === 'quitar' && styles.tabButtonTextActive]}>
-                Quitar ({participantesActuales.length})
-              </Text>
-            </TouchableOpacity>
+            <GlassTabSelector
+              tabs={[
+                { key: 'agregar', label: 'Agregar' },
+                { key: 'quitar', label: `Quitar (${participantesActuales.length})` },
+              ]}
+              activeKey={tab}
+              onChange={(key) => setTab(key as Tab)}
+            />
           </View>
 
           {/* Tab Agregar */}

@@ -17,7 +17,7 @@ export function TopEmployee() {
 
 	// Tomar el top
 	const empleado = data;
-	
+
 	if (!empleado) {
 		return null;
 	}
@@ -29,57 +29,55 @@ export function TopEmployee() {
 			<View style={styles.iconCircle}>
 				<ThemedText style={styles.iconText}>{iniciales}</ThemedText>
 			</View>
-			<ThemedText type="subtitle" style={styles.title} numberOfLines={2}>Más comentarios positivos</ThemedText>
+			<View style={styles.textColumn}>
+				<ThemedText style={styles.title} numberOfLines={1}>Más comentarios positivos</ThemedText>
+				<ThemedText style={styles.name} numberOfLines={1}>{empleado.nombre} {empleado.apellido}</ThemedText>
+			</View>
 			<ThemedText style={styles.positiveCount}>{empleado.total_positivos}</ThemedText>
-			<ThemedText style={styles.name} numberOfLines={2}>{empleado.nombre} {empleado.apellido}</ThemedText>
 		</View>
 	);
 }
 
 const styles = StyleSheet.create({
 	card: {
-		width: 140,
-		minHeight: 180,
+		flexDirection: 'row',
 		alignItems: 'center',
-		justifyContent: 'center',
-		paddingHorizontal: 10,
+		paddingHorizontal: 16,
 		paddingVertical: 14,
-		margin: 12,
-		alignSelf: 'center',
+		gap: 14,
 	},
 	iconCircle: {
-		width: 56,
-		height: 56,
-		borderRadius: 28,
+		width: 52,
+		height: 52,
+		borderRadius: 26,
 		backgroundColor: colors.success, // verde positivo
 		alignItems: 'center',
 		justifyContent: 'center',
-		marginBottom: 10,
+		flexShrink: 0,
 	},
 	iconText: {
 		color: colors.componentBackground,
-		fontSize: 28,
+		fontSize: 20,
 		fontWeight: 'bold',
+	},
+	textColumn: {
+		flex: 1,
+		gap: 2,
 	},
 	title: {
 		fontSize: 12,
 		fontWeight: '600',
 		color: colors.text,
-		marginBottom: 2,
-		textAlign: 'center',
 	},
 	positiveCount: {
 		fontSize: 22,
 		fontWeight: 'bold',
 		color: colors.success,
-		marginBottom: 2,
 	},
 	name: {
 		fontSize: 13,
-		color: colors.text,
-		marginTop: 4,
+		color: colors.secondaryText,
 		fontWeight: '500',
-		textAlign: 'center',
 	},
 	centerContainer: {
 		alignItems: 'center',

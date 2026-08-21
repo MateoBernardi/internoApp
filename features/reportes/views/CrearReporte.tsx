@@ -18,6 +18,7 @@ import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { useIdempotencyKey } from '@/shared/useIdempotencyKey';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeBottomInset } from '@/hooks/useSafeBottomInset';
 import { uploadReporteImage } from '../services/reportesApi';
 import { useCreateReporte } from '../viewmodels/useReportes';
 
@@ -48,6 +49,7 @@ interface PendingImage {
 export default function CrearReporte(props?: CrearReporteProps) {
 	const router = useRouter();
 	const insets = useSafeAreaInsets();
+	const bottomInset = useSafeBottomInset();
 	const params = useLocalSearchParams();
 	const { tokens } = useAuth();
 	const { idempotencyKey, regenerateIdempotencyKey } = useIdempotencyKey();
@@ -293,7 +295,7 @@ export default function CrearReporte(props?: CrearReporteProps) {
 		<FullScreenPortal>
 		<View style={[glassStyles.sheet, styles.fullScreen]}>
 			<ModalKeyboardView style={styles.keyboardContainer}>
-				<View style={[glassStyles.sheet, styles.container, { paddingBottom: insets.bottom }]}>
+				<View style={[glassStyles.sheet, styles.container, { paddingBottom: bottomInset }]}>
 					<View style={[glassStyles.sheetHeader, styles.modalHeader, { paddingTop: insets.top + 10 }]}>
 						<AppBackButton onPress={handleClose} />
 					</View>
@@ -443,7 +445,7 @@ export default function CrearReporte(props?: CrearReporteProps) {
 							</View>
 						</ScrollView>
 
-						<View style={styles.uploadButtonContainer}>
+						<View style={[styles.uploadButtonContainer, { paddingBottom: bottomInset }]}>
 							<GlassButton
 								label="Crear"
 								onPress={handleCrearReporte}

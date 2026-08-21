@@ -12,7 +12,9 @@ import { UserSummary } from '@/shared/users/User';
 import { adminRoles, allRoles } from '@/shared/users/roles';
 import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
 import { GlassButton } from '@/shared/ui/GlassButton';
-import { glassColors } from '@/shared/ui/glass';
+import { focusBorderStyles, glassColors } from '@/shared/ui/glass';
+import { useFocusBorder } from '@/shared/ui/useFocusBorder';
+import { useSafeBottomInset } from '@/hooks/useSafeBottomInset';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -50,6 +52,9 @@ interface CrearSolicitudProps {
 export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: CrearSolicitudProps) {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
+  const bottomInset = useSafeBottomInset();
+  const tituloFocus = useFocusBorder();
+  const descripcionFocus = useFocusBorder();
 
   const [titulo, setTitulo] = useState('');
   const [descripcion, setDescripcion] = useState('');
@@ -412,7 +417,7 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
     <FullScreenPortal>
     <View style={styles.fullScreen}>
       <ModalKeyboardView style={styles.keyboardContainer}>
-        <View style={[styles.container, { paddingBottom: insets.bottom }]}>
+        <View style={[styles.container, { paddingBottom: bottomInset }]}>
           {/* Header */}
           <View style={[styles.modalHeader, { paddingTop: insets.top + 10, alignItems: 'flex-start' }]}>
             <TouchableOpacity onPress={handleClose} style={styles.backButton}>
@@ -527,25 +532,29 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
               </View>
 
               {(!fromChatsTab || esGrupoChat) && (
-                <View style={styles.inputSection}>
+                <View style={[styles.inputSection, tituloFocus.isFocused && focusBorderStyles.inputBorderFocused]}>
                   <TextInput
-                    style={styles.input}
+                    style={[styles.input, focusBorderStyles.inputNoOutline]}
                     placeholder={fromChatsTab ? 'Nombre del grupo' : 'Asunto'}
                     placeholderTextColor={colors.secondaryText}
                     value={titulo}
                     onChangeText={setTitulo}
+                    onFocus={tituloFocus.onFocus}
+                    onBlur={tituloFocus.onBlur}
                     maxLength={100}
                   />
                 </View>
               )}
 
-              <View style={styles.messageBox}>
+              <View style={[styles.messageBox, descripcionFocus.isFocused && focusBorderStyles.inputBorderFocused]}>
                 <TextInput
-                  style={styles.messageInput}
+                  style={[styles.messageInput, focusBorderStyles.inputNoOutline]}
                   placeholder={fromChatsTab ? 'Escribí el primer mensaje' : 'Escribí un mensaje descriptivo para el/los usuario/s (opcional)'}
                   placeholderTextColor={colors.secondaryText}
                   value={descripcion}
                   onChangeText={setDescripcion}
+                  onFocus={descripcionFocus.onFocus}
+                  onBlur={descripcionFocus.onBlur}
                   multiline
                   textAlignVertical="top"
                 />
@@ -581,7 +590,7 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
               )}
             </ScrollView>
 
-            <View style={[styles.uploadButtonContainer]}>
+            <View style={[styles.uploadButtonContainer, { paddingBottom: bottomInset }]}>
               {(() => {
                 // `isPending` permanece true durante TODOS los reintentos de
                 // TanStack Query, por lo que el botón no se desbloquea mientras

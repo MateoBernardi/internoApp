@@ -6,6 +6,7 @@ import { Colors, UI } from '@/constants/theme';
 import { TurnoDetalle } from '@/features/horarios/components/TurnoDetalle';
 import { useTurnosPorPeriodo } from '@/features/horarios/viewmodels/useTurnosAgenda';
 import { confirmAction } from '@/shared/ui/confirmAction';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -17,12 +18,12 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  useWindowDimensions,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { mapActivities, mapLicencias, mapTurnos } from '../agenda/activityMappers';
 import {
+  addDays,
   addMonths,
   buildDateTimeFromDateAndTime,
   buildDefaultNewActivityState,
@@ -56,7 +57,6 @@ const AgendaPersonal: React.FC = () => {
     id?: string | string[];
     rol?: string | string[];
   }>();
-  const { height: windowHeight } = useWindowDimensions();
   const [selectedActividadId, setSelectedActividadId] = useState<number | null>(null);
   const [selectedActividadRol, setSelectedActividadRol] = useState<string | undefined>(undefined);
   const [selectedTurno, setSelectedTurno] = useState<Activity | null>(null);
@@ -146,11 +146,6 @@ const AgendaPersonal: React.FC = () => {
     [activeMonth]
   );
 
-  const dayCellHeight = useMemo(() => {
-    const maxByHeight = (windowHeight - 260) / 6;
-    return Math.max(72, Math.min(108, maxByHeight));
-  }, [windowHeight]);
-
   const activitiesByDate = useMemo(() => {
     const map = new Map<string, Activity[]>();
     allActivities.forEach((activity) => {
@@ -172,6 +167,25 @@ const AgendaPersonal: React.FC = () => {
     setActiveMonth(nextMonth);
     setSelectedDate(formatDateKey(nextMonth));
   }, [activeMonth]);
+
+  // Día/semana desplazan `selectedDate` en vez de saltar de mes; si el
+  // desplazamiento cruza a otro mes, sincronizamos `activeMonth` también
+  // (mismo patrón que `onSelectDay`/`onPressDay` más abajo) para que el
+  // query de actividades del período siga alineado con lo que se ve.
+  const handleChangePeriod = useCallback((delta: number) => {
+    if (viewMode === 'month') {
+      handleChangeMonth(delta);
+      return;
+    }
+
+    const daysDelta = viewMode === 'week' ? delta * 7 : delta;
+    const currentDate = new Date(selectedDate + 'T00:00:00');
+    const nextDate = addDays(currentDate, daysDelta);
+    setSelectedDate(formatDateKey(nextDate));
+    if (nextDate.getMonth() !== activeMonth.getMonth() || nextDate.getFullYear() !== activeMonth.getFullYear()) {
+      setActiveMonth(new Date(nextDate.getFullYear(), nextDate.getMonth(), 1));
+    }
+  }, [viewMode, selectedDate, activeMonth, handleChangeMonth]);
 
   const onDateCancel = () => {
     setShowDatePicker(false);
@@ -437,33 +451,28 @@ const AgendaPersonal: React.FC = () => {
       {/* Header */}
       <AgendaToolbar
         activeMonth={activeMonth}
+        selectedDate={new Date(selectedDate + 'T00:00:00')}
         viewMode={viewMode}
-        onPrevMonth={() => handleChangeMonth(-1)}
-        onNextMonth={() => handleChangeMonth(1)}
+        onPrevPeriod={() => handleChangePeriod(-1)}
+        onNextPeriod={() => handleChangePeriod(1)}
         onOpenMonthPicker={handleOpenMonthDatePicker}
         onChangeViewMode={setViewMode}
       />
 
       {/* Activities */}
-      <ScrollView
-        style={styles.activitiesContainer}
-        contentContainerStyle={{ paddingBottom: 80, flexGrow: viewMode === 'month' ? 1 : 0 }}
-        refreshControl={
-          <RefreshControl
-            refreshing={actividadesPeriodoQuery.isRefetching}
-            onRefresh={handleRefresh}
-            colors={[colors.lightTint]}
-            tintColor={colors.lightTint}
-          />
-        }
-      >
-        {isLoading ? (
+      {isLoading ? (
+        <ScrollView style={styles.activitiesContainer} contentContainerStyle={{ paddingBottom: 80 }}>
           <ScreenSkeleton rows={4} showHeader={false} />
-        ) : viewMode === 'month' ? (
+        </ScrollView>
+      ) : viewMode === 'month' ? (
+        // Vista mensual: la grilla reparte el alto disponible entre sus 6 filas
+        // por flexbox (ver AgendaMonthGrid), así que va en un View fijo, sin
+        // scroll — a diferencia de semana/día, que sí pueden exceder el alto
+        // disponible y necesitan su propio ScrollView.
+        <View style={styles.activitiesContainer}>
           <AgendaMonthGrid
             monthGridDates={monthGridDates}
             selectedDate={selectedDate}
-            dayCellHeight={dayCellHeight}
             activitiesByDate={activitiesByDate}
             onSelectDay={(cell) => {
               setSelectedDate(formatDateKey(cell.date));
@@ -471,37 +480,52 @@ const AgendaPersonal: React.FC = () => {
               setViewMode('day');
             }}
           />
-        ) : viewMode === 'week' ? (
-          <AgendaSemanal
-            activities={filteredActivities}
-            today={new Date(selectedDate)}
-            onDeleteActivity={handleDeleteActivity}
-            onPressActivity={handlePressActivity}
-            onPressDay={(dateKey) => {
-              setSelectedDate(dateKey);
-              const nextDate = new Date(dateKey + 'T00:00:00');
-              setActiveMonth(new Date(nextDate.getFullYear(), nextDate.getMonth(), 1));
-              setViewMode('day');
-            }}
-          />
-        ) : (
-          <AgendaDiaria
-            activities={filteredActivities}
-            dateKey={selectedDate}
-            onDeleteActivity={handleDeleteActivity}
-            onPressActivity={handlePressActivity}
-          />
-        )}
-      </ScrollView>
+        </View>
+      ) : (
+        <ScrollView
+          style={styles.activitiesContainer}
+          contentContainerStyle={{ paddingBottom: 80 }}
+          refreshControl={
+            <RefreshControl
+              refreshing={actividadesPeriodoQuery.isRefetching}
+              onRefresh={handleRefresh}
+              colors={[colors.lightTint]}
+              tintColor={colors.lightTint}
+            />
+          }
+        >
+          {viewMode === 'week' ? (
+            <AgendaSemanal
+              activities={filteredActivities}
+              today={new Date(selectedDate)}
+              onDeleteActivity={handleDeleteActivity}
+              onPressActivity={handlePressActivity}
+              onPressDay={(dateKey) => {
+                setSelectedDate(dateKey);
+                const nextDate = new Date(dateKey + 'T00:00:00');
+                setActiveMonth(new Date(nextDate.getFullYear(), nextDate.getMonth(), 1));
+                setViewMode('day');
+              }}
+            />
+          ) : (
+            <AgendaDiaria
+              activities={filteredActivities}
+              dateKey={selectedDate}
+              onDeleteActivity={handleDeleteActivity}
+              onPressActivity={handlePressActivity}
+            />
+          )}
+        </ScrollView>
+      )}
 
       {isAddFormMinimized && (
-        <View style={[styles.minimizedDraftContainer, { bottom: insets.bottom + UI.spacing.lg }]}>
+        <View style={[styles.minimizedDraftContainer, glassStyles.pill, { bottom: insets.bottom + UI.spacing.lg }]}>
           <TouchableOpacity style={styles.minimizedDraftMain} onPress={openAddActivityModal}>
-            <Ionicons name="chevron-up" size={18} color="#6b7280" />
+            <Ionicons name="chevron-up" size={18} color={glassColors.link} />
             <Text style={styles.minimizedDraftText}>Borrador de actividad</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.minimizedDraftClose} onPress={closeAddActivityModal}>
-            <Ionicons name="close" size={16} color={colors.secondaryText} />
+            <Ionicons name="close" size={16} color={glassColors.textMuted} />
           </TouchableOpacity>
         </View>
       )}
@@ -593,18 +617,9 @@ const styles = StyleSheet.create({
     right: UI.spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: colors.neutralBorder,
-    borderRadius: UI.radius.md,
     paddingLeft: UI.spacing.sm,
     paddingRight: UI.spacing.xs,
     paddingVertical: UI.spacing.xs,
-    shadowColor: UI.shadow.color,
-    shadowOffset: UI.shadow.offset,
-    shadowOpacity: UI.shadow.opacity,
-    shadowRadius: UI.shadow.radius,
-    elevation: UI.shadow.elevation,
   },
   minimizedDraftMain: {
     flexDirection: 'row',

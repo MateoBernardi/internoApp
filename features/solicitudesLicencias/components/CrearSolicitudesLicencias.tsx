@@ -26,7 +26,9 @@ import {
 import { generateIdempotencyKey } from '@/shared/idempotency';
 import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
 import { GlassButton } from '@/shared/ui/GlassButton';
-import { glassColors, glassStyles } from '@/shared/ui/glass';
+import { focusBorderStyles, glassColors, glassStyles } from '@/shared/ui/glass';
+import { useFocusBorder } from '@/shared/ui/useFocusBorder';
+import { useSafeBottomInset } from '@/hooks/useSafeBottomInset';
 import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CreateSolicitudDTO } from '../models/SolicitudLicencia';
@@ -75,6 +77,7 @@ interface CrearSolicitudesLicenciasProps {
 export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps) {
     const router = useRouter();
     const insets = useSafeAreaInsets();
+    const bottomInset = useSafeBottomInset();
     const modalVisible = props?.visible ?? true;
     const handleClose = props?.onClose ?? (() => router.back());
 
@@ -96,6 +99,7 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
     const [cantidadMode, setCantidadMode] = useState<CantidadMode>('dias');
 
     const [observacion, setObservacion] = useState('');
+    const observacionFocus = useFocusBorder();
     const [archivoAdjunto, setArchivoAdjunto] = useState<{ name: string; uri: string; type: string; size?: number } | null>(null);
     const [isUploadingFile, setIsUploadingFile] = useState(false);
     const isSubmittingRef = useRef(false);
@@ -381,7 +385,7 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
         <FullScreenPortal>
         <View style={styles.fullScreen}>
                 <ModalKeyboardView style={styles.keyboardContainer}>
-                    <View style={[styles.container, { paddingBottom: insets.bottom }]}>
+                    <View style={[styles.container, { paddingBottom: bottomInset }]}>
                         <View style={[conversacionStyles.modalHeader, { paddingTop: insets.top + 10, alignItems: 'flex-start' }]}>
                             <TouchableOpacity onPress={handleClose} style={conversacionStyles.backButton}>
                                 <Ionicons name="chevron-back" size={24} color={glassColors.textMuted} />
@@ -613,7 +617,7 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
                             )}
 
                             {/* ── Observación ── */}
-                            <View style={styles.sectionCard}>
+                            <View style={[styles.sectionCard, observacionFocus.isFocused && { borderColor: glassColors.link }]}>
                                 <View style={styles.obsContainer}>
                                     <Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.icon} style={{ marginTop: 4 }} />
                                     <TextInput
@@ -621,8 +625,10 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
                                         placeholderTextColor={colors.secondaryText}
                                         value={observacion}
                                         onChangeText={setObservacion}
+                                        onFocus={observacionFocus.onFocus}
+                                        onBlur={observacionFocus.onBlur}
                                         multiline
-                                        style={styles.textInput}
+                                        style={[styles.textInput, focusBorderStyles.inputNoOutline]}
                                     />
                                 </View>
                             </View>
@@ -676,7 +682,7 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
 
                         </ScrollView>
 
-                        <View style={styles.uploadButtonContainer}>
+                        <View style={[styles.uploadButtonContainer, { paddingBottom: bottomInset }]}>
                             <GlassButton
                                 label="Crear"
                                 onPress={handleCrearSolicitud}

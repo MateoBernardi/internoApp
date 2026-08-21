@@ -23,6 +23,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeBottomInset } from '@/hooks/useSafeBottomInset';
 import { MobileFile } from '../models/Archivo';
 import {
   confirmarUploadArchivo,
@@ -122,6 +123,7 @@ function toSelFile(f: { name: string; uri: string; type?: string; size?: number 
 // ─── Main component ──────────────────────────────────────────────────────────────
 export function CrearDocumento({ visible, onClose, initialFiles, initialFolderId }: CrearDocumentoProps) {
   const insets = useSafeAreaInsets();
+  const bottomInset = useSafeBottomInset();
   const { tokens } = useAuth();
   const queryClient = useQueryClient();
 
@@ -346,7 +348,7 @@ export function CrearDocumento({ visible, onClose, initialFiles, initialFolderId
     <FullScreenPortal>
       <View style={s.fullScreen}>
         <ModalKeyboardView style={s.keyboardContainer}>
-          <View style={[s.container, { paddingBottom: insets.bottom }]}>
+          <View style={[s.container, { paddingBottom: bottomInset }]}>
             {/* Header */}
             <View style={[s.header, { paddingTop: insets.top + 10 }]}>
               <TouchableOpacity
@@ -567,9 +569,9 @@ const s = StyleSheet.create({
     gap: 12,
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,

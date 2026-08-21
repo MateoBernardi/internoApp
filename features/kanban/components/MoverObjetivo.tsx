@@ -4,7 +4,9 @@
 
 import { ThemedText } from '@/components/themed-text';
 import { GlassButton } from '@/shared/ui/GlassButton';
-import { glassColors, glassStyles } from '@/shared/ui/glass';
+import { focusBorderStyles, glassColors, glassStyles } from '@/shared/ui/glass';
+import { useFocusBorder } from '@/shared/ui/useFocusBorder';
+import { useSafeBottomInset } from '@/hooks/useSafeBottomInset';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
@@ -61,6 +63,8 @@ export function MoveModal({
     resetDraftSignal = 0,
 }: MoveModalProps) {
     const insets = useSafeAreaInsets();
+    const bottomInset = useSafeBottomInset();
+    const observacionFocus = useFocusBorder();
     const [nuevoEstado, setNuevoEstado] = useState('');
     const [observacion, setObservacion] = useState('');
     const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -136,7 +140,7 @@ export function MoveModal({
         >
             <View style={[glassStyles.modalOverlay, styles.overlay]}>
                 <ModalKeyboardView style={styles.modalKeyboardAvoiding}>
-                    <View style={[glassStyles.sheet, styles.modalContainer, { paddingBottom: insets.bottom }]}>
+                    <View style={[glassStyles.sheet, styles.modalContainer, { paddingBottom: bottomInset }]}>
                         <View style={[styles.modalHeader, glassStyles.sheetHeader]}>
                             <ThemedText style={styles.modalTitle}>Mover objetivo</ThemedText>
                             <TouchableOpacity onPress={handleClose} style={styles.modalIconButton} disabled={isLoading}>
@@ -194,23 +198,31 @@ export function MoveModal({
                             <View style={styles.formGroup}>
                                 <Text style={styles.label}>Observación (opcional)</Text>
                                 <TextInput
-                                    style={[glassStyles.fieldGlass, styles.input, styles.textArea]}
+                                    style={[
+                                        glassStyles.fieldGlass,
+                                        styles.input,
+                                        styles.textArea,
+                                        focusBorderStyles.inputNoOutline,
+                                        observacionFocus.isFocused && { borderColor: glassColors.link },
+                                    ]}
                                     placeholder="Añade una nota sobre este cambio"
                                     value={observacion}
                                     onChangeText={(value) => {
                                         setObservacion(value);
                                         syncMoveDraft({ observacion: value });
                                     }}
+                                    onFocus={observacionFocus.onFocus}
+                                    onBlur={observacionFocus.onBlur}
                                     editable={!isLoading}
                                     multiline
                                     numberOfLines={3}
-                                    placeholderTextColor="#999"
+                                    placeholderTextColor={glassColors.placeholder}
                                     textAlignVertical="top"
                                 />
                             </View>
                         </ScrollView>
 
-                        <View style={[styles.uploadButtonContainer]}>
+                        <View style={[styles.uploadButtonContainer, { paddingBottom: bottomInset }]}>
                             <GlassButton
                                 label="Mover objetivo"
                                 onPress={handleMove}
@@ -258,12 +270,7 @@ const styles = StyleSheet.create({
     modalTitle: {
         fontSize: 18,
         fontWeight: '700',
-        color: '#1a1a1a',
-    },
-    modalHeaderActions: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginLeft: 12,
+        color: glassColors.text,
     },
     modalIconButton: {
         padding: 6,
@@ -271,30 +278,11 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(17,24,28,0.06)',
         marginLeft: 8,
     },
-    closeButton: {
-        fontSize: 24,
-        fontWeight: '600',
-        color: '#999',
-        width: 30,
-    },
-    modalContent: {
-        flex: 1,
-        padding: 16,
-    },
     modalFormContent: {
         flex: 1,
     },
     modalFormContentContainer: {
         padding: 16,
-    },
-    modalFooter: {
-        flexDirection: 'row',
-        paddingHorizontal: 16,
-        paddingVertical: '10%',
-        paddingBottom: '20%',
-        borderTopWidth: 1,
-        borderTopColor: '#e0e0e0',
-        gap: 12,
     },
     uploadButtonContainer: {
         borderTopWidth: StyleSheet.hairlineWidth,
@@ -310,14 +298,6 @@ const styles = StyleSheet.create({
         borderRadius: 8,
         gap: 8,
     },
-    uploadButtonText: {
-        color: glassColors.link,
-        fontWeight: '600',
-        fontSize: 16,
-    },
-    uploadButtonDisabled: {
-        opacity: 0.5,
-    },
     // ============================================
     // Forms
     // ============================================
@@ -327,7 +307,7 @@ const styles = StyleSheet.create({
     label: {
         fontSize: 14,
         fontWeight: '600',
-        color: '#1a1a1a',
+        color: glassColors.text,
         marginBottom: 8,
     },
     input: {
@@ -336,7 +316,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 12,
         paddingVertical: 10,
         fontSize: 14,
-        color: '#1a1a1a',
+        color: glassColors.text,
         borderWidth: 1,
         borderColor: 'rgba(17,24,28,0.12)',
     },
@@ -367,7 +347,7 @@ const styles = StyleSheet.create({
     estadoButtonText: {
         fontSize: 12,
         fontWeight: '600',
-        color: '#666',
+        color: glassColors.textMuted,
     },
     estadoButtonTextActive: {
         color: glassColors.link,
@@ -378,12 +358,12 @@ const styles = StyleSheet.create({
     objetivoInfo: {
         padding: 12,
         borderLeftWidth: 3,
-        borderLeftColor: '#007AFF',
+        borderLeftColor: glassColors.link,
     },
     infoTitle: {
         fontSize: 14,
         fontWeight: '700',
-        color: '#1a1a1a',
+        color: glassColors.text,
         marginBottom: 4,
     },
     infoEstado: {

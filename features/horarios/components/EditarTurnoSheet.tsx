@@ -14,6 +14,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeBottomInset } from '@/hooks/useSafeBottomInset';
 import type { SedeDTO } from '../models/HorarioDTO';
 import { INK, LINE, MUTED, NAVY, TURNO_ACTIVE, TURNO_SOFT } from '../theme';
 import type { Turno } from '../models/Turno';
@@ -79,6 +80,7 @@ export function EditarTurnoSheet({
   onSave,
 }: EditarTurnoSheetProps) {
   const insets = useSafeAreaInsets();
+  const bottomInset = useSafeBottomInset();
   const [focusedField, setFocusedField] = useState<'ingreso' | 'egreso' | null>(null);
 
   // Ref sincrónico: persiste el último draft no-nulo para que el contenido
@@ -102,7 +104,7 @@ export function EditarTurnoSheet({
     >
       <View style={[glassStyles.modalOverlay, styles.overlay]}>
         <ModalKeyboardView style={styles.kavWrapper}>
-          <View style={[glassStyles.modalCard, styles.container, { paddingBottom: insets.bottom }]}>
+          <View style={[glassStyles.modalCard, styles.container, { paddingBottom: bottomInset }]}>
             <ScrollView
               contentContainerStyle={styles.scrollContent}
               keyboardShouldPersistTaps="handled"
@@ -206,7 +208,7 @@ export function EditarTurnoSheet({
               )}
             </ScrollView>
 
-            <View style={styles.footer}>
+            <View style={[styles.footer, { paddingBottom: bottomInset }]}>
               <TouchableOpacity
                 style={[styles.btnSave, isSaving && styles.btnSaveDisabled]}
                 onPress={onSave}
@@ -264,7 +266,7 @@ const styles = StyleSheet.create({
   closeBtn: {
     padding: 6,
     borderRadius: 16,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: 'rgba(17,24,28,0.03)',
   },
   field: {
     gap: 6,

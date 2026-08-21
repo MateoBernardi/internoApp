@@ -1,13 +1,15 @@
+import { AlertModal } from '@/components/AlertModal';
 import { ThemedText } from '@/components/themed-text';
 import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
 import { SearchBar } from '@/components/ui/SearchBar';
 import { Colors } from '@/constants/theme';
+import { useAlertModal } from '@/features/solicitudesActividades/conversacion/hooks/useAlertModal';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { useBajaUsuario, useSearchUsers, useUpdateUserRole } from '@/shared/users/useUser';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   ScrollView,
   StyleSheet,
@@ -42,6 +44,7 @@ export function CambiarRolEmpleado() {
   const searchUsersQuery = useSearchUsers(searchQuery);
   const updateRolMutation = useUpdateUserRole();
   const bajaMutation = useBajaUsuario();
+  const { alertModal, showModal, closeAlert, onModalDismiss } = useAlertModal();
 
   const handleSearchClear = () => {
     setSearchQuery('');
@@ -57,32 +60,35 @@ export function CambiarRolEmpleado() {
 
   const handleCambiarRol = async () => {
     if (!selectedUser?.user_context_id) {
-      Alert.alert('Error', 'No se encontró el usuario');
+      showModal('Error', 'No se encontró el usuario');
       return;
     }
 
     if (!selectedRoleId) {
-      Alert.alert('Error', 'Por favor selecciona un rol');
+      showModal('Error', 'Por favor selecciona un rol');
       return;
     }
 
     const rolSeleccionado = allRoles.find(r => r.id === selectedRoleId);
     if (!rolSeleccionado) {
-      Alert.alert('Error', 'Rol no válido');
+      showModal('Error', 'Rol no válido');
       return;
     }
 
-    Alert.alert(
+    showModal(
       'Confirmar cambio de rol',
       `¿Cambiar el rol de ${selectedUser.nombre} ${selectedUser.apellido} a ${rolSeleccionado.label}?`,
       [
         {
-          text: 'Cancelar',
+          key: 'cancelar',
+          label: 'Cancelar',
+          variant: 'neutral',
           onPress: () => setSelectedRoleId(null),
-          style: 'cancel',
         },
         {
-          text: 'Cambiar',
+          key: 'cambiar',
+          label: 'Cambiar',
+          variant: 'primary',
           onPress: async () => {
             try {
               await updateRolMutation.mutateAsync({
@@ -90,22 +96,15 @@ export function CambiarRolEmpleado() {
                 roleId: selectedRoleId,
               });
 
-              Alert.alert(
-                'Éxito',
-                `Rol actualizado a ${rolSeleccionado.label}`
-              );
+              showModal('Éxito', `Rol actualizado a ${rolSeleccionado.label}`);
 
               setSelectedUser(null);
               setSelectedRoleId(null);
             } catch (error: any) {
-              Alert.alert(
-                'Error',
-                error.message || 'Intenta nuevamente'
-              );
+              showModal('Error', error.message || 'Intenta nuevamente');
               setSelectedRoleId(null);
             }
           },
-          style: 'default',
         },
       ]
     );
@@ -113,35 +112,32 @@ export function CambiarRolEmpleado() {
 
   const handleBajaUsuario = () => {
     if (!selectedUser?.user_context_id) {
-      Alert.alert('Error', 'No se encontró el usuario');
+      showModal('Error', 'No se encontró el usuario');
       return;
     }
 
-    Alert.alert(
-      '⚠️ Dar de baja usuario',
+    showModal(
+      'Dar de baja usuario',
       `¿Estás seguro de que deseas dar de baja a ${selectedUser.nombre} ${selectedUser.apellido}?\n\nEsta acción no se puede deshacer.`,
       [
         {
-          text: 'Cancelar',
-          style: 'cancel',
+          key: 'cancelar',
+          label: 'Cancelar',
+          variant: 'neutral',
+          onPress: () => {},
         },
         {
-          text: 'Dar de baja',
-          style: 'destructive',
+          key: 'baja',
+          label: 'Dar de baja',
+          variant: 'destructive',
           onPress: async () => {
             try {
               await bajaMutation.mutateAsync(selectedUser.id_usuario);
-              Alert.alert(
-                'Éxito',
-                `El usuario ${selectedUser.nombre} ${selectedUser.apellido} ha sido dado de baja.`
-              );
+              showModal('Éxito', `El usuario ${selectedUser.nombre} ${selectedUser.apellido} ha sido dado de baja.`);
               setSelectedUser(null);
               setSelectedRoleId(null);
             } catch (error: any) {
-              Alert.alert(
-                'Error',
-                error.message || 'Intenta nuevamente'
-              );
+              showModal('Error', error.message || 'Intenta nuevamente');
             }
           },
         },
@@ -166,10 +162,10 @@ export function CambiarRolEmpleado() {
 
           {/* Resultados de búsqueda */}
           {searchQuery.length > 1 && (
-            <View style={[styles.resultsContainer, { backgroundColor: colors.componentBackground }]}>
+            <View style={[glassStyles.modalCard, styles.resultsContainer]}>
               {searchUsersQuery.isPending && (
                 <View style={styles.loadingContainer}>
-                  <ActivityIndicator color={colors.tint} size="large" />
+                  <ActivityIndicator color={glassColors.link} size="large" />
                   <ThemedText style={[styles.loadingText, { color: colors.secondaryText }]}>
                     Buscando usuarios...
                   </ThemedText>
@@ -178,8 +174,8 @@ export function CambiarRolEmpleado() {
 
               {searchUsersQuery.isError && (
                 <View style={styles.errorContainer}>
-                  <Ionicons name="alert-circle" size={20} color={colors.error} />
-                  <ThemedText style={[styles.errorText, { color: colors.error }]}>
+                  <Ionicons name="alert-circle" size={20} color={glassColors.error} />
+                  <ThemedText style={[styles.errorText, { color: glassColors.error }]}>
                     {searchUsersQuery.error instanceof Error
                       ? searchUsersQuery.error.message
                       : 'Intenta nuevamente'}
@@ -209,7 +205,7 @@ export function CambiarRolEmpleado() {
                       ]}
                       onPress={() => handleSelectUser(item)}
                     >
-                      <View style={[styles.userResultAvatar, { backgroundColor: colors.tint }]}>
+                      <View style={styles.userResultAvatar}>
                         <ThemedText style={styles.userInitials}>
                           {item.nombre?.[0]}{item.apellido?.[0]}
                         </ThemedText>
@@ -221,11 +217,11 @@ export function CambiarRolEmpleado() {
                         <ThemedText style={[styles.userEmail, { color: colors.secondaryText }]}>
                           {item.email}
                         </ThemedText>
-                        <ThemedText style={[styles.userRole, { color: colors.tint }]}>
+                        <ThemedText style={[styles.userRole, { color: glassColors.link }]}>
                           Rol: {item.role?.[0] || 'Sin rol'}
                         </ThemedText>
                       </View>
-                      <Ionicons name="chevron-forward" size={20} color={colors.tint} />
+                      <Ionicons name="chevron-forward" size={20} color={glassColors.link} />
                     </TouchableOpacity>
                   )}
                 />
@@ -236,9 +232,9 @@ export function CambiarRolEmpleado() {
 
         {/* Usuario seleccionado */}
         {selectedUser && (
-          <View style={[styles.selectedUserCard, { backgroundColor: colors.componentBackground }]}>
+          <View style={[glassStyles.card, styles.selectedUserCard]}>
             <View style={styles.selectedUserHeader}>
-              <View style={[styles.userAvatar, { backgroundColor: colors.tint }]}>
+              <View style={styles.userAvatar}>
                 <ThemedText style={styles.userInitials}>
                   {selectedUser.nombre?.[0]}{selectedUser.apellido?.[0]}
                 </ThemedText>
@@ -257,7 +253,7 @@ export function CambiarRolEmpleado() {
                   <ThemedText
                     style={[
                       styles.rolValue,
-                      { color: colors.tint, fontWeight: '600' },
+                      { color: glassColors.link, fontWeight: '600' },
                     ]}
                   >
                     {selectedUser.role?.[0] || 'Sin rol'}
@@ -271,7 +267,7 @@ export function CambiarRolEmpleado() {
                 }}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <Ionicons name="close-circle" size={24} color={colors.error} />
+                <Ionicons name="close-circle" size={24} color={glassColors.error} />
               </TouchableOpacity>
             </View>
 
@@ -290,8 +286,8 @@ export function CambiarRolEmpleado() {
                       style={[
                         styles.roleCard,
                         {
-                          borderColor: isSelected ? colors.tint : colors.background,
-                          backgroundColor: isCurrent ? colors.tint + '10' : 'transparent',
+                          borderColor: isSelected ? glassColors.link : colors.background,
+                          backgroundColor: isCurrent ? glassColors.link + '10' : 'transparent',
                           borderWidth: isSelected ? 2 : 1,
                         },
                       ]}
@@ -308,7 +304,7 @@ export function CambiarRolEmpleado() {
                             <View
                               style={[
                                 styles.currentBadge,
-                                { backgroundColor: colors.success },
+                                { backgroundColor: glassColors.success },
                               ]}
                             >
                               <Ionicons name="checkmark" size={16} color="#fff" />
@@ -317,13 +313,13 @@ export function CambiarRolEmpleado() {
                             <View
                               style={[
                                 styles.roleIcon,
-                                { backgroundColor: colors.tint + '20' },
+                                { backgroundColor: glassColors.link + '20' },
                               ]}
                             >
                               <Ionicons
                                 name="person-circle-outline"
                                 size={24}
-                                color={colors.tint}
+                                color={glassColors.link}
                               />
                             </View>
                           )}
@@ -335,7 +331,7 @@ export function CambiarRolEmpleado() {
                             <ThemedText
                               style={[
                                 styles.currentLabel,
-                                { color: colors.success },
+                                { color: glassColors.success },
                               ]}
                             >
                               Rol actual
@@ -344,13 +340,13 @@ export function CambiarRolEmpleado() {
                         </View>
 
                         {isLoading && (
-                          <ActivityIndicator color={colors.tint} size="small" />
+                          <ActivityIndicator color={glassColors.link} size="small" />
                         )}
                         {!isCurrent && !isLoading && (
                           <Ionicons
                             name={isSelected ? 'radio-button-on' : 'radio-button-off'}
                             size={20}
-                            color={colors.tint}
+                            color={glassColors.link}
                           />
                         )}
                       </View>
@@ -389,7 +385,7 @@ export function CambiarRolEmpleado() {
                     styles.changeButton,
                     styles.changeRoleButton,
                     {
-                      backgroundColor: colors.tint,
+                      backgroundColor: glassColors.link,
                       opacity: !selectedRoleId || updateRolMutation.isPending ? 0.5 : 1,
                     },
                   ]}
@@ -410,9 +406,9 @@ export function CambiarRolEmpleado() {
 
             {/* Estado de error */}
             {(updateRolMutation.isError || bajaMutation.isError) && (
-              <View style={[styles.errorContainer, { backgroundColor: colors.error + '15' }]}>
-                <Ionicons name="alert-circle" size={20} color={colors.error} />
-                <ThemedText style={[styles.errorText, { color: colors.error }]}>
+              <View style={[styles.errorContainer, { backgroundColor: glassColors.error + '15' }]}>
+                <Ionicons name="alert-circle" size={20} color={glassColors.error} />
+                <ThemedText style={[styles.errorText, { color: glassColors.error }]}>
                   {updateRolMutation.error instanceof Error
                     ? updateRolMutation.error.message
                     : bajaMutation.error instanceof Error
@@ -425,6 +421,14 @@ export function CambiarRolEmpleado() {
         )}
       </ScrollView>
       <OperacionPendienteModal visible={updateRolMutation.isPending || bajaMutation.isPending} />
+      <AlertModal
+        visible={alertModal.visible}
+        title={alertModal.title}
+        message={alertModal.message}
+        actions={alertModal.actions}
+        onClose={closeAlert}
+        onDismiss={onModalDismiss}
+      />
     </>
   );
 }
@@ -447,11 +451,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginTop: 8,
     overflow: 'hidden',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
   },
   loadingContainer: {
     padding: 24,
@@ -496,6 +495,7 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: 'rgba(26,115,232,0.12)',
   },
   userResultInfo: {
     flex: 1,
@@ -516,17 +516,12 @@ const styles = StyleSheet.create({
   userInitials: {
     fontSize: 18,
     fontWeight: '700',
-    color: colors.componentBackground,
+    color: glassColors.link,
   },
   selectedUserCard: {
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
   },
   selectedUserHeader: {
     flexDirection: 'row',
@@ -540,6 +535,7 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: 'rgba(26,115,232,0.12)',
   },
   userInfoContent: {
     flex: 1,
@@ -628,10 +624,10 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   changeRoleButton: {
-    backgroundColor: colors.tint,
+    backgroundColor: glassColors.link,
   },
   bajaButton: {
-    backgroundColor: colors.error,
+    backgroundColor: glassColors.error,
   },
   changeButtonText: {
     color: colors.componentBackground,

@@ -193,7 +193,7 @@ const styles = StyleSheet.create({
 	},
 	header: {
 		flexDirection: 'row',
-		justifyContent: 'flex-end',
+		justifyContent: 'space-between',
 		alignItems: 'center',
 		gap: 10,
 		paddingHorizontal: '4%',

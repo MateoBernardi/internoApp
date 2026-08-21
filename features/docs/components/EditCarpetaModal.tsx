@@ -5,7 +5,8 @@ import { RoleUserSelectionModal } from '@/features/solicitudesActividades/compon
 import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
 import { GlassButton } from '@/shared/ui/GlassButton';
-import { glassColors, glassStyles } from '@/shared/ui/glass';
+import { focusBorderStyles, glassColors, glassStyles } from '@/shared/ui/glass';
+import { useFocusBorder } from '@/shared/ui/useFocusBorder';
 import { adminRoles, allRoles } from '@/shared/users/roles';
 import { UserSummary } from '@/shared/users/User';
 import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
@@ -64,6 +65,7 @@ export function EditCarpetaModal({
   );
 
   const [nombre, setNombre] = useState(carpeta.nombre);
+  const nombreFocus = useFocusBorder();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUsers, setSelectedUsers] = useState<UserSummary[]>(
     (carpeta.usuarios_id || []).map((id) => ({
@@ -309,11 +311,18 @@ export function EditCarpetaModal({
               <View style={styles.inputSection}>
                 <ThemedText style={styles.label}>Nombre de la carpeta</ThemedText>
                 <TextInput
-                  style={[styles.input, { color: colors.text }]}
+                  style={[
+                    styles.input,
+                    { color: colors.text },
+                    focusBorderStyles.inputNoOutline,
+                    nombreFocus.isFocused && { borderColor: glassColors.link },
+                  ]}
                   placeholder="Nombre"
                   placeholderTextColor={colors.secondaryText}
                   value={nombre}
                   onChangeText={setNombre}
+                  onFocus={nombreFocus.onFocus}
+                  onBlur={nombreFocus.onBlur}
                   maxLength={100}
                 />
               </View>

@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import type { Activity } from '@/features/solicitudesActividades/models/activityTypes';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeBottomInset } from '@/hooks/useSafeBottomInset';
 import { ACEPTADO_COLOR } from '../theme';
 import { useAceptarTurno } from '../viewmodels/useTurnosAgenda';
 
@@ -55,6 +56,7 @@ interface TurnoDetalleProps {
 
 export function TurnoDetalle({ activity, visible, onClose }: TurnoDetalleProps) {
   const insets = useSafeAreaInsets();
+  const bottomInset = useSafeBottomInset();
   const modalVisible = visible ?? true;
 
   // Estado local para reflejar el "aceptado" al instante, sin esperar el
@@ -108,7 +110,7 @@ export function TurnoDetalle({ activity, visible, onClose }: TurnoDetalleProps) 
 
   return (
     <FullScreenPortal>
-    <View style={[glassStyles.sheet, styles.fullScreen, { paddingBottom: insets.bottom }]}>
+    <View style={[glassStyles.sheet, styles.fullScreen, { paddingBottom: bottomInset }]}>
       {/* Header */}
       <View style={[glassStyles.sheetHeader, styles.modalHeader, { paddingTop: insets.top + 12 }]}>
         <TouchableOpacity onPress={onClose} style={[glassStyles.buttonSecondary, styles.closeButton]}>

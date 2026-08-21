@@ -1,6 +1,7 @@
 import { ThemedText } from '@/components/themed-text';
 import { useAuth } from '@/features/auth/context/AuthContext';
-import { glassColors, glassStyles } from '@/shared/ui/glass';
+import { focusBorderStyles, glassColors, glassStyles } from '@/shared/ui/glass';
+import { useFocusBorder } from '@/shared/ui/useFocusBorder';
 import { ArchivoUso } from '@/features/docs/models/Archivo';
 import { useUploadArchivo } from '@/features/docs/viewmodels/useArchivos';
 import { ApiOperationResult } from '@/shared/types/apiStatus';
@@ -58,6 +59,8 @@ export function FormObjetivoModal({
     resetDraftSignal = 0,
 }: FormObjetivoModalProps) {
     const insets = useSafeAreaInsets();
+    const tituloFocus = useFocusBorder();
+    const descripcionFocus = useFocusBorder();
     const { user } = useAuth();
     const [titulo, setTitulo] = useState(objetivo?.titulo || '');
     const [descripcion, setDescripcion] = useState(objetivo?.descripcion || '');
@@ -395,17 +398,14 @@ export function FormObjetivoModal({
                     <View style={styles.modalContainer}>
                         <View style={[styles.modalHeader, glassStyles.sheetHeader, { paddingTop: insets.top + 12 }]}>
                             <TouchableOpacity onPress={handleClose} style={styles.modalIconButton} disabled={isLoading}>
-                                <Ionicons name="chevron-back" size={24} color="#6b7280" />
+                                <Ionicons name="chevron-back" size={24} color={glassColors.textMuted} />
                             </TouchableOpacity>
                             <View style={styles.modalHeaderActions}>
                                 {!isEditing && (
                                     <TouchableOpacity onPress={handleMinimize} style={styles.modalIconButton} disabled={isLoading}>
-                                        <Ionicons name="chevron-down" size={24} color="#6b7280" />
+                                        <Ionicons name="chevron-down" size={24} color={glassColors.textMuted} />
                                     </TouchableOpacity>
                                 )}
-                                <TouchableOpacity onPress={handleClose} style={styles.modalIconButton} disabled={isLoading}>
-                                    <Ionicons name="close" size={22} color="#999" />
-                                </TouchableOpacity>
                             </View>
                         </View>
 
@@ -423,13 +423,19 @@ export function FormObjetivoModal({
                             <View style={styles.formGroup}>
                                 <Text style={styles.label}>Título</Text>
                                 <TextInput
-                                    style={styles.input}
+                                    style={[
+                                        styles.input,
+                                        focusBorderStyles.inputNoOutline,
+                                        tituloFocus.isFocused && { borderColor: glassColors.link },
+                                    ]}
                                     placeholder="Ingresa el título"
                                     value={titulo}
                                     onChangeText={(value) => {
                                         setTitulo(value);
                                         syncCreateDraft({ titulo: value });
                                     }}
+                                    onFocus={tituloFocus.onFocus}
+                                    onBlur={tituloFocus.onBlur}
                                     editable={!isLoading}
                                     placeholderTextColor="#999"
                                 />
@@ -438,13 +444,20 @@ export function FormObjetivoModal({
                             <View style={styles.formGroup}>
                                 <Text style={styles.label}>Descripción (opcional)</Text>
                                 <TextInput
-                                    style={[styles.input, styles.textArea]}
+                                    style={[
+                                        styles.input,
+                                        styles.textArea,
+                                        focusBorderStyles.inputNoOutline,
+                                        descripcionFocus.isFocused && { borderColor: glassColors.link },
+                                    ]}
                                     placeholder="Ingresa la descripción"
                                     value={descripcion}
                                     onChangeText={(value) => {
                                         setDescripcion(value);
                                         syncCreateDraft({ descripcion: value });
                                     }}
+                                    onFocus={descripcionFocus.onFocus}
+                                    onBlur={descripcionFocus.onBlur}
                                     editable={!isLoading}
                                     multiline
                                     numberOfLines={4}
@@ -648,9 +661,14 @@ const styles = StyleSheet.create({
         marginLeft: 12,
     },
     modalIconButton: {
-        padding: 6,
-        borderRadius: 16,
-        backgroundColor: 'rgba(17,24,28,0.06)',
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(17,24,28,0.12)',
+        backgroundColor: 'rgba(17,24,28,0.03)',
         marginLeft: 8,
     },
     modalFormContent: {

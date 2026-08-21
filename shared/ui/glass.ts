@@ -10,6 +10,22 @@ export const glassColors = {
   success: '#2e7d32',
 };
 
+// Two-state border for TextInputs/search bars: gray at rest, accent on focus,
+// with the browser's mismatched native outline suppressed on web.
+export const focusBorderStyles = StyleSheet.create({
+  inputBorderDefault: {
+    borderWidth: 1,
+    borderColor: 'rgba(17,24,28,0.12)',
+  },
+  inputBorderFocused: {
+    borderColor: glassColors.link,
+  },
+  inputNoOutline: {
+    outlineStyle: 'none',
+    outlineWidth: 0,
+  } as any,
+});
+
 export const glassStyles = StyleSheet.create({
   box: {
     backgroundColor: 'rgba(255,255,255,0.6)',

@@ -7,7 +7,7 @@ import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { GlassButton } from '@/shared/ui/GlassButton';
-import { glassStyles } from '@/shared/ui/glass';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { useIdempotencyKey } from '@/shared/useIdempotencyKey';
 import React, { useEffect, useState } from 'react';
 import {
@@ -318,11 +318,11 @@ export default function TablonNovedades({ refreshTrigger, enabled = true }: Tabl
       {canCreate && isFormModalMinimized && (
         <View style={[styles.minimizedDraftContainer, glassStyles.pill]}>
           <TouchableOpacity style={styles.minimizedDraftMain} onPress={restoreFormModal}>
-            <Ionicons name="chevron-up" size={18} color="#3b82f6" />
+            <Ionicons name="chevron-up" size={18} color={glassColors.link} />
             <Text style={styles.minimizedDraftText}>Borrador de novedad</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.minimizedDraftClose} onPress={discardFormDraft}>
-            <Ionicons name="close" size={16} color="#6b7280" />
+            <Ionicons name="close" size={16} color={glassColors.textMuted} />
           </TouchableOpacity>
         </View>
       )}
@@ -335,7 +335,7 @@ const styles = StyleSheet.create({
     minHeight: 104,
     backgroundColor: colors.componentBackground,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#DDE2E8',
+    borderBottomColor: 'rgba(17,24,28,0.08)',
   },
   scrollView: {
     flexGrow: 0,
@@ -344,6 +344,7 @@ const styles = StyleSheet.create({
     minHeight: 104,
     alignItems: 'stretch',
     paddingVertical: 8,
+    paddingHorizontal: 12,
   },
   centerContainer: {
     minHeight: 104,

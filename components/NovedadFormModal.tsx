@@ -1,5 +1,6 @@
 import type { Novedad } from '@/features/novedades/models/Novedades';
-import { glassColors, glassStyles } from '@/shared/ui/glass';
+import { focusBorderStyles, glassColors, glassStyles } from '@/shared/ui/glass';
+import { useFocusBorder } from '@/shared/ui/useFocusBorder';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
@@ -84,6 +85,8 @@ export function NovedadFormModal({
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const isKeyboardOpen = keyboardHeight > 0;
   const insets = useSafeAreaInsets();
+  const tituloFocus = useFocusBorder();
+  const descripcionFocus = useFocusBorder();
 
   const syncCreateDraft = (partial: Partial<{ titulo: string; descripcion: string; tipo: number; prioridad: number }>) => {
     if (mode !== 'create' || !onDraftChange) return;
@@ -195,9 +198,6 @@ export function NovedadFormModal({
                     <Ionicons name="chevron-down" size={24} color="#6b7280" />
                   </TouchableOpacity>
                 )}
-                <TouchableOpacity onPress={onClose} style={styles.headerIconButton} disabled={loading}>
-                  <Ionicons name="close" size={22} color="#6b7280" />
-                </TouchableOpacity>
               </View>
             </View>
 
@@ -217,12 +217,18 @@ export function NovedadFormModal({
               <View style={styles.fieldContainer}>
                 <Text style={styles.label}>Título</Text>
                 <TextInput
-                  style={styles.input}
+                  style={[
+                    styles.input,
+                    focusBorderStyles.inputNoOutline,
+                    tituloFocus.isFocused && { borderColor: glassColors.link },
+                  ]}
                   value={titulo}
                   onChangeText={(value) => {
                     setTitulo(value);
                     syncCreateDraft({ titulo: value });
                   }}
+                  onFocus={tituloFocus.onFocus}
+                  onBlur={tituloFocus.onBlur}
                   placeholder="Título"
                   placeholderTextColor="#9ca3af"
                 />
@@ -232,12 +238,19 @@ export function NovedadFormModal({
               <View style={styles.fieldContainer}>
                 <Text style={styles.label}>Descripción</Text>
                 <TextInput
-                  style={[styles.input, styles.textArea]}
+                  style={[
+                    styles.input,
+                    styles.textArea,
+                    focusBorderStyles.inputNoOutline,
+                    descripcionFocus.isFocused && { borderColor: glassColors.link },
+                  ]}
                   value={descripcion}
                   onChangeText={(value) => {
                     setDescripcion(value);
                     syncCreateDraft({ descripcion: value });
                   }}
+                  onFocus={descripcionFocus.onFocus}
+                  onBlur={descripcionFocus.onBlur}
                   placeholder="Descripción"
                   placeholderTextColor="#9ca3af"
                   multiline

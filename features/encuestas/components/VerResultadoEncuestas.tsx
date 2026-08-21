@@ -1,6 +1,7 @@
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
+import { AppBackButton } from '@/shared/ui/AppBackButton';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
@@ -56,11 +57,7 @@ export const VerResultadosEncuestas: React.FC<VerResultadosEncuestasProps> = ({ 
     );
   };
 
-  const backButton = (
-    <TouchableOpacity onPress={onVolver} style={{ width: 40, height: 40, justifyContent: 'center' }}>
-      <Ionicons name="chevron-back" size={24} color={colors.lightTint} />
-    </TouchableOpacity>
-  );
+  const backButton = <AppBackButton onPress={onVolver} />;
 
   if (isLoading) {
     return (

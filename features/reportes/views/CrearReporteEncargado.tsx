@@ -110,7 +110,7 @@ export default function CrearReporteEncargado() {
 
 				{isSearching && searchQuery.length > 1 && (
 					<View style={styles.loadingContainer}>
-						<ActivityIndicator size="small" color={colors.tint} />
+						<ActivityIndicator size="small" color={colors.lightTint} />
 						<ThemedText style={styles.loadingText}>Buscando...</ThemedText>
 					</View>
 				)}

@@ -3,6 +3,7 @@ import {
   getNovedadCategoryColor,
   getNovedadPriority,
 } from '@/features/novedades/novedadPresentation';
+import { glassStyles } from '@/shared/ui/glass';
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
@@ -23,7 +24,13 @@ export function NovedadCard({ novedad, onPress }: NovedadCardProps) {
       accessibilityRole="button"
       accessibilityLabel={`${novedad.categoria}: ${novedad.titulo}. Prioridad ${prioridad.label}`}
     >
-      <View style={styles.card}>
+      <View
+        style={[
+          glassStyles.card,
+          styles.card,
+          { backgroundColor: prioridad.backgroundColor, borderLeftColor: prioridad.color },
+        ]}
+      >
         <View style={styles.categoryRow}>
           <View style={[styles.categoryDot, { backgroundColor: categoryColor }]} />
           <Text style={[styles.categoryText, { color: categoryColor }]} numberOfLines={1}>
@@ -51,17 +58,17 @@ export function NovedadCard({ novedad, onPress }: NovedadCardProps) {
 
 const styles = StyleSheet.create({
   container: {
-    width: 140,
-    minHeight: 88,
+    width: 150,
+    minHeight: 92,
+    marginRight: 10,
   },
   card: {
     flex: 1,
-    minHeight: 88,
+    minHeight: 92,
     paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRightWidth: 1,
-    borderRightColor: '#C7D0DA',
+    paddingVertical: 12,
     justifyContent: 'space-between',
+    borderLeftWidth: 3,
   },
   categoryRow: {
     flexDirection: 'row',

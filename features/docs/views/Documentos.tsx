@@ -6,7 +6,8 @@ import { SearchBar } from '@/components/ui/SearchBar';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { GlassButton } from '@/shared/ui/GlassButton';
-import { glassColors, glassStyles } from '@/shared/ui/glass';
+import { focusBorderStyles, glassColors, glassStyles } from '@/shared/ui/glass';
+import { useFocusBorder } from '@/shared/ui/useFocusBorder';
 import { confirmAction } from '@/shared/ui/confirmAction';
 import { showGlobalToast } from '@/shared/ui/toast';
 import { useIdempotencyKey } from '@/shared/useIdempotencyKey';
@@ -51,6 +52,7 @@ export default function Documentos() {
   const [currentFolderId, setCurrentFolderId] = useState<number | null>(null);
   const [folderModalVisible, setFolderModalVisible] = useState(false);
   const [folderName, setFolderName] = useState('');
+  const folderNameFocus = useFocusBorder();
   const [folderForOptions, setFolderForOptions] = useState<Carpeta | null>(null);
   const [folderToEdit, setFolderToEdit] = useState<Carpeta | null>(null);
   const [folderEditPartialWarning, setFolderEditPartialWarning] = useState<string | null>(null);
@@ -475,13 +477,15 @@ export default function Documentos() {
               <ThemedText style={styles.modalTitle}>Crear carpeta</ThemedText>
 
               <ThemedText style={styles.modalLabel}>Nombre</ThemedText>
-              <View style={styles.modalInputWrap}>
+              <View style={[styles.modalInputWrap, folderNameFocus.isFocused && { borderColor: glassColors.link }]}>
                 <TextInput
-                  style={styles.modalInput}
+                  style={[styles.modalInput, focusBorderStyles.inputNoOutline]}
                   placeholder="Ej: Legales"
                   placeholderTextColor={glassColors.placeholder}
                   value={folderName}
                   onChangeText={setFolderName}
+                  onFocus={folderNameFocus.onFocus}
+                  onBlur={folderNameFocus.onBlur}
                 />
               </View>
 

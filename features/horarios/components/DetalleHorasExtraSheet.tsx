@@ -16,6 +16,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeBottomInset } from '@/hooks/useSafeBottomInset';
 import { getMovimientoTipoInfo, type HorasExtraDTO } from '../models/HorasExtra';
 import {
   currentMonthISO,
@@ -48,6 +49,7 @@ export function DetalleHorasExtraSheet({
   onLiquidar,
 }: DetalleHorasExtraSheetProps) {
   const insets = useSafeAreaInsets();
+  const bottomInset = useSafeBottomInset();
 
   const lastEmpleadoRef = useRef<HorasExtraDTO | null>(null);
   if (empleado !== null) lastEmpleadoRef.current = empleado;
@@ -120,7 +122,7 @@ export function DetalleHorasExtraSheet({
     <FullScreenPortal>
     <View style={[glassStyles.sheet, styles.fullScreen]}>
       <ModalKeyboardView style={styles.kavWrapper}>
-        <View style={[glassStyles.sheet, styles.container, { paddingBottom: insets.bottom }]}>
+        <View style={[glassStyles.sheet, styles.container, { paddingBottom: bottomInset }]}>
           <View style={styles.boundedTop}>
             <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
               <AppBackButton onPress={onClose} />
@@ -305,7 +307,7 @@ export function DetalleHorasExtraSheet({
               </View>
             </ScrollView>
 
-            <View style={styles.footer}>
+            <View style={[styles.footer, { paddingBottom: bottomInset }]}>
               <TouchableOpacity
                 style={[
                   styles.btnLiquidar,

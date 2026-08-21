@@ -1,8 +1,9 @@
 import { ThemedText } from '@/components/themed-text';
 import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
 import { Colors, UI } from '@/constants/theme';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   BackHandler,
   Platform,
@@ -16,6 +17,7 @@ import {
 import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
 import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeBottomInset } from '@/hooks/useSafeBottomInset';
 import type { NewActivityState } from '../agenda/dateUtils';
 
 const colors = Colors['light'];
@@ -74,6 +76,8 @@ export function CrearActividadModal({
   onDateCancel,
 }: CrearActividadModalProps) {
   const insets = useSafeAreaInsets();
+  const bottomInset = useSafeBottomInset();
+  const [focusedField, setFocusedField] = useState<'titulo' | 'descripcion' | null>(null);
 
   useEffect(() => {
     if (!visible) return;
@@ -90,21 +94,23 @@ export function CrearActividadModal({
     <FullScreenPortal>
     <View style={styles.fullScreen}>
       <ModalKeyboardView style={styles.modalKavWrapper}>
-          <View style={[styles.modalContainer, { paddingBottom: insets.bottom }]}>
+          <View style={[styles.modalContainer, { paddingBottom: bottomInset }]}>
+            <View style={[styles.modalHeader, { paddingTop: insets.top + 12 }]}>
+              <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                <Ionicons name="chevron-back" size={24} color={glassColors.textMuted} />
+              </TouchableOpacity>
+              <View style={styles.modalHeaderActions}>
+                <TouchableOpacity onPress={onMinimize} style={styles.closeButton}>
+                  <Ionicons name="chevron-down" size={24} color={glassColors.textMuted} />
+                </TouchableOpacity>
+              </View>
+            </View>
+
             <ScrollView
               contentContainerStyle={styles.modalScrollContent}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
             >
-              <View style={[styles.modalHeader, { paddingTop: insets.top + 12 }]}>
-                <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                  <Ionicons name="chevron-back" size={24} color={colors.secondaryText} />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={onMinimize} style={styles.closeButton}>
-                  <Ionicons name="chevron-down" size={24} color={colors.secondaryText} />
-                </TouchableOpacity>
-              </View>
-
               {activityDateErrorMessage && (
                 <Text style={styles.errorTextInline}>{activityDateErrorMessage}</Text>
               )}
@@ -177,11 +183,13 @@ export function CrearActividadModal({
               <View style={styles.fieldContainer}>
                 <Text style={styles.fieldLabel}>Título</Text>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, styles.inputNoOutline, focusedField === 'titulo' && styles.inputFocused]}
                   placeholder="Título"
                   value={newActivity.title}
                   onChangeText={onChangeTitle}
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={glassColors.placeholder}
+                  onFocus={() => setFocusedField('titulo')}
+                  onBlur={() => setFocusedField(null)}
                 />
               </View>
 
@@ -189,13 +197,15 @@ export function CrearActividadModal({
               <View style={styles.fieldContainer}>
                 <Text style={styles.fieldLabel}>Descripción</Text>
                 <TextInput
-                  style={[styles.input, styles.descriptionInput]}
+                  style={[styles.input, styles.descriptionInput, styles.inputNoOutline, focusedField === 'descripcion' && styles.inputFocused]}
                   placeholder="Descripción (opcional)"
                   value={newActivity.description}
                   onChangeText={onChangeDescription}
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={glassColors.placeholder}
                   multiline
                   numberOfLines={4}
+                  onFocus={() => setFocusedField('descripcion')}
+                  onBlur={() => setFocusedField(null)}
                 />
               </View>
             </ScrollView>
@@ -203,9 +213,10 @@ export function CrearActividadModal({
             <View style={styles.uploadButtonContainer}>
               <TouchableOpacity
                 onPress={onSubmit}
-                style={[styles.uploadButton, { backgroundColor: isLoading ? '#d1d5db' : colors.componentBackground }]}
+                disabled={isLoading}
+                style={[styles.uploadButton, isLoading && styles.uploadButtonDisabled]}
               >
-                <Ionicons name="cloud-upload" size={20} color={colors.lightTint} />
+                <Ionicons name="cloud-upload" size={20} color={glassColors.link} />
                 <ThemedText style={styles.uploadButtonText}>Crear</ThemedText>
               </TouchableOpacity>
             </View>
@@ -253,7 +264,8 @@ const styles = StyleSheet.create({
   modalHeader: {
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderBottomColor: colors.icon,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(17,24,28,0.08)',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -261,12 +273,16 @@ const styles = StyleSheet.create({
   modalHeaderActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginLeft: 12,
   },
   closeButton: {
-    padding: 6,
-    borderRadius: 16,
-    backgroundColor: '#f3f4f6',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(17,24,28,0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(17,24,28,0.12)',
     marginLeft: 8,
   },
   errorTextInline: {
@@ -276,9 +292,9 @@ const styles = StyleSheet.create({
   },
   dateSection: {
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: 'rgba(17,24,28,0.08)',
     paddingBottom: 12,
-    marginBottom: 12,
+    marginBottom: 20,
   },
   dateRow: {
     flexDirection: 'row',
@@ -287,7 +303,7 @@ const styles = StyleSheet.create({
   },
   dateLabel: {
     fontSize: 12,
-    color: '#5f6368',
+    color: glassColors.textMuted,
     fontWeight: '500',
   },
   dateValue: {
@@ -311,24 +327,29 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   fieldContainer: {
-    marginBottom: 16,
+    marginBottom: 22,
   },
   fieldLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#374151',
+    color: glassColors.text,
     marginBottom: 6,
   },
   input: {
-    borderWidth: 1,
-    borderColor: '#d1d5db',
+    ...glassStyles.fieldGlass,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 15,
-    color: '#111827',
-    backgroundColor: '#ffffff',
+    color: glassColors.text,
   },
+  inputFocused: {
+    borderColor: glassColors.link,
+  },
+  inputNoOutline: {
+    outlineStyle: 'none',
+    outlineWidth: 0,
+  } as any,
   descriptionInput: {
     minHeight: 80,
     textAlignVertical: 'top',
@@ -337,20 +358,24 @@ const styles = StyleSheet.create({
   uploadButtonContainer: {
     backgroundColor: colors.componentBackground,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.icon,
+    borderTopColor: 'rgba(17,24,28,0.08)',
     paddingHorizontal: '4%',
     paddingTop: 10,
   },
   uploadButton: {
+    ...glassStyles.button,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 14,
-    borderRadius: 8,
+    borderRadius: 26,
     gap: 8,
   },
+  uploadButtonDisabled: {
+    opacity: 0.6,
+  },
   uploadButtonText: {
-    color: colors.lightTint,
+    color: glassColors.link,
     fontWeight: '600',
     fontSize: 16,
   },

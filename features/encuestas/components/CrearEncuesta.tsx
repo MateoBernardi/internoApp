@@ -3,6 +3,8 @@ import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
 import { UserSelector } from '@/components/UserSelector';
 import { Colors } from '@/constants/theme';
 import { RoleUserSelectionModal } from '@/features/solicitudesActividades/components/RoleUserSelectionModal';
+import { AppBackButton } from '@/shared/ui/AppBackButton';
+import { glassColors } from '@/shared/ui/glass';
 import { KEYBOARD_BEHAVIOR } from '@/shared/ui/keyboard';
 import { useIdempotencyKey } from '@/shared/useIdempotencyKey';
 import { UserSummary } from '@/shared/users/User';
@@ -40,6 +42,7 @@ export const CrearEncuesta: React.FC<CrearEncuestaProps> = ({ onEncuestaCreada, 
   const insets = useSafeAreaInsets();
   const [titulo, setTitulo] = useState('');
   const [descripcion, setDescripcion] = useState('');
+  const [focusedField, setFocusedField] = useState<'titulo' | 'descripcion' | null>(null);
   const [esAnonima, setEsAnonima] = useState(false);
   const [fechaFin, setFechaFin] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -192,35 +195,32 @@ export const CrearEncuesta: React.FC<CrearEncuestaProps> = ({ onEncuestaCreada, 
       behavior={KEYBOARD_BEHAVIOR}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
     >
-      <EncuestasScreenHeader
-        title="Crear Encuesta"
-        left={
-          <TouchableOpacity onPress={onVolver} style={{ width: 40, height: 40, justifyContent: 'center' }}>
-            <Ionicons name="chevron-back" size={24} color={colors.lightTint} />
-          </TouchableOpacity>
-        }
-      />
+      <EncuestasScreenHeader title="Crear Encuesta" left={<AppBackButton onPress={onVolver} />} />
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
 
         {/* Información básica */}
         <View style={styles.section}>
           <TextInput
-            style={styles.input}
+            style={[styles.input, styles.inputNoOutline, focusedField === 'titulo' && styles.inputFocused]}
             placeholder="Título de la encuesta *"
             placeholderTextColor={colors.secondaryText}
             value={titulo}
             onChangeText={setTitulo}
+            onFocus={() => setFocusedField('titulo')}
+            onBlur={() => setFocusedField(null)}
           />
 
           <TextInput
-            style={[styles.input, styles.textArea]}
+            style={[styles.input, styles.textArea, styles.inputNoOutline, focusedField === 'descripcion' && styles.inputFocused]}
             placeholder="Descripción (opcional)"
             placeholderTextColor={colors.secondaryText}
             multiline
             numberOfLines={3}
             value={descripcion}
             onChangeText={setDescripcion}
+            onFocus={() => setFocusedField('descripcion')}
+            onBlur={() => setFocusedField(null)}
           />
 
           <ThemedText style={styles.subLabel}>Fecha de finalización (opcional)</ThemedText>
@@ -373,7 +373,7 @@ export const CrearEncuesta: React.FC<CrearEncuestaProps> = ({ onEncuestaCreada, 
         </View>
       </ScrollView>
 
-      <View style={[styles.footerDos, { paddingBottom: insets.bottom + 16 }]}>
+      <View style={[styles.footerDos, { paddingBottom: insets.bottom || 16 }]}>
         <TouchableOpacity style={styles.cancelarButton} onPress={onVolver}>
           <Text style={styles.cancelarButtonText}>Cancelar</Text>
         </TouchableOpacity>
@@ -383,7 +383,7 @@ export const CrearEncuesta: React.FC<CrearEncuestaProps> = ({ onEncuestaCreada, 
           disabled={isPending}
         >
           {isPending ? (
-            <ActivityIndicator color={colors.componentBackground} />
+            <ActivityIndicator color={glassColors.link} />
           ) : (
             <Text style={styles.guardarButtonText}>Crear Encuesta</Text>
           )}

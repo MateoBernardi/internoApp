@@ -1,4 +1,5 @@
-import { glassColors, glassStyles } from '@/shared/ui/glass';
+import { focusBorderStyles, glassColors, glassStyles } from '@/shared/ui/glass';
+import { useFocusBorder } from '@/shared/ui/useFocusBorder';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
@@ -46,6 +47,7 @@ export function ParticipantesBlock({
 }: Props) {
   const [expanded, setExpanded] = useState(initialExpanded);
   const [query, setQuery] = useState('');
+  const searchFocus = useFocusBorder();
 
   const stackAvatars = participantes.slice(0, 4);
   const overflow = participantes.length > 4 ? participantes.length - 4 : 0;
@@ -99,14 +101,16 @@ export function ParticipantesBlock({
         {expanded && (
           <View style={s.expandedSection}>
             {participantes.length > 6 && (
-              <View style={s.searchBar}>
+              <View style={[s.searchBar, searchFocus.isFocused && { borderBottomColor: glassColors.link }]}>
                 <Ionicons name="search" size={15} color={glassColors.textMuted} />
                 <TextInput
-                  style={s.searchInput}
+                  style={[s.searchInput, focusBorderStyles.inputNoOutline]}
                   placeholder="Buscar participante"
                   placeholderTextColor={glassColors.placeholder}
                   value={query}
                   onChangeText={setQuery}
+                  onFocus={searchFocus.onFocus}
+                  onBlur={searchFocus.onBlur}
                 />
               </View>
             )}

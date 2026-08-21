@@ -1,5 +1,7 @@
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
+import { focusBorderStyles, glassColors } from '@/shared/ui/glass';
+import { useFocusBorder } from '@/shared/ui/useFocusBorder';
 import { UserSummary } from '@/shared/users/User';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
@@ -53,6 +55,7 @@ export function UserSelector({
 }: UserSelectorProps) {
   const { width } = useWindowDimensions();
   const [searchQuery, setSearchQuery] = useState('');
+  const searchFocus = useFocusBorder();
 
   // States for Modals/Popups
   const [isRolesVisible, setIsRolesVisible] = useState(false);
@@ -100,16 +103,18 @@ export function UserSelector({
     <View style={styles.container}>
       {/* Input Row */}
       <View style={styles.topRow}>
-        <View style={styles.inputWrapper}>
+        <View style={[styles.inputWrapper, searchFocus.isFocused && { borderColor: glassColors.link }]}>
           <TextInput
-            style={[styles.input, { color: colors.text }]}
+            style={[styles.input, { color: colors.text }, focusBorderStyles.inputNoOutline]}
             placeholder="Buscar usuario..."
             placeholderTextColor={colors.secondaryText}
             value={searchQuery}
             onChangeText={handleSearch}
             onFocus={() => {
               if (searchQuery.length > 0) setShowResults(true);
+              searchFocus.onFocus();
             }}
+            onBlur={searchFocus.onBlur}
             autoCapitalize="none"
           />
         </View>
@@ -263,6 +268,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginRight: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(17,24,28,0.12)',
+    borderRadius: 8,
+    paddingHorizontal: 10,
   },
   label: {
     fontSize: 16,

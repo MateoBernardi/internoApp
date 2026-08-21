@@ -123,9 +123,8 @@ const styles = StyleSheet.create({
 		paddingBottom: 80,
 	},
 	cardsContainer: {
-		flexDirection: 'row',
-		justifyContent: 'space-evenly',
-		paddingHorizontal: '2%',
+		flexDirection: 'column',
+		paddingHorizontal: '4%',
 		marginBottom: 20,
 		gap: 12,
 	},

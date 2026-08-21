@@ -141,6 +141,7 @@ function ChatItem({ chat, displayName, hasBadge, currentUserId, onPress }: ChatI
                         </ThemedText>
                     )}
                     {hasBadge && <View style={styles.stateDot} />}
+                    <Ionicons name="chevron-forward" size={18} color={colors.secondaryText} />
                 </View>
                 {chat.invitados.length > 2 && (
                     <ThemedText
@@ -167,7 +168,7 @@ function ChatItem({ chat, displayName, hasBadge, currentUserId, onPress }: ChatI
                             <Ionicons name={preview.icon as any} size={13} color={colors.secondaryText} />
                         )}
                         <ThemedText
-                            style={[styles.preview, { color: colors.secondaryText }]}
+                            style={[styles.preview, hasBadge ? styles.previewUnseen : { color: colors.secondaryText }]}
                             numberOfLines={1}
                         >
                             {preview.text}
@@ -175,7 +176,6 @@ function ChatItem({ chat, displayName, hasBadge, currentUserId, onPress }: ChatI
                     </View>
                 )}
             </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.secondaryText} />
         </TouchableOpacity>
     );
 }
@@ -225,6 +225,10 @@ const styles = StyleSheet.create({
     },
     tituloUnseen: {
         color: '#000000',
+    },
+    previewUnseen: {
+        color: '#000000',
+        fontWeight: '600',
     },
     itemHeader: {
         flexDirection: 'row',

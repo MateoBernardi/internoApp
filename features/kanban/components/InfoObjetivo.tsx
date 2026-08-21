@@ -1,5 +1,7 @@
 import { Colors } from '@/constants/theme';
-import { glassColors, glassStyles } from '@/shared/ui/glass';
+import { focusBorderStyles, glassColors, glassStyles } from '@/shared/ui/glass';
+import { useFocusBorder } from '@/shared/ui/useFocusBorder';
+import { useSafeBottomInset } from '@/hooks/useSafeBottomInset';
 import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { DocsList, PendingFile } from '@/features/docs/components/DocsList';
@@ -44,6 +46,9 @@ const ROLE_LABELS: Record<Invitado['rol'], string> = {
 
 export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) {
     const insets = useSafeAreaInsets();
+    const bottomInset = useSafeBottomInset();
+    const tituloFocus = useFocusBorder();
+    const descripcionFocus = useFocusBorder();
     const { user } = useAuth();
     const { mutateAsync: uploadArchivo } = useUploadArchivo();
     const [localObjetivo, setLocalObjetivo] = useState<Objetivo | null>(null);
@@ -338,7 +343,7 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
     return (
         <FullScreenPortal>
         <>
-                <View style={[styles.container, { paddingBottom: insets.bottom }]}>
+                <View style={[styles.container, { paddingBottom: bottomInset }]}>
                     <View style={[styles.header, glassStyles.sheetHeader, { paddingTop: insets.top + 12 }]}>
                         <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
                             <Ionicons name="chevron-back" size={24} color="#6b7280" />
@@ -356,7 +361,13 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
                                                 prev ? { ...prev, titulo: text } : prev
                                             )
                                         }
-                                        style={styles.inlineInput}
+                                        style={[
+                                            styles.inlineInput,
+                                            focusBorderStyles.inputNoOutline,
+                                            !tituloFocus.isFocused && { borderColor: 'rgba(17,24,28,0.12)' },
+                                        ]}
+                                        onFocus={tituloFocus.onFocus}
+                                        onBlur={tituloFocus.onBlur}
                                         autoFocus
                                     />
                                     <View style={styles.inlineEditActions}>
@@ -402,7 +413,13 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
                                                 prev ? { ...prev, descripcion: text } : prev
                                             )
                                         }
-                                        style={styles.inlineInput}
+                                        style={[
+                                            styles.inlineInput,
+                                            focusBorderStyles.inputNoOutline,
+                                            !descripcionFocus.isFocused && { borderColor: 'rgba(17,24,28,0.12)' },
+                                        ]}
+                                        onFocus={descripcionFocus.onFocus}
+                                        onBlur={descripcionFocus.onBlur}
                                         autoFocus
                                     />
                                     <View style={styles.inlineEditActions}>
@@ -444,6 +461,7 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
                             </View>
                         </View>
 
+                        <View style={styles.participantesWrapper}>
                         <ParticipantesBlock
                             titulo={currentObjetivo.titulo}
                             participantes={invitedUsers.map(inv => ({
@@ -498,6 +516,7 @@ export function InfoObjetivo({ visible, objetivo, onClose }: InfoObjetivoProps) 
                                 );
                             }}
                         />
+                        </View>
 
                         <View style={styles.section}>
                             <View style={styles.sectionHeaderRow}>
@@ -610,8 +629,11 @@ const styles = StyleSheet.create({
         paddingVertical: 6,
     },
     section: {
-        marginTop: 10,
+        marginTop: 22,
         gap: 8,
+    },
+    participantesWrapper: {
+        marginTop: 22,
     },
     sectionLabel: {
         fontSize: 12,

@@ -92,17 +92,12 @@ export function HorariosHome() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#ffffff',
     paddingHorizontal: 18,
     paddingTop: 24,
   },
   menu: {
     gap: 12,
-    padding: 16,
-    borderRadius: 20,
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: 'rgba(17,24,28,0.08)',
   },
   optionCard: {
     padding: 18,
@@ -117,7 +112,8 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 12,
-    padding: 0,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,

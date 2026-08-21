@@ -1,6 +1,7 @@
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
-import { glassStyles } from '@/shared/ui/glass';
+import { focusBorderStyles, glassColors, glassStyles } from '@/shared/ui/glass';
+import { useFocusBorder } from '@/shared/ui/useFocusBorder';
 import { UserSummary } from '@/shared/users/User';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useMemo } from 'react';
@@ -50,6 +51,7 @@ export function RoleUserSelectionModal({
   onDeselectAll
 }: RoleUserSelectionModalProps) {
   const [searchQuery, setSearchQuery] = React.useState('');
+  const searchFocus = useFocusBorder();
   const { width } = useWindowDimensions();
 
   const modalWidth = useMemo(() => {
@@ -140,10 +142,17 @@ export function RoleUserSelectionModal({
 
               {/* Search Role Users */}
               <TextInput
-                style={[styles.roleSearchInput, glassStyles.fieldGlass]}
+                style={[
+                  styles.roleSearchInput,
+                  glassStyles.fieldGlass,
+                  focusBorderStyles.inputNoOutline,
+                  searchFocus.isFocused && { borderColor: glassColors.link },
+                ]}
                 placeholder="Buscar en este rol..."
                 value={searchQuery}
                 onChangeText={setSearchQuery}
+                onFocus={searchFocus.onFocus}
+                onBlur={searchFocus.onBlur}
               />
 
               {/* Actions Row */}

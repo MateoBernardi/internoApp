@@ -27,6 +27,7 @@ import {
 	View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeBottomInset } from '@/hooks/useSafeBottomInset';
 import { EstadoReporte, Reporte, ReporteImagen } from '../models/Reporte';
 import { getReporteEstadoPresentation } from '../presentation';
 import { useReporteImagenes, useUnlinkReporteImage, useUpdateReporte, useUploadReporteImage } from '../viewmodels/useReportes';
@@ -52,6 +53,7 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 	const { hasRole } = useRoleCheck();
 	const { user } = useAuth();
 	const insets = useSafeAreaInsets();
+	const bottomInset = useSafeBottomInset();
 	const { previewFile, openWithUri, closePreview } = useOpenFilePreview();
 
 	// ── Estado: formulario de actualización ──────────────────────────────────
@@ -301,7 +303,7 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 		<>
 		<View style={[glassStyles.sheet, styles.fullScreen]}>
 			<ModalKeyboardView style={styles.modalKeyboardAvoiding}>
-				<View style={[glassStyles.sheet, styles.modalContainer, { paddingBottom: insets.bottom }]}>
+				<View style={[glassStyles.sheet, styles.modalContainer, { paddingBottom: bottomInset }]}>
 					{/* Header */}
 					<View style={[glassStyles.sheetHeader, styles.modalHeader, { paddingTop: insets.top + 12 }]}>
 						<AppBackButton onPress={onClose} />
@@ -407,7 +409,7 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 						</ScrollView>
 
 						{canModify && (
-							<View style={styles.actionBar}>
+							<View style={[styles.actionBar, { paddingBottom: bottomInset }]}>
 								<GlassButton
 									label="Confirmar Cambios"
 									onPress={handleAccion}
@@ -466,6 +468,7 @@ const styles = StyleSheet.create({
 	},
 	metadataSection: {
 		paddingHorizontal: 20,
+		paddingTop: 18,
 		paddingBottom: 16,
 		maxHeight: 240,
 	},
@@ -477,7 +480,8 @@ const styles = StyleSheet.create({
 		paddingBottom: 24,
 	},
 	title: {
-		fontSize: 24,
+		fontSize: 20,
+		lineHeight: 26,
 		fontWeight: 'bold',
 		color: '#1a1a1a',
 		marginBottom: 12,

@@ -7,6 +7,7 @@ import { DocsList, PendingFile } from '@/features/docs/components/DocsList';
 import { Archivo, ArchivoUso } from '@/features/docs/models/Archivo';
 import { useUploadArchivo } from '@/features/docs/viewmodels/useArchivos';
 import { ApiOperationResult } from '@/shared/types/apiStatus';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { UserSummary } from '@/shared/users/User';
 import { allRoles } from '@/shared/users/roles';
 import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
@@ -556,7 +557,7 @@ export function ActividadDetalle({
             {/* ── Header ──────────────────────────────────────────────────── */}
             <View style={[styles.modalHeader, { paddingTop: insets.top + 12 }]}>
               <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-                <Ionicons name="chevron-back" size={24} color="#6b7280" />
+                <Ionicons name="chevron-back" size={24} color={glassColors.textMuted} />
               </TouchableOpacity>
               {isGuest && (
                 <TouchableOpacity
@@ -587,13 +588,13 @@ export function ActividadDetalle({
                 keyboardShouldPersistTaps="handled"
               >
                 {/* Título */}
-                <View style={styles.contentBlock}>
+                <View style={[glassStyles.card, styles.contentBlock]}>
                   <ThemedText style={styles.label}>Título</ThemedText>
                   <ThemedText style={styles.titulo}>{actividad.titulo}</ThemedText>
                 </View>
 
                 {/* Descripción */}
-                <View style={styles.contentBlock}>
+                <View style={[glassStyles.card, styles.contentBlock]}>
                   <ThemedText style={styles.label}>Descripción</ThemedText>
                   <ThemedText style={styles.descriptionText}>
                     {actividad.descripcion || 'Sin descripción'}
@@ -601,7 +602,7 @@ export function ActividadDetalle({
                 </View>
 
                 {/* ── Fechas ──────────────────────────────────────────────── */}
-                <View style={styles.contentBlock}>
+                <View style={[glassStyles.card, styles.contentBlock]}>
                   <View style={styles.sectionHeaderRow}>
                     <View style={styles.sectionTitleRow}>
                       <Ionicons name="time-outline" size={16} color={colors.lightTint} />
@@ -609,7 +610,7 @@ export function ActividadDetalle({
                     </View>
                     {isHost && !isEditingFechas && (
                       <TouchableOpacity style={styles.actionButton} onPress={handleEditarFechasPress}>
-                        <Ionicons name="create-outline" size={14} color={Colors.light.tint} />
+                        <Ionicons name="create-outline" size={14} color={glassColors.link} />
                         <Text style={styles.actionButtonText}>Editar</Text>
                       </TouchableOpacity>
                     )}
@@ -798,14 +799,14 @@ export function ActividadDetalle({
                 />
 
                 {/* ── Archivos ─────────────────────────────────────────────── */}
-                <View style={styles.section}>
+                <View style={[glassStyles.card, styles.section]}>
                   <View style={styles.sectionHeaderRow}>
                     <Text style={styles.label}>Archivos enlazados</Text>
                     <TouchableOpacity
                       style={styles.actionButton}
                       onPress={handleSeleccionarArchivo}
                     >
-                      <Ionicons name="add" size={14} color={Colors.light.tint} />
+                      <Ionicons name="add" size={14} color={glassColors.link} />
                       <Text style={styles.actionButtonText}>
                         {isUploadingFile ? 'Subiendo...' : 'Agregar'}
                       </Text>
@@ -921,7 +922,8 @@ const styles = StyleSheet.create({
   modalHeader: {
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderBottomColor: Colors['light'].icon,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(17,24,28,0.08)',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -930,7 +932,9 @@ const styles = StyleSheet.create({
   closeButton: {
     padding: 6,
     borderRadius: 16,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: 'rgba(17,24,28,0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(17,24,28,0.12)',
   },
   headerLeaveBtn: {
     padding: 6,
@@ -954,6 +958,7 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   contentBlock: {
+    padding: 14,
     gap: 6,
   },
   // ── Tipografía ────────────────────────────────────────────────────────────
@@ -965,7 +970,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#6b7280',
+    color: glassColors.textMuted,
     marginBottom: 4,
   },
   labelInline: {
@@ -975,10 +980,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.text,
     lineHeight: 22,
-  },
-  sectionValueMuted: {
-    fontSize: 14,
-    color: '#6b7280',
   },
   errorText: {
     color: colors.error,
@@ -1007,7 +1008,7 @@ const styles = StyleSheet.create({
   },
   dateLabelSmall: {
     fontSize: 12,
-    color: '#9ca3af',
+    color: glassColors.placeholder,
     fontWeight: '500',
     width: 34,
   },
@@ -1029,10 +1030,8 @@ const styles = StyleSheet.create({
   },
   // ── Fechas: edición inline ────────────────────────────────────────────────
   dateEditBlock: {
-    backgroundColor: '#f9fafb',
+    ...glassStyles.fieldGlass,
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
     padding: 12,
     gap: 4,
   },
@@ -1048,26 +1047,22 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   dateBtn: {
+    ...glassStyles.fieldGlass,
     flexDirection: 'row',
     alignItems: 'center',
     padding: 10,
-    backgroundColor: colors.componentBackground,
     borderRadius: 8,
     flex: 1,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
   },
   dateBtnText: {
     fontSize: 13,
     color: colors.text,
   },
   endDateCollapsible: {
+    ...glassStyles.fieldGlass,
     paddingVertical: 10,
     paddingHorizontal: 12,
     borderRadius: 8,
-    backgroundColor: colors.componentBackground,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.secondaryText,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -1089,13 +1084,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    backgroundColor: '#fff',
+    borderColor: 'rgba(17,24,28,0.12)',
+    backgroundColor: 'rgba(17,24,28,0.03)',
   },
   cancelBtnText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#9ca3af',
+    color: glassColors.textMuted,
   },
   saveBtn: {
     width: 30,
@@ -1103,7 +1098,7 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.light.tint,
+    backgroundColor: glassColors.link,
   },
   saveBtnDisabled: {
     opacity: 0.6,
@@ -1122,76 +1117,24 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: Colors.light.tint,
-    backgroundColor: Colors.light.tint + '12',
+    borderColor: 'rgba(26,115,232,0.35)',
+    backgroundColor: 'rgba(26,115,232,0.12)',
   },
   actionButtonText: {
     fontSize: 12,
     fontWeight: '700',
-    color: Colors.light.tint,
+    color: glassColors.link,
   },
   // ── Participantes ─────────────────────────────────────────────────────────
-  inviteSection: {
-    gap: 8,
-  },
   selectorCard: {
+    ...glassStyles.card,
     marginTop: 4,
     marginBottom: 4,
     padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    backgroundColor: '#f9fafb',
-  },
-  inviteList: {
-    gap: 10,
-  },
-  inviteRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 12,
-    backgroundColor: '#f9fafb',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-  },
-  inviteRowActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: Colors.light.tint + '22',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: Colors.light.tint,
-  },
-  inviteInfo: {
-    flex: 1,
-    gap: 2,
-    marginLeft: 10,
-  },
-  inviteName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#111827',
-  },
-  inviteMeta: {
-    fontSize: 12,
-    color: '#6b7280',
-    marginTop: 2,
-    textTransform: 'capitalize',
   },
   // ── Archivos ──────────────────────────────────────────────────────────────
   section: {
+    padding: 14,
     gap: 8,
   },
   // ── Botón eliminar actividad ──────────────────────────────────────────────

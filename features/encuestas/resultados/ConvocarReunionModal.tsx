@@ -14,6 +14,8 @@ import {
   View,
 } from 'react-native';
 import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
+import { focusBorderStyles, glassColors } from '@/shared/ui/glass';
+import { useFocusBorder } from '@/shared/ui/useFocusBorder';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Respuesta } from '../models/Encuesta';
 import { ConvocarReunionesResult, ReunionPersonaRequest, useConvocarReuniones } from '../viewmodels/useEncuestas';
@@ -50,6 +52,8 @@ export const ConvocarReunionModal: React.FC<ConvocarReunionModalProps> = ({
   const { enviar, isPending } = useConvocarReuniones();
 
   const [titulo, setTitulo] = useState('Reunión de equipo');
+  const tituloFocus = useFocusBorder();
+  const notaFocus = useFocusBorder();
   const [nota, setNota] = useState('');
   const [resultado, setResultado] = useState<ConvocarReunionesResult | null>(null);
 
@@ -195,25 +199,38 @@ export const ConvocarReunionModal: React.FC<ConvocarReunionModalProps> = ({
               <>
                 <Text style={styles.convocarFieldLabel}>Título / motivo *</Text>
                 <TextInput
-                  style={styles.convocarInput}
+                  style={[
+                    styles.convocarInput,
+                    focusBorderStyles.inputNoOutline,
+                    tituloFocus.isFocused && { borderColor: glassColors.link },
+                  ]}
                   value={titulo}
                   onChangeText={setTitulo}
+                  onFocus={tituloFocus.onFocus}
+                  onBlur={tituloFocus.onBlur}
                   placeholder="Título de la reunión"
                   placeholderTextColor={colors.secondaryText}
                 />
 
                 <Text style={styles.convocarFieldLabel}>Nota para cada persona (opcional)</Text>
                 <TextInput
-                  style={[styles.convocarInput, styles.convocarTextArea]}
+                  style={[
+                    styles.convocarInput,
+                    styles.convocarTextArea,
+                    focusBorderStyles.inputNoOutline,
+                    notaFocus.isFocused && { borderColor: glassColors.link },
+                  ]}
                   value={nota}
                   onChangeText={setNota}
+                  onFocus={notaFocus.onFocus}
+                  onBlur={notaFocus.onBlur}
                   placeholder="Mensaje adicional..."
                   placeholderTextColor={colors.secondaryText}
                   multiline
                 />
 
                 <View style={styles.sepNote}>
-                  <Ionicons name="information-circle-outline" size={16} color="#2a4f86" />
+                  <Ionicons name="information-circle-outline" size={16} color={colors.lightTint} />
                   <Text style={styles.sepNoteText}>
                     Se crea una invitación <Text style={{ fontWeight: '700' }}>separada por persona</Text>, agendada en el horario que cada uno votó. Podés editar la hora de fin individualmente.
                   </Text>

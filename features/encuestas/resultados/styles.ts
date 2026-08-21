@@ -1,4 +1,5 @@
 import { Colors } from '@/constants/theme';
+import { glassStyles } from '@/shared/ui/glass';
 import { StyleSheet } from 'react-native';
 
 const colors = Colors['light'];
@@ -128,15 +129,10 @@ export const styles = StyleSheet.create({
     paddingBottom: 50,
   },
   encuestaCard: {
-    backgroundColor: colors.componentBackground,
+    ...glassStyles.card,
     borderRadius: 12,
     padding: 16,
     marginBottom: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   encuestaTitulo: {
     fontSize: 16,
@@ -190,15 +186,10 @@ export const styles = StyleSheet.create({
     fontWeight: '600',
   },
   preguntaResultadoCard: {
-    backgroundColor: colors.componentBackground,
+    ...glassStyles.card,
     borderRadius: 12,
     padding: 16,
     marginBottom: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   preguntaHeader: {
     flexDirection: 'row',
@@ -510,7 +501,7 @@ export const styles = StyleSheet.create({
     borderRadius: 8,
   },
   votanteRowSelected: {
-    backgroundColor: '#e9f1fd',
+    backgroundColor: 'rgba(26,115,232,0.08)',
   },
   votanteRowConvocado: {
     backgroundColor: colors.background,
@@ -552,9 +543,9 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#e9f1fd',
+    backgroundColor: 'rgba(26,115,232,0.08)',
     borderWidth: 1,
-    borderColor: '#cfe0f9',
+    borderColor: 'rgba(26,115,232,0.25)',
     borderRadius: 999,
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -562,7 +553,7 @@ export const styles = StyleSheet.create({
   slotBadgeText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#2a4f86',
+    color: colors.lightTint,
   },
   verTodosButton: {
     flexDirection: 'row',
@@ -660,13 +651,11 @@ export const styles = StyleSheet.create({
     marginBottom: 6,
   },
   convocarInput: {
-    borderWidth: 1,
-    borderColor: colors.background,
+    ...glassStyles.fieldGlass,
     borderRadius: 12,
     padding: 14,
     fontSize: 15,
     color: colors.text,
-    backgroundColor: colors.componentBackground,
   },
   convocarTextArea: {
     minHeight: 72,
@@ -676,16 +665,16 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 8,
-    backgroundColor: '#e9f1fd',
+    backgroundColor: 'rgba(26,115,232,0.08)',
     borderWidth: 1,
-    borderColor: '#cfe0f9',
+    borderColor: 'rgba(26,115,232,0.25)',
     borderRadius: 10,
     padding: 12,
     marginTop: 16,
   },
   sepNoteText: {
     fontSize: 12,
-    color: '#2a4f86',
+    color: colors.lightTint,
     flex: 1,
     lineHeight: 17,
   },
@@ -771,7 +760,7 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 8,
-    backgroundColor: '#fff3f3',
+    backgroundColor: 'rgba(244,67,54,0.06)',
     borderRadius: 8,
     padding: 10,
   },
@@ -800,27 +789,9 @@ export const styles = StyleSheet.create({
 
   // ── GestionParticipantesModal ─────────────────────────────────────────────
   tabBar: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.background,
     marginHorizontal: 20,
-  },
-  tabButton: {
-    flex: 1,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  tabButtonActive: {
-    borderBottomWidth: 2,
-    borderBottomColor: colors.lightTint,
-  },
-  tabButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.secondaryText,
-  },
-  tabButtonTextActive: {
-    color: colors.lightTint,
+    marginTop: 4,
+    marginBottom: 8,
   },
   participanteRow: {
     flexDirection: 'row',

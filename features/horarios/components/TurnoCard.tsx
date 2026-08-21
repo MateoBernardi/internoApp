@@ -1,4 +1,4 @@
-import { glassStyles } from '@/shared/ui/glass';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -47,7 +47,7 @@ export const TurnoCard = React.memo(function TurnoCard({ turno, sedes, onPress }
           )}
         </View>
         <View style={styles.sedeRow}>
-          <Ionicons name="location-outline" size={12} color="#7a8087" style={styles.pinIcon} />
+          <Ionicons name="location-outline" size={12} color={glassColors.textMuted} style={styles.pinIcon} />
           <Text style={styles.sedeText} numberOfLines={1}>
             {sedeIn}{sedeIn !== sedeOut ? ` → ${sedeOut}` : ''}
           </Text>
@@ -59,7 +59,7 @@ export const TurnoCard = React.memo(function TurnoCard({ turno, sedes, onPress }
         <Text style={styles.turnoLabel}>{TURNO_LABEL[turno.turno]}</Text>
       </View>
 
-      <Ionicons name="chevron-forward" size={17} color="#9aa3ab" />
+      <Ionicons name="chevron-forward" size={17} color={glassColors.textMuted} />
     </TouchableOpacity>
   );
 });
@@ -101,7 +101,7 @@ const styles = StyleSheet.create({
   nombre: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#1c2024',
+    color: glassColors.text,
     flexShrink: 1,
   },
   aceptadoPill: {
@@ -128,7 +128,7 @@ const styles = StyleSheet.create({
   },
   sedeText: {
     fontSize: 12,
-    color: '#7a8087',
+    color: glassColors.textMuted,
     flex: 1,
   },
   right: {
@@ -138,12 +138,12 @@ const styles = StyleSheet.create({
   horario: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#1c2024',
+    color: glassColors.text,
     fontVariant: ['tabular-nums'],
   },
   turnoLabel: {
     fontSize: 11,
-    color: '#7a8087',
+    color: glassColors.textMuted,
     fontWeight: '500',
   },
 });

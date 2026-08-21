@@ -1,4 +1,5 @@
 import { Colors } from '@/constants/theme';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { StyleSheet } from 'react-native';
 
 const colors = Colors['light'];
@@ -25,13 +26,12 @@ export const styles = StyleSheet.create({
     flex: 1,
   },
   section: {
-    backgroundColor: colors.componentBackground,
+    ...glassStyles.card,
     padding: 16,
     marginHorizontal: 16,
-    marginBottom: 12,
+    marginBottom: 20,
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.background,
+    gap: 12,
   },
   sectionTitle: {
     fontSize: 16,
@@ -52,24 +52,27 @@ export const styles = StyleSheet.create({
     marginBottom: 12,
   },
   input: {
-    borderWidth: 1,
-    borderColor: colors.background,
+    ...glassStyles.fieldGlass,
     borderRadius: 8,
     padding: 12,
     fontSize: 14,
     color: colors.text,
-    backgroundColor: colors.componentBackground,
   },
+  inputFocused: {
+    borderColor: glassColors.link,
+  },
+  inputNoOutline: {
+    outlineStyle: 'none',
+    outlineWidth: 0,
+  } as any,
   textArea: {
     minHeight: 80,
     textAlignVertical: 'top',
   },
   dateButton: {
-    borderWidth: 1,
-    borderColor: colors.background,
+    ...glassStyles.fieldGlass,
     borderRadius: 8,
     padding: 12,
-    backgroundColor: colors.componentBackground,
     marginTop: 8,
   },
   dateButtonText: {
@@ -113,12 +116,10 @@ export const styles = StyleSheet.create({
     color: colors.secondaryText,
   },
   preguntaCard: {
-    backgroundColor: colors.componentBackground,
+    ...glassStyles.card,
     borderRadius: 8,
     padding: 12,
     marginBottom: 8,
-    borderWidth: 1,
-    borderColor: colors.background,
   },
   preguntaCardHeader: {
     flexDirection: 'row',
@@ -233,32 +234,31 @@ export const styles = StyleSheet.create({
     gap: 12,
   },
   cancelarButton: {
+    ...glassStyles.buttonSecondary,
     flex: 1,
     paddingVertical: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.secondaryText,
+    borderRadius: 18,
     alignItems: 'center',
   },
   cancelarButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.secondaryText,
+    color: glassColors.textMuted,
   },
   guardarButton: {
+    ...glassStyles.button,
     flex: 2,
     paddingVertical: 12,
-    borderRadius: 8,
-    backgroundColor: colors.lightTint,
+    borderRadius: 18,
     alignItems: 'center',
   },
   guardarButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.componentBackground,
+    color: glassColors.link,
   },
   crearButtonDisabled: {
-    backgroundColor: colors.secondaryText,
+    opacity: 0.6,
   },
 
   // ── Tipo horario en FormularioPregunta ───────────────────────────────────
@@ -266,9 +266,9 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#e9f1fd',
+    backgroundColor: 'rgba(26,115,232,0.08)',
     borderWidth: 1,
-    borderColor: '#cfe0f9',
+    borderColor: 'rgba(26,115,232,0.25)',
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -277,7 +277,7 @@ export const styles = StyleSheet.create({
   slotItemText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#2a4f86',
+    color: glassColors.link,
     flex: 1,
   },
   agregarSlotButton: {
@@ -311,7 +311,7 @@ export const styles = StyleSheet.create({
   },
   audOptionRowSelected: {
     borderColor: colors.lightTint,
-    backgroundColor: '#e9f1fd',
+    backgroundColor: 'rgba(26,115,232,0.08)',
   },
   radioDot: {
     width: 22,

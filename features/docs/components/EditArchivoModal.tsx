@@ -5,7 +5,8 @@ import { RoleUserSelectionModal } from '@/features/solicitudesActividades/compon
 import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
 import { GlassButton } from '@/shared/ui/GlassButton';
-import { glassColors, glassStyles } from '@/shared/ui/glass';
+import { focusBorderStyles, glassColors, glassStyles } from '@/shared/ui/glass';
+import { useFocusBorder } from '@/shared/ui/useFocusBorder';
 import { showGlobalToast } from '@/shared/ui/toast';
 import { adminRoles, allRoles } from '@/shared/users/roles';
 import { UserSummary } from '@/shared/users/User';
@@ -57,6 +58,8 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
 
   const [nombreBase, setNombreBase] = useState(splitName(archivo.nombre).base);
   const [descripcion, setDescripcion] = useState(archivo.titulo ?? '');
+  const nombreFocus = useFocusBorder();
+  const descripcionFocus = useFocusBorder();
 
   const [searchQuery, setSearchQuery] = useState('');
   const { data: searchResults, isLoading: isSearchingUsers } = useSearchUsers(searchQuery);
@@ -428,11 +431,19 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
                 <ThemedText style={styles.label}>Título del archivo</ThemedText>
                 <View style={styles.nameRow}>
                   <TextInput
-                    style={[styles.input, styles.nameInput, { color: colors.text }]}
+                    style={[
+                      styles.input,
+                      styles.nameInput,
+                      { color: colors.text },
+                      focusBorderStyles.inputNoOutline,
+                      nombreFocus.isFocused && { borderColor: glassColors.link },
+                    ]}
                     placeholder="Título"
                     placeholderTextColor={colors.secondaryText}
                     value={nombreBase}
                     onChangeText={setNombreBase}
+                    onFocus={nombreFocus.onFocus}
+                    onBlur={nombreFocus.onBlur}
                     maxLength={100}
                   />
                   {fileExt !== '' ? (
@@ -447,11 +458,19 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
                   Descripción <ThemedText style={styles.labelOptional}>(opcional)</ThemedText>
                 </ThemedText>
                 <TextInput
-                  style={[styles.input, styles.inputMultiline, { color: colors.text }]}
+                  style={[
+                    styles.input,
+                    styles.inputMultiline,
+                    { color: colors.text },
+                    focusBorderStyles.inputNoOutline,
+                    descripcionFocus.isFocused && { borderColor: glassColors.link },
+                  ]}
                   placeholder="Agregá una descripción del archivo..."
                   placeholderTextColor={colors.secondaryText}
                   value={descripcion}
                   onChangeText={setDescripcion}
+                  onFocus={descripcionFocus.onFocus}
+                  onBlur={descripcionFocus.onBlur}
                   maxLength={500}
                   multiline
                   numberOfLines={3}

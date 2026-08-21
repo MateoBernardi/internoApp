@@ -6,7 +6,7 @@ import { FrancosPorEmpleado } from '@/features/solicitudesLicencias/components/F
 import { PermisosPorEmpleado } from '@/features/solicitudesLicencias/components/PermisosPorEmpleado';
 import { VacacionesPorEmpleado } from '@/features/solicitudesLicencias/components/VacacionesPorEmpleado';
 import { Ionicons } from '@expo/vector-icons';
-import { glassStyles } from '@/shared/ui/glass';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
@@ -127,7 +127,7 @@ export function DetalleEmpleado() {
 							key={u.id} 
 							style={[glassStyles.fieldGlass, styles.userBadge]}
 						>
-							<View style={[styles.userAvatar, { backgroundColor: colors.tint }]}> 
+							<View style={styles.userAvatar}>
 								<ThemedText style={styles.userInitials}>
 									{u.nombre?.[0]}{u.apellido?.[0]}
 								</ThemedText>
@@ -151,11 +151,11 @@ export function DetalleEmpleado() {
 
 					{usuarios.length < 3 && (
 						<TouchableOpacity
-							style={[styles.addUserButton, { borderColor: colors.tint }]}
+							style={styles.addUserButton}
 							onPress={handleComparar}
 						>
-							<Ionicons name="add-circle-outline" size={20} color={colors.tint} />
-							<ThemedText style={[styles.addUserText, { color: colors.tint }]}>
+							<Ionicons name="add-circle-outline" size={20} color={glassColors.link} />
+							<ThemedText style={styles.addUserText}>
 								Comparar
 							</ThemedText>
 						</TouchableOpacity>
@@ -220,8 +220,8 @@ export function DetalleEmpleado() {
 				<RefreshControl
 					refreshing={isRefreshing}
 					onRefresh={handleRefresh}
-					colors={[colors.tint]}
-					tintColor={colors.tint}
+					colors={[glassColors.link]}
+					tintColor={glassColors.link}
 				/>
 			}
 		>
@@ -275,9 +275,10 @@ const styles = StyleSheet.create({
 		borderRadius: 16,
 		justifyContent: 'center',
 		alignItems: 'center',
+		backgroundColor: 'rgba(26,115,232,0.12)',
 	},
 	userInitials: {
-		color: 'white',
+		color: glassColors.link,
 		fontSize: 12,
 		fontWeight: 'bold',
 	},
@@ -301,11 +302,13 @@ const styles = StyleSheet.create({
 		gap: 6,
 		borderWidth: 2,
 		borderStyle: 'dashed',
+		borderColor: glassColors.link,
 		minHeight: 40,
 	},
 	addUserText: {
 		fontSize: 13,
 		fontWeight: '600',
+		color: glassColors.link,
 	},
 	tabsSection: {
 		paddingHorizontal: 12,

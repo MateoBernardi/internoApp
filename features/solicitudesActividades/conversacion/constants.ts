@@ -114,7 +114,11 @@ export function buildUltimoMensajePreview(solicitud: {
   let body: string | null = null;
   let icon: string | null = null;
 
-  if (typePreview) {
+  if (solicitud.ultimo_mensaje_tipo === 'FECHA' && solicitud.fecha_inicio && solicitud.fecha_fin) {
+    const fechasLabel = `Fechas: ${formatDateDDMMYYYY(solicitud.fecha_inicio)} ${formatTimeHHMM(solicitud.fecha_inicio)} → ${formatDateDDMMYYYY(solicitud.fecha_fin)} ${formatTimeHHMM(solicitud.fecha_fin)}`;
+    body = rawMessage ? `${fechasLabel} — ${rawMessage}` : fechasLabel;
+    icon = 'calendar-outline';
+  } else if (typePreview) {
     body = rawMessage ? `${typePreview.legend} — ${rawMessage}` : typePreview.legend;
     icon = typePreview.icon;
   } else if (rawMessage) {

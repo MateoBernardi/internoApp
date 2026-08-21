@@ -27,7 +27,9 @@ import {
 import { generateIdempotencyKey } from '@/shared/idempotency';
 import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
 import { GlassButton } from '@/shared/ui/GlassButton';
-import { glassColors, glassStyles } from '@/shared/ui/glass';
+import { focusBorderStyles, glassColors, glassStyles } from '@/shared/ui/glass';
+import { useFocusBorder } from '@/shared/ui/useFocusBorder';
+import { useSafeBottomInset } from '@/hooks/useSafeBottomInset';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EstadoSolicitud } from '../models/SolicitudLicencia';
 import { formatCantidadLicencia } from '../utils/formatCantidad';
@@ -84,6 +86,7 @@ interface SolicitudLicenciaProps {
 export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const bottomInset = useSafeBottomInset();
   const params = useLocalSearchParams<{ id?: string; type?: string }>();
   const { user } = useAuth();
   const resolvedId = props?.solicitudId ?? Number.parseInt(params.id ?? '', 10);
@@ -123,6 +126,7 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
   // States
   const [showObservationModal, setShowObservationModal] = useState(false);
   const [observationText, setObservationText] = useState('');
+  const observationFocus = useFocusBorder();
   const [actionType, setActionType] = useState<'approve' | 'reject' | null>(null);
   const [selectedArchivoId, setSelectedArchivoId] = useState<number | undefined>();
   const [isUploadingDoc, setIsUploadingDoc] = useState(false);
@@ -303,7 +307,7 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
       <FullScreenPortal>
       <View style={styles.fullScreen}>
         <View style={styles.keyboardContainer}>
-          <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', paddingBottom: insets.bottom }]}>
+          <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', paddingBottom: bottomInset }]}>
             <View style={[conversacionStyles.modalHeader, { paddingTop: insets.top + 10 }]}>
               <TouchableOpacity onPress={handleClose} style={conversacionStyles.backButton}>
                 <Ionicons name="chevron-back" size={24} color={glassColors.textMuted} />
@@ -349,7 +353,7 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
     <FullScreenPortal>
     <View style={styles.fullScreen}>
       <View style={styles.keyboardContainer}>
-        <View style={[styles.container, { paddingBottom: insets.bottom }]}>
+        <View style={[styles.container, { paddingBottom: bottomInset }]}>
           <View style={[conversacionStyles.modalHeader, { paddingTop: insets.top + 10 }]}>
             <TouchableOpacity onPress={handleClose} style={conversacionStyles.backButton}>
               <Ionicons name="chevron-back" size={24} color={glassColors.textMuted} />
@@ -576,9 +580,16 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
                     placeholderTextColor={colors.secondaryText}
                     value={observationText}
                     onChangeText={setObservationText}
+                    onFocus={observationFocus.onFocus}
+                    onBlur={observationFocus.onBlur}
                     multiline
                     numberOfLines={4}
-                    style={[glassStyles.fieldGlass, styles.input]}
+                    style={[
+                      glassStyles.fieldGlass,
+                      styles.input,
+                      focusBorderStyles.inputNoOutline,
+                      observationFocus.isFocused && { borderColor: glassColors.link },
+                    ]}
                   />
 
                   <View style={styles.modalActions}>

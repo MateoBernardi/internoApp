@@ -33,6 +33,7 @@ import {
 } from 'react-native';
 import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
 import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
+import { useKeyboardVisible } from '@/shared/ui/keyboard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { UserSelector } from '../../../components/UserSelector';
 import { useCreateObjetivo } from '../../kanban/hooks/useObjetivos';
@@ -204,22 +205,40 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
     handleSelectAllParticipantes, handleDeselectAllParticipantes,
   } = useParticipantesManager({ solicitud, solicitudId, actualizarInvitados });
 
-  const { messagesScrollRef, handleMessagesScroll, handleMessagesContentSizeChange } = useMessagesScroll({
+  const { messagesScrollRef, handleMessagesScroll, handleMessagesContentSizeChange, isNearBottomRef } = useMessagesScroll({
     hasNextPage, isFetchingNextPage, fetchNextPage,
   });
 
+  const keyboardVisible = useKeyboardVisible();
+
   useEffect(() => {
-    if (Platform.OS !== 'android') return;
-    // rAF lets KeyboardAvoidingView remove its padding and the layout settle
-    // before we scroll, so scrollToEnd resolves against the full viewport and
-    // re-clamps the stale offset.
-    const sub = Keyboard.addListener('keyboardDidHide', () => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const onShow = Keyboard.addListener(showEvent, () => {
+      if (!isNearBottomRef.current) return;
       requestAnimationFrame(() => {
         messagesScrollRef.current?.scrollToEnd({ animated: false });
       });
     });
-    return () => sub.remove();
-  }, [messagesScrollRef]);
+
+    // Android only: rAF lets KeyboardAvoidingView remove its padding and the
+    // layout settle before we scroll, so scrollToEnd resolves against the
+    // full viewport and re-clamps the stale offset. Only if the user was
+    // already at the bottom — otherwise a scrolled-up read position is
+    // preserved instead of being yanked back down.
+    const onHide = Platform.OS === 'android'
+      ? Keyboard.addListener('keyboardDidHide', () => {
+        if (!isNearBottomRef.current) return;
+        requestAnimationFrame(() => {
+          messagesScrollRef.current?.scrollToEnd({ animated: false });
+        });
+      })
+      : null;
+
+    return () => {
+      onShow.remove();
+      onHide?.remove();
+    };
+  }, [messagesScrollRef, isNearBottomRef]);
 
   // ─── Derivados del prop solicitud ─────────────────────────────────────────
 
@@ -252,8 +271,14 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
   const esActividadCreada = efectivoEstado === 'ACTIVIDAD_CREADA';
   const isFinalState = ['ACTIVIDAD_CREADA', 'EXPIRED', 'ACCEPTED', 'REJECTED'].includes(efectivoEstado);
   const isAceptarModificacionesFlow = isHost && efectivoEstado === 'MODIFIED';
-  // El invitado no puede aceptar mientras la solicitud está en estado "Modificado" (propuso un cambio).
-  const aceptarDeshabilitado = !isHost && efectivoEstado === 'MODIFIED';
+  // Ninguna de las dos partes puede aceptar mientras la solicitud está en el
+  // estado que su propio último mensaje/propuesta generó: el invitado no
+  // puede aceptar su propia propuesta ("Modificado"), y el creador no puede
+  // autoaceptar su propio mensaje/propuesta ("Modificado por creador") — debe
+  // esperar la respuesta del invitado.
+  const aceptarDeshabilitado =
+    (!isHost && efectivoEstado === 'MODIFIED') ||
+    (isHost && efectivoEstado === 'MODIFIED_BY_HOST');
 
   // Reglas de creación: por cantidad de participantes (no por tipo).
   // - 2 participantes (creador + 1 invitado): ambos pueden crear una vez que el invitado acepta.
@@ -297,11 +322,21 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
     [bitacora],
   );
 
+  // Si ya hubo alguna propuesta de fecha en la bitácora, `solicitud.fecha_inicio`/
+  // `fecha_fin` reflejan la propuesta MÁS RECIENTE (se sobrescriben en cada
+  // modificación) — no la fecha original de la solicitud. Usarlas como fallback
+  // en el mensaje sintético de "descripción" duplicaría esa fecha en el primer
+  // mensaje en vez de mostrarla solo en el mensaje que realmente la propuso.
+  const hasAnyFechaPropuesta = useMemo(
+    () => (bitacora ?? []).some(b => b.fecha_inicio_nueva && b.fecha_fin_nueva),
+    [bitacora],
+  );
+
   const mensajes = useMemo(() => {
     const descripcion = solicitud.descripcion?.trim();
     const createdAt = solicitud.fecha_inicio
       ? new Date(solicitud.fecha_inicio).toISOString()
-      : new Date().toISOString();
+      : solicitud.created_at.toISOString();
     // La entrada 'SENT' real (creación) trae su propio acuse de lectura;
     // la reusamos para que el mensaje original también muestre el tilde.
     const entradaInicial = (bitacora ?? []).find(b => b.estado === 'SENT');
@@ -688,7 +723,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
     <FullScreenPortal>
     <View style={styles.fullScreen}>
       <ModalKeyboardView style={styles.keyboardContainer}>
-        <View style={[styles.container, { paddingBottom: bottomInset }]}>
+        <View style={[styles.container, { paddingBottom: keyboardVisible ? 0 : bottomInset }]}>
 
           {/* Header */}
           {/* paddingTop con el inset superior: el marginTop '10%' del container antiguo
@@ -842,8 +877,8 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                         const hideTitle = isDescripcion || isSystem || (
                           MESSAGE_STATES.includes(b.estado) && b.estado !== 'ACCEPTED' && b.estado !== 'ACCEPTED_BY_HOST'
                         );
-                        const fechaInicioMsg = b.fecha_inicio_nueva ?? (isDescripcion ? solicitud.fecha_inicio : null);
-                        const fechaFinMsg = b.fecha_fin_nueva ?? (isDescripcion ? solicitud.fecha_fin : null);
+                        const fechaInicioMsg = b.fecha_inicio_nueva ?? (isDescripcion && !hasAnyFechaPropuesta ? solicitud.fecha_inicio : null);
+                        const fechaFinMsg = b.fecha_fin_nueva ?? (isDescripcion && !hasAnyFechaPropuesta ? solicitud.fecha_fin : null);
                         const archivos = Array.isArray(b.archivos) ? b.archivos : [];
 
                         const currentDate = new Date(b.created_at);
@@ -983,7 +1018,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
 
                         {/* Adjuntar */}
                         <TouchableOpacity style={styles.messageActionButton} onPress={handleAgregarAdjunto}>
-                          <Ionicons name="add-outline" size={20} color={colors.lightTint} />
+                          <Ionicons name="attach" size={20} color={colors.lightTint} />
                         </TouchableOpacity>
 
                         {/* Rechazar */}

@@ -1,8 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Animated,
   Platform,
   ScrollView,
@@ -15,6 +18,7 @@ import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
 import { GlassTabSelector } from '@/components/ui/GlassTabSelector';
 import { glassStyles } from '@/shared/ui/glass';
 import { SearchBar } from '@/components/ui/SearchBar';
+import { useAuth } from '@/features/auth/context/AuthContext';
 import { allRoles } from '@/shared/users/roles';
 import type { UserSummary } from '@/shared/users/User';
 import { useSearchUsers } from '@/shared/users/useUser';
@@ -23,7 +27,7 @@ import { TurnoCard } from '../components/TurnoCard';
 import { HorariosToast } from '../components/HorariosToast';
 import type { UpdateHorarioPayload } from '../models/HorarioDTO';
 import { mapHorarioDTOToTurno, TURNO_LABEL, type Turno } from '../models/Turno';
-import type { HorariosByDateFilter } from '../services/horariosService';
+import { downloadPlantillaShifts, type HorariosByDateFilter } from '../services/horariosService';
 import {
   useHorariosByDate,
   useSedes,
@@ -31,7 +35,7 @@ import {
   useUploadShifts,
 } from '../viewmodels/useHorarios';
 
-import { CARD, INK, LINE, MUTED, NAVY, RED_FLASH, TURNO_COLOR } from '../theme';
+import { CARD, FERIADO_COLOR, INK, LINE, MUTED, NAVY, RED_FLASH, TURNO_COLOR } from '../theme';
 
 const DAY_NAMES = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
@@ -83,20 +87,25 @@ export function GestionHorarios() {
   const [selectedUser, setSelectedUser] = useState<UserSummary | null>(null);
   const [rolFilter, setRolFilter] = useState<string | null>(null);
   const [showRolMenu, setShowRolMenu] = useState(false);
+  const [feriadoOnly, setFeriadoOnly] = useState(false);
   const [editingTurno, setEditingTurno] = useState<Turno | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [toast, setToast] = useState('');
   const [toastError, setToastError] = useState(false);
   const toastAnim = useRef(new Animated.Value(0)).current;
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { tokens } = useAuth();
+  const [isDownloadingPlantilla, setIsDownloadingPlantilla] = useState(false);
 
-  // El backend solo acepta un filtro por request: prioriza el empleado buscado
-  // sobre el rol si por algún motivo ambos quedaran seteados.
+  // El backend solo acepta un filtro por request: prioriza el empleado buscado,
+  // después el rol, y por último "solo feriados" si ninguno de los otros dos está activo.
   const activeFilter: HorariosByDateFilter | undefined = selectedUser
     ? { key: 'usuario', value: selectedUser.user_context_id }
     : rolFilter
       ? { key: 'rol_nombre', value: rolFilter }
-      : undefined;
+      : feriadoOnly
+        ? { key: 'feriado', value: 1 }
+        : undefined;
 
   const horariosQuery = useHorariosByDate(selDateISO, activeFilter);
   const sedesQuery = useSedes();
@@ -156,6 +165,7 @@ export function GestionHorarios() {
       sede_id_in: editingTurno.sedeIdIngreso,
       sede_id_out: editingTurno.sedeIdEgreso,
       licencia: editingTurno.licencia ? 1 : 0,
+      feriado: editingTurno.feriado ? 1 : 0,
     };
     updateShift(payload, {
       onSuccess: () => {
@@ -171,24 +181,73 @@ export function GestionHorarios() {
   const handlePickFile = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: Platform.OS === 'web' ? 'text/plain' : '*/*',
+        type: Platform.OS === 'web' ? ['text/csv', 'text/plain'] : '*/*',
         copyToCacheDirectory: true,
       });
       if (result.canceled || !result.assets?.[0]) return;
       const { uri, name } = result.assets[0];
       uploadShifts(
-        { uri, name: name ?? 'shifts.txt' },
+        { uri, name: name ?? 'shifts.csv' },
         {
           onSuccess: (resp) => {
-            showToast(`${resp.totalInsertados} turno${resp.totalInsertados !== 1 ? 's' : ''} importados`);
+            const omitidosSuffix = resp.totalOmitidos > 0 ? ` · ${resp.totalOmitidos} omitido${resp.totalOmitidos !== 1 ? 's' : ''}` : '';
+            showToast(`${resp.totalInsertados} turno${resp.totalInsertados !== 1 ? 's' : ''} importados${omitidosSuffix}`);
           },
-          onError: () => {
-            showToast('Error al importar el archivo', true);
+          onError: (err) => {
+            showToast(err instanceof Error ? err.message : 'Error al importar el archivo', true);
           },
         },
       );
     } catch {
       showToast('Error al leer el archivo', true);
+    }
+  };
+
+  const handleDownloadPlantilla = async () => {
+    if (isDownloadingPlantilla) return;
+    const token = tokens?.accessToken;
+    if (!token) {
+      showToast('No se pudo descargar la plantilla', true);
+      return;
+    }
+    setIsDownloadingPlantilla(true);
+    try {
+      const blob = await downloadPlantillaShifts(token);
+      const fileName = 'plantilla_shifts.csv';
+
+      if (Platform.OS === 'web') {
+        const blobUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(blobUrl);
+      } else {
+        const destinationDir = new FileSystem.Directory(FileSystem.Paths.cache, 'Italo-Argentina');
+        const destinationFile = new FileSystem.File(destinationDir, fileName);
+        await destinationDir.create({ idempotent: true, intermediates: true });
+
+        const text = await blob.text();
+        destinationFile.create({ overwrite: true, intermediates: true });
+        destinationFile.write(text);
+
+        const canShare = await Sharing.isAvailableAsync();
+        if (canShare) {
+          await Sharing.shareAsync(destinationFile.uri, {
+            dialogTitle: 'Guardar o compartir plantilla',
+            mimeType: 'text/csv',
+          });
+        } else {
+          Alert.alert('Descarga completada', 'La plantilla se descargó en almacenamiento temporal de la app.');
+        }
+      }
+    } catch (e) {
+      console.error(e);
+      showToast('No se pudo descargar la plantilla', true);
+    } finally {
+      setIsDownloadingPlantilla(false);
     }
   };
 
@@ -206,11 +265,18 @@ export function GestionHorarios() {
     setSelectedUser(user);
     setSearchQuery('');
     setRolFilter(null); // el backend solo admite un filtro por request
+    setFeriadoOnly(false);
   }, []);
 
   const clearUserSearch = useCallback(() => {
     setSelectedUser(null);
     setSearchQuery('');
+  }, []);
+
+  const toggleFeriadoOnly = useCallback(() => {
+    setFeriadoOnly((v) => !v);
+    setSelectedUser(null); // el backend solo admite un filtro por request
+    setRolFilter(null);
   }, []);
 
   return (
@@ -248,7 +314,7 @@ export function GestionHorarios() {
           />
         )}
 
-        {/* TXT import card */}
+        {/* CSV import card */}
         <View style={styles.importCard}>
           <View style={styles.importIcon}>
             {isUploading ? (
@@ -258,11 +324,22 @@ export function GestionHorarios() {
             )}
           </View>
           <View style={styles.importText}>
-            <Text style={styles.importTitle}>Importar TXT</Text>
+            <Text style={styles.importTitle}>Importar CSV</Text>
             <Text style={styles.importSub}>
-              {isUploading ? 'Subiendo planilla…' : 'Planilla de turnos'}
+              {isUploading ? 'Subiendo planilla…' : 'Planilla de turnos (.csv)'}
             </Text>
           </View>
+          <TouchableOpacity
+            style={styles.importPlantillaBtn}
+            onPress={handleDownloadPlantilla}
+            disabled={isDownloadingPlantilla}
+          >
+            {isDownloadingPlantilla ? (
+              <ActivityIndicator size="small" color={NAVY} />
+            ) : (
+              <Ionicons name="download-outline" size={20} color={NAVY} />
+            )}
+          </TouchableOpacity>
           <TouchableOpacity
             style={[styles.importBtn, isUploading && styles.importBtnDisabled]}
             onPress={handlePickFile}
@@ -375,6 +452,7 @@ export function GestionHorarios() {
                   onPress={() => {
                     setRolFilter(r.value);
                     setSelectedUser(null); // el backend solo admite un filtro por request
+                    setFeriadoOnly(false);
                     setShowRolMenu(false);
                   }}
                 >
@@ -386,6 +464,17 @@ export function GestionHorarios() {
               ))}
             </View>
           )}
+
+          {/* Feriados toggle */}
+          <TouchableOpacity
+            style={[styles.feriadoToggle, feriadoOnly && styles.feriadoToggleActive]}
+            onPress={toggleFeriadoOnly}
+          >
+            <Ionicons name="star" size={14} color={feriadoOnly ? '#ffffff' : FERIADO_COLOR} />
+            <Text style={[styles.feriadoToggleText, feriadoOnly && styles.feriadoToggleTextActive]}>
+              Solo feriados
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* List */}
@@ -451,7 +540,7 @@ export function GestionHorarios() {
         ) : (
           <Text style={styles.infoText}>
             <Text style={styles.infoBold}>{dayTurnos.length}</Text>
-            {filter !== 'Todos' || sedeFilter !== null || rolFilter !== null || selectedUser ? ` resultado${dayTurnos.length !== 1 ? 's' : ''} · ` : ` turno${dayTurnos.length !== 1 ? 's' : ''} · `}
+            {filter !== 'Todos' || sedeFilter !== null || rolFilter !== null || selectedUser || feriadoOnly ? ` resultado${dayTurnos.length !== 1 ? 's' : ''} · ` : ` turno${dayTurnos.length !== 1 ? 's' : ''} · `}
             <Text style={styles.infoBold}>{totalForDay}</Text>
             {' total en el día'}
           </Text>
@@ -573,6 +662,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: MUTED,
   },
+  importPlantillaBtn: {
+    ...glassStyles.fieldGlass,
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   importBtn: {
     paddingHorizontal: 16,
     paddingVertical: 9,
@@ -641,6 +738,29 @@ const styles = StyleSheet.create({
   },
   sedeMenuBox: {
     overflow: 'hidden',
+  },
+  feriadoToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(147,51,234,0.35)',
+    backgroundColor: 'rgba(147,51,234,0.08)',
+  },
+  feriadoToggleActive: {
+    backgroundColor: FERIADO_COLOR,
+    borderColor: FERIADO_COLOR,
+  },
+  feriadoToggleText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: FERIADO_COLOR,
+  },
+  feriadoToggleTextActive: {
+    color: '#ffffff',
   },
   sedeMenuItem: {
     flexDirection: 'row',

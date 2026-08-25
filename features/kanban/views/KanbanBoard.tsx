@@ -9,9 +9,7 @@ import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { Breakpoints, Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import {
-    formatBoardUpdatedAt,
     formatObjectiveDate,
-    getLatestObjectiveUpdate,
     getObjectiveAssignee,
 } from '../kanbanPresentation';
 import {
@@ -49,7 +47,6 @@ import Animated, {
     type SharedValue,
 } from 'react-native-reanimated';
 import { FormObjetivoModal } from '../components/CrearObjetivo';
-import { InfoObjetivo } from '../components/InfoObjetivo';
 import { MoveModal } from '../components/MoverObjetivo';
 import { DetailModal } from '../components/Objetivo';
 import {
@@ -731,6 +728,7 @@ function KanbanColumn({
                     <View style={styles.columnBadge}>
                         <Text style={styles.columnBadgeText}>{objetivos.length}</Text>
                     </View>
+                    <CreateButton onPress={onCreate} accessibilityLabel={`Nuevo objetivo en ${estado}`} />
                 </View>
             </View>
 
@@ -833,7 +831,6 @@ export function KanbanBoard() {
     // Estados de modales
     const [formModalVisible, setFormModalVisible] = useState(false);
     const [detailModalVisible, setDetailModalVisible] = useState(false);
-    const [infoModalVisible, setInfoModalVisible] = useState(false);
     const [moveModalVisible, setMoveModalVisible] = useState(false);
     const [formModalMinimized, setFormModalMinimized] = useState(false);
     const [resumeCreateDraft, setResumeCreateDraft] = useState(false);
@@ -969,11 +966,6 @@ export function KanbanBoard() {
         };
     });
 
-    const latestUpdateLabel = useMemo(
-        () => formatBoardUpdatedAt(getLatestObjectiveUpdate(objetivos)),
-        [objetivos]
-    );
-
     const objetivosPorEstado = useMemo<Record<VisibleEstado, Objetivo[]>>(
         () =>
             ESTADOS.reduce(
@@ -993,15 +985,9 @@ export function KanbanBoard() {
         setDetailModalVisible(true);
     }, []);
 
-    const handleShowInfo = useCallback((objetivo: Objetivo) => {
-        setSelectedObjetivoId(objetivo.id);
-        setDetailModalVisible(false);
-        setInfoModalVisible(true);
-    }, []);
-
-    const handleOpenCreate = useCallback(() => {
+    const handleOpenCreate = useCallback((estado?: VisibleEstado) => {
         if (!formModalMinimized) {
-            setCreateDraft(DEFAULT_CREATE_DRAFT);
+            setCreateDraft({ ...DEFAULT_CREATE_DRAFT, estado: estado ?? DEFAULT_OBJETIVO_ESTADO });
         }
         setResumeCreateDraft(false);
         setFormModalMinimized(false);
@@ -1287,17 +1273,8 @@ export function KanbanBoard() {
                                 {objetivos.length} objetivo{objetivos.length !== 1 ? 's' : ''}
                             </Text>
                         </View>
-                        <View style={styles.headerMetaDivider} />
-                        <View style={styles.headerMetaItem}>
-                            <Ionicons name="time-outline" size={14} color="#667085" />
-                            <Text style={styles.headerMetaText} numberOfLines={1}>
-                                Actualizado: {latestUpdateLabel}
-                            </Text>
-                        </View>
                     </View>
                 </View>
-
-                <CreateButton onPress={handleOpenCreate} accessibilityLabel="Nuevo objetivo" />
             </View>
 
             {isDesktopWide ? (
@@ -1314,7 +1291,7 @@ export function KanbanBoard() {
                             onObjetivoPress={handleShowDetail}
                             onMovePress={handleOpenMove}
                             onReorder={handleReorderObjetivo}
-                            onCreate={handleOpenCreate}
+                            onCreate={() => handleOpenCreate(estado)}
                             optimisticObjetivoId={optimisticObjetivoId}
                             isDragging={draggingObjetivo !== null}
                             dragCtx={dragCtx}
@@ -1347,7 +1324,7 @@ export function KanbanBoard() {
                                     onObjetivoPress={handleShowDetail}
                                     onMovePress={handleOpenMove}
                                     onReorder={handleReorderObjetivo}
-                                    onCreate={handleOpenCreate}
+                                    onCreate={() => handleOpenCreate(estado)}
                                     optimisticObjetivoId={optimisticObjetivoId}
                                     columnWidth={compactColumnWidth}
                                     compact={isCompactHeader}
@@ -1422,17 +1399,7 @@ export function KanbanBoard() {
                 onClose={() => setDetailModalVisible(false)}
                 onMove={handleOpenMove}
                 onDelete={handleDeleteObjetivo}
-                onInfo={handleShowInfo}
                 currentUserId={user?.user_context_id}
-            />
-
-            <InfoObjetivo
-                visible={infoModalVisible}
-                objetivo={selectedObjetivo}
-                onClose={() => {
-                    setInfoModalVisible(false);
-                    setDetailModalVisible(true);
-                }}
             />
 
             <MoveModal

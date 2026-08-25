@@ -23,6 +23,7 @@ export interface Turno {
   sedeIdIngreso: number;
   sedeIdEgreso: number;
   licencia: boolean;
+  feriado: boolean;
   isNew?: boolean;
   aceptedAt?: string | null;
 }
@@ -51,6 +52,7 @@ export function mapHorarioDTOToTurno(dto: HorarioDTO): Turno {
     sedeIdIngreso: dto.sede_id_in,
     sedeIdEgreso: dto.sede_id_out,
     licencia: dto.licencia ?? dto.esta_de_licencia ?? false,
+    feriado: dto.feriado ?? false,
     aceptedAt: dto.acepted_at ?? null,
   };
 }

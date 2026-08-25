@@ -16,6 +16,18 @@ export async function login(username: string, password: string) {
   return await response.json();
 }
 
+export async function loginWithGoogle(idToken: string) {
+  const response = await fetch(`${baseUrl}/auth/google`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-app-entorno": "interno"
+    },
+    body: JSON.stringify({ idToken }),
+  });
+  return await response.json();
+}
+
 export async function refresh(refreshToken: string) {
   // User requested refreshToken in body
   const response = await apiRequest({method: "POST", endpoint: "/auth/refresh", token:'', body: { refreshToken }});

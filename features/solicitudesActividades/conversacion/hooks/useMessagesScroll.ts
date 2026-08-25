@@ -51,5 +51,5 @@ export function useMessagesScroll({ hasNextPage, isFetchingNextPage, fetchNextPa
     prevContentHeightRef.current = h;
   }, []);
 
-  return { messagesScrollRef, handleMessagesScroll, handleMessagesContentSizeChange };
+  return { messagesScrollRef, handleMessagesScroll, handleMessagesContentSizeChange, isNearBottomRef };
 }

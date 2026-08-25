@@ -51,10 +51,14 @@ export function useCreateObjetivo(idempotencyKey?: string) {
             return createObjetivo(token, data, idempotencyKey);
         },
         onSuccess: (newObjetivo) => {
-            // Actualizar el cache agregando el nuevo objetivo
+            // Actualización optimista: agregar el nuevo objetivo de inmediato
             queryClient.setQueryData(OBJETIVOS_QUERY_KEY, (old: Objetivo[] | undefined) => {
                 return old ? [...old, newObjetivo] : [newObjetivo];
             });
+            // Refetch: la respuesta de creación puede no traer los invitados
+            // hidratados con nombre/apellido (a diferencia del GET /kanban),
+            // así que invalidamos para reconciliar con datos completos.
+            queryClient.invalidateQueries({ queryKey: OBJETIVOS_QUERY_KEY });
             queryClient.invalidateQueries({
                 queryKey: solicitudesQueryKeys.all,
             });

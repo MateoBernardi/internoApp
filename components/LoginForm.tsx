@@ -5,6 +5,7 @@ import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { useAuthFormLayout } from '@/shared/ui/authLayout';
 import { glassColors, glassStyles } from '@/shared/ui/glass';
+import { GoogleSignin, isGoogleSignInAvailable } from '@/features/auth/services/googleSignInClient';
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
@@ -13,12 +14,13 @@ import { Image, Keyboard, Platform, Pressable, StyleSheet, TextInput, View } fro
 const colors = Colors['light'];
 
 export const LoginForm: React.FC = () => {
-  const { signIn } = useAuth();
+  const { signIn, signInWithGoogle } = useAuth();
   const { maxWidth: webFormMaxWidth, horizontalPadding, logoSize } = useAuthFormLayout();
   const [user, setUser] = useState("");
   const [pass, setPass] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
   const passRef = useRef<TextInput>(null);
 
@@ -64,6 +66,36 @@ export const LoginForm: React.FC = () => {
     }
   }, [user, pass, signIn, isFormValid]);
 
+  // Sign in con Google (solo nativo: el SDK no soporta web)
+  const onGoogleSignIn = useCallback(async () => {
+    if (!GoogleSignin) {
+      setError("Inicio de sesión con Google no disponible en Expo Go");
+      return;
+    }
+
+    setGoogleLoading(true);
+    setError("");
+
+    try {
+      await GoogleSignin.hasPlayServices();
+      const result = await GoogleSignin.signIn();
+      if (result.type === 'cancelled') {
+        // El usuario cerró el selector de cuentas: no es un error a mostrar
+        return;
+      }
+      const idToken = result.data?.idToken;
+      if (!idToken) {
+        throw new Error("No se pudo obtener el token de Google");
+      }
+      await signInWithGoogle(idToken);
+      // El RootLayout maneja el redirect automáticamente basado en isAuthenticated y requiresAssociation
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Intenta nuevamente");
+    } finally {
+      setGoogleLoading(false);
+    }
+  }, [signInWithGoogle]);
+
   // Cambios de usuario y contraseña
   const handleUserChange = useCallback((text: string) => {
     setUser(text);
@@ -101,6 +133,7 @@ export const LoginForm: React.FC = () => {
           onChangeText={handleUserChange}
           accessibilityLabel="Campo usuario"
           textContentType="username"
+          autoComplete="username"
           hasError={!!error && !user.trim()}
           variant="glass"
           returnKeyType="next"
@@ -117,6 +150,7 @@ export const LoginForm: React.FC = () => {
           accessibilityLabel="Campo contraseña"
           returnKeyType="done"
           textContentType="password"
+          autoComplete="password"
           hasError={!!error && !pass.trim()}
           variant="glass"
           onSubmitEditing={onSubmit}
@@ -140,6 +174,22 @@ export const LoginForm: React.FC = () => {
             {loading ? "Ingresando..." : "Ingresar"}
           </ThemedText>
         </Pressable>
+
+        {Platform.OS !== 'web' && isGoogleSignInAvailable && (
+          <Pressable
+            style={[styles.loginButton, styles.googleButton]}
+            onPress={onGoogleSignIn}
+            disabled={googleLoading}
+            accessibilityRole="button"
+            accessibilityLabel="Botón continuar con Google"
+            android_ripple={{ color: colors.lightTint }}
+          >
+            <Feather name="chrome" size={20} color={glassColors.text} style={{ marginRight: 8 }} />
+            <ThemedText style={[styles.loginButtonText, { color: glassColors.text }]}>
+              {googleLoading ? "Ingresando..." : "Continuar con Google"}
+            </ThemedText>
+          </Pressable>
+        )}
 
         <View style={styles.linksContainer}>
           <View style={styles.signupContainer}>
@@ -194,6 +244,12 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     paddingVertical: 14,
     paddingHorizontal: 32,
+  },
+  googleButton: {
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: glassColors.text,
+    backgroundColor: 'transparent',
   },
   loginCardText: {
     color: colors.componentBackground,

@@ -2,6 +2,7 @@ import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
 import { AppBackButton } from '@/shared/ui/AppBackButton';
 import { glassColors, glassStyles } from '@/shared/ui/glass';
+import { confirmAction } from '@/shared/ui/confirmAction';
 import { Colors } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef, useState } from 'react';
@@ -24,7 +25,7 @@ import {
   monthLabel,
   shiftMonth,
 } from '../utils/dateRange';
-import { useMovimientos, useObjetivosHoras, useUpsertObjetivoHoras } from '../viewmodels/useHorasExtra';
+import { useDeleteObjetivoHoras, useMovimientos, useObjetivosHoras, useUpsertObjetivoHoras } from '../viewmodels/useHorasExtra';
 
 import { AMBER, CARD, INK, LINE, MUTED, RED_FLASH, TURNO_COLOR, TURNO_SOFT } from '../theme';
 const colors = Colors['light'];
@@ -90,11 +91,25 @@ export function DetalleHorasExtraSheet({
   );
   const objetivoExists = objetivo != null;
   const upsertObjetivo = useUpsertObjetivoHoras();
+  const deleteObjetivo = useDeleteObjetivoHoras();
 
   function startEditingObjetivo() {
     setObjetivoText(objetivo != null ? String(objetivo.horas) : '');
     upsertObjetivo.reset();
     setEditingObjetivo(true);
+  }
+
+  async function removeObjetivo() {
+    if (!displayEmpleado) return;
+    const confirmed = await confirmAction({
+      title: 'Quitar objetivo semanal',
+      message: `¿Eliminar el objetivo semanal de ${displayEmpleado.nombre} ${displayEmpleado.apellido}?`,
+      confirmText: 'Quitar',
+      cancelText: 'Cancelar',
+      destructive: true,
+    });
+    if (!confirmed) return;
+    deleteObjetivo.mutate(displayEmpleado.userContextId);
   }
 
   const parsedObjetivo = Number(objetivoText.replace(',', '.'));
@@ -201,13 +216,28 @@ export function DetalleHorasExtraSheet({
                           </Text>
                         )}
                       </Text>
-                      <TouchableOpacity
-                        style={styles.objetivoIconBtn}
-                        onPress={startEditingObjetivo}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      >
-                        <Ionicons name="pencil" size={16} color={TURNO_COLOR} />
-                      </TouchableOpacity>
+                      <View style={styles.objetivoReadActions}>
+                        {objetivoExists && (
+                          deleteObjetivo.isPending ? (
+                            <ActivityIndicator size="small" color={RED_FLASH} style={styles.objetivoIconBtn} />
+                          ) : (
+                            <TouchableOpacity
+                              style={styles.objetivoIconBtn}
+                              onPress={removeObjetivo}
+                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                            >
+                              <Ionicons name="trash-outline" size={16} color={RED_FLASH} />
+                            </TouchableOpacity>
+                          )
+                        )}
+                        <TouchableOpacity
+                          style={styles.objetivoIconBtn}
+                          onPress={startEditingObjetivo}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                          <Ionicons name="pencil" size={16} color={TURNO_COLOR} />
+                        </TouchableOpacity>
+                      </View>
                     </View>
                   )}
                   {editingObjetivo && objetivoText.trim().length > 0 && !isObjetivoValid && (
@@ -216,6 +246,11 @@ export function DetalleHorasExtraSheet({
                   {editingObjetivo && upsertObjetivo.isError && (
                     <Text style={styles.objetivoErrorText}>
                       {(upsertObjetivo.error as Error)?.message || 'No se pudo guardar el objetivo.'}
+                    </Text>
+                  )}
+                  {!editingObjetivo && deleteObjetivo.isError && (
+                    <Text style={styles.objetivoErrorText}>
+                      {(deleteObjetivo.error as Error)?.message || 'No se pudo quitar el objetivo.'}
                     </Text>
                   )}
                 </View>
@@ -399,6 +434,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  objetivoReadActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   objetivoLineText: {
     fontSize: 13,

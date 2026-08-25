@@ -18,6 +18,7 @@ export const TARDE_COLOR = AMBER;
 export const TARDE_SOFT = '#fff8e7';
 export const ACEPTADO_COLOR = '#16a34a';
 export const RED_FLASH = '#ef4444';
+export const FERIADO_COLOR = '#9333ea';
 
 export const horariosColors = {
   morning: TURNO_COLOR,

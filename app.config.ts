@@ -20,6 +20,61 @@ function requireEnv(name: string): string {
   return value;
 }
 
+const plugins: NonNullable<ExpoConfig["plugins"]> = [
+  [
+    "expo-notifications",
+    {
+      icon: "./assets/images/icon-1024.png",
+      color: "#E6F4FE",
+    },
+  ],
+  "expo-router",
+  [
+    "expo-splash-screen",
+    {
+      image: "./assets/images/icon-1024.png",
+      imageWidth: 200,
+      resizeMode: "contain",
+      backgroundColor: "#ffffff",
+      dark: {
+        backgroundColor: "#000000",
+      },
+    },
+  ],
+  [
+    "expo-camera",
+    {
+      "cameraPermission": "Esta aplicación requiere acceso a la cámara para que los usuarios puedan escanear códigos QR o capturar imágenes de remitos, productos, o reportes por ejemplo, al registrar un control de stock en el depósito de la empresa.",
+      "microphonePermission": "Esta aplicación necesita acceso al micrófono para grabar videos de reportes laborales."
+    }
+  ],
+  [
+    "expo-location",
+    {
+      "locationWhenInUsePermission": "Esta aplicación requiere acceso a tu ubicación para verificar que te encontrás dentro del predio de Italo Argentina, por ejemplo, al momento de registrar de forma válida tu asistencia, entrada o salida laboral."
+    }
+  ],
+  "expo-secure-store",
+  "@react-native-community/datetimepicker",
+  [
+    "expo-image-picker",
+    {
+      "photoLibraryPermission": "Esta aplicación requiere acceso a tu biblioteca de fotos para que los usuarios puedan seleccionar y subir imágenes de comprobantes, recibos o reportes de daños guardados en el dispositivo hacia el sistema de la empresa.",
+    }
+  ],
+  "./plugins/withBlockedAndroidMediaPermissions",
+];
+
+// La reversed client ID de iOS recién existe una vez creado el cliente OAuth de iOS
+// en Google Cloud Console. Hasta entonces, omitir el plugin: exigir siempre la
+// variable rompería también los builds de Android/web.
+if (process.env.GOOGLE_IOS_URL_SCHEME) {
+  plugins.push([
+    "@react-native-google-signin/google-signin",
+    { iosUrlScheme: process.env.GOOGLE_IOS_URL_SCHEME },
+  ]);
+}
+
 export default ({ config }: ConfigContext): ExpoConfig => ({
   name: "Italo Argentina",
   slug: "internoApp",
@@ -79,50 +134,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     backgroundColor: "#dfe3e8",
     barStyle: "dark-content",
   },
-  plugins: [
-    [
-      "expo-notifications",
-      {
-        icon: "./assets/images/icon-1024.png",
-        color: "#E6F4FE",
-      },
-    ],
-    "expo-router",
-    [
-      "expo-splash-screen",
-      {
-        image: "./assets/images/icon-1024.png",
-        imageWidth: 200,
-        resizeMode: "contain",
-        backgroundColor: "#ffffff",
-        dark: {
-          backgroundColor: "#000000",
-        },
-      },
-    ],
-    [
-      "expo-camera",
-      {
-        "cameraPermission": "Esta aplicación requiere acceso a la cámara para que los usuarios puedan escanear códigos QR o capturar imágenes de remitos, productos, o reportes por ejemplo, al registrar un control de stock en el depósito de la empresa.",
-        "microphonePermission": "Esta aplicación necesita acceso al micrófono para grabar videos de reportes laborales."
-      }
-    ],
-    [
-      "expo-location",
-      {
-        "locationWhenInUsePermission": "Esta aplicación requiere acceso a tu ubicación para verificar que te encontrás dentro del predio de Italo Argentina, por ejemplo, al momento de registrar de forma válida tu asistencia, entrada o salida laboral."
-      }
-    ],
-    "expo-secure-store",
-    "@react-native-community/datetimepicker",
-    [
-      "expo-image-picker",
-      {
-        "photoLibraryPermission": "Esta aplicación requiere acceso a tu biblioteca de fotos para que los usuarios puedan seleccionar y subir imágenes de comprobantes, recibos o reportes de daños guardados en el dispositivo hacia el sistema de la empresa.",
-      }
-    ],
-    "./plugins/withBlockedAndroidMediaPermissions",
-  ],
+  plugins,
   experiments: {
     typedRoutes: true,
     reactCompiler: true,
@@ -131,6 +143,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     API_BASE_URL: requireEnv("API_BASE_URL"),
     // Secret en EAS (solo disponible en build, no en update) → opcional. Solo se usa para web push.
     VAPID_PUBLIC_KEY: process.env.FIREBASE_VAPID_PUBLIC_KEY,
+    GOOGLE_WEB_CLIENT_ID: process.env.GOOGLE_WEB_CLIENT_ID,
     router: {},
     eas: {
       projectId: "f7cef901-9e89-441f-8cb3-ceb9c01a8b6c",

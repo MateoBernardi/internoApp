@@ -4,7 +4,7 @@ import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { SedeDTO } from '../models/HorarioDTO';
 import { TURNO_CODE, TURNO_LABEL, type Turno } from '../models/Turno';
-import { ACEPTADO_COLOR, TARDE_COLOR, TARDE_SOFT, TURNO_COLOR, TURNO_SOFT } from '../theme';
+import { ACEPTADO_COLOR, FERIADO_COLOR, TARDE_COLOR, TARDE_SOFT, TURNO_COLOR, TURNO_SOFT } from '../theme';
 
 
 interface TurnoCardProps {
@@ -43,6 +43,12 @@ export const TurnoCard = React.memo(function TurnoCard({ turno, sedes, onPress }
             <View style={styles.aceptadoPill}>
               <Ionicons name="checkmark-circle" size={11} color={ACEPTADO_COLOR} />
               <Text style={styles.aceptadoText}>Aceptado</Text>
+            </View>
+          )}
+          {turno.feriado && (
+            <View style={styles.feriadoPill}>
+              <Ionicons name="star" size={11} color={FERIADO_COLOR} />
+              <Text style={styles.feriadoText}>Feriado ×2</Text>
             </View>
           )}
         </View>
@@ -118,6 +124,21 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     color: '#16a34a',
+  },
+  feriadoPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    backgroundColor: 'rgba(147,51,234,0.1)',
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    flexShrink: 0,
+  },
+  feriadoText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: FERIADO_COLOR,
   },
   sedeRow: {
     flexDirection: 'row',

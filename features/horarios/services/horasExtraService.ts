@@ -136,3 +136,20 @@ export async function updateObjetivoHoras(
   if (!res.ok) throwApiError(await extractError(res), res);
   return res.json();
 }
+
+/**
+ * DELETE /horarios/objetivos/:userContextId: elimina el objetivo semanal ya
+ * existente de un usuario. 404 si todavía no tiene uno cargado.
+ */
+export async function deleteObjetivoHoras(
+  token: string,
+  userContextId: number,
+): Promise<{ message: string }> {
+  const res = await apiRequest({
+    method: 'DELETE',
+    endpoint: `/horarios/objetivos/${userContextId}`,
+    token,
+  });
+  if (!res.ok) throwApiError(await extractError(res), res);
+  return res.json();
+}

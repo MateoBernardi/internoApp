@@ -65,6 +65,7 @@ export interface SolicitudEnviada {
   ultimo_mensaje_autor_id?: number | null;
   fecha_inicio: Date | null;
   fecha_fin: Date | null;
+  created_at: Date;
   nombre_creador: string;
   apellido_creador: string;
   created_by: number;

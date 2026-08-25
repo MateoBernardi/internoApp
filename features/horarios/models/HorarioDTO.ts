@@ -18,6 +18,7 @@ export interface HorarioDTO {
   relacion: string;
   licencia?: boolean;
   esta_de_licencia?: boolean;
+  feriado?: boolean;
   acepted_at?: string | null;
 }
 
@@ -30,6 +31,7 @@ export interface UploadShiftsResponse {
   success: boolean;
   message: string;
   totalInsertados: number;
+  totalOmitidos: number;
 }
 
 export interface UpdateHorarioPayload {
@@ -40,6 +42,7 @@ export interface UpdateHorarioPayload {
   sede_id_in: number;
   sede_id_out: number;
   licencia: 0 | 1;        // marcado manual: 1 si el empleado está de licencia
+  feriado: 0 | 1;          // 1 si el turno cae en un feriado (aplica ×2 en el cálculo de horas)
 }
 
 /**
@@ -56,6 +59,7 @@ export interface HorarioUsuarioDTO {
   sede_id_in: number;
   sede_id_out: number;
   licencia: boolean;
+  feriado: boolean;
   acepted_at?: string | null;
   marcado_in_at: string | null;
   marcado_out_at: string | null;

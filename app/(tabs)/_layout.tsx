@@ -8,9 +8,10 @@ import { useSolicitudesUnseen } from '@/features/solicitudesActividades/viewmode
 import { useLicenciasUnseenCount } from '@/features/solicitudesLicencias/viewmodels/useSolicitudes';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { Href, Redirect, Tabs, useRouter, useSegments } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { LayoutChangeEvent, Platform, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, LayoutChangeEvent, Platform, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const TAB_BAR_BASE_HEIGHT = 56;
@@ -60,8 +61,31 @@ export default function TabLayout() {
   const canSeeReportesPersonal = !hasAdminTab;
   const colors = Colors['light'];
   const [activeMenu, setActiveMenu] = useState<'personal' | 'admin' | null>(null);
+  const [renderedMenu, setRenderedMenu] = useState<'personal' | 'admin' | null>(null);
+  const menuAnim = useRef(new Animated.Value(0)).current;
   const [containerWidth, setContainerWidth] = useState(0);
   const hasShownWebPushDialogRef = useRef(false);
+  // Posición (relativa a `desktopTopBar`) de cada botón que abre un popover,
+  // para anclar el menú desktop exactamente debajo del botón en vez de un
+  // offset fijo — desktopTopBarRight.x + button.x = x absoluto dentro del bar.
+  const [desktopRightGroupX, setDesktopRightGroupX] = useState(0);
+  const [desktopAdminButtonRect, setDesktopAdminButtonRect] = useState<{ x: number; width: number } | null>(null);
+  const [desktopPersonalButtonRect, setDesktopPersonalButtonRect] = useState<{ x: number; width: number } | null>(null);
+
+  // Anima la entrada/salida del popover; `renderedMenu` se mantiene un instante
+  // más que `activeMenu` para poder animar el cierre antes de desmontar.
+  useEffect(() => {
+    if (activeMenu) {
+      setRenderedMenu(activeMenu);
+      menuAnim.setValue(0);
+      Animated.timing(menuAnim, { toValue: 1, duration: 180, useNativeDriver: true }).start();
+    } else if (renderedMenu) {
+      Animated.timing(menuAnim, { toValue: 0, duration: 140, useNativeDriver: true }).start(({ finished }) => {
+        if (finished) setRenderedMenu(null);
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeMenu]);
   const responsiveLayout = useResponsiveLayout();
   const isDesktopWeb = Platform.OS === 'web' && responsiveLayout.isDesktop;
   const currentTab = useMemo(() => (segments[1] as string) || 'index', [segments]);
@@ -193,6 +217,7 @@ export default function TabLayout() {
             style={[styles.desktopTopButton, currentTab === 'index' && styles.desktopTopButtonActive]}
             onPress={() => navigateToTab('/(tabs)' as Href)}
           >
+            <IconSymbol name="house.fill" size={16} color={currentTab === 'index' ? glassColors.link : colors.secondaryText} />
             <Text style={[styles.desktopTopButtonText, currentTab === 'index' && styles.desktopTopButtonTextActive]}>Inicio</Text>
           </TouchableOpacity>
 
@@ -201,6 +226,7 @@ export default function TabLayout() {
               style={[styles.desktopTopButton, currentTab === 'explore' && styles.desktopTopButtonActive]}
               onPress={() => navigateToTab('/(tabs)/explore' as Href)}
             >
+              <IconSymbol name="paperplane.fill" size={16} color={currentTab === 'explore' ? glassColors.link : colors.secondaryText} />
               <Text style={[styles.desktopTopButtonText, currentTab === 'explore' && styles.desktopTopButtonTextActive]}>Solicitudes</Text>
               {hasMensajesBadge && <View style={styles.desktopNavPendingDot} />}
             </TouchableOpacity>
@@ -210,17 +236,23 @@ export default function TabLayout() {
             style={[styles.desktopTopButton, currentTab === 'documentos' && styles.desktopTopButtonActive]}
             onPress={() => navigateToTab('/(tabs)/documentos' as Href)}
           >
+            <IconSymbol name="doc.text.fill" size={16} color={currentTab === 'documentos' ? glassColors.link : colors.secondaryText} />
             <Text style={[styles.desktopTopButtonText, currentTab === 'documentos' && styles.desktopTopButtonTextActive]}>Documentos</Text>
             {hasArchivosBadge && <View style={styles.desktopNavPendingDot} />}
           </TouchableOpacity>
         </View>
 
-        <View style={styles.desktopTopBarRight}>
+        <View
+          style={styles.desktopTopBarRight}
+          onLayout={(e) => setDesktopRightGroupX(e.nativeEvent.layout.x)}
+        >
           {!hideAdmin && (
             <TouchableOpacity
               style={[styles.desktopTopButton, activeMenu === 'admin' && styles.desktopTopButtonActive]}
               onPress={() => handlePress('admin')}
+              onLayout={(e) => setDesktopAdminButtonRect({ x: e.nativeEvent.layout.x, width: e.nativeEvent.layout.width })}
             >
+              <IconSymbol name="chart.bar.fill" size={16} color={activeMenu === 'admin' ? glassColors.link : colors.secondaryText} />
               <Text style={[styles.desktopTopButtonText, activeMenu === 'admin' && styles.desktopTopButtonTextActive]}>Administración</Text>
               {hasAdminBadge && <View style={styles.desktopNavPendingDot} />}
             </TouchableOpacity>
@@ -229,7 +261,9 @@ export default function TabLayout() {
           <TouchableOpacity
             style={[styles.desktopTopButton, activeMenu === 'personal' && styles.desktopTopButtonActive]}
             onPress={() => handlePress('personal')}
+            onLayout={(e) => setDesktopPersonalButtonRect({ x: e.nativeEvent.layout.x, width: e.nativeEvent.layout.width })}
           >
+            <IconSymbol name="user.fill" size={16} color={activeMenu === 'personal' ? glassColors.link : colors.secondaryText} />
             <Text style={[styles.desktopTopButtonText, activeMenu === 'personal' && styles.desktopTopButtonTextActive]}>
               {user?.nombre || 'Mi cuenta'}
             </Text>
@@ -241,19 +275,45 @@ export default function TabLayout() {
   };
 
   const renderMenu = () => {
-    if (!activeMenu) return null;
+    if (!renderedMenu) return null;
 
-    const options = activeMenu === 'personal' ? personalMenuOptions : administrationMenuOptions;
-    const title = activeMenu === 'personal' ? 'Mi Área Personal' : 'Administración';
+    const options = renderedMenu === 'personal' ? personalMenuOptions : administrationMenuOptions;
+    const title = renderedMenu === 'personal' ? 'Mi Área Personal' : 'Administración';
+    const animatedMenuStyle = {
+      opacity: menuAnim,
+      transform: [
+        { scale: menuAnim.interpolate({ inputRange: [0, 1], outputRange: [0.95, 1] }) },
+        { translateY: menuAnim.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) },
+      ],
+    };
 
     if (isDesktopWeb) {
       const currentWidth = Math.max(containerWidth, 720);
-      const menuWidth = Math.min(340, currentWidth - MENU_SIDE_PADDING * 2);
+      const menuWidth = Math.min(300, currentWidth - MENU_SIDE_PADDING * 2);
+
+      // Ancla el popover al botón que lo abrió (no a un offset fijo del borde).
+      const anchorRect = renderedMenu === 'personal' ? desktopPersonalButtonRect : desktopAdminButtonRect;
+      const anchorCenterX = anchorRect
+        ? desktopRightGroupX + anchorRect.x + anchorRect.width / 2
+        : currentWidth - 40;
+      const minLeft = MENU_SIDE_PADDING;
+      const maxLeft = Math.max(currentWidth - menuWidth - MENU_SIDE_PADDING, MENU_SIDE_PADDING);
+      const menuLeft = Math.min(Math.max(anchorCenterX - menuWidth / 2, minLeft), maxLeft);
+      const rawArrowLeft = anchorCenterX - menuLeft - 6;
+      const arrowLeft = Math.min(Math.max(rawArrowLeft, 14), Math.max(menuWidth - 26, 14));
 
       return (
-        <View style={styles.menuLayer} pointerEvents="box-none">
+        <View style={styles.menuLayer} pointerEvents={activeMenu ? 'box-none' : 'none'}>
           <Pressable style={styles.dismissArea} onPress={() => setActiveMenu(null)} />
-          <View style={[styles.menuContainer, styles.desktopMenuContainer, { top: DESKTOP_NAV_HEIGHT + 12, width: menuWidth }]}>
+          <Animated.View
+            style={[
+              glassStyles.modalCard,
+              styles.menuContainer,
+              { top: DESKTOP_NAV_HEIGHT + 12, left: menuLeft, width: menuWidth },
+              animatedMenuStyle,
+            ]}
+          >
+            <View style={[styles.menuArrow, styles.menuArrowTop, { left: arrowLeft }]} />
             <View style={styles.menuHeader}>
               <Text style={styles.menuTitle}>{title}</Text>
             </View>
@@ -270,11 +330,11 @@ export default function TabLayout() {
                   {opt.hasBadge && <View style={styles.menuPendingDot} />}
                 </View>
                 {opt.showChevron !== false && (
-                  <IconSymbol name="chevron.right" size={16} color={colors.tint} />
+                  <IconSymbol name="chevron.right" size={16} color={glassColors.textMuted} />
                 )}
               </TouchableOpacity>
             ))}
-          </View>
+          </Animated.View>
         </View>
       );
     }
@@ -287,7 +347,7 @@ export default function TabLayout() {
       'areaPersonalMenu',
     ].filter(Boolean) as string[];
 
-    const targetTab = activeMenu === 'personal' ? 'areaPersonalMenu' : 'administracionMenu';
+    const targetTab = renderedMenu === 'personal' ? 'areaPersonalMenu' : 'administracionMenu';
     const tabIndex = Math.max(visibleTabs.indexOf(targetTab), 0);
     const currentWidth = Math.max(containerWidth, 320);
     const tabWidth = currentWidth / Math.max(visibleTabs.length, 1);
@@ -303,10 +363,17 @@ export default function TabLayout() {
     const arrowLeft = Math.min(Math.max(rawArrowLeft, 14), Math.max(menuWidth - 26, 14));
 
     return (
-      <View style={styles.menuLayer} pointerEvents="box-none">
+      <View style={styles.menuLayer} pointerEvents={activeMenu ? 'box-none' : 'none'}>
         <Pressable style={styles.dismissArea} onPress={() => setActiveMenu(null)} />
-        <View style={[styles.menuContainer, { bottom: tabBarHeight + 10, left: menuLeft, width: menuWidth }]}>
-          <View style={[styles.menuArrow, { left: arrowLeft }]} />
+        <Animated.View
+          style={[
+            glassStyles.modalCard,
+            styles.menuContainer,
+            { bottom: tabBarHeight + 10, left: menuLeft, width: menuWidth },
+            animatedMenuStyle,
+          ]}
+        >
+          <View style={[styles.menuArrow, styles.menuArrowBottom, { left: arrowLeft }]} />
           <View style={styles.menuHeader}>
             <Text style={styles.menuTitle}>{title}</Text>
           </View>
@@ -323,11 +390,11 @@ export default function TabLayout() {
                 {opt.hasBadge && <View style={styles.menuPendingDot} />}
               </View>
               {opt.showChevron !== false && (
-                <IconSymbol name="chevron.right" size={16} color={colors.tint} />
+                <IconSymbol name="chevron.right" size={16} color={glassColors.textMuted} />
               )}
             </TouchableOpacity>
           ))}
-        </View>
+        </Animated.View>
       </View>
     );
   };
@@ -353,7 +420,7 @@ export default function TabLayout() {
 
       <Tabs
         screenOptions={{
-          tabBarActiveTintColor: colors.tint,
+          tabBarActiveTintColor: glassColors.link,
           headerShown: false,
           sceneStyle: isDesktopWeb ? styles.desktopScene : undefined,
           tabBarStyle: isDesktopWeb
@@ -362,6 +429,9 @@ export default function TabLayout() {
               position: 'relative',
               height: tabBarHeight,
               paddingBottom: insets.bottom,
+              backgroundColor: Colors.light.componentBackground,
+              borderTopWidth: StyleSheet.hairlineWidth,
+              borderTopColor: Colors.light.background,
             },
         }}>
 
@@ -370,8 +440,9 @@ export default function TabLayout() {
           listeners={{ tabPress: () => setActiveMenu(null) }}
           options={{
             title: 'Inicio',
-            tabBarIcon: ({ color }) => (
+            tabBarIcon: ({ focused, color }) => (
               <View style={styles.tabIconContainer}>
+                {focused && <View style={styles.tabIconPill} />}
                 <IconSymbol size={24} name="house.fill" color={color} />
               </View>
             ),
@@ -384,8 +455,9 @@ export default function TabLayout() {
           options={{
             href: hideExplore ? null : undefined,
             title: 'Mensajes',
-            tabBarIcon: ({ color }) => (
+            tabBarIcon: ({ focused, color }) => (
               <View style={styles.tabIconContainer}>
+                {focused && <View style={styles.tabIconPill} />}
                 <IconSymbol size={24} name="paperplane.fill" color={color} />
                 {hasMensajesBadge && (
                   <View style={styles.tabBadge}>
@@ -402,8 +474,9 @@ export default function TabLayout() {
           listeners={{ tabPress: () => setActiveMenu(null) }}
           options={{
             title: 'Documentos',
-            tabBarIcon: ({ color }) => (
+            tabBarIcon: ({ focused, color }) => (
               <View style={styles.tabIconContainer}>
+                {focused && <View style={styles.tabIconPill} />}
                 <IconSymbol size={24} name="doc.text.fill" color={color} />
                 {hasArchivosBadge && (
                   <View style={styles.tabBadge}>
@@ -423,10 +496,11 @@ export default function TabLayout() {
             title: 'Admin',
             tabBarIcon: ({ color }) => (
               <View style={styles.tabIconContainer}>
+                {activeMenu === 'admin' && <View style={styles.tabIconPill} />}
                 <IconSymbol
                   size={24}
                   name={activeMenu === 'admin' ? 'xmark' : 'chart.bar.fill'}
-                  color={activeMenu === 'admin' ? colors.tint : color}
+                  color={activeMenu === 'admin' ? glassColors.link : color}
                 />
                 {hasAdminBadge && <View style={styles.tabPendingDot} />}
               </View>
@@ -441,10 +515,11 @@ export default function TabLayout() {
             title: user?.nombre || 'Usuario',
             tabBarIcon: ({ color }) => (
               <View style={styles.tabIconContainer}>
+                {activeMenu === 'personal' && <View style={styles.tabIconPill} />}
                 <IconSymbol
                   size={24}
                   name={activeMenu === 'personal' ? 'xmark' : 'user.fill'}
-                  color={activeMenu === 'personal' ? colors.tint : color}
+                  color={activeMenu === 'personal' ? glassColors.link : color}
                 />
                 {hasPersonalBadge && <View style={styles.tabPendingDot} />}
               </View>
@@ -468,25 +543,35 @@ const styles = StyleSheet.create({
   dismissArea: {
     ...StyleSheet.absoluteFillObject,
   },
+  // Posición/relleno propios; el fondo/borde/sombra sólidos vienen de
+  // glassStyles.modalCard (mismo recipe que el resto de los diálogos).
   menuContainer: {
     position: 'absolute',
-    backgroundColor: Colors.light.componentBackground,
-    borderRadius: 16,
     paddingBottom: 8,
     paddingTop: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
     elevation: 12,
   },
+  // Base del "pico" que conecta el popover con el botón que lo abrió;
+  // los modificadores de abajo eligen qué dos bordes quedan visibles según
+  // el pico apunte hacia abajo (mobile, menú arriba del tab) o hacia arriba
+  // (desktop, menú debajo del botón).
   menuArrow: {
     position: 'absolute',
-    bottom: -6,
     width: 12,
     height: 12,
     backgroundColor: Colors.light.componentBackground,
+    borderColor: 'rgba(17,24,28,0.08)',
     transform: [{ rotate: '45deg' }],
+  },
+  menuArrowBottom: {
+    bottom: -6,
+    borderRightWidth: 1,
+    borderBottomWidth: 1,
+  },
+  menuArrowTop: {
+    top: -6,
+    borderLeftWidth: 1,
+    borderTopWidth: 1,
   },
   menuHeader: {
     paddingHorizontal: 14,
@@ -527,6 +612,19 @@ const styles = StyleSheet.create({
     height: 24,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  // Fondo tipo píldora detrás del ícono activo — mismo par de colores que
+  // GlassTabSelector usa para su indicador deslizante.
+  tabIconPill: {
+    position: 'absolute',
+    top: -6,
+    left: -6,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(26,115,232,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(26,115,232,0.35)',
   },
   tabPendingDot: {
     position: 'absolute',
@@ -579,13 +677,17 @@ const styles = StyleSheet.create({
   desktopTopButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 10,
     backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
   desktopTopButtonActive: {
-    backgroundColor: Colors.light.background,
+    backgroundColor: 'rgba(26,115,232,0.12)',
+    borderColor: 'rgba(26,115,232,0.35)',
   },
   desktopTopButtonText: {
     fontSize: 14,
@@ -593,7 +695,7 @@ const styles = StyleSheet.create({
     color: Colors.light.secondaryText,
   },
   desktopTopButtonTextActive: {
-    color: Colors.light.tint,
+    color: glassColors.link,
   },
   desktopNavPendingDot: {
     width: 8,
@@ -601,13 +703,6 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: '#FF3B30',
     marginLeft: 6,
-  },
-  desktopMenuContainer: {
-    left: 'auto',
-    right: 8,
-    bottom: 'auto',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Colors.light.background,
   },
   desktopScene: {
     paddingTop: 0,

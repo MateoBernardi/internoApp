@@ -2,6 +2,7 @@ import { useAuth } from '@/features/auth/context/AuthContext';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   createObjetivoHoras,
+  deleteObjetivoHoras,
   getHorasExtra,
   getMovimientos,
   getObjetivosHoras,
@@ -112,6 +113,28 @@ export function useUpsertObjetivoHoras() {
       return exists
         ? updateObjetivoHoras(token, userContextId, horas)
         : createObjetivoHoras(token, userContextId, horas);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: horasExtraQueryKeys.objetivos });
+    },
+    retry: 0,
+  });
+}
+
+/**
+ * Elimina el objetivo semanal de un usuario. Igual que el upsert, no se
+ * reintenta (un reintento tras un éxito daría 404) y sólo invalida la query
+ * de objetivos.
+ */
+export function useDeleteObjetivoHoras() {
+  const { tokens } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (userContextId: number) => {
+      const token = tokens?.accessToken;
+      if (!token) throw new Error('No access token');
+      return deleteObjetivoHoras(token, userContextId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: horasExtraQueryKeys.objetivos });

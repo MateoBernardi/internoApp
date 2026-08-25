@@ -405,6 +405,7 @@ const styles = StyleSheet.create({
     borderTopColor: 'rgba(17,24,28,0.08)',
     paddingHorizontal: '4%',
     paddingTop: 10,
+    paddingBottom: 16,
   },
   uploadButton: {
     flexDirection: 'row',

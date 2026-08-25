@@ -592,7 +592,7 @@ export function FormObjetivoModal({
                                                 </View>
                                             ))
                                         ) : (
-                                            <Text style={styles.inviteName}>Ningún archivo seleccionado</Text>
+                                            <Text style={styles.emptyFilesText}>Ningún archivo seleccionado</Text>
                                         )}
                                     </View>
                                 </View>
@@ -731,8 +731,8 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     estadoButton: {
-        flex: 1,
-        minWidth: '30%',
+        flexBasis: '48%',
+        flexGrow: 0,
         paddingVertical: 10,
         paddingHorizontal: 12,
         borderRadius: 6,
@@ -834,6 +834,10 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontWeight: '600',
         color: '#111827',
+    },
+    emptyFilesText: {
+        fontSize: 14,
+        color: '#9ca3af',
     },
     inviteMeta: {
         fontSize: 12,

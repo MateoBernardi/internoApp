@@ -1,6 +1,6 @@
 import { getQueryClient } from '@/context/QueryProvider';
 import { ExtendedUserContext } from '@/features/auth/models/User';
-import { getUserContext, login, logout, refresh } from '@/features/auth/services/authApi';
+import { getUserContext, login, loginWithGoogle, logout, refresh } from '@/features/auth/services/authApi';
 import { LoginResponse, RefreshResponse } from '@/features/auth/types';
 import { getCurrentPushToken } from '@/features/devices/services/devicesApi';
 import * as SecureStore from 'expo-secure-store';
@@ -146,9 +146,17 @@ class AuthSessionService {
 
   signIn = async (username: string, password: string): Promise<void> => {
     const response = (await login(username, password)) as LoginResponse;
+    await this.handleLoginResponse(response, 'Credenciales invalidas');
+  };
 
+  signInWithGoogle = async (idToken: string): Promise<void> => {
+    const response = (await loginWithGoogle(idToken)) as LoginResponse;
+    await this.handleLoginResponse(response, 'No se pudo iniciar sesión con Google');
+  };
+
+  private async handleLoginResponse(response: LoginResponse, defaultErrorMessage: string): Promise<void> {
     if (!response.accessToken || typeof response.accessToken !== 'string') {
-      throw new Error(response.message || 'Credenciales invalidas');
+      throw new Error(response.message || defaultErrorMessage);
     }
 
     const newTokens: AuthTokens = {
@@ -168,7 +176,7 @@ class AuthSessionService {
       await storage.deleteItem('requiresAssociation');
       await this.loadUserContext();
     }
-  };
+  }
 
   setAuthTokens = async (accessToken: string, refreshToken?: string): Promise<void> => {
     const newTokens: AuthTokens = {

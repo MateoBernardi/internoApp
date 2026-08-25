@@ -51,6 +51,7 @@ export interface SolicitudInfoDTO {
   ultimo_mensaje_autor_id?: number | null;
   fecha_inicio: Date;
   fecha_fin: Date;
+  created_at: BackendDate;
   nombre_creador: string;
   apellido_creador: string;
   created_by: number;

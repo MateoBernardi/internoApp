@@ -34,10 +34,16 @@ export function EncuestasPendientes({ enabled = true }: EncuestasPendientesProps
     return null;
   }
 
+  const tieneEncuestaHorario = encuestas.every((encuesta) =>
+    encuesta.preguntas?.every((pregunta) => pregunta.tipo_pregunta === 'horario')
+  );
+
   return (
     <View style={styles.container}>
       <View style={[styles.header, glassStyles.card]}>
-        <Text style={styles.headerTitle}>Encuestas sin Responder</Text>
+        <Text style={styles.headerTitle}>
+          {tieneEncuestaHorario ? 'Turnero disponible' : 'Encuestas sin Responder'}
+        </Text>
         <Text style={styles.headerSubtitle}>
           Tienes {encuestas.length} encuesta{encuestas.length !== 1 ? 's' : ''}{' '}
           pendiente{encuestas.length !== 1 ? 's' : ''}
@@ -51,6 +57,7 @@ export function EncuestasPendientes({ enabled = true }: EncuestasPendientesProps
 
 const styles = StyleSheet.create({
   container: {
+    marginTop: 16,
     backgroundColor: colors.componentBackground,
   },
   centerContainer: {

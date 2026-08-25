@@ -1,6 +1,7 @@
 import type { Novedad } from '@/features/novedades/models/Novedades';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { glassColors, glassStyles } from '@/shared/ui/glass';
+import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import {
     Modal,
@@ -23,19 +24,19 @@ interface NovedadModalProps {
 }
 
 // Helper para iconos de categoría
-const getCategoriaIcon = (categoria: string): string => {
+const getCategoriaIcon = (categoria: string): keyof typeof Ionicons.glyphMap => {
   switch (categoria?.toLowerCase()) {
-    case 'general': return '📋';
-    case 'eventos': return '🎉';
-    case 'supermercado': return '📦';
-    case 'mantenimiento': return '🔧';
-    case 'seguridad e higiene': return '🛡️';
-    case 'personas y relaciones': return '👥';
-    case 'capacitación': return '🎓';
-    case 'comunicados': return '📢';
-    case 'insumos': return '🌱';
-    case 'otros': return '📌';
-    default: return '📌';
+    case 'general': return 'document-text-outline';
+    case 'eventos': return 'gift-outline';
+    case 'supermercado': return 'basket-outline';
+    case 'mantenimiento': return 'construct-outline';
+    case 'seguridad e higiene': return 'shield-checkmark-outline';
+    case 'personas y relaciones': return 'people-outline';
+    case 'capacitación': return 'school-outline';
+    case 'comunicados': return 'megaphone-outline';
+    case 'insumos': return 'leaf-outline';
+    case 'otros': return 'pricetag-outline';
+    default: return 'pricetag-outline';
   }
 };
 
@@ -94,9 +95,11 @@ export function NovedadModal({
                   { borderColor: getPrioridadColor(novedad.prioridad) },
                 ]}
               >
-                <Text style={styles.headerIcon}>
-                    {getCategoriaIcon(novedad.categoria)}
-                </Text>
+                <Ionicons
+                  name={getCategoriaIcon(novedad.categoria)}
+                  size={26}
+                  color={getPrioridadColor(novedad.prioridad)}
+                />
               </View>
               <View style={styles.headerInfo}>
                 <Text style={styles.categoriaLabel}>CATEGORÍA</Text>
@@ -112,7 +115,8 @@ export function NovedadModal({
 
             {/* Fecha */}
             <View style={styles.fechaContainer}>
-                <Text style={styles.fecha}>📅 {novedad.fecha}</Text>
+                <Ionicons name="calendar-outline" size={13} color="#6B7280" />
+                <Text style={styles.fecha}>{novedad.fecha}</Text>
             </View>
 
             {/* Botones de acción */}
@@ -174,9 +178,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  headerIcon: {
-    fontSize: 28,
-  },
   headerInfo: {
     flex: 1,
     marginLeft: 15,
@@ -205,6 +206,9 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   fechaContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     backgroundColor: '#F3F4F6',
     alignSelf: 'flex-start',
     paddingHorizontal: 10,

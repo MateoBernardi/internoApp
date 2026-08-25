@@ -412,13 +412,16 @@ function SolicitudItem({ solicitud, currentUserId, onPress, onHide, isHiding, on
                     {contextoTexto}
                 </ThemedText>
 
-                <ThemedText
-                    type={isUnseen ? 'defaultSemiBold' : 'default'}
-                    numberOfLines={1}
-                    style={isUnseen ? styles.tituloUnseen : styles.tituloSeen}
-                >
-                    {solicitud.titulo}
-                </ThemedText>
+                <View style={styles.tituloRow}>
+                    <ThemedText
+                        type={isUnseen ? 'defaultSemiBold' : 'default'}
+                        numberOfLines={1}
+                        style={[isUnseen ? styles.tituloUnseen : styles.tituloSeen, styles.tituloText]}
+                    >
+                        {solicitud.titulo}
+                    </ThemedText>
+                    {isUnseen && <View style={styles.stateDot} />}
+                </View>
 
                 {!!descripcionPreview && (
                     <View style={styles.descriptionRow}>
@@ -607,6 +610,21 @@ const styles = StyleSheet.create({
     },
     itemContent: {
         flexDirection: 'column',
+    },
+    tituloRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    tituloText: {
+        flex: 1,
+    },
+    stateDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: colors.error,
+        flexShrink: 0,
     },
     tituloUnseen: {
         color: '#000000',

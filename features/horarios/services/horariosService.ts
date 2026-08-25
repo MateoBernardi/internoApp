@@ -31,10 +31,11 @@ export async function getSedes(token: string): Promise<SedeDTO[]> {
 }
 
 // El backend solo soporta UN filtro por request, como string "clave:valor"
-// (ver buildFilterCondition en horariosRepo.ts): turno, sede, usuario o rol_nombre.
+// (ver buildFilterCondition en horariosRepo.ts): turno, sede, usuario, rol_nombre o feriado.
 export type HorariosByDateFilter =
   | { key: 'usuario'; value: number }
-  | { key: 'rol_nombre'; value: string };
+  | { key: 'rol_nombre'; value: string }
+  | { key: 'feriado'; value: 1 };
 
 export async function getHorariosByDate(
   token: string,
@@ -60,7 +61,7 @@ export async function uploadShiftsFile(
   fileName: string,
 ): Promise<UploadShiftsResponse> {
   const form = new FormData();
-  form.append('file', { uri: fileUri, name: fileName, type: 'text/plain' } as any);
+  form.append('file', { uri: fileUri, name: fileName, type: 'text/csv' } as any);
 
   const res = await fetch(`${API_BASE_URL}/horarios/upload-shifts`, {
     method: 'POST',
@@ -76,6 +77,17 @@ export async function uploadShiftsFile(
     throw new Error(errText);
   }
   return res.json();
+}
+
+/** Descarga la plantilla CSV de referencia (GET /horarios/upload-shifts/template). */
+export async function downloadPlantillaShifts(token: string): Promise<Blob> {
+  const res = await apiRequest({
+    method: 'GET',
+    endpoint: '/horarios/upload-shifts/template',
+    token,
+  });
+  if (!res.ok) throwApiError(await extractError(res), res);
+  return res.blob();
 }
 
 export async function updateHorario(

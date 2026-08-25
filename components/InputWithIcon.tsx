@@ -16,6 +16,7 @@ type InputWithIconProps = {
   returnKeyType?: TextInputProps['returnKeyType'];
   textContentType?: TextInputProps['textContentType'];
   keyboardType?: TextInputProps['keyboardType'];
+  autoComplete?: TextInputProps['autoComplete'];
   hasError?: boolean;
   onToggleSecure?: () => void;
   variant?: 'solid' | 'glass';
@@ -33,6 +34,7 @@ export const InputWithIcon = memo(forwardRef<TextInput, InputWithIconProps>(({
   returnKeyType = "next",
   textContentType,
   keyboardType = "default",
+  autoComplete,
   hasError = false,
   onToggleSecure,
   variant = 'solid',
@@ -70,6 +72,7 @@ export const InputWithIcon = memo(forwardRef<TextInput, InputWithIconProps>(({
         returnKeyType={returnKeyType}
         textContentType={textContentType}
         keyboardType={keyboardType}
+        autoComplete={autoComplete}
         importantForAccessibility="yes"
         onFocus={() => setIsFocused(true)}
         onBlur={() => setIsFocused(false)}

@@ -417,7 +417,7 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
     <FullScreenPortal>
     <View style={styles.fullScreen}>
       <ModalKeyboardView style={styles.keyboardContainer}>
-        <View style={[styles.container, { paddingBottom: bottomInset }]}>
+        <View style={[styles.container, { paddingBottom: isKeyboardOpen ? 0 : bottomInset }]}>
           {/* Header */}
           <View style={[styles.modalHeader, { paddingTop: insets.top + 10, alignItems: 'flex-start' }]}>
             <TouchableOpacity onPress={handleClose} style={styles.backButton}>
@@ -564,7 +564,7 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
                     style={styles.closeButton}
                     activeOpacity={0.7}
                   >
-                    <Ionicons name="add-outline" size={24} color={glassColors.link} />
+                    <Ionicons name="attach" size={24} color={glassColors.link} />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -590,7 +590,7 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
               )}
             </ScrollView>
 
-            <View style={[styles.uploadButtonContainer, { paddingBottom: bottomInset }]}>
+            <View style={[styles.uploadButtonContainer, { paddingBottom: isKeyboardOpen ? 0 : bottomInset }]}>
               {(() => {
                 // `isPending` permanece true durante TODOS los reintentos de
                 // TanStack Query, por lo que el botón no se desbloquea mientras

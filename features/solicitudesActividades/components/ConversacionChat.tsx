@@ -9,6 +9,7 @@ import { generateIdempotencyKey } from '@/shared/idempotency';
 import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
 import { focusBorderStyles, glassColors, glassStyles } from '@/shared/ui/glass';
 import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
+import { useKeyboardVisible } from '@/shared/ui/keyboard';
 import { useFocusBorder } from '@/shared/ui/useFocusBorder';
 import { useSafeBottomInset } from '@/hooks/useSafeBottomInset';
 import { adminRoles, allRoles } from '@/shared/users/roles';
@@ -168,9 +169,11 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
     handleSelectAllParticipantes, handleDeselectAllParticipantes,
   } = useParticipantesManager({ solicitud, solicitudId, actualizarInvitados });
 
-  const { messagesScrollRef, handleMessagesScroll, handleMessagesContentSizeChange } = useMessagesScroll({
+  const { messagesScrollRef, handleMessagesScroll, handleMessagesContentSizeChange, isNearBottomRef } = useMessagesScroll({
     hasNextPage, isFetchingNextPage, fetchNextPage,
   });
+
+  const keyboardVisible = useKeyboardVisible();
 
   const chatOtherUser = useMemo(() => {
     if (solicitud.es_grupo) return null;
@@ -182,14 +185,33 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
     : (chatOtherUser ? getParticipanteDisplayName(chatOtherUser) : solicitud.titulo);
 
   useEffect(() => {
-    if (Platform.OS !== 'android') return;
-    const sub = Keyboard.addListener('keyboardDidHide', () => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const onShow = Keyboard.addListener(showEvent, () => {
+      if (!isNearBottomRef.current) return;
       requestAnimationFrame(() => {
         messagesScrollRef.current?.scrollToEnd({ animated: false });
       });
     });
-    return () => sub.remove();
-  }, [messagesScrollRef]);
+
+    // Android only: rAF lets KeyboardAvoidingView remove its padding and the
+    // layout settle before we scroll, so scrollToEnd resolves against the
+    // full viewport and re-clamps the stale offset. Only if the user was
+    // already at the bottom — otherwise a scrolled-up read position is
+    // preserved instead of being yanked back down.
+    const onHide = Platform.OS === 'android'
+      ? Keyboard.addListener('keyboardDidHide', () => {
+        if (!isNearBottomRef.current) return;
+        requestAnimationFrame(() => {
+          messagesScrollRef.current?.scrollToEnd({ animated: false });
+        });
+      })
+      : null;
+
+    return () => {
+      onShow.remove();
+      onHide?.remove();
+    };
+  }, [messagesScrollRef, isNearBottomRef]);
 
   // ─── Derivados del prop solicitud ─────────────────────────────────────────
 
@@ -219,11 +241,19 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
     [bitacoraItems],
   );
 
+  // Ver comentario equivalente en Solicitud.tsx: `solicitud.fecha_inicio`/`fecha_fin`
+  // reflejan la propuesta más reciente, no la original — no usarlas como
+  // fallback en el mensaje sintético si ya hubo una propuesta real.
+  const hasAnyFechaPropuesta = useMemo(
+    () => bitacoraItems.some(b => b.fecha_inicio_nueva && b.fecha_fin_nueva),
+    [bitacoraItems],
+  );
+
   const mensajes = useMemo(() => {
     const descripcion = solicitud.descripcion?.trim();
     const createdAt = solicitud.fecha_inicio
       ? new Date(solicitud.fecha_inicio).toISOString()
-      : new Date().toISOString();
+      : solicitud.created_at.toISOString();
     // La entrada 'SENT' real (creación) trae su propio acuse de lectura;
     // la reusamos para que el mensaje original también muestre el tilde.
     const entradaInicial = (bitacoraItems ?? []).find(b => b.estado === 'SENT');
@@ -433,15 +463,15 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => (mensajesSearch.active ? mensajesSearch.close() : mensajesSearch.setActive(true))}
-                style={styles.closeButton}
+                style={localStyles.headerIconButton}
               >
-                <Ionicons name={mensajesSearch.active ? 'close' : 'search-outline'} size={20} color={colors.lightTint} />
+                <Ionicons name={mensajesSearch.active ? 'close' : 'search-outline'} size={20} color={glassColors.textMuted} />
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => setShowArchivosModal(true)} style={styles.closeButton}>
-                <Ionicons name="folder-outline" size={22} color={colors.lightTint} />
+              <TouchableOpacity onPress={() => setShowArchivosModal(true)} style={localStyles.headerIconButton}>
+                <Ionicons name="folder-outline" size={22} color={glassColors.textMuted} />
               </TouchableOpacity>
-              <TouchableOpacity onPress={handleAbrirOpciones} style={styles.closeButton}>
-                <Ionicons name="ellipsis-vertical" size={20} color={colors.lightTint} />
+              <TouchableOpacity onPress={handleAbrirOpciones} style={localStyles.headerIconButton}>
+                <Ionicons name="ellipsis-vertical" size={20} color={glassColors.textMuted} />
               </TouchableOpacity>
             </View>
 
@@ -525,8 +555,8 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
                         const hideTitle = isDescripcion || isSystem || (
                           MESSAGE_STATES.includes(b.estado) && b.estado !== 'ACCEPTED' && b.estado !== 'ACCEPTED_BY_HOST'
                         );
-                        const fechaInicioMsg = b.fecha_inicio_nueva ?? (isDescripcion ? solicitud.fecha_inicio : null);
-                        const fechaFinMsg = b.fecha_fin_nueva ?? (isDescripcion ? solicitud.fecha_fin : null);
+                        const fechaInicioMsg = b.fecha_inicio_nueva ?? (isDescripcion && !hasAnyFechaPropuesta ? solicitud.fecha_inicio : null);
+                        const fechaFinMsg = b.fecha_fin_nueva ?? (isDescripcion && !hasAnyFechaPropuesta ? solicitud.fecha_fin : null);
                         const archivos = Array.isArray(b.archivos) ? b.archivos : [];
 
                         const currentDate = new Date(b.created_at);
@@ -592,7 +622,7 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
                 </View>
 
                 {/* Composer */}
-                <View style={[styles.chatComposer, { marginBottom: bottomInset }]}>
+                <View style={[styles.chatComposer, { marginBottom: keyboardVisible ? 0 : bottomInset }]}>
                   {pickedFiles.length > 0 && (
                     <View style={styles.chatComposerAttachments}>
                       {pickedFiles.map((f, i) => (
@@ -609,7 +639,7 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
                   <View style={[styles.chatComposerRow, composerFocus.isFocused && { borderColor: glassColors.link }]}>
                     {!isExpiredState && (
                       <TouchableOpacity style={styles.chatActionButton} onPress={handleAgregarAdjunto}>
-                        <Ionicons name="add-outline" size={20} color={colors.lightTint} />
+                        <Ionicons name="attach" size={20} color={colors.lightTint} />
                       </TouchableOpacity>
                     )}
 
@@ -869,6 +899,18 @@ function ArchivosModalContent({
 // ─── Styles ────────────────────────────────────────────────────────────────────
 
 const localStyles = StyleSheet.create({
+  // Igual tamaño que `conversacionStyles.closeButton`, pero gris/neutro como
+  // `backButton` en vez del azul de acento compartido con Solicitud.tsx.
+  headerIconButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(17,24,28,0.12)',
+    backgroundColor: 'rgba(17,24,28,0.03)',
+  },
   participantesModalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1043,9 +1085,10 @@ const localStyles = StyleSheet.create({
     flex: 1,
     minHeight: 36,
     maxHeight: 110,
-    paddingVertical: 8,
+    paddingVertical: Platform.OS === 'web' ? 6 : 8,
     fontSize: 14,
     color: colors.text,
+    ...(Platform.OS === 'web' ? { lineHeight: 20, textAlignVertical: 'center' as const } : null),
   },
   chatActionButton: {
     width: 34,
@@ -1061,8 +1104,8 @@ const localStyles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    borderColor: 'rgba(26,115,232,0.35)',
-    backgroundColor: 'rgba(26,115,232,0.12)',
+    borderColor: 'rgba(17,24,28,0.12)',
+    backgroundColor: 'rgba(17,24,28,0.03)',
   },
 });
 

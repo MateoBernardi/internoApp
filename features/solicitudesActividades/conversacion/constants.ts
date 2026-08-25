@@ -123,7 +123,7 @@ export function buildUltimoMensajePreview(solicitud: {
     icon = typePreview.icon;
   } else if (rawMessage) {
     body = rawMessage;
-  } else if (solicitud.descripcion.trim()) {
+  } else if (solicitud.descripcion?.trim()) {
     body = solicitud.descripcion.trim();
   } else if (solicitud.fecha_inicio && solicitud.fecha_fin) {
     body = `Fechas: ${formatDateDDMMYYYY(solicitud.fecha_inicio)} ${formatTimeHHMM(solicitud.fecha_inicio)} → ${formatDateDDMMYYYY(solicitud.fecha_fin)} ${formatTimeHHMM(solicitud.fecha_fin)}`;

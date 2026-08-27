@@ -55,6 +55,32 @@ export async function getHorariosByDate(
   return res.json();
 }
 
+/** Filtro opcional por empleado y/o rol, combinables entre sí (a diferencia de HorariosByDateFilter). */
+export interface FeriadosRangeFilter {
+  userContextId?: number;
+  role?: string;
+}
+
+/** Turnos marcados como feriado dentro de un rango de fechas ("YYYY-MM-DD"), para todos los usuarios. */
+export async function getFeriadosByRange(
+  token: string,
+  fechaInicio: string,
+  fechaFin: string,
+  filter: FeriadosRangeFilter = {},
+): Promise<HorarioDTO[]> {
+  const params = new URLSearchParams({ fechaInicio, fechaFin });
+  if (filter.userContextId != null) params.set('user_context_id', String(filter.userContextId));
+  if (filter.role) params.set('role', filter.role);
+
+  const res = await apiRequest({
+    method: 'GET',
+    endpoint: `/horarios/feriados?${params.toString()}`,
+    token,
+  });
+  if (!res.ok) throwApiError(await extractError(res), res);
+  return res.json();
+}
+
 export async function uploadShiftsFile(
   token: string,
   fileUri: string,

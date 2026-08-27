@@ -2,6 +2,8 @@ import { useAuth } from '@/features/auth/context/AuthContext';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { UpdateHorarioPayload } from '../models/HorarioDTO';
 import {
+  type FeriadosRangeFilter,
+  getFeriadosByRange,
   getHorariosByDate,
   getSedes,
   type HorariosByDateFilter,
@@ -14,6 +16,8 @@ export const horariosQueryKeys = {
   sedes: () => ['horarios', 'sedes'] as const,
   byDate: (diaFecha: string, filter?: HorariosByDateFilter) =>
     ['horarios', 'byDate', diaFecha, filter?.key ?? null, filter?.value ?? null] as const,
+  feriadosByRange: (fechaInicio: string, fechaFin: string, filter: FeriadosRangeFilter) =>
+    ['horarios', 'feriadosByRange', fechaInicio, fechaFin, filter.userContextId ?? null, filter.role ?? null] as const,
 };
 
 export function useSedes() {
@@ -39,6 +43,23 @@ export function useHorariosByDate(diaFecha: string, filter?: HorariosByDateFilte
       const token = tokens?.accessToken;
       if (!token) throw new Error('No access token');
       return getHorariosByDate(token, diaFecha, filter);
+    },
+    staleTime: 0,
+    gcTime: 1000 * 60 * 10,
+    refetchOnMount: 'always',
+    retry: 3,
+    retryDelay: (i) => Math.min(1000 * 2 ** i, 30000),
+  });
+}
+
+export function useFeriadosByRange(fechaInicio: string, fechaFin: string, filter: FeriadosRangeFilter = {}) {
+  const { tokens } = useAuth();
+  return useQuery({
+    queryKey: horariosQueryKeys.feriadosByRange(fechaInicio, fechaFin, filter),
+    queryFn: async () => {
+      const token = tokens?.accessToken;
+      if (!token) throw new Error('No access token');
+      return getFeriadosByRange(token, fechaInicio, fechaFin, filter);
     },
     staleTime: 0,
     gcTime: 1000 * 60 * 10,

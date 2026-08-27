@@ -15,8 +15,7 @@ import {
   View,
 } from 'react-native';
 import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
-import { GlassTabSelector } from '@/components/ui/GlassTabSelector';
-import { glassStyles } from '@/shared/ui/glass';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { SearchBar } from '@/components/ui/SearchBar';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { allRoles } from '@/shared/users/roles';
@@ -35,7 +34,7 @@ import {
   useUploadShifts,
 } from '../viewmodels/useHorarios';
 
-import { CARD, FERIADO_COLOR, INK, LINE, MUTED, NAVY, RED_FLASH, TURNO_COLOR } from '../theme';
+import { CARD, INK, LINE, MUTED, NAVY, RED_FLASH } from '../theme';
 
 const DAY_NAMES = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
@@ -82,12 +81,10 @@ export function GestionHorarios() {
   const [selDateISO, setSelDateISO] = useState(todayISO);
   const [filter, setFilter] = useState<TurnoFilter>('Todos');
   const [sedeFilter, setSedeFilter] = useState<number | null>(null);
-  const [showSedeMenu, setShowSedeMenu] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUser, setSelectedUser] = useState<UserSummary | null>(null);
   const [rolFilter, setRolFilter] = useState<string | null>(null);
-  const [showRolMenu, setShowRolMenu] = useState(false);
-  const [feriadoOnly, setFeriadoOnly] = useState(false);
   const [editingTurno, setEditingTurno] = useState<Turno | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [toast, setToast] = useState('');
@@ -98,14 +95,12 @@ export function GestionHorarios() {
   const [isDownloadingPlantilla, setIsDownloadingPlantilla] = useState(false);
 
   // El backend solo acepta un filtro por request: prioriza el empleado buscado,
-  // después el rol, y por último "solo feriados" si ninguno de los otros dos está activo.
+  // y si no hay uno, el rol.
   const activeFilter: HorariosByDateFilter | undefined = selectedUser
     ? { key: 'usuario', value: selectedUser.user_context_id }
     : rolFilter
       ? { key: 'rol_nombre', value: rolFilter }
-      : feriadoOnly
-        ? { key: 'feriado', value: 1 }
-        : undefined;
+      : undefined;
 
   const horariosQuery = useHorariosByDate(selDateISO, activeFilter);
   const sedesQuery = useSedes();
@@ -251,21 +246,10 @@ export function GestionHorarios() {
     }
   };
 
-  const sedeDropdownLabel =
-    sedeFilter !== null
-      ? (sedes.find((s) => s.id === sedeFilter)?.nombre ?? `Sede ${sedeFilter}`)
-      : 'Todas';
-
-  const rolDropdownLabel =
-    rolFilter !== null
-      ? (SHIFT_ROLES.find((r) => r.value === rolFilter)?.label ?? rolFilter)
-      : 'Todos';
-
   const selectUser = useCallback((user: UserSummary) => {
     setSelectedUser(user);
     setSearchQuery('');
     setRolFilter(null); // el backend solo admite un filtro por request
-    setFeriadoOnly(false);
   }, []);
 
   const clearUserSearch = useCallback(() => {
@@ -273,16 +257,18 @@ export function GestionHorarios() {
     setSearchQuery('');
   }, []);
 
-  const toggleFeriadoOnly = useCallback(() => {
-    setFeriadoOnly((v) => !v);
-    setSelectedUser(null); // el backend solo admite un filtro por request
+  const activeFilterCount =
+    (filter !== 'Todos' ? 1 : 0) + (sedeFilter !== null ? 1 : 0) + (rolFilter !== null ? 1 : 0);
+
+  const clearFilters = useCallback(() => {
+    setFilter('Todos');
+    setSedeFilter(null);
     setRolFilter(null);
   }, []);
 
   return (
     <View style={styles.container}>
       <View style={styles.topSection}>
-        <Text style={styles.subtitle}>Turnos del día · tocá uno para editarlo</Text>
 
         {/* Day navigator */}
         <View style={styles.dayNav}>
@@ -381,100 +367,88 @@ export function GestionHorarios() {
             </View>
           )}
 
-          {/* Turno segmented */}
-          <GlassTabSelector
-            tabs={FILTER_OPTS.map((option) => ({ key: option.value, label: option.label }))}
-            activeKey={filter}
-            onChange={(key) => setFilter(key as TurnoFilter)}
-          />
-
-          {/* Sede dropdown */}
-          <TouchableOpacity
-            style={[glassStyles.fieldGlass, styles.sedeDropdown]}
-            onPress={() => { setShowRolMenu(false); setShowSedeMenu((v) => !v); }}
-          >
-            <Text style={styles.sedeDropdownPrefix}>Sede </Text>
-            <Text style={styles.sedeDropdownValue}>{sedeDropdownLabel}</Text>
-            <Ionicons name={showSedeMenu ? 'chevron-up' : 'chevron-down'} size={15} color={MUTED} />
-          </TouchableOpacity>
-
-          {showSedeMenu && (
-            <View style={[glassStyles.modalCard, styles.sedeMenuBox]}>
-              <TouchableOpacity
-                style={[styles.sedeMenuItem, sedeFilter === null && styles.sedeMenuItemActive]}
-                onPress={() => { setSedeFilter(null); setShowSedeMenu(false); }}
+          {/* Filtrar */}
+          <View style={styles.filterBar}>
+            <TouchableOpacity
+              onPress={() => setShowFilters((v) => !v)}
+              style={[styles.filterToggle, activeFilterCount > 0 ? styles.filterToggleActive : styles.filterToggleInactive]}
+            >
+              <Ionicons
+                name="filter-outline"
+                size={20}
+                color={activeFilterCount > 0 ? glassColors.link : glassColors.textMuted}
+              />
+              <Text
+                style={[
+                  styles.filterToggleText,
+                  activeFilterCount > 0 ? styles.filterToggleTextActive : styles.filterToggleTextInactive,
+                ]}
               >
-                <Text style={[styles.sedeMenuItemText, sedeFilter === null && styles.sedeMenuItemTextActive]}>
-                  Todas
-                </Text>
-                {sedeFilter === null && <Ionicons name="checkmark" size={16} color={TURNO_COLOR} />}
+                Filtrar
+              </Text>
+              {activeFilterCount > 0 && (
+                <View style={styles.filterBadge}>
+                  <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            {activeFilterCount > 0 && (
+              <TouchableOpacity onPress={clearFilters}>
+                <Text style={styles.clearText}>Limpiar</Text>
               </TouchableOpacity>
-              {sedes.map((s) => (
-                <TouchableOpacity
-                  key={s.id}
-                  style={[styles.sedeMenuItem, sedeFilter === s.id && styles.sedeMenuItemActive]}
-                  onPress={() => { setSedeFilter(s.id); setShowSedeMenu(false); }}
-                >
-                  <Text style={[styles.sedeMenuItemText, sedeFilter === s.id && styles.sedeMenuItemTextActive]}>
-                    {s.nombre}
-                  </Text>
-                  {sedeFilter === s.id && <Ionicons name="checkmark" size={16} color={TURNO_COLOR} />}
-                </TouchableOpacity>
-              ))}
+            )}
+          </View>
+
+          {showFilters && (
+            <View style={styles.filterPanel}>
+              <View style={styles.filterGroup}>
+                <Text style={styles.filterGroupLabel}>Turno</Text>
+                <View style={styles.chipRow}>
+                  {FILTER_OPTS.map((opt) => (
+                    <FilterChip
+                      key={opt.value}
+                      label={opt.label}
+                      active={filter === opt.value}
+                      onPress={() => setFilter(opt.value)}
+                    />
+                  ))}
+                </View>
+              </View>
+
+              <View style={styles.filterGroup}>
+                <Text style={styles.filterGroupLabel}>Sede</Text>
+                <View style={styles.chipRow}>
+                  <FilterChip label="Todas" active={sedeFilter === null} onPress={() => setSedeFilter(null)} />
+                  {sedes.map((s) => (
+                    <FilterChip
+                      key={s.id}
+                      label={s.nombre}
+                      active={sedeFilter === s.id}
+                      onPress={() => setSedeFilter(s.id)}
+                    />
+                  ))}
+                </View>
+              </View>
+
+              <View style={styles.filterGroup}>
+                <Text style={styles.filterGroupLabel}>Rol</Text>
+                <View style={styles.chipRow}>
+                  <FilterChip label="Todos" active={rolFilter === null} onPress={() => setRolFilter(null)} />
+                  {SHIFT_ROLES.map((r) => (
+                    <FilterChip
+                      key={r.value}
+                      label={r.label}
+                      active={rolFilter === r.value}
+                      onPress={() => {
+                        setRolFilter(r.value);
+                        setSelectedUser(null); // el backend solo admite un filtro por request
+                      }}
+                    />
+                  ))}
+                </View>
+              </View>
             </View>
           )}
-
-          {/* Rol dropdown */}
-          <TouchableOpacity
-            style={[glassStyles.fieldGlass, styles.sedeDropdown]}
-            onPress={() => { setShowSedeMenu(false); setShowRolMenu((v) => !v); }}
-          >
-            <Text style={styles.sedeDropdownPrefix}>Rol </Text>
-            <Text style={styles.sedeDropdownValue}>{rolDropdownLabel}</Text>
-            <Ionicons name={showRolMenu ? 'chevron-up' : 'chevron-down'} size={15} color={MUTED} />
-          </TouchableOpacity>
-
-          {showRolMenu && (
-            <View style={[glassStyles.modalCard, styles.sedeMenuBox]}>
-              <TouchableOpacity
-                style={[styles.sedeMenuItem, rolFilter === null && styles.sedeMenuItemActive]}
-                onPress={() => { setRolFilter(null); setShowRolMenu(false); }}
-              >
-                <Text style={[styles.sedeMenuItemText, rolFilter === null && styles.sedeMenuItemTextActive]}>
-                  Todos
-                </Text>
-                {rolFilter === null && <Ionicons name="checkmark" size={16} color={TURNO_COLOR} />}
-              </TouchableOpacity>
-              {SHIFT_ROLES.map((r) => (
-                <TouchableOpacity
-                  key={r.value}
-                  style={[styles.sedeMenuItem, rolFilter === r.value && styles.sedeMenuItemActive]}
-                  onPress={() => {
-                    setRolFilter(r.value);
-                    setSelectedUser(null); // el backend solo admite un filtro por request
-                    setFeriadoOnly(false);
-                    setShowRolMenu(false);
-                  }}
-                >
-                  <Text style={[styles.sedeMenuItemText, rolFilter === r.value && styles.sedeMenuItemTextActive]}>
-                    {r.label}
-                  </Text>
-                  {rolFilter === r.value && <Ionicons name="checkmark" size={16} color={TURNO_COLOR} />}
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-
-          {/* Feriados toggle */}
-          <TouchableOpacity
-            style={[styles.feriadoToggle, feriadoOnly && styles.feriadoToggleActive]}
-            onPress={toggleFeriadoOnly}
-          >
-            <Ionicons name="star" size={14} color={feriadoOnly ? '#ffffff' : FERIADO_COLOR} />
-            <Text style={[styles.feriadoToggleText, feriadoOnly && styles.feriadoToggleTextActive]}>
-              Solo feriados
-            </Text>
-          </TouchableOpacity>
         </View>
 
         {/* List */}
@@ -540,7 +514,7 @@ export function GestionHorarios() {
         ) : (
           <Text style={styles.infoText}>
             <Text style={styles.infoBold}>{dayTurnos.length}</Text>
-            {filter !== 'Todos' || sedeFilter !== null || rolFilter !== null || selectedUser || feriadoOnly ? ` resultado${dayTurnos.length !== 1 ? 's' : ''} · ` : ` turno${dayTurnos.length !== 1 ? 's' : ''} · `}
+            {filter !== 'Todos' || sedeFilter !== null || rolFilter !== null || selectedUser ? ` resultado${dayTurnos.length !== 1 ? 's' : ''} · ` : ` turno${dayTurnos.length !== 1 ? 's' : ''} · `}
             <Text style={styles.infoBold}>{totalForDay}</Text>
             {' total en el día'}
           </Text>
@@ -565,6 +539,14 @@ export function GestionHorarios() {
         opacity={toastAnim}
       />
     </View>
+  );
+}
+
+function FilterChip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+  return (
+    <TouchableOpacity onPress={onPress} style={[styles.filterChip, active && styles.filterChipActive]}>
+      <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>{label}</Text>
+    </TouchableOpacity>
   );
 }
 
@@ -719,68 +701,95 @@ const styles = StyleSheet.create({
     color: MUTED,
     marginTop: 2,
   },
-  sedeDropdown: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-  },
-  sedeDropdownPrefix: {
-    fontSize: 14,
-    color: MUTED,
-    fontWeight: '500',
-  },
-  sedeDropdownValue: {
-    fontSize: 14,
-    color: INK,
-    fontWeight: '600',
-    flex: 1,
-  },
-  sedeMenuBox: {
-    overflow: 'hidden',
-  },
-  feriadoToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(147,51,234,0.35)',
-    backgroundColor: 'rgba(147,51,234,0.08)',
-  },
-  feriadoToggleActive: {
-    backgroundColor: FERIADO_COLOR,
-    borderColor: FERIADO_COLOR,
-  },
-  feriadoToggleText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: FERIADO_COLOR,
-  },
-  feriadoToggleTextActive: {
-    color: '#ffffff',
-  },
-  sedeMenuItem: {
+  filterBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 13,
-    paddingHorizontal: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: LINE,
   },
-  sedeMenuItemActive: {
-    backgroundColor: '#e7f2fb',
+  filterToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    borderWidth: 1,
   },
-  sedeMenuItemText: {
-    fontSize: 15,
-    color: INK,
-  },
-  sedeMenuItemTextActive: {
-    color: TURNO_COLOR,
+  filterToggleText: {
+    fontSize: 13,
     fontWeight: '600',
+  },
+  filterToggleActive: {
+    borderColor: 'rgba(26,115,232,0.35)',
+    backgroundColor: 'rgba(26,115,232,0.12)',
+  },
+  filterToggleInactive: {
+    borderColor: 'rgba(17,24,28,0.12)',
+    backgroundColor: 'rgba(17,24,28,0.03)',
+  },
+  filterToggleTextActive: {
+    color: glassColors.link,
+  },
+  filterToggleTextInactive: {
+    color: glassColors.textMuted,
+  },
+  filterBadge: {
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 4,
+    backgroundColor: glassColors.link,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  clearText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: glassColors.link,
+  },
+  filterPanel: {
+    marginBottom: 6,
+    padding: 12,
+    gap: 10,
+    ...glassStyles.card,
+  },
+  filterGroup: {
+    gap: 6,
+  },
+  filterGroupLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: MUTED,
+  },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  filterChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(17,24,28,0.12)',
+    backgroundColor: 'rgba(17,24,28,0.03)',
+  },
+  filterChipActive: {
+    borderColor: 'rgba(26,115,232,0.35)',
+    backgroundColor: 'rgba(26,115,232,0.12)',
+  },
+  filterChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: glassColors.textMuted,
+  },
+  filterChipTextActive: {
+    color: glassColors.link,
   },
   list: {
     gap: 0,

@@ -6,6 +6,8 @@ import { useSedes } from '@/features/horarios/viewmodels/useHorarios';
 import type { SedeDTO } from '@/features/horarios/models/HorarioDTO';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { secureStorage } from '@/shared/secureStorage';
+import { GlassButton } from '@/shared/ui/GlassButton';
+import { glassStyles } from '@/shared/ui/glass';
 import { Redirect } from 'expo-router';
 import QRCode from 'react-native-qrcode-svg';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -157,7 +159,7 @@ export default function KioscoQrScreen() {
             keyExtractor={(item) => String(item.id)}
             renderItem={({ item }) => (
               <TouchableOpacity
-                style={styles.sedeOption}
+                style={[glassStyles.card, styles.sedeOption]}
                 onPress={() => handlePickSede(item)}
                 disabled={loadingSecret}
                 activeOpacity={0.7}
@@ -189,9 +191,12 @@ export default function KioscoQrScreen() {
         )}
       </View>
 
-      <TouchableOpacity style={styles.changeSedeButton} onPress={handleChangeSede} activeOpacity={0.7}>
-        <Text style={styles.changeSedeButtonText}>Cambiar sede</Text>
-      </TouchableOpacity>
+      <GlassButton
+        label="Cambiar sede"
+        variant="secondary"
+        onPress={handleChangeSede}
+        style={styles.changeSedeButton}
+      />
     </View>
   );
 }
@@ -231,8 +236,6 @@ const styles = StyleSheet.create({
   sedeOption: {
     paddingVertical: 16,
     paddingHorizontal: 14,
-    backgroundColor: colors.background,
-    borderRadius: 10,
   },
   sedeOptionText: {
     fontSize: 16,
@@ -263,6 +266,9 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   qrWrapper: {
+    // Sólido a propósito (no glass translúcido): es una superficie que
+    // "flota" sobre el fondo navy del kiosco, igual que cualquier modal/diálogo
+    // de la app — ver regla de glassStyles.modalCard.
     backgroundColor: '#ffffff',
     padding: 24,
     borderRadius: 16,
@@ -270,18 +276,15 @@ const styles = StyleSheet.create({
     minWidth: 328,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
   },
   changeSedeButton: {
     marginTop: 40,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#ffffff88',
-  },
-  changeSedeButtonText: {
-    color: '#ffffff',
-    fontSize: 13,
-    fontWeight: '600',
+    minWidth: 160,
+    backgroundColor: '#ffffff',
+    borderColor: '#ffffff',
   },
 });

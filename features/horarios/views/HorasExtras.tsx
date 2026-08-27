@@ -1,3 +1,4 @@
+import { GlassTabSelector } from '@/components/ui/GlassTabSelector';
 import { SearchBar } from '@/components/ui/SearchBar';
 import { useIdempotencyKey } from '@/shared/useIdempotencyKey';
 import { glassStyles } from '@/shared/ui/glass';
@@ -8,27 +9,31 @@ import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { DetalleHorasExtraSheet } from '../components/DetalleHorasExtraSheet';
-import { EmpleadoHorasExtraCard } from '../components/EmpleadoHorasExtraCard';
-import { LiquidarAmountModal } from '../components/LiquidarAmountModal';
+import { FeriadosList } from '../components/FeriadosList';
+import { HorasSemanalesList } from '../components/HorasSemanalesList';
 import { HorariosToast } from '../components/HorariosToast';
+import { LiquidacionList } from '../components/LiquidacionList';
+import { LiquidarAmountModal } from '../components/LiquidarAmountModal';
 import type { HorasExtraDTO } from '../models/HorasExtra';
-import { useHorasExtra, useLiquidarHorasExtra } from '../viewmodels/useHorasExtra';
+import { useLiquidarHorasExtra } from '../viewmodels/useHorasExtra';
 import { SHIFT_ROLES } from './GestionHorarios';
 
-import { INK, LINE, MUTED, NAVY, RED_FLASH, TURNO_COLOR } from '../theme';
+import { INK, LINE, MUTED, TURNO_COLOR } from '../theme';
 
 function formatHoras(n: number): string {
   return `${Math.round(n * 10) / 10}h`;
 }
 
+type HorasExtrasTab = 'liquidacion' | 'feriados' | 'semanales';
+
 export function HorasExtras() {
+  const [activeTab, setActiveTab] = useState<HorasExtrasTab>('liquidacion');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUser, setSelectedUser] = useState<UserSummary | null>(null);
   const [roleFilter, setRoleFilter] = useState<string | null>(null);
@@ -51,13 +56,10 @@ export function HorasExtras() {
     [selectedUser, roleFilter],
   );
 
-  const horasExtraQuery = useHorasExtra(filter);
   const userSearchQuery = useSearchUsers(searchQuery);
   const { mutate: liquidar } = useLiquidarHorasExtra();
 
-  const empleados = horasExtraQuery.data ?? [];
   const userResults = userSearchQuery.data ?? [];
-  const totalAll = empleados.reduce((s, e) => s + e.horas, 0);
 
   const showToast = useCallback(
     (msg: string, isError = false) => {
@@ -140,7 +142,17 @@ export function HorasExtras() {
   return (
     <View style={styles.container}>
       <View style={styles.topSection}>
-        {/* Search */}
+        <GlassTabSelector
+          tabs={[
+            { key: 'liquidacion', label: 'Liquidación' },
+            { key: 'feriados', label: 'Feriados' },
+            { key: 'semanales', label: 'Horas semanales' },
+          ]}
+          activeKey={activeTab}
+          onChange={(key) => setActiveTab(key as HorasExtrasTab)}
+        />
+
+        {/* Filters (compartidos por las 3 pestañas) */}
         <View style={styles.filters}>
           <SearchBar
             placeholder="Buscar empleado"
@@ -204,61 +216,20 @@ export function HorasExtras() {
             </View>
           )}
         </View>
-
       </View>
-      <ScrollView
-        style={styles.listScroll}
-        contentContainerStyle={styles.listContent}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        {/* List */}
-        <View style={styles.list}>
-          {horasExtraQuery.isFetching && !horasExtraQuery.data ? (
-            <View style={styles.centerState}>
-              <ActivityIndicator size="large" color={NAVY} />
-              <Text style={styles.stateText}>Cargando horas extra…</Text>
-            </View>
-          ) : horasExtraQuery.isError ? (
-            <View style={styles.centerState}>
-              <Ionicons name="alert-circle-outline" size={36} color={RED_FLASH} style={{ marginBottom: 8 }} />
-              <Text style={styles.stateText}>No se pudieron cargar las horas extra.</Text>
-              <TouchableOpacity style={styles.retryBtn} onPress={() => horasExtraQuery.refetch()}>
-                <Text style={styles.retryBtnText}>Reintentar</Text>
-              </TouchableOpacity>
-            </View>
-          ) : empleados.length === 0 ? (
-            <View style={styles.centerState}>
-              <Ionicons name="time-outline" size={36} color={MUTED} style={{ marginBottom: 8 }} />
-              <Text style={styles.stateText}>No hay empleados con los filtros aplicados.</Text>
-            </View>
-          ) : (
-            empleados.map((e) => (
-              <EmpleadoHorasExtraCard
-                key={e.userContextId}
-                empleado={e}
-                isLiquidando={liquidandoId === e.userContextId}
-                onPress={setDetail}
-                onLiquidar={openLiquidar}
-              />
-            ))
-          )}
-        </View>
-      </ScrollView>
 
-      {/* Info bar */}
-      <View style={styles.infoBar}>
-        {horasExtraQuery.isFetching ? (
-          <Text style={styles.infoText}>Actualizando…</Text>
-        ) : (
-          <Text style={styles.infoText}>
-            <Text style={styles.infoBold}>{empleados.length}</Text>
-            {` empleado${empleados.length !== 1 ? 's' : ''} · `}
-            <Text style={styles.infoBold}>{formatHoras(totalAll)}</Text>
-            {' horas extra de saldo'}
-          </Text>
-        )}
-      </View>
+      {activeTab === 'liquidacion' ? (
+        <LiquidacionList
+          filter={filter}
+          liquidandoId={liquidandoId}
+          onOpenDetail={setDetail}
+          onOpenLiquidar={openLiquidar}
+        />
+      ) : activeTab === 'feriados' ? (
+        <FeriadosList filter={filter} onToast={showToast} />
+      ) : (
+        <HorasSemanalesList filter={filter} />
+      )}
 
       <DetalleHorasExtraSheet
         visible={detail !== null}
@@ -299,27 +270,9 @@ const styles = StyleSheet.create({
     marginHorizontal: 0,
     marginVertical: 0,
   },
-  listScroll: {
-    flex: 1,
-  },
-  listContent: {
-    paddingHorizontal: 18,
-    paddingTop: 8,
-    paddingBottom: 16,
-  },
-  scrollContent: {
-    paddingHorizontal: 18,
-    paddingTop: 4,
-    paddingBottom: 80,
-  },
-  subtitle: {
-    fontSize: 13,
-    color: MUTED,
-    marginBottom: 14,
-    marginTop: 2,
-  },
   filters: {
     gap: 10,
+    marginTop: 14,
     marginBottom: 16,
     zIndex: 10,
   },
@@ -392,50 +345,5 @@ const styles = StyleSheet.create({
   roleMenuItemTextActive: {
     color: TURNO_COLOR,
     fontWeight: '600',
-  },
-  list: {
-    gap: 0,
-  },
-  centerState: {
-    alignItems: 'center',
-    paddingVertical: 40,
-  },
-  stateText: {
-    fontSize: 14,
-    color: MUTED,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  retryBtn: {
-    marginTop: 12,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 10,
-    backgroundColor: NAVY,
-  },
-  retryBtnText: {
-    color: '#ffffff',
-    fontWeight: '700',
-    fontSize: 14,
-  },
-  infoBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: '#ffffff',
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: LINE,
-    paddingVertical: 12,
-    paddingHorizontal: 18,
-  },
-  infoText: {
-    fontSize: 13,
-    color: MUTED,
-    textAlign: 'center',
-  },
-  infoBold: {
-    fontWeight: '700',
-    color: INK,
   },
 });

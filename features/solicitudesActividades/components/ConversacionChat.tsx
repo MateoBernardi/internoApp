@@ -44,6 +44,7 @@ import { useMessagesScroll } from '../conversacion/hooks/useMessagesScroll';
 import { useParticipantesManager } from '../conversacion/hooks/useParticipantesManager';
 import { conversacionStyles } from '../conversacion/styles';
 import {
+  ActualizarEstadoInvitacionRequest,
   EstadoInvitacionDB,
   SolicitudEnviada,
   estadoInvitacionMapping,
@@ -64,7 +65,8 @@ import { RoleUserSelectionModal } from './RoleUserSelectionModal';
 const colors = Colors['light'];
 
 /** Entrada optimista de la bitácora: misma forma que un mensaje real más un id
- * temporal y la marca `__optimistic` para pintar el estado "Enviando…". */
+ * temporal y la marca `__optimistic` para pintar el estado "Enviando…"/"Falló".
+ * Guarda el payload e idempotency key originales para poder reintentar. */
 interface OptimisticMessage {
   id: string;
   usuario_id: number | null;
@@ -77,6 +79,9 @@ interface OptimisticMessage {
   fecha_fin_nueva: null;
   archivos: never[];
   __optimistic: true;
+  failed: boolean;
+  retryPayload: ActualizarEstadoInvitacionRequest;
+  idempotencyKey: string;
 }
 
 interface ConversacionChatProps {
@@ -115,9 +120,7 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
     () => (bitacoraData?.pages ?? []).flatMap(p => p.data),
     [bitacoraData],
   );
-  // retry:0 → 1 PUT por envío. El optimista + el refetch en onSettled reconcilian;
-  // los reintentos solo duplican peticiones sobre falsos negativos de red.
-  const { mutate: actualizarEstadoRaw, isPending: isUpdatingTitulo } = useActualizarEstadoInvitacion({ retry: 0 });
+  const { mutate: actualizarEstadoRaw, isPending: isUpdatingTitulo } = useActualizarEstadoInvitacion();
 
   const actualizarEstado = useCallback<typeof actualizarEstadoRaw>(
     (variables, options) =>
@@ -310,6 +313,34 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
 
   // ─── Enviar mensaje ───────────────────────────────────────────────────────
 
+  // Único punto de envío real, usado tanto por el primer intento como por el
+  // reintento manual tras un fallo. Reutiliza la MISMA idempotency key en el
+  // reintento: si el intento anterior en realidad sí llegó a persistirse (una
+  // respuesta perdida por un socket zombie en native), el backend deduplica en
+  // vez de crear un mensaje repetido.
+  const attemptSend = useCallback((
+    tempId: string,
+    payload: ActualizarEstadoInvitacionRequest,
+    idempotencyKey: string,
+  ) => {
+    setPendingMessages(prev => prev.map(m => (m.id === tempId ? { ...m, failed: false } : m)));
+    actualizarEstadoRaw(
+      { ...payload, idempotencyKey },
+      {
+        onSuccess: async () => {
+          await queryClient.invalidateQueries({ queryKey: solicitudesQueryKeys.bitacora(solicitudId) });
+          setPendingMessages(prev => prev.filter(m => m.id !== tempId));
+        },
+        // No se borra el optimista: se marca como fallido para que el usuario
+        // vea que NO se guardó y pueda reintentar, en vez de desaparecer en
+        // silencio (el mensaje se perdía sin ningún aviso).
+        onError: () => {
+          setPendingMessages(prev => prev.map(m => (m.id === tempId ? { ...m, failed: true } : m)));
+        },
+      },
+    );
+  }, [actualizarEstadoRaw, queryClient, solicitudId]);
+
   const handleEnviarMensaje = useCallback(async () => {
     if (!canSendMessage) return;
 
@@ -321,7 +352,14 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
 
     // Mensaje optimista: lo pintamos al instante y limpiamos el input. El id
     // temporal sirve para quitarlo cuando reconciliamos con el servidor.
-    const tempId = `pending-${generateIdempotencyKey()}`;
+    const idempotencyKey = generateIdempotencyKey();
+    const tempId = `pending-${idempotencyKey}`;
+    const payload: ActualizarEstadoInvitacionRequest = {
+      solicitud_id: solicitudId,
+      estado: isHost ? 'MODIFIED_BY_HOST' : 'MODIFIED',
+      observacion: trimmed || null,
+      ...(archivosIds.length > 0 ? { archivosIds } : {}),
+    };
     const optimistic: OptimisticMessage = {
       id: tempId,
       usuario_id: user?.user_context_id ?? null,
@@ -334,30 +372,23 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
       fecha_fin_nueva: null,
       archivos: [],
       __optimistic: true,
+      failed: false,
+      retryPayload: payload,
+      idempotencyKey,
     };
     setPendingMessages(prev => [...prev, optimistic]);
     setMessageDraft('');
     setPickedFiles([]);
     setIsSendingMessage(false);
 
-    actualizarEstado(
-      {
-        solicitud_id: solicitudId,
-        estado: isHost ? 'MODIFIED_BY_HOST' : 'MODIFIED',
-        observacion: trimmed || null,
-        ...(archivosIds.length > 0 ? { archivosIds } : {}),
-      },
-      {
-        // Sin Alert ni rollback: en native el mensaje suele entregarse aunque el
-        // fetch falle. Reconciliamos contra el servidor (refetch) y recién ahí
-        // quitamos el optimista, para que la copia real ya esté en pantalla.
-        onSettled: async () => {
-          await queryClient.invalidateQueries({ queryKey: solicitudesQueryKeys.bitacora(solicitudId) });
-          setPendingMessages(prev => prev.filter(m => m.id !== tempId));
-        },
-      },
-    );
-  }, [canSendMessage, uploadPickedFiles, messageDraft, pickedFiles, actualizarEstado, solicitudId, isHost, setPickedFiles, user, queryClient]);
+    attemptSend(tempId, payload, idempotencyKey);
+  }, [canSendMessage, uploadPickedFiles, messageDraft, pickedFiles, attemptSend, solicitudId, isHost, setPickedFiles, user]);
+
+  const handleRetryMessage = useCallback((tempId: string) => {
+    const pending = pendingMessages.find(m => m.id === tempId);
+    if (!pending || !pending.failed) return;
+    attemptSend(tempId, pending.retryPayload, pending.idempotencyKey);
+  }, [pendingMessages, attemptSend]);
 
   // ─── Preview de archivos ──────────────────────────────────────────────────
 
@@ -599,6 +630,8 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
                               fechaFinMsg={fechaFinMsg}
                               esPropuesta={!!b.fecha_inicio_nueva}
                               isOptimistic={!!b.__optimistic}
+                              isFailed={!!b.failed}
+                              onRetryFailed={b.__optimistic ? () => handleRetryMessage(b.id) : undefined}
                               onOpenArchivo={handleOpenAsPreview}
                               onOpenImage={(archivo, uri) => openWithUri(buildArchivoFileItem({ ...archivo, _resolvedUri: uri }))}
                               seenBy={b.seen_by}

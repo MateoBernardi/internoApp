@@ -28,6 +28,9 @@ export interface MessageBubbleProps {
   fechaFinMsg: Date | string | null;
   esPropuesta: boolean;
   isOptimistic?: boolean;
+  /** El envío optimista falló y no se persistió en el backend. */
+  isFailed?: boolean;
+  onRetryFailed?: () => void;
   onOpenArchivo: (archivo: any) => void;
   onOpenImage: (archivo: any, uri: string) => void;
   /** Quienes ya vieron esta entrada. `undefined` = backend sin soporte todavía (no se muestra nada). */
@@ -42,7 +45,7 @@ export interface MessageBubbleProps {
 
 export function MessageBubble({
   id, usuarioNombre, usuarioApellido, createdAt, observacion, isOwn, hideTitle, hideName, estadoKey,
-  archivos, fechaInicioMsg, fechaFinMsg, esPropuesta, isOptimistic, onOpenArchivo, onOpenImage,
+  archivos, fechaInicioMsg, fechaFinMsg, esPropuesta, isOptimistic, isFailed, onRetryFailed, onOpenArchivo, onOpenImage,
   seenBy, otherParticipantIds, resolveParticipantName, highlighted, onLayout,
 }: MessageBubbleProps) {
   const [showViewers, setShowViewers] = useState(false);
@@ -112,7 +115,21 @@ export function MessageBubble({
               </ThemedText>
             </View>
           )}
-          {isOptimistic && (
+          {isOptimistic && isFailed && (
+            <TouchableOpacity
+              onPress={onRetryFailed}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              style={localStyles.failedRow}
+              accessibilityRole="button"
+              accessibilityLabel="No se pudo enviar, reintentar"
+            >
+              <Ionicons name="alert-circle" size={13} color={isOwn ? '#ffd9d3' : colors.error} />
+              <ThemedText style={[localStyles.failedStatusText, isOwn && localStyles.failedStatusTextOwn]}>
+                No se pudo enviar · Reintentar
+              </ThemedText>
+            </TouchableOpacity>
+          )}
+          {isOptimistic && !isFailed && (
             <ThemedText style={[localStyles.pendingStatusText, isOwn && localStyles.pendingStatusTextOwn]}>Enviando…</ThemedText>
           )}
           {!isOptimistic && (
@@ -210,6 +227,21 @@ const localStyles = StyleSheet.create({
   },
   pendingStatusTextOwn: {
     color: 'rgba(255,255,255,0.75)',
+  },
+  failedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+    alignSelf: 'flex-end',
+  },
+  failedStatusText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.error,
+  },
+  failedStatusTextOwn: {
+    color: '#ffd9d3',
   },
   viewersModalContent: {
     maxHeight: '60%',

@@ -4,6 +4,7 @@ import {
   createObjetivoHoras,
   deleteObjetivoHoras,
   getHorasExtra,
+  getHorasSemanalesVsObjetivo,
   getMovimientos,
   getObjetivosHoras,
   liquidarHorasExtra,
@@ -23,6 +24,8 @@ export const horasExtraQueryKeys = {
   movimientos: (userContextId: number, mes: string) =>
     ['horasExtra', 'movimientos', userContextId, mes] as const,
   objetivos: ['horasExtra', 'objetivos'] as const,
+  semanales: (fechaInicio: string, fechaFin: string, filter: HorasExtraFilter) =>
+    ['horasExtra', 'semanales', fechaInicio, fechaFin, filter.userContextId ?? null, filter.role ?? null] as const,
 };
 
 export function useHorasExtra(filter: HorasExtraFilter) {
@@ -62,6 +65,27 @@ export function useMovimientos(userContextId: number | undefined, mes: string, e
     gcTime: 1000 * 60 * 10,
     retry: 2,
     retryDelay: (i) => Math.min(1000 * 2 ** i, 15000),
+  });
+}
+
+/**
+ * Horas trabajadas vs. objetivo semanal por usuario, para una semana dada
+ * (GET /horarios/objetivos/semanal). Sólo incluye usuarios con objetivo cargado.
+ */
+export function useHorasSemanalesVsObjetivo(fechaInicio: string, fechaFin: string, filter: HorasExtraFilter = {}) {
+  const { tokens } = useAuth();
+  return useQuery({
+    queryKey: horasExtraQueryKeys.semanales(fechaInicio, fechaFin, filter),
+    queryFn: async () => {
+      const token = tokens?.accessToken;
+      if (!token) throw new Error('No access token');
+      return getHorasSemanalesVsObjetivo(token, fechaInicio, fechaFin, filter);
+    },
+    staleTime: 0,
+    gcTime: 1000 * 60 * 10,
+    refetchOnMount: 'always',
+    retry: 3,
+    retryDelay: (i) => Math.min(1000 * 2 ** i, 30000),
   });
 }
 

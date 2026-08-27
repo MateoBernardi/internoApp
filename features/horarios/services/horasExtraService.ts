@@ -2,6 +2,7 @@ import { apiRequest, throwApiError } from '@/shared/apiRequest';
 import { idempotencyHeaders } from '@/shared/idempotency';
 import type {
   HorasExtraDTO,
+  HorasSemanalDTO,
   LiquidarHorasExtraResult,
   MovimientoDTO,
   ObjetivoHorasDTO,
@@ -77,6 +78,30 @@ export async function liquidarHorasExtra(
     endpoint: `/horarios/liquidar/${userContextId}?${params.toString()}`,
     token,
     headers: idempotencyHeaders(idempotencyKey),
+  });
+  if (!res.ok) throwApiError(await extractError(res), res);
+  return res.json();
+}
+
+/**
+ * GET /horarios/objetivos/semanal: horas trabajadas vs. objetivo semanal por
+ * usuario, para un rango de fechas (semana). Solo incluye usuarios que ya
+ * tienen un objetivo cargado (mismo universo que getObjetivosHoras).
+ */
+export async function getHorasSemanalesVsObjetivo(
+  token: string,
+  fechaInicio: string,
+  fechaFin: string,
+  filter: HorasExtraFilter = {},
+): Promise<HorasSemanalDTO[]> {
+  const params = new URLSearchParams({ fechaInicio, fechaFin });
+  if (filter.userContextId != null) params.set('user_context_id', String(filter.userContextId));
+  if (filter.role) params.set('role', filter.role);
+
+  const res = await apiRequest({
+    method: 'GET',
+    endpoint: `/horarios/objetivos/semanal?${params.toString()}`,
+    token,
   });
   if (!res.ok) throwApiError(await extractError(res), res);
   return res.json();

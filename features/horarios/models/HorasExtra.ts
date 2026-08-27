@@ -44,6 +44,18 @@ export interface ObjetivoHorasDTO {
   horas: number;
 }
 
+/**
+ * Horas trabajadas vs. objetivo semanal de un usuario (GET /horarios/objetivos/semanal),
+ * en horas reales. Solo incluye usuarios que ya tienen un objetivo cargado.
+ */
+export interface HorasSemanalDTO {
+  userContextId: number;
+  nombre: string;
+  apellido: string;
+  horasObjetivo: number;
+  horasTrabajadas: number;
+}
+
 interface MovimientoTipoInfo {
   label: string;
   sign: '+' | '−';

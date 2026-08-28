@@ -78,6 +78,7 @@ export function CrearActividadModal({
   const insets = useSafeAreaInsets();
   const bottomInset = useSafeBottomInset();
   const [focusedField, setFocusedField] = useState<'titulo' | 'descripcion' | null>(null);
+  const isFormValid = newActivity.title.trim().length > 0 && !activityDateErrorMessage;
 
   useEffect(() => {
     if (!visible) return;
@@ -107,6 +108,7 @@ export function CrearActividadModal({
             </View>
 
             <ScrollView
+              style={styles.modalScroll}
               contentContainerStyle={styles.modalScrollContent}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
@@ -117,31 +119,28 @@ export function CrearActividadModal({
 
               {/* Fecha */}
               <View style={styles.dateSection}>
-                <TouchableOpacity onPress={onStartDate} style={styles.dateRow}>
-                  <Ionicons name="calendar" size={20} color={colors.lightTint} />
-                  <View style={{ marginLeft: 12 }}>
-                    <Text style={styles.dateLabel}>Fecha inicio</Text>
-                    <Text style={styles.dateValue}>
-                      {new Date(newActivity.date + 'T00:00:00').toLocaleDateString(
-                        'es-ES',
-                        { weekday: 'short', day: '2-digit', month: 'short' }
-                      )}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
+                <View style={styles.dateFieldGroup}>
+                  <Text style={styles.dateFieldLabel}>Fecha inicio</Text>
+                  <View style={styles.dateRow}>
+                    <TouchableOpacity onPress={onStartDate} style={styles.dateButton}>
+                      <Text style={styles.dateValue}>
+                        {new Date(newActivity.date + 'T00:00:00').toLocaleDateString(
+                          'es-ES',
+                          { weekday: 'short', day: '2-digit', month: 'short' }
+                        )}
+                      </Text>
+                    </TouchableOpacity>
 
-                <TouchableOpacity onPress={onStartTime} style={styles.dateRow}>
-                  <Ionicons name="time" size={20} color={colors.lightTint} />
-                  <View style={{ marginLeft: 12 }}>
-                    <Text style={styles.dateLabel}>Hora inicio</Text>
-                    <Text style={styles.dateValue}>
-                      {newActivity.startTime.toLocaleTimeString('es-ES', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </Text>
+                    <TouchableOpacity onPress={onStartTime} style={styles.timeButton}>
+                      <Text style={[styles.dateValue, styles.timeValue]}>
+                        {newActivity.startTime.toLocaleTimeString('es-ES', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </Text>
+                    </TouchableOpacity>
                   </View>
-                </TouchableOpacity>
+                </View>
 
                 <TouchableOpacity style={styles.endDateCollapsible} onPress={onToggleEndDateFields}>
                   <Text style={styles.endDateCollapsibleText}>Agregar fecha de fin</Text>
@@ -149,33 +148,28 @@ export function CrearActividadModal({
                 </TouchableOpacity>
 
                 {showEndDateFields && (
-                  <>
-                    <TouchableOpacity onPress={onEndDate} style={styles.dateRow}>
-                      <Ionicons name="calendar" size={20} color={colors.lightTint} />
-                      <View style={{ marginLeft: 12 }}>
-                        <Text style={styles.dateLabel}>Fecha fin</Text>
+                  <View style={styles.dateFieldGroup}>
+                    <Text style={styles.dateFieldLabel}>Fecha fin</Text>
+                    <View style={styles.dateRow}>
+                      <TouchableOpacity onPress={onEndDate} style={styles.dateButton}>
                         <Text style={styles.dateValue}>
                           {new Date(newActivity.endDate + 'T00:00:00').toLocaleDateString(
                             'es-ES',
                             { weekday: 'short', day: '2-digit', month: 'short' }
                           )}
                         </Text>
-                      </View>
-                    </TouchableOpacity>
+                      </TouchableOpacity>
 
-                    <TouchableOpacity onPress={onEndTime} style={styles.dateRow}>
-                      <Ionicons name="time" size={20} color={colors.lightTint} />
-                      <View style={{ marginLeft: 12 }}>
-                        <Text style={styles.dateLabel}>Hora fin</Text>
-                        <Text style={styles.dateValue}>
+                      <TouchableOpacity onPress={onEndTime} style={styles.timeButton}>
+                        <Text style={[styles.dateValue, styles.timeValue]}>
                           {newActivity.endTime.toLocaleTimeString('es-ES', {
                             hour: '2-digit',
                             minute: '2-digit',
                           })}
                         </Text>
-                      </View>
-                    </TouchableOpacity>
-                  </>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
                 )}
               </View>
 
@@ -213,8 +207,8 @@ export function CrearActividadModal({
             <View style={styles.uploadButtonContainer}>
               <TouchableOpacity
                 onPress={onSubmit}
-                disabled={isLoading}
-                style={[styles.uploadButton, isLoading && styles.uploadButtonDisabled]}
+                disabled={isLoading || !isFormValid}
+                style={[styles.uploadButton, (isLoading || !isFormValid) && styles.uploadButtonDisabled]}
               >
                 <Ionicons name="cloud-upload" size={20} color={glassColors.link} />
                 <ThemedText style={styles.uploadButtonText}>Crear</ThemedText>
@@ -254,6 +248,9 @@ const styles = StyleSheet.create({
   modalContainer: {
     flex: 1,
     backgroundColor: colors.componentBackground,
+  },
+  modalScroll: {
+    flex: 1,
   },
   modalScrollContent: {
     paddingHorizontal: 20,
@@ -296,21 +293,39 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     marginBottom: 20,
   },
-  dateRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
+  dateFieldGroup: {
+    gap: 6,
+    marginBottom: 12,
   },
-  dateLabel: {
+  dateFieldLabel: {
     fontSize: 12,
     color: glassColors.textMuted,
     fontWeight: '500',
+  },
+  dateRow: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'stretch',
+  },
+  dateButton: {
+    ...glassStyles.buttonSecondary,
+    flex: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  timeButton: {
+    ...glassStyles.buttonSecondary,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
   dateValue: {
     fontSize: 15,
     color: colors.lightTint,
     fontWeight: '600',
-    marginTop: 2,
+    textAlign: 'center',
+  },
+  timeValue: {
+    fontWeight: '600',
   },
   endDateCollapsible: {
     marginTop: UI.spacing.sm,
@@ -319,7 +334,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.neutralBorder,
+    borderTopColor: 'rgba(17,24,28,0.08)',
   },
   endDateCollapsibleText: {
     color: colors.secondaryText,

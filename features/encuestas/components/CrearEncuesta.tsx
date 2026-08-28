@@ -25,7 +25,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Encuesta, Pregunta } from '../models/Encuesta';
+import { Encuesta, Pregunta, TIPO_PREGUNTA_META } from '../models/Encuesta';
 import { useCreateEncuestaCompleta } from '../viewmodels/useEncuestas';
 import { styles } from './crearEncuestaStyles';
 import { EncuestasScreenHeader } from './EncuestasScreenHeader';
@@ -125,6 +125,11 @@ export const CrearEncuesta: React.FC<CrearEncuestaProps> = ({ onEncuestaCreada, 
     setActiveRole(role);
     setShowRoleModal(true);
   }, []);
+
+  const isFormValid =
+    titulo.trim().length > 0 &&
+    preguntas.length > 0 &&
+    (todosEmpleados || selectedUsers.length > 0);
 
   const validarFormulario = (): boolean => {
     if (!titulo.trim()) {
@@ -321,7 +326,8 @@ export const CrearEncuesta: React.FC<CrearEncuestaProps> = ({ onEncuestaCreada, 
               style={styles.agregarPreguntaButton}
               onPress={() => setFormularioPregunta({ index: null })}
             >
-              <Text style={styles.agregarPreguntaText}>+ Agregar</Text>
+              <Ionicons name="add" size={16} color={glassColors.link} />
+              <Text style={styles.agregarPreguntaText}>Agregar</Text>
             </TouchableOpacity>
           </View>
 
@@ -348,7 +354,10 @@ export const CrearEncuesta: React.FC<CrearEncuestaProps> = ({ onEncuestaCreada, 
                 </View>
                 <Text style={styles.preguntaTitulo}>{pregunta.titulo}</Text>
                 <View style={styles.preguntaInfo}>
-                  <Text style={styles.preguntaTipo}>Tipo: {pregunta.tipo_pregunta}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <Ionicons name={TIPO_PREGUNTA_META[pregunta.tipo_pregunta].icon} size={12} color={colors.secondaryText} />
+                    <Text style={styles.preguntaTipo}>{TIPO_PREGUNTA_META[pregunta.tipo_pregunta].label}</Text>
+                  </View>
                   {pregunta.es_obligatoria && (
                     <Text style={styles.obligatoriaTag}>Obligatoria</Text>
                   )}
@@ -359,11 +368,14 @@ export const CrearEncuesta: React.FC<CrearEncuestaProps> = ({ onEncuestaCreada, 
                       {pregunta.tipo_pregunta === 'horario' ? 'Horarios:' : 'Opciones:'}
                     </Text>
                     {pregunta.opciones.map((opcion, i) => (
-                      <Text key={i} style={styles.opcionText}>
-                        {pregunta.tipo_pregunta === 'horario'
-                          ? `🕐 ${opcion}`
-                          : `• ${opcion}`}
-                      </Text>
+                      <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                        {pregunta.tipo_pregunta === 'horario' && (
+                          <Ionicons name="time-outline" size={11} color={colors.secondaryText} />
+                        )}
+                        <Text style={styles.opcionText}>
+                          {pregunta.tipo_pregunta === 'horario' ? opcion : `• ${opcion}`}
+                        </Text>
+                      </View>
                     ))}
                   </View>
                 )}
@@ -378,9 +390,9 @@ export const CrearEncuesta: React.FC<CrearEncuestaProps> = ({ onEncuestaCreada, 
           <Text style={styles.cancelarButtonText}>Cancelar</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.guardarButton, isPending && styles.crearButtonDisabled]}
+          style={[styles.guardarButton, (isPending || !isFormValid) && styles.crearButtonDisabled]}
           onPress={handleCrearEncuesta}
-          disabled={isPending}
+          disabled={isPending || !isFormValid}
         >
           {isPending ? (
             <ActivityIndicator color={glassColors.link} />

@@ -1,7 +1,7 @@
 import { GlassTabSelector } from '@/components/ui/GlassTabSelector';
 import { SearchBar } from '@/components/ui/SearchBar';
 import { useIdempotencyKey } from '@/shared/useIdempotencyKey';
-import { glassStyles } from '@/shared/ui/glass';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 import type { UserSummary } from '@/shared/users/User';
 import { useSearchUsers } from '@/shared/users/useUser';
 import { Ionicons } from '@expo/vector-icons';
@@ -24,10 +24,10 @@ import type { HorasExtraDTO } from '../models/HorasExtra';
 import { useLiquidarHorasExtra } from '../viewmodels/useHorasExtra';
 import { SHIFT_ROLES } from './GestionHorarios';
 
-import { INK, LINE, MUTED, TURNO_COLOR } from '../theme';
+import { INK, LINE, MUTED } from '../theme';
 
 function formatHoras(n: number): string {
-  return `${Math.round(n * 10) / 10}h`;
+  return `${Math.round(n * 10) / 10} hs`;
 }
 
 type HorasExtrasTab = 'liquidacion' | 'feriados' | 'semanales';
@@ -37,7 +37,7 @@ export function HorasExtras() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUser, setSelectedUser] = useState<UserSummary | null>(null);
   const [roleFilter, setRoleFilter] = useState<string | null>(null);
-  const [showRoleMenu, setShowRoleMenu] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
   const [detail, setDetail] = useState<HorasExtraDTO | null>(null);
   const [liquidarTarget, setLiquidarTarget] = useState<HorasExtraDTO | null>(null);
   const [liquidandoId, setLiquidandoId] = useState<number | null>(null);
@@ -135,18 +135,20 @@ export function HorasExtras() {
     [liquidarTarget, liquidar, idempotencyKey, regenerateIdempotencyKey, showToast, closeDetail, closeLiquidarModal],
   );
 
-  const roleDropdownLabel = roleFilter
-    ? (SHIFT_ROLES.find((r) => r.value === roleFilter)?.label ?? roleFilter)
-    : 'Todos';
+  const activeFilterCount = roleFilter !== null ? 1 : 0;
+
+  const clearFilters = useCallback(() => {
+    setRoleFilter(null);
+  }, []);
 
   return (
     <View style={styles.container}>
       <View style={styles.topSection}>
         <GlassTabSelector
           tabs={[
-            { key: 'liquidacion', label: 'Liquidación' },
+            { key: 'semanales', label: 'Por semana' },
             { key: 'feriados', label: 'Feriados' },
-            { key: 'semanales', label: 'Horas semanales' },
+            { key: 'liquidacion', label: 'Liquidación' },
           ]}
           activeKey={activeTab}
           onChange={(key) => setActiveTab(key as HorasExtrasTab)}
@@ -183,36 +185,54 @@ export function HorasExtras() {
             </View>
           )}
 
-          {/* Role dropdown */}
-          <TouchableOpacity style={[glassStyles.fieldGlass, styles.roleDropdown]} onPress={() => setShowRoleMenu((v) => !v)}>
-            <Text style={styles.roleDropdownPrefix}>Rol </Text>
-            <Text style={styles.roleDropdownValue}>{roleDropdownLabel}</Text>
-            <Ionicons name={showRoleMenu ? 'chevron-up' : 'chevron-down'} size={15} color={MUTED} />
-          </TouchableOpacity>
-
-          {showRoleMenu && (
-            <View style={[glassStyles.modalCard, styles.roleMenuBox]}>
-              <TouchableOpacity
-                style={[styles.roleMenuItem, roleFilter === null && styles.roleMenuItemActive]}
-                onPress={() => { setRoleFilter(null); setShowRoleMenu(false); }}
+          {/* Filtrar */}
+          <View style={styles.filterBar}>
+            <TouchableOpacity
+              onPress={() => setShowFilters((v) => !v)}
+              style={[styles.filterToggle, activeFilterCount > 0 ? styles.filterToggleActive : styles.filterToggleInactive]}
+            >
+              <Ionicons
+                name="filter-outline"
+                size={20}
+                color={activeFilterCount > 0 ? glassColors.link : glassColors.textMuted}
+              />
+              <Text
+                style={[
+                  styles.filterToggleText,
+                  activeFilterCount > 0 ? styles.filterToggleTextActive : styles.filterToggleTextInactive,
+                ]}
               >
-                <Text style={[styles.roleMenuItemText, roleFilter === null && styles.roleMenuItemTextActive]}>
-                  Todos
-                </Text>
-                {roleFilter === null && <Ionicons name="checkmark" size={16} color={TURNO_COLOR} />}
+                Filtrar
+              </Text>
+              {activeFilterCount > 0 && (
+                <View style={styles.filterBadge}>
+                  <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            {activeFilterCount > 0 && (
+              <TouchableOpacity onPress={clearFilters}>
+                <Text style={styles.clearText}>Limpiar</Text>
               </TouchableOpacity>
-              {SHIFT_ROLES.map((r) => (
-                <TouchableOpacity
-                  key={r.value}
-                  style={[styles.roleMenuItem, roleFilter === r.value && styles.roleMenuItemActive]}
-                  onPress={() => { setRoleFilter(r.value); setShowRoleMenu(false); }}
-                >
-                  <Text style={[styles.roleMenuItemText, roleFilter === r.value && styles.roleMenuItemTextActive]}>
-                    {r.label}
-                  </Text>
-                  {roleFilter === r.value && <Ionicons name="checkmark" size={16} color={TURNO_COLOR} />}
-                </TouchableOpacity>
-              ))}
+            )}
+          </View>
+
+          {showFilters && (
+            <View style={styles.filterPanel}>
+              <View style={styles.filterGroup}>
+                <Text style={styles.filterGroupLabel}>Rol</Text>
+                <View style={styles.chipRow}>
+                  <FilterChip label="Todos" active={roleFilter === null} onPress={() => setRoleFilter(null)} />
+                  {SHIFT_ROLES.map((r) => (
+                    <FilterChip
+                      key={r.value}
+                      label={r.label}
+                      active={roleFilter === r.value}
+                      onPress={() => setRoleFilter(r.value)}
+                    />
+                  ))}
+                </View>
+              </View>
             </View>
           )}
         </View>
@@ -253,6 +273,14 @@ export function HorasExtras() {
         opacity={toastAnim}
       />
     </View>
+  );
+}
+
+function FilterChip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+  return (
+    <TouchableOpacity onPress={onPress} style={[styles.filterChip, active && styles.filterChipActive]}>
+      <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>{label}</Text>
+    </TouchableOpacity>
   );
 }
 
@@ -306,44 +334,94 @@ const styles = StyleSheet.create({
     color: MUTED,
     marginTop: 2,
   },
-  roleDropdown: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-  },
-  roleDropdownPrefix: {
-    fontSize: 14,
-    color: MUTED,
-    fontWeight: '500',
-  },
-  roleDropdownValue: {
-    fontSize: 14,
-    color: INK,
-    fontWeight: '600',
-    flex: 1,
-  },
-  roleMenuBox: {
-    overflow: 'hidden',
-  },
-  roleMenuItem: {
+  filterBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 13,
-    paddingHorizontal: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: LINE,
   },
-  roleMenuItemActive: {
-    backgroundColor: '#e7f2fb',
+  filterToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    borderWidth: 1,
   },
-  roleMenuItemText: {
-    fontSize: 15,
-    color: INK,
-  },
-  roleMenuItemTextActive: {
-    color: TURNO_COLOR,
+  filterToggleText: {
+    fontSize: 13,
     fontWeight: '600',
+  },
+  filterToggleActive: {
+    borderColor: 'rgba(26,115,232,0.35)',
+    backgroundColor: 'rgba(26,115,232,0.12)',
+  },
+  filterToggleInactive: {
+    borderColor: 'rgba(17,24,28,0.12)',
+    backgroundColor: 'rgba(17,24,28,0.03)',
+  },
+  filterToggleTextActive: {
+    color: glassColors.link,
+  },
+  filterToggleTextInactive: {
+    color: glassColors.textMuted,
+  },
+  filterBadge: {
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 4,
+    backgroundColor: glassColors.link,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  clearText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: glassColors.link,
+  },
+  filterPanel: {
+    marginBottom: 6,
+    padding: 12,
+    gap: 10,
+    ...glassStyles.card,
+  },
+  filterGroup: {
+    gap: 6,
+  },
+  filterGroupLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: MUTED,
+  },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  filterChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(17,24,28,0.12)',
+    backgroundColor: 'rgba(17,24,28,0.03)',
+  },
+  filterChipActive: {
+    borderColor: 'rgba(26,115,232,0.35)',
+    backgroundColor: 'rgba(26,115,232,0.12)',
+  },
+  filterChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: glassColors.textMuted,
+  },
+  filterChipTextActive: {
+    color: glassColors.link,
   },
 });

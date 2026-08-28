@@ -26,7 +26,7 @@ import { TurnoCard } from '../components/TurnoCard';
 import { HorariosToast } from '../components/HorariosToast';
 import type { UpdateHorarioPayload } from '../models/HorarioDTO';
 import { mapHorarioDTOToTurno, TURNO_LABEL, type Turno } from '../models/Turno';
-import { downloadPlantillaShifts, type HorariosByDateFilter } from '../services/horariosService';
+import { downloadPlantillaShifts, getPlantillaShiftsUrl, type HorariosByDateFilter } from '../services/horariosService';
 import {
   useHorariosByDate,
   useSedes,
@@ -207,10 +207,10 @@ export function GestionHorarios() {
     }
     setIsDownloadingPlantilla(true);
     try {
-      const blob = await downloadPlantillaShifts(token);
       const fileName = 'plantilla_shifts.csv';
 
       if (Platform.OS === 'web') {
+        const blob = await downloadPlantillaShifts(token);
         const blobUrl = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = blobUrl;
@@ -224,9 +224,14 @@ export function GestionHorarios() {
         const destinationFile = new FileSystem.File(destinationDir, fileName);
         await destinationDir.create({ idempotent: true, intermediates: true });
 
-        const text = await blob.text();
-        destinationFile.create({ overwrite: true, intermediates: true });
-        destinationFile.write(text);
+        // RN's Blob no implementa .text(); descargamos directo a disco en vez de pasar por blob.
+        await FileSystem.File.downloadFileAsync(getPlantillaShiftsUrl(), destinationFile, {
+          idempotent: true,
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'x-app-entorno': 'interno',
+          },
+        });
 
         const canShare = await Sharing.isAvailableAsync();
         if (canShare) {

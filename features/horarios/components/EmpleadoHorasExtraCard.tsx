@@ -11,7 +11,7 @@ function initials(nombre: string, apellido: string): string {
 }
 
 function formatHoras(n: number): string {
-  return `${Math.round(n * 10) / 10}h`;
+  return `${Math.round(n * 10) / 10} hs`;
 }
 
 interface EmpleadoHorasExtraCardProps {

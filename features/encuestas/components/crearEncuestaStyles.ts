@@ -70,14 +70,15 @@ export const styles = StyleSheet.create({
     textAlignVertical: 'top',
   },
   dateButton: {
-    ...glassStyles.fieldGlass,
-    borderRadius: 8,
-    padding: 12,
+    ...glassStyles.buttonSecondary,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     marginTop: 8,
   },
   dateButtonText: {
     fontSize: 14,
-    color: colors.text,
+    color: colors.lightTint,
+    textAlign: 'center',
   },
   switchContainer: {
     flexDirection: 'row',
@@ -92,13 +93,16 @@ export const styles = StyleSheet.create({
     color: colors.text,
   },
   agregarPreguntaButton: {
-    backgroundColor: colors.lightTint,
+    ...glassStyles.button,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 6,
   },
   agregarPreguntaText: {
-    color: colors.componentBackground,
+    color: glassColors.link,
     fontSize: 13,
     fontWeight: '600',
   },
@@ -150,7 +154,7 @@ export const styles = StyleSheet.create({
   obligatoriaTag: {
     fontSize: 10,
     color: colors.error,
-    backgroundColor: colors.error + '12',
+    backgroundColor: 'rgba(244,67,54,0.08)',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
@@ -182,15 +186,18 @@ export const styles = StyleSheet.create({
     gap: 8,
   },
   tipoButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
     padding: 12,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: colors.background,
-    alignItems: 'center',
   },
   tipoButtonSelected: {
     borderColor: colors.lightTint,
-    backgroundColor: colors.lightTint + '12',
+    backgroundColor: 'rgba(26,115,232,0.08)',
   },
   tipoText: {
     fontSize: 14,
@@ -209,21 +216,14 @@ export const styles = StyleSheet.create({
     marginBottom: 8,
   },
   addButton: {
-    backgroundColor: colors.lightTint,
+    ...glassStyles.button,
     width: 44,
     height: 44,
     borderRadius: 8,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  addButtonText: {
-    color: colors.componentBackground,
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  eliminarOpcion: {
-    fontSize: 16,
-    color: colors.error,
   },
   footerDos: {
     flexDirection: 'row',

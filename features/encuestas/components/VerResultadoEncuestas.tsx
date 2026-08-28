@@ -2,6 +2,7 @@ import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { AppBackButton } from '@/shared/ui/AppBackButton';
+import { GlassButton } from '@/shared/ui/GlassButton';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
@@ -75,9 +76,12 @@ export const VerResultadosEncuestas: React.FC<VerResultadosEncuestasProps> = ({ 
         <View style={styles.centerContainer}>
           <Ionicons name="alert-circle-outline" size={48} color={colors.error} />
           <Text style={styles.errorSubtext}>{error.message}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={() => refetch()}>
-            <Text style={styles.retryButtonText}>Reintentar</Text>
-          </TouchableOpacity>
+          <GlassButton
+            label="Reintentar"
+            onPress={() => refetch()}
+            style={styles.retryButton}
+            icon={(color) => <Ionicons name="refresh" size={16} color={color} />}
+          />
         </View>
       </View>
     );
@@ -188,7 +192,7 @@ export const VerResultadosEncuestas: React.FC<VerResultadosEncuestasProps> = ({ 
             </View>
             <View style={styles.verDetalleButton}>
               <Text style={styles.verDetalleText}>Ver detalles</Text>
-              <Ionicons name="chevron-forward" size={16} color={colors.componentBackground} />
+              <Ionicons name="chevron-forward" size={16} color={colors.lightTint} />
             </View>
           </TouchableOpacity>
         )}

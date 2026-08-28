@@ -1,4 +1,5 @@
 import { ThemedText } from '@/components/themed-text';
+import { glassStyles } from '@/shared/ui/glass';
 import NativeDateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { es } from 'date-fns/locale/es'; // ← en v9 el path cambió
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -269,6 +270,6 @@ const styles = StyleSheet.create({
     zIndex: 999,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    backgroundColor: glassStyles.modalOverlay.backgroundColor,
   },
 });

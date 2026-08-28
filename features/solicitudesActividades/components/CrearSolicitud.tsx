@@ -176,12 +176,24 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
 
     if (activeDateType === 'start') {
       setFechaInicio(selectedDate);
+      // UX: al elegir el día de inicio, copiamos ese día a fecha_fin para el
+      // caso común (evento de un solo día). Solo se pisa el día, no la hora
+      // de fin ya elegida, y el usuario puede después cambiarlo a cualquier
+      // fecha válida (isDateRangeInvalid sigue validando el rango).
+      if (datePickerMode === 'date') {
+        setFechaFin((prevEnd) => {
+          const base = prevEnd ?? selectedDate;
+          const next = new Date(base);
+          next.setFullYear(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
+          return next;
+        });
+      }
     } else {
       setFechaFin(selectedDate);
     }
     setShowDatePicker(false);
     setActiveDateType(null);
-  }, [activeDateType]);
+  }, [activeDateType, datePickerMode]);
 
   const getPickerValue = useCallback((): Date => {
     if (activeDateType === 'start') return fechaInicio ?? new Date();
@@ -447,6 +459,7 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
                     isLoadingRoles={false}
                     onSearch={setSearchQuery}
                     onSelectRole={handleRoleSelect}
+                    inputWrapperStyle={styles.inputSectionPill}
                   />
                 </View>
               </View>
@@ -496,34 +509,32 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
 
                 {!fromChatsTab && includeDates && (
                   <>
-                    <View style={styles.dateRow}>
-                      <View style={{ flex: 1 }}>
-                        <TouchableOpacity onPress={() => showDatepicker('start', 'date')} activeOpacity={0.7}>
-                          <ThemedText style={styles.dateLabel}>Fecha de inicio</ThemedText>
+                    <View style={styles.dateFieldGroup}>
+                      <ThemedText style={styles.fieldLabel}>Fecha de inicio</ThemedText>
+                      <View style={styles.dateRow}>
+                        <TouchableOpacity onPress={() => showDatepicker('start', 'date')} activeOpacity={0.7} style={styles.dateButton}>
                           <ThemedText style={styles.dateValue}>{fechaInicio ? formatDateDDMMYYYY(fechaInicio) : 'Día'}</ThemedText>
                         </TouchableOpacity>
+                        {!allDay && (
+                          <TouchableOpacity onPress={() => showDatepicker('start', 'time')} activeOpacity={0.7} style={styles.timeButton}>
+                            <ThemedText style={[styles.dateValue, styles.timeValue]}>{fechaInicio ? formatTimeHHMM(fechaInicio) : 'Hora'}</ThemedText>
+                          </TouchableOpacity>
+                        )}
                       </View>
-                      {!allDay && (
-                        <TouchableOpacity onPress={() => showDatepicker('start', 'time')} activeOpacity={0.7}>
-                          <ThemedText style={styles.dateLabel}></ThemedText>
-                          <ThemedText style={styles.timeValue}>{fechaInicio ? formatTimeHHMM(fechaInicio) : 'Hora'}</ThemedText>
-                        </TouchableOpacity>
-                      )}
                     </View>
 
-                    <View style={styles.dateRow}>
-                      <View style={{ flex: 1 }}>
-                        <TouchableOpacity onPress={() => showDatepicker('end', 'date')} activeOpacity={0.7}>
-                          <ThemedText style={styles.dateLabel}>Fecha de cierre</ThemedText>
+                    <View style={styles.dateFieldGroup}>
+                      <ThemedText style={styles.fieldLabel}>Fecha de cierre</ThemedText>
+                      <View style={styles.dateRow}>
+                        <TouchableOpacity onPress={() => showDatepicker('end', 'date')} activeOpacity={0.7} style={styles.dateButton}>
                           <ThemedText style={styles.dateValue}>{fechaFin ? formatDateDDMMYYYY(fechaFin) : 'Día'}</ThemedText>
                         </TouchableOpacity>
+                        {!allDay && (
+                          <TouchableOpacity onPress={() => showDatepicker('end', 'time')} activeOpacity={0.7} style={styles.timeButton}>
+                            <ThemedText style={[styles.dateValue, styles.timeValue]}>{fechaFin ? formatTimeHHMM(fechaFin) : 'Hora'}</ThemedText>
+                          </TouchableOpacity>
+                        )}
                       </View>
-                      {!allDay && (
-                        <TouchableOpacity onPress={() => showDatepicker('end', 'time')} activeOpacity={0.7}>
-                          <ThemedText style={styles.dateLabel}></ThemedText>
-                          <ThemedText style={styles.timeValue}>{fechaFin ? formatTimeHHMM(fechaFin) : 'Hora'}</ThemedText>
-                        </TouchableOpacity>
-                      )}
                     </View>
 
                     {dateErrorMessage && <ThemedText style={styles.errorText}>{dateErrorMessage}</ThemedText>}

@@ -391,12 +391,17 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
                                 <Ionicons name="chevron-back" size={24} color={glassColors.textMuted} />
                             </TouchableOpacity>
                         </View>
-                        <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: 120 }}>
+                        <ScrollView
+                            style={styles.content}
+                            contentContainerStyle={{ paddingBottom: 120 }}
+                            keyboardShouldPersistTaps="handled"
+                            keyboardDismissMode="on-drag"
+                            showsVerticalScrollIndicator={false}
+                        >
 
                             {/* ── Tipo de Licencia ── */}
                             <View style={styles.sectionCard}>
                                 <TouchableOpacity onPress={() => setShowTipoLicenciaModal(!showTipoLicenciaModal)} style={styles.selectInput}>
-                                    <Ionicons name="ribbon-outline" size={20} color={colors.icon} />
                                     <ThemedText style={[styles.selectText, !tipoLicenciaId && { color: colors.icon }]}>
                                         {selectedTipo?.nombre || 'Seleccionar tipo de licencia'}
                                     </ThemedText>
@@ -424,7 +429,6 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
                                                     style={[styles.dropdownItem, tipoLicenciaId === tipo.id && styles.activeItem]}
                                                 >
                                                     <ThemedText style={tipoLicenciaId === tipo.id ? styles.activeItemText : {}}>{tipo.nombre}</ThemedText>
-                                                    {tipo.requiere_saldo && <Ionicons name="pie-chart" size={14} color={colors.lightTint} />}
                                                 </TouchableOpacity>
                                             ))
                                         )}
@@ -435,33 +439,32 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
                             {/* ── Fecha de Inicio ── */}
                             <View style={styles.sectionCard}>
                                 <View style={styles.rowInfo}>
-                                    <Ionicons name="calendar-outline" size={20} color={colors.lightTint} />
                                     <ThemedText style={styles.sectionLabel}>Fecha de Inicio</ThemedText>
                                 </View>
 
-                                <TouchableOpacity onPress={() => {
-                                    setShowTimePicker(false);
-                                    setShowDatePicker(true);
-                                }} style={styles.datePickerRow}>
-                                    <ThemedText style={styles.dateLabel}>Día</ThemedText>
-                                    <ThemedText style={styles.dateValue}>
-                                        {fechaInicio
-                                            ? fechaInicio.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })
-                                            : 'Seleccionar fecha'}
-                                    </ThemedText>
-                                </TouchableOpacity>
+                                <View style={styles.dateRow}>
+                                    <TouchableOpacity onPress={() => {
+                                        setShowTimePicker(false);
+                                        setShowDatePicker(true);
+                                    }} style={styles.dateButton}>
+                                        <ThemedText style={styles.dateValue}>
+                                            {fechaInicio
+                                                ? fechaInicio.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })
+                                                : 'Seleccionar fecha'}
+                                        </ThemedText>
+                                    </TouchableOpacity>
 
-                                <TouchableOpacity onPress={() => {
-                                    setShowDatePicker(false);
-                                    setShowTimePicker(true);
-                                }} style={styles.datePickerRow}>
-                                    <ThemedText style={styles.dateLabel}>Hora</ThemedText>
-                                    <ThemedText style={styles.dateValue}>
-                                        {fechaInicio
-                                            ? fechaInicio.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
-                                            : 'Seleccionar hora'}
-                                    </ThemedText>
-                                </TouchableOpacity>
+                                    <TouchableOpacity onPress={() => {
+                                        setShowDatePicker(false);
+                                        setShowTimePicker(true);
+                                    }} style={styles.timeButton}>
+                                        <ThemedText style={[styles.dateValue, styles.timeValue]}>
+                                            {fechaInicio
+                                                ? fechaInicio.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
+                                                : 'Seleccionar hora'}
+                                        </ThemedText>
+                                    </TouchableOpacity>
+                                </View>
 
                                 {dateErrorMessage && (
                                     <ThemedText style={styles.errorTextInline}>{dateErrorMessage}</ThemedText>
@@ -472,7 +475,6 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
                             {tipoLicenciaId && (
                                 <View style={styles.sectionCard}>
                                     <View style={styles.rowInfo}>
-                                        <Ionicons name="timer-outline" size={20} color={colors.lightTint} />
                                         <ThemedText style={styles.sectionLabel}>Cantidad</ThemedText>
                                     </View>
 
@@ -587,8 +589,7 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
                             {/* ── Saldo ── */}
                             {selectedTipo?.requiere_saldo && (
                                 <View style={[styles.sectionCard, styles.saldoCard, saldoDisponible < cantidadDias && styles.saldoError]}>
-                                    <Ionicons name="information-circle" size={20} color={saldoDisponible < cantidadDias ? colors.error : colors.lightTint} />
-                                    <View style={{ flex: 1, marginLeft: 12 }}>
+                                    <View style={{ flex: 1 }}>
                                         <ThemedText style={styles.saldoTitle}>Saldo Disponible</ThemedText>
                                         <ThemedText style={styles.saldoSubtitle}>
                                             {isLoadingSaldos ? '...' : `${saldoDisponible} días restantes`}
@@ -603,8 +604,7 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
                             {/* ── Saldo Franco Compensatorio (informativo) ── */}
                             {esFranco && (
                                 <View style={[styles.sectionCard, styles.saldoCard]}>
-                                    <Ionicons name="information-circle" size={20} color={colors.lightTint} />
-                                    <View style={{ flex: 1, marginLeft: 12 }}>
+                                    <View style={{ flex: 1 }}>
                                         <ThemedText style={styles.saldoTitle}>Saldo de Franco Compensatorio</ThemedText>
                                         <ThemedText style={styles.saldoSubtitle}>
                                             {isLoadingSaldos ? '...' : `${franco ?? 0} horas disponibles`}
@@ -619,7 +619,6 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
                             {/* ── Observación ── */}
                             <View style={[styles.sectionCard, observacionFocus.isFocused && { borderColor: glassColors.link }]}>
                                 <View style={styles.obsContainer}>
-                                    <Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.icon} style={{ marginTop: 4 }} />
                                     <TextInput
                                         placeholder="Añadir una nota u observación..."
                                         placeholderTextColor={colors.secondaryText}
@@ -637,11 +636,6 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
                             {selectedTipo?.requiere_adjunto && (
                                 <View style={[styles.sectionCard, !archivoAdjunto && styles.adjuntoRequerido]}>
                                     <View style={styles.rowInfo}>
-                                        <Ionicons
-                                            name="document-attach-outline"
-                                            size={20}
-                                            color={!archivoAdjunto ? colors.lightTint : colors.icon}
-                                        />
                                         <ThemedText style={[styles.sectionLabel, !archivoAdjunto && { color: colors.lightTint }]}>
                                             {!archivoAdjunto ? 'Adjunto Requerido' : 'Adjunto'}
                                         </ThemedText>
@@ -663,8 +657,7 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
                                         </TouchableOpacity>
                                     ) : (
                                         <View style={styles.adjuntoSeleccionado}>
-                                            <Ionicons name="document" size={24} color={colors.lightTint} />
-                                            <View style={{ flex: 1, marginLeft: 12 }}>
+                                            <View style={{ flex: 1 }}>
                                                 <ThemedText style={styles.adjuntoNombre} numberOfLines={1}>{archivoAdjunto.name}</ThemedText>
                                                 {archivoAdjunto.size && (
                                                     <ThemedText style={{ fontSize: 12, color: colors.secondaryText }}>
@@ -687,6 +680,7 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
                                 label="Crear"
                                 onPress={handleCrearSolicitud}
                                 loading={isPending}
+                                disabled={!isFormValid}
                                 icon={(color) => <Ionicons name="cloud-upload" size={20} color={color} />}
                                 style={styles.uploadButton}
                             />
@@ -749,16 +743,25 @@ const styles = StyleSheet.create({
         ...glassStyles.card,
     },
     rowInfo: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-    sectionLabel: { marginLeft: 8, fontSize: 14, color: colors.lightTint, fontWeight: '600' },
-    datePickerRow: {
+    sectionLabel: { fontSize: 14, color: colors.lightTint, fontWeight: '600' },
+    dateRow: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
-        paddingVertical: 12,
-        borderBottomWidth: StyleSheet.hairlineWidth,
-        borderBottomColor: colors.background,
+        gap: 8,
+        alignItems: 'stretch',
     },
-    dateLabel: { fontSize: 15, color: colors.lightTint },
-    dateValue: { fontSize: 15, color: colors.text, fontWeight: '500' },
+    dateButton: {
+        ...glassStyles.buttonSecondary,
+        flex: 1,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+    },
+    timeButton: {
+        ...glassStyles.buttonSecondary,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+    },
+    dateValue: { fontSize: 15, color: colors.lightTint, fontWeight: '500', textAlign: 'center' },
+    timeValue: { fontWeight: '600' },
     errorTextInline: { color: colors.error, fontSize: 12, marginTop: 8 },
     summaryContainer: { marginTop: 12, alignItems: 'flex-end' },
     summaryText: { fontSize: 14, color: colors.secondaryText },
@@ -799,7 +802,7 @@ const styles = StyleSheet.create({
         width: 44,
         height: 44,
         borderRadius: 22,
-        borderWidth: 1.5,
+        borderWidth: 1,
         borderColor: colors.lightTint,
         justifyContent: 'center',
         alignItems: 'center',
@@ -831,7 +834,7 @@ const styles = StyleSheet.create({
         marginTop: 16,
         paddingTop: 12,
         borderTopWidth: StyleSheet.hairlineWidth,
-        borderTopColor: colors.background,
+        borderTopColor: 'rgba(17,24,28,0.08)',
     },
     halfDayLabel: {
         fontSize: 14,
@@ -839,14 +842,14 @@ const styles = StyleSheet.create({
     },
     // Tipo de licencia
     selectInput: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4 },
-    selectText: { flex: 1, marginLeft: 12, fontSize: 16 },
+    selectText: { flex: 1, fontSize: 16 },
     dropdownList: { marginTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(17,24,28,0.12)' },
     dropdownItem: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         paddingVertical: 14,
         borderBottomWidth: StyleSheet.hairlineWidth,
-        borderBottomColor: colors.background,
+        borderBottomColor: 'rgba(17,24,28,0.08)',
     },
     activeItem: {
         backgroundColor: colors.componentBackground,
@@ -856,7 +859,11 @@ const styles = StyleSheet.create({
     activeItemText: { color: colors.lightTint, fontWeight: '600' },
     // Saldo
     saldoCard: { flexDirection: 'row', alignItems: 'center' },
-    saldoError: {},
+    saldoError: {
+        backgroundColor: 'rgba(244,67,54,0.08)',
+        borderColor: 'rgba(244,67,54,0.35)',
+        borderWidth: 1,
+    },
     saldoTitle: { fontSize: 14, fontWeight: '600', color: colors.text },
     saldoSubtitle: { fontSize: 13, color: colors.secondaryText },
     warningText: { fontSize: 12, color: colors.lightTint, marginTop: 4, fontWeight: '500' },
@@ -865,7 +872,6 @@ const styles = StyleSheet.create({
     obsContainer: { flexDirection: 'row', alignItems: 'flex-start' },
     textInput: {
         flex: 1,
-        marginLeft: 12,
         fontSize: 16,
         minHeight: 80,
         textAlignVertical: 'top',
@@ -873,16 +879,16 @@ const styles = StyleSheet.create({
     },
     // Adjuntos
     adjuntoRequerido: {
-        borderColor: colors.lightTint,
-        borderWidth: 2,
-        backgroundColor: colors.lightTint + '08',
+        borderColor: 'rgba(26,115,232,0.35)',
+        borderWidth: 1,
+        backgroundColor: 'rgba(26,115,232,0.12)',
     },
     adjuntoButton: {
         marginTop: 8,
         paddingVertical: 20,
         paddingHorizontal: 16,
         borderStyle: 'dashed',
-        borderWidth: 2,
+        borderWidth: 1,
         borderColor: 'rgba(26,115,232,0.35)',
         borderRadius: 8,
         alignItems: 'center',
@@ -898,27 +904,11 @@ const styles = StyleSheet.create({
         borderRadius: 8,
     },
     adjuntoNombre: { fontSize: 14, fontWeight: '500', color: colors.text },
-    // FAB
-    fab: {
-        position: 'absolute',
-        right: 24,
-        width: 64,
-        height: 64,
-        borderRadius: 32,
-        backgroundColor: colors.lightTint,
-        justifyContent: 'center',
-        alignItems: 'center',
-        elevation: 6,
-        shadowColor: '#000',
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
-    },
-    fabDisabled: { backgroundColor: colors.background },
     errorText: { color: colors.error, padding: 10, textAlign: 'center' },
     uploadButtonContainer: {
         backgroundColor: Colors['light'].componentBackground,
         borderTopWidth: StyleSheet.hairlineWidth,
-        borderTopColor: Colors['light'].icon,
+        borderTopColor: 'rgba(17,24,28,0.08)',
         paddingHorizontal: '4%',
         paddingTop: 10,
     },

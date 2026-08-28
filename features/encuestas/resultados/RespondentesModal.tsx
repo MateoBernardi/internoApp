@@ -41,8 +41,8 @@ export const RespondentesModal: React.FC<RespondentesModalProps> = ({
         <View style={styles.modalContent}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>{title}</Text>
-            <TouchableOpacity onPress={onClose}>
-              <Text style={styles.modalCloseButton}>✕</Text>
+            <TouchableOpacity onPress={onClose} style={styles.modalCloseButton}>
+              <Ionicons name="close" size={20} color={colors.secondaryText} />
             </TouchableOpacity>
           </View>
           <ScrollView style={styles.modalScroll}>

@@ -10,11 +10,13 @@ import {
   Modal,
   Platform,
   ScrollView,
+  StyleProp,
   StyleSheet, TextInput, TouchableOpacity,
   TouchableWithoutFeedback,
   UIManager,
   useWindowDimensions,
   View,
+  ViewStyle,
 } from 'react-native';
 
 if (Platform.OS === 'android') {
@@ -35,6 +37,7 @@ interface UserSelectorProps {
   showSelectedChips?: boolean;
   onSearch: (query: string) => void;
   onSelectRole: (role: string) => void;
+  inputWrapperStyle?: StyleProp<ViewStyle>;
 }
 
 const colors = Colors['light'];
@@ -51,7 +54,8 @@ export function UserSelector({
   isLoadingRoles = false,
   showSelectedChips = true,
   onSearch,
-  onSelectRole
+  onSelectRole,
+  inputWrapperStyle,
 }: UserSelectorProps) {
   const { width } = useWindowDimensions();
   const [searchQuery, setSearchQuery] = useState('');
@@ -103,7 +107,7 @@ export function UserSelector({
     <View style={styles.container}>
       {/* Input Row */}
       <View style={styles.topRow}>
-        <View style={[styles.inputWrapper, searchFocus.isFocused && { borderColor: glassColors.link }]}>
+        <View style={[styles.inputWrapper, searchFocus.isFocused && { borderColor: glassColors.link }, inputWrapperStyle]}>
           <TextInput
             style={[styles.input, { color: colors.text }, focusBorderStyles.inputNoOutline]}
             placeholder="Buscar usuario..."

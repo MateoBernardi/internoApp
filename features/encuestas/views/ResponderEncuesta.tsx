@@ -17,7 +17,7 @@ import {
 import { useIdempotencyKey } from '@/shared/useIdempotencyKey';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatHorarioSlot } from '../resultados/utils';
-import { Encuesta, Pregunta, Respuesta } from '../models/Encuesta';
+import { Encuesta, Pregunta, Respuesta, TIPO_PREGUNTA_META } from '../models/Encuesta';
 import { useEnviarRespuestasEncuesta } from '../viewmodels/useEncuestas';
 
 interface ResponderEncuestaProps {
@@ -146,15 +146,7 @@ export const ResponderEncuesta: React.FC<ResponderEncuestaProps> = ({ encuesta, 
             {pregunta.es_obligatoria && <Text style={styles.obligatorio}> *</Text>}
           </Text>
           <Text style={styles.tipoPregunta}>
-            {pregunta.tipo_pregunta === 'rating'
-              ? 'Calificación'
-              : pregunta.tipo_pregunta === 'texto'
-              ? 'Texto'
-              : pregunta.tipo_pregunta === 'multiple_choice'
-              ? 'Opción múltiple'
-              : pregunta.tipo_pregunta === 'horario'
-              ? 'Horario'
-              : 'Sí/No'}
+            {TIPO_PREGUNTA_META[pregunta.tipo_pregunta].label}
           </Text>
         </View>
 

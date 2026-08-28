@@ -8,7 +8,7 @@ import { EmpleadoHorasExtraCard } from './EmpleadoHorasExtraCard';
 import { INK, LINE, MUTED, NAVY, RED_FLASH } from '../theme';
 
 function formatHoras(n: number): string {
-  return `${Math.round(n * 10) / 10}h`;
+  return `${Math.round(n * 10) / 10} hs`;
 }
 
 interface LiquidacionListProps {

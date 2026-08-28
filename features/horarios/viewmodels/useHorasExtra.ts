@@ -140,6 +140,7 @@ export function useUpsertObjetivoHoras() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: horasExtraQueryKeys.objetivos });
+      queryClient.invalidateQueries({ queryKey: ['horasExtra', 'semanales'] });
     },
     retry: 0,
   });
@@ -162,6 +163,7 @@ export function useDeleteObjetivoHoras() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: horasExtraQueryKeys.objetivos });
+      queryClient.invalidateQueries({ queryKey: ['horasExtra', 'semanales'] });
     },
     retry: 0,
   });

@@ -1,4 +1,5 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { Ionicons } from '@expo/vector-icons';
 import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
@@ -442,8 +443,7 @@ export default function TabLayout() {
             title: 'Inicio',
             tabBarIcon: ({ focused, color }) => (
               <View style={styles.tabIconContainer}>
-                {focused && <View style={styles.tabIconPill} />}
-                <IconSymbol size={24} name="house.fill" color={color} />
+                <Ionicons size={24} name={focused ? 'home' : 'home-outline'} color={color} />
               </View>
             ),
           }}
@@ -457,8 +457,7 @@ export default function TabLayout() {
             title: 'Mensajes',
             tabBarIcon: ({ focused, color }) => (
               <View style={styles.tabIconContainer}>
-                {focused && <View style={styles.tabIconPill} />}
-                <IconSymbol size={24} name="paperplane.fill" color={color} />
+                <Ionicons size={24} name={focused ? 'paper-plane' : 'paper-plane-outline'} color={color} />
                 {hasMensajesBadge && (
                   <View style={styles.tabBadge}>
                     <Text style={styles.tabBadgeText}>{mensajesBadgeLabel}</Text>
@@ -476,8 +475,7 @@ export default function TabLayout() {
             title: 'Documentos',
             tabBarIcon: ({ focused, color }) => (
               <View style={styles.tabIconContainer}>
-                {focused && <View style={styles.tabIconPill} />}
-                <IconSymbol size={24} name="doc.text.fill" color={color} />
+                <Ionicons size={24} name={focused ? 'document-text' : 'document-text-outline'} color={color} />
                 {hasArchivosBadge && (
                   <View style={styles.tabBadge}>
                     <Text style={styles.tabBadgeText}>{archivosBadgeLabel}</Text>
@@ -496,10 +494,9 @@ export default function TabLayout() {
             title: 'Admin',
             tabBarIcon: ({ color }) => (
               <View style={styles.tabIconContainer}>
-                {activeMenu === 'admin' && <View style={styles.tabIconPill} />}
-                <IconSymbol
+                <Ionicons
                   size={24}
-                  name={activeMenu === 'admin' ? 'xmark' : 'chart.bar.fill'}
+                  name={activeMenu === 'admin' ? 'close' : 'bar-chart'}
                   color={activeMenu === 'admin' ? glassColors.link : color}
                 />
                 {hasAdminBadge && <View style={styles.tabPendingDot} />}
@@ -515,10 +512,9 @@ export default function TabLayout() {
             title: user?.nombre || 'Usuario',
             tabBarIcon: ({ color }) => (
               <View style={styles.tabIconContainer}>
-                {activeMenu === 'personal' && <View style={styles.tabIconPill} />}
-                <IconSymbol
+                <Ionicons
                   size={24}
-                  name={activeMenu === 'personal' ? 'xmark' : 'user.fill'}
+                  name={activeMenu === 'personal' ? 'close' : 'person'}
                   color={activeMenu === 'personal' ? glassColors.link : color}
                 />
                 {hasPersonalBadge && <View style={styles.tabPendingDot} />}
@@ -612,19 +608,6 @@ const styles = StyleSheet.create({
     height: 24,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  // Fondo tipo píldora detrás del ícono activo — mismo par de colores que
-  // GlassTabSelector usa para su indicador deslizante.
-  tabIconPill: {
-    position: 'absolute',
-    top: -6,
-    left: -6,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(26,115,232,0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(26,115,232,0.35)',
   },
   tabPendingDot: {
     position: 'absolute',

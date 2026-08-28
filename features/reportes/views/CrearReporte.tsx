@@ -352,16 +352,16 @@ export default function CrearReporte(props?: CrearReporteProps) {
 										onPress={() => setCategoria('NEGATIVO')}
 										accessibilityState={{ selected: categoria === 'NEGATIVO' }}
 									>
-										<Ionicons name="remove-circle-outline" size={22} color={colors.error} />
-										<ThemedText style={[styles.categoryText, { color: colors.error }]}>Negativo</ThemedText>
+										<Ionicons name="remove-circle-outline" size={22} color={glassColors.error} />
+										<ThemedText style={[styles.categoryText, { color: glassColors.error }]}>Negativo</ThemedText>
 									</TouchableOpacity>
 									<TouchableOpacity
 										style={[glassStyles.fieldGlass, styles.categoryOption, categoria === 'POSITIVO' && styles.categoryOptionPositive]}
 										onPress={() => setCategoria('POSITIVO')}
 										accessibilityState={{ selected: categoria === 'POSITIVO' }}
 									>
-										<Ionicons name="add-circle-outline" size={22} color={colors.success} />
-										<ThemedText style={[styles.categoryText, { color: colors.success }]}>Positivo</ThemedText>
+										<Ionicons name="add-circle-outline" size={22} color={glassColors.success} />
+										<ThemedText style={[styles.categoryText, { color: glassColors.success }]}>Positivo</ThemedText>
 									</TouchableOpacity>
 								</View>
 							</View>
@@ -373,7 +373,7 @@ export default function CrearReporte(props?: CrearReporteProps) {
 										setShowTimePicker(false);
 										setShowDatePicker(true);
 									}} style={[glassStyles.buttonSecondary, styles.dateButton]}>
-										<ThemedText style={[styles.dateValue, { color: colors.text }]}>
+										<ThemedText style={styles.dateValue}>
 											{fechaIncidente.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}
 										</ThemedText>
 									</TouchableOpacity>
@@ -381,7 +381,7 @@ export default function CrearReporte(props?: CrearReporteProps) {
 										setShowDatePicker(false);
 										setShowTimePicker(true);
 									}} style={[glassStyles.buttonSecondary, styles.timeButton]}>
-										<ThemedText style={[styles.dateValue, styles.timeValue, { color: colors.text }]}>{fechaIncidente.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false })}</ThemedText>
+										<ThemedText style={[styles.dateValue, styles.timeValue]}>{fechaIncidente.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false })}</ThemedText>
 									</TouchableOpacity>
 								</View>
 							</View>
@@ -450,6 +450,7 @@ export default function CrearReporte(props?: CrearReporteProps) {
 								label="Crear"
 								onPress={handleCrearReporte}
 								loading={isPending}
+								disabled={!isFormValid}
 								icon={(color) => <Ionicons name="cloud-upload" size={20} color={color} />}
 								style={styles.uploadButton}
 							/>
@@ -515,7 +516,7 @@ const styles = StyleSheet.create({
 		paddingHorizontal: 12,
 		paddingVertical: 10,
 		borderBottomWidth: 1,
-		borderBottomColor: colors.background,
+		borderBottomColor: 'rgba(17,24,28,0.08)',
 		alignItems: 'flex-start',
 	},
 	content: {
@@ -565,14 +566,14 @@ const styles = StyleSheet.create({
 		paddingHorizontal: 12,
 	},
 	categoryOptionNegative: {
-		backgroundColor: 'rgba(244,67,54,0.12)',
-		borderColor: 'rgba(244,67,54,0.45)',
-		borderWidth: 2,
+		backgroundColor: glassStyles.buttonDanger.backgroundColor,
+		borderColor: glassStyles.buttonDanger.borderColor,
+		borderWidth: glassStyles.buttonDanger.borderWidth,
 	},
 	categoryOptionPositive: {
-		backgroundColor: 'rgba(46,125,50,0.12)',
-		borderColor: 'rgba(46,125,50,0.45)',
-		borderWidth: 2,
+		backgroundColor: glassStyles.buttonSuccess.backgroundColor,
+		borderColor: glassStyles.buttonSuccess.borderColor,
+		borderWidth: glassStyles.buttonSuccess.borderWidth,
 	},
 	categoryText: {
 		fontSize: 15,
@@ -598,6 +599,7 @@ const styles = StyleSheet.create({
 	dateValue: {
 		fontSize: 16,
 		color: colors.lightTint,
+		textAlign: 'center',
 	},
 	timeValue: {
 		fontWeight: '600',
@@ -645,7 +647,6 @@ const styles = StyleSheet.create({
 		gap: 4,
 		paddingHorizontal: 10,
 		paddingVertical: 6,
-		borderRadius: 8,
 	},
 	imageActionText: {
 		fontSize: 13,
@@ -657,6 +658,11 @@ const styles = StyleSheet.create({
 		alignItems: 'center',
 		marginBottom: 10,
 		gap: 10,
+		padding: 10,
+		borderRadius: 10,
+		backgroundColor: 'rgba(17,24,28,0.03)',
+		borderWidth: 1,
+		borderColor: 'rgba(17,24,28,0.12)',
 	},
 	pendingThumbnail: {
 		width: 60,
@@ -677,9 +683,9 @@ const styles = StyleSheet.create({
 		padding: 2,
 	},
 	uploadButtonContainer: {
-		backgroundColor: '#ffffff',
+		backgroundColor: Colors['light'].componentBackground,
 		borderTopWidth: StyleSheet.hairlineWidth,
-		borderTopColor: Colors['light'].icon,
+		borderTopColor: 'rgba(17,24,28,0.08)',
 		paddingHorizontal: '4%',
 		paddingTop: 10,
 		paddingBottom: 10,

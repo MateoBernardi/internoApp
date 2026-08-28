@@ -1,9 +1,10 @@
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
 import { glassColors, glassStyles } from '@/shared/ui/glass';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Encuesta } from '../models/Encuesta';
 import { useGetEncuestas } from '../viewmodels/useEncuestas';
 
@@ -30,7 +31,7 @@ export function ListaEncuestasPendientes() {
   }
 
   return (
-    <View style={styles.listContent}>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
       {encuestas.map((item: Encuesta) => {
         const fechaFin = new Date(item.fecha_fin);
         const fechaFinFormateada = fechaFin.toLocaleDateString('es-ES', {
@@ -74,11 +75,12 @@ export function ListaEncuestasPendientes() {
 
             <View style={styles.buttonContainer}>
               <Text style={styles.buttonText}>Responder ahora</Text>
+              <Ionicons name="chevron-forward" size={16} color={colors.lightTint} />
             </View>
           </TouchableOpacity>
         );
       })}
-    </View>
+    </ScrollView>
   );
 }
 
@@ -153,14 +155,14 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   buttonContainer: {
-    backgroundColor: colors.lightTint,
-    paddingVertical: 12,
-    borderRadius: 8,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
   },
   buttonText: {
-    color: colors.componentBackground,
-    fontSize: 16,
+    color: colors.lightTint,
+    fontSize: 15,
     fontWeight: '600',
   },
   errorText: {

@@ -1,8 +1,11 @@
+import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Text, View } from 'react-native';
 import { Respuesta } from '../models/Encuesta';
 import { VotantesInline } from './VotantesInline';
 import { styles } from './styles';
+
+const STAR_COLOR = '#f5a623';
 
 export const RespuestasRating: React.FC<{ respuestas: Respuesta[] }> = ({ respuestas }) => {
   const esAnonima = respuestas[0]?.nombre === undefined || respuestas[0]?.nombre === null;
@@ -23,7 +26,10 @@ export const RespuestasRating: React.FC<{ respuestas: Respuesta[] }> = ({ respue
     <View>
       <View style={styles.promedioContainer}>
         <Text style={styles.promedioLabel}>Promedio:</Text>
-        <Text style={styles.promedioValor}>⭐ {promedio}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          <Ionicons name="star" size={14} color={STAR_COLOR} />
+          <Text style={styles.promedioValor}>{promedio}</Text>
+        </View>
       </View>
 
       <View style={styles.distribucionContainer}>
@@ -32,7 +38,10 @@ export const RespuestasRating: React.FC<{ respuestas: Respuesta[] }> = ({ respue
           return (
             <View key={item.valor}>
               <View style={styles.distribucionItem}>
-                <Text style={styles.distribucionValor}>{item.valor}★</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+                  <Text style={styles.distribucionValor}>{item.valor}</Text>
+                  <Ionicons name="star" size={10} color={STAR_COLOR} />
+                </View>
                 <View style={styles.barraContainer}>
                   <View style={[styles.barra, { width: `${porcentaje}%` as any }]} />
                 </View>

@@ -1,5 +1,5 @@
 import { Colors, UI } from '@/constants/theme';
-import { glassStyles } from '@/shared/ui/glass';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { StyleSheet } from 'react-native';
 
 const colors = Colors['light'];
@@ -33,9 +33,6 @@ export const styles = StyleSheet.create({
     borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(26,115,232,0.35)',
-    backgroundColor: 'rgba(26,115,232,0.12)',
   },
   // Botón de "volver" — gris/neutro, no el azul de acento del resto de los
   // botones de icono (ver conversacion/styles.ts:backButton, misma receta).
@@ -64,9 +61,9 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     marginHorizontal: 16,
     marginTop: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    ...glassStyles.fieldGlass,
+  },
+  inputSectionPill: {
+    borderRadius: 24,
   },
   input: {
     flex: 1,
@@ -102,24 +99,40 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.text,
   },
+  dateFieldGroup: {
+    gap: 8,
+    marginTop: 12,
+  },
+  fieldLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: glassColors.textMuted,
+  },
   dateRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
+    gap: 8,
+    alignItems: 'stretch',
   },
-  dateLabel: {
-    fontSize: 12,
-    color: colors.secondaryText,
-    marginBottom: 4,
+  dateButton: {
+    ...glassStyles.buttonSecondary,
+    flex: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  timeButton: {
+    ...glassStyles.buttonSecondary,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
   dateValue: {
     fontSize: 16,
     color: colors.lightTint,
+    textAlign: 'center',
   },
   timeValue: {
     fontSize: 16,
     color: colors.lightTint,
+    fontWeight: '600',
   },
   errorText: {
     color: colors.error,

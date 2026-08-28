@@ -1,8 +1,7 @@
 import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
 import { AppBackButton } from '@/shared/ui/AppBackButton';
-import { glassColors, glassStyles } from '@/shared/ui/glass';
-import { confirmAction } from '@/shared/ui/confirmAction';
+import { glassStyles } from '@/shared/ui/glass';
 import { Colors } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef, useState } from 'react';
@@ -12,7 +11,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -25,13 +23,13 @@ import {
   monthLabel,
   shiftMonth,
 } from '../utils/dateRange';
-import { useDeleteObjetivoHoras, useMovimientos, useObjetivosHoras, useUpsertObjetivoHoras } from '../viewmodels/useHorasExtra';
+import { useMovimientos } from '../viewmodels/useHorasExtra';
 
 import { AMBER, CARD, INK, LINE, MUTED, RED_FLASH, TURNO_COLOR, TURNO_SOFT } from '../theme';
 const colors = Colors['light'];
 
 function formatHoras(n: number): string {
-  return `${Math.round(n * 10) / 10}h`;
+  return `${Math.round(n * 10) / 10} hs`;
 }
 
 interface DetalleHorasExtraSheetProps {
@@ -59,13 +57,9 @@ export function DetalleHorasExtraSheet({
   // Mes del desglose de movimientos: arranca siempre en el mes actual y se
   // reinicia cada vez que se abre el sheet para un empleado distinto.
   const [mes, setMes] = useState(currentMonthISO);
-  const [editingObjetivo, setEditingObjetivo] = useState(false);
-  const [objetivoText, setObjetivoText] = useState('');
-  const [isObjetivoFocused, setObjetivoFocused] = useState(false);
   useEffect(() => {
     if (visible) {
       setMes(currentMonthISO());
-      setEditingObjetivo(false);
     }
   }, [visible, displayEmpleado?.userContextId]);
 
@@ -81,55 +75,6 @@ export function DetalleHorasExtraSheet({
   const isCurrentMonth = mes >= currentMonthISO();
   const movimientosQuery = useMovimientos(displayEmpleado?.userContextId, mes, visible);
   const movimientos = movimientosQuery.data ?? [];
-
-  // Objetivo semanal de horas del empleado (GET /horarios/objetivos, filtrado
-  // en el cliente: no hay endpoint por-usuario). Su presencia en la lista
-  // decide si al guardar se hace POST (alta) o PATCH (modificación).
-  const objetivosQuery = useObjetivosHoras(visible);
-  const objetivo = objetivosQuery.data?.find(
-    (o) => o.userContextId === displayEmpleado?.userContextId,
-  );
-  const objetivoExists = objetivo != null;
-  const upsertObjetivo = useUpsertObjetivoHoras();
-  const deleteObjetivo = useDeleteObjetivoHoras();
-
-  function startEditingObjetivo() {
-    setObjetivoText(objetivo != null ? String(objetivo.horas) : '');
-    upsertObjetivo.reset();
-    setEditingObjetivo(true);
-  }
-
-  async function removeObjetivo() {
-    if (!displayEmpleado) return;
-    const confirmed = await confirmAction({
-      title: 'Quitar objetivo semanal',
-      message: `¿Eliminar el objetivo semanal de ${displayEmpleado.nombre} ${displayEmpleado.apellido}?`,
-      confirmText: 'Quitar',
-      cancelText: 'Cancelar',
-      destructive: true,
-    });
-    if (!confirmed) return;
-    deleteObjetivo.mutate(displayEmpleado.userContextId);
-  }
-
-  const parsedObjetivo = Number(objetivoText.replace(',', '.'));
-  const isObjetivoValid = objetivoText.trim().length > 0 && Number.isFinite(parsedObjetivo) && parsedObjetivo > 0;
-
-  function saveObjetivo() {
-    if (!isObjetivoValid || !displayEmpleado) return;
-    upsertObjetivo.mutate(
-      {
-        userContextId: displayEmpleado.userContextId,
-        horas: parsedObjetivo,
-        exists: objetivoExists,
-      },
-      {
-        onSuccess: () => {
-          setEditingObjetivo(false);
-        },
-      },
-    );
-  }
 
   if (!visible) return null;
 
@@ -152,107 +97,6 @@ export function DetalleHorasExtraSheet({
                     <Text style={styles.totalLineBold}>{formatHoras(displayEmpleado.horas)}</Text>
                     {' horas extra · saldo actual'}
                   </Text>
-                </View>
-              )}
-
-              {/*
-               * Objetivo semanal de horas (GET/POST/PATCH /horarios/objetivos).
-               * No afecta el saldo actual de arriba: sólo el próximo cálculo
-               * del batch semanal de acreditación.
-               */}
-              {displayEmpleado && (
-                <View style={styles.objetivoLine}>
-                  {editingObjetivo ? (
-                    <View style={styles.objetivoEditRow}>
-                      <View style={[glassStyles.fieldGlass, styles.objetivoInputRow, isObjetivoFocused && styles.inputFocused]}>
-                        <TextInput
-                          style={[styles.objetivoInput, styles.inputNoOutline]}
-                          keyboardType="decimal-pad"
-                          value={objetivoText}
-                          onChangeText={setObjetivoText}
-                          placeholder="0.0"
-                          placeholderTextColor={MUTED}
-                          editable={!upsertObjetivo.isPending}
-                          autoFocus
-                          onFocus={() => setObjetivoFocused(true)}
-                          onBlur={() => setObjetivoFocused(false)}
-                        />
-                        <Text style={styles.objetivoInputSuffix}>h</Text>
-                      </View>
-                      <TouchableOpacity
-                        style={styles.objetivoIconBtn}
-                        onPress={() => setEditingObjetivo(false)}
-                        disabled={upsertObjetivo.isPending}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      >
-                        <Ionicons name="close" size={18} color={MUTED} />
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[
-                          styles.objetivoIconBtn,
-                          styles.objetivoSaveBtn,
-                          (!isObjetivoValid || upsertObjetivo.isPending) && styles.btnDisabled,
-                        ]}
-                        onPress={saveObjetivo}
-                        disabled={!isObjetivoValid || upsertObjetivo.isPending}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      >
-                        {upsertObjetivo.isPending ? (
-                          <ActivityIndicator size="small" color="#ffffff" />
-                        ) : (
-                          <Ionicons name="checkmark" size={18} color="#ffffff" />
-                        )}
-                      </TouchableOpacity>
-                    </View>
-                  ) : (
-                    <View style={styles.objetivoReadRow}>
-                      <Text style={styles.objetivoLineText}>
-                        {'Objetivo semanal: '}
-                        {objetivosQuery.isFetching && !objetivosQuery.data ? (
-                          <Text style={styles.objetivoPlaceholder}>—</Text>
-                        ) : (
-                          <Text style={styles.objetivoLineBold}>
-                            {objetivoExists ? formatHoras(objetivo!.horas) : 'Sin objetivo'}
-                          </Text>
-                        )}
-                      </Text>
-                      <View style={styles.objetivoReadActions}>
-                        {objetivoExists && (
-                          deleteObjetivo.isPending ? (
-                            <ActivityIndicator size="small" color={RED_FLASH} style={styles.objetivoIconBtn} />
-                          ) : (
-                            <TouchableOpacity
-                              style={styles.objetivoIconBtn}
-                              onPress={removeObjetivo}
-                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                            >
-                              <Ionicons name="trash-outline" size={16} color={RED_FLASH} />
-                            </TouchableOpacity>
-                          )
-                        )}
-                        <TouchableOpacity
-                          style={styles.objetivoIconBtn}
-                          onPress={startEditingObjetivo}
-                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                        >
-                          <Ionicons name="pencil" size={16} color={TURNO_COLOR} />
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  )}
-                  {editingObjetivo && objetivoText.trim().length > 0 && !isObjetivoValid && (
-                    <Text style={styles.objetivoErrorText}>Ingresá un valor mayor a 0.</Text>
-                  )}
-                  {editingObjetivo && upsertObjetivo.isError && (
-                    <Text style={styles.objetivoErrorText}>
-                      {(upsertObjetivo.error as Error)?.message || 'No se pudo guardar el objetivo.'}
-                    </Text>
-                  )}
-                  {!editingObjetivo && deleteObjetivo.isError && (
-                    <Text style={styles.objetivoErrorText}>
-                      {(deleteObjetivo.error as Error)?.message || 'No se pudo quitar el objetivo.'}
-                    </Text>
-                  )}
                 </View>
               )}
 
@@ -401,7 +245,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 17,
-    fontWeight: '700',
+    fontWeight: '500',
     color: INK,
   },
   totalLine: {
@@ -420,83 +264,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: TURNO_COLOR,
     fontVariant: ['tabular-nums'],
-  },
-  objetivoLine: {
-    backgroundColor: CARD,
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderWidth: 1,
-    borderColor: LINE,
-    gap: 6,
-  },
-  objetivoReadRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  objetivoReadActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  objetivoLineText: {
-    fontSize: 13,
-    color: MUTED,
-    fontWeight: '500',
-  },
-  objetivoLineBold: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: INK,
-    fontVariant: ['tabular-nums'],
-  },
-  objetivoPlaceholder: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: MUTED,
-  },
-  objetivoIconBtn: {
-    padding: 6,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  objetivoEditRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  objetivoInputRow: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    height: 38,
-    gap: 6,
-  },
-  inputFocused: {
-    borderColor: glassColors.link,
-  },
-  objetivoInput: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: '700',
-    color: INK,
-    fontVariant: ['tabular-nums'],
-    paddingVertical: 0,
-  },
-  objetivoInputSuffix: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: MUTED,
-  },
-  objetivoSaveBtn: {
-    backgroundColor: TURNO_COLOR,
-  },
-  objetivoErrorText: {
-    fontSize: 12,
-    color: RED_FLASH,
   },
   monthNav: {
     flexDirection: 'row',
@@ -628,8 +395,4 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 0,
   },
-  inputNoOutline: {
-    outlineStyle: 'none',
-    outlineWidth: 0,
-  } as any,
 });

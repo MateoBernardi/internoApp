@@ -973,9 +973,6 @@ const styles = StyleSheet.create({
         paddingHorizontal: 10,
         paddingVertical: 6,
         borderRadius: 999,
-        borderWidth: 1,
-        borderColor: 'rgba(26,115,232,0.35)',
-        backgroundColor: 'rgba(26,115,232,0.12)',
     },
     actionButtonText: {
         fontSize: 12,

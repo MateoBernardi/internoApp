@@ -116,6 +116,11 @@ export async function downloadPlantillaShifts(token: string): Promise<Blob> {
   return res.blob();
 }
 
+/** URL absoluta de la plantilla, para descargas nativas via FileSystem.File.downloadFileAsync. */
+export function getPlantillaShiftsUrl(): string {
+  return `${API_BASE_URL}/horarios/upload-shifts/template`;
+}
+
 export async function updateHorario(
   token: string,
   payload: UpdateHorarioPayload,

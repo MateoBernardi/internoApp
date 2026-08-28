@@ -2,6 +2,7 @@ import { GlassTabSelector } from '@/components/ui/GlassTabSelector';
 import { UserSelector } from '@/components/UserSelector';
 import { Colors } from '@/constants/theme';
 import { RoleUserSelectionModal } from '@/features/solicitudesActividades/components/RoleUserSelectionModal';
+import { GlassButton } from '@/shared/ui/GlassButton';
 import { UserSummary } from '@/shared/users/User';
 import { allRoles } from '@/shared/users/roles';
 import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
@@ -9,7 +10,6 @@ import { ParticipanteResumen } from '../models/Encuesta';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Modal,
   ScrollView,
@@ -194,21 +194,13 @@ export const GestionParticipantesModal: React.FC<GestionParticipantesModalProps>
                     ? `${usersToAdd.length} seleccionado${usersToAdd.length > 1 ? 's' : ''}`
                     : 'Ninguno seleccionado'}
                 </Text>
-                <TouchableOpacity
-                  style={[
-                    styles.gestionActionButton,
-                    styles.gestionAddButton,
-                    (usersToAdd.length === 0 || isPending) && styles.gestionButtonDisabled,
-                  ]}
+                <GlassButton
+                  variant="success"
+                  label="Agregar"
                   onPress={handleAgregar}
                   disabled={usersToAdd.length === 0 || isPending}
-                >
-                  {isPending ? (
-                    <ActivityIndicator color={colors.componentBackground} size="small" />
-                  ) : (
-                    <Text style={styles.gestionButtonText}>Agregar</Text>
-                  )}
-                </TouchableOpacity>
+                  loading={isPending}
+                />
               </View>
             </>
           )}
@@ -254,21 +246,13 @@ export const GestionParticipantesModal: React.FC<GestionParticipantesModalProps>
                     ? `${selectedToRemove.size} seleccionado${selectedToRemove.size > 1 ? 's' : ''}`
                     : 'Ninguno seleccionado'}
                 </Text>
-                <TouchableOpacity
-                  style={[
-                    styles.gestionActionButton,
-                    styles.gestionRemoveButton,
-                    (selectedToRemove.size === 0 || isPending) && styles.gestionButtonDisabled,
-                  ]}
+                <GlassButton
+                  variant="danger"
+                  label="Quitar"
                   onPress={handleQuitar}
                   disabled={selectedToRemove.size === 0 || isPending}
-                >
-                  {isPending ? (
-                    <ActivityIndicator color={colors.componentBackground} size="small" />
-                  ) : (
-                    <Text style={styles.gestionButtonText}>Quitar</Text>
-                  )}
-                </TouchableOpacity>
+                  loading={isPending}
+                />
               </View>
             </>
           )}

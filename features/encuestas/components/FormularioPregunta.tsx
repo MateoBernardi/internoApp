@@ -18,7 +18,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatHorarioSlot } from '../resultados/utils';
-import { Pregunta, TipoPregunta } from '../models/Encuesta';
+import { Pregunta, TIPO_PREGUNTA_META, TipoPregunta } from '../models/Encuesta';
 import { styles } from './crearEncuestaStyles';
 
 const colors = Colors['light'];
@@ -148,31 +148,22 @@ export const FormularioPregunta: React.FC<FormularioPreguntaProps> = ({
 
           <ThemedText style={styles.subLabel}>Tipo de pregunta</ThemedText>
           <View style={styles.tiposContainer}>
-            {[
-              { value: 'texto', label: '📝 Texto' },
-              { value: 'rating', label: '⭐ Calificación' },
-              { value: 'multiple_choice', label: '☑️ Opción múltiple' },
-              { value: 'si_no', label: '✓/✗ Sí/No' },
-              { value: 'horario', label: '🕐 Horario' },
-            ].map((tipo) => (
-              <TouchableOpacity
-                key={tipo.value}
-                style={[
-                  styles.tipoButton,
-                  tipoPregunta === tipo.value && styles.tipoButtonSelected,
-                ]}
-                onPress={() => setTipoPregunta(tipo.value as TipoPregunta)}
-              >
-                <Text
-                  style={[
-                    styles.tipoText,
-                    tipoPregunta === tipo.value && styles.tipoTextSelected,
-                  ]}
+            {(Object.keys(TIPO_PREGUNTA_META) as TipoPregunta[]).map((tipo) => {
+              const meta = TIPO_PREGUNTA_META[tipo];
+              const isSelected = tipoPregunta === tipo;
+              return (
+                <TouchableOpacity
+                  key={tipo}
+                  style={[styles.tipoButton, isSelected && styles.tipoButtonSelected]}
+                  onPress={() => setTipoPregunta(tipo)}
                 >
-                  {tipo.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
+                  <Ionicons name={meta.icon} size={16} color={isSelected ? colors.lightTint : colors.secondaryText} />
+                  <Text style={[styles.tipoText, isSelected && styles.tipoTextSelected]}>
+                    {meta.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
 
           {tipoPregunta === 'multiple_choice' && (
@@ -190,7 +181,7 @@ export const FormularioPregunta: React.FC<FormularioPreguntaProps> = ({
                   onBlur={() => setFocusedField(null)}
                 />
                 <TouchableOpacity style={styles.addButton} onPress={agregarOpcion}>
-                  <Text style={styles.addButtonText}>+</Text>
+                  <Ionicons name="add" size={22} color={glassColors.link} />
                 </TouchableOpacity>
               </View>
 
@@ -198,7 +189,7 @@ export const FormularioPregunta: React.FC<FormularioPreguntaProps> = ({
                 <View key={index} style={styles.opcionItem}>
                   <Text style={styles.opcionText}>• {opcion}</Text>
                   <TouchableOpacity onPress={() => eliminarOpcion(index)}>
-                    <Text style={styles.eliminarOpcion}>✕</Text>
+                    <Ionicons name="close-circle" size={18} color={colors.error} />
                   </TouchableOpacity>
                 </View>
               ))}
@@ -221,7 +212,7 @@ export const FormularioPregunta: React.FC<FormularioPreguntaProps> = ({
 
               <TouchableOpacity style={styles.agregarSlotButton} onPress={iniciarAgregarSlot}>
                 <Ionicons name="add-circle-outline" size={18} color={colors.lightTint} />
-                <Text style={styles.agregarSlotText}>+ Agregar horario</Text>
+                <Text style={styles.agregarSlotText}>Agregar horario</Text>
               </TouchableOpacity>
             </View>
           )}

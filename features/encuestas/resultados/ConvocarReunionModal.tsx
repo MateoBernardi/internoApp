@@ -3,7 +3,6 @@ import { Colors } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   BackHandler,
   ScrollView,
@@ -13,7 +12,9 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { AppBackButton } from '@/shared/ui/AppBackButton';
 import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
+import { GlassButton } from '@/shared/ui/GlassButton';
 import { focusBorderStyles, glassColors } from '@/shared/ui/glass';
 import { useFocusBorder } from '@/shared/ui/useFocusBorder';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -156,9 +157,7 @@ export const ConvocarReunionModal: React.FC<ConvocarReunionModalProps> = ({
 
           <View style={[styles.convocarHeader, { paddingTop: insets.top + 12 }]}>
             <View style={localStyles.headerTopRow}>
-              <TouchableOpacity onPress={handleCerrar} style={localStyles.backButton}>
-                <Ionicons name="chevron-back" size={24} color={colors.text} />
-              </TouchableOpacity>
+              <AppBackButton onPress={handleCerrar} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.convocarTitle}>Solicitud de reunión</Text>
                 <Text style={styles.convocarSubtitle}>
@@ -174,9 +173,12 @@ export const ConvocarReunionModal: React.FC<ConvocarReunionModalProps> = ({
               <View style={{ paddingTop: 16 }}>
                 <Text style={styles.resultadosTitulo}>Resultado del envío</Text>
                 {resultado.exitosas > 0 && (
-                  <Text style={styles.exitosasText}>
-                    ✓ {resultado.exitosas} solicitud{resultado.exitosas !== 1 ? 'es' : ''} enviada{resultado.exitosas !== 1 ? 's' : ''} correctamente
-                  </Text>
+                  <View style={styles.exitosasRow}>
+                    <Ionicons name="checkmark-circle" size={16} color={colors.success} />
+                    <Text style={styles.exitosasText}>
+                      {resultado.exitosas} solicitud{resultado.exitosas !== 1 ? 'es' : ''} enviada{resultado.exitosas !== 1 ? 's' : ''} correctamente
+                    </Text>
+                  </View>
                 )}
                 {resultado.fallidas.length > 0 && (
                   <View style={styles.fallidasContainer}>
@@ -278,21 +280,14 @@ export const ConvocarReunionModal: React.FC<ConvocarReunionModalProps> = ({
                 : `${personas.length} solicitud${personas.length !== 1 ? 'es' : ''}`}
             </Text>
             {resultado ? (
-              <TouchableOpacity style={styles.enviarReunionButton} onPress={handleCerrar}>
-                <Text style={styles.enviarReunionButtonText}>Cerrar</Text>
-              </TouchableOpacity>
+              <GlassButton label="Cerrar" onPress={handleCerrar} />
             ) : (
-              <TouchableOpacity
-                style={[styles.enviarReunionButton, (!titulo.trim() || isPending) && styles.enviarReunionButtonDisabled]}
+              <GlassButton
+                label="Enviar"
                 onPress={handleEnviar}
                 disabled={!titulo.trim() || isPending}
-              >
-                {isPending ? (
-                  <ActivityIndicator color={colors.componentBackground} size="small" />
-                ) : (
-                  <Text style={styles.enviarReunionButtonText}>Enviar</Text>
-                )}
-              </TouchableOpacity>
+                loading={isPending}
+              />
             )}
           </View>
         </View>
@@ -336,10 +331,5 @@ const localStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-  },
-  backButton: {
-    padding: 6,
-    borderRadius: 16,
-    backgroundColor: '#f3f4f6',
   },
 });

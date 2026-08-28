@@ -17,7 +17,7 @@ import type { HorasExtraDTO } from '../models/HorasExtra';
 import { AMBER, INK, LINE, MUTED, RED_FLASH } from '../theme';
 
 function formatHoras(n: number): string {
-  return `${Math.round(n * 10) / 10}h`;
+  return `${Math.round(n * 10) / 10} hs`;
 }
 
 interface LiquidarAmountModalProps {
@@ -97,7 +97,7 @@ export function LiquidarAmountModal({
                 onBlur={() => setInputFocused(false)}
                 autoFocus
               />
-              <Text style={styles.inputSuffix}>h</Text>
+              <Text style={styles.inputSuffix}>hs</Text>
             </View>
 
             {text.trim().length > 0 && !isValid && (

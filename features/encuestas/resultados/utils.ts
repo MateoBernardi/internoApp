@@ -1,4 +1,4 @@
-import { ParticipanteResumen, Pregunta, Respuesta } from '../models/Encuesta';
+import { ParticipanteResumen, Pregunta, Respuesta, TIPO_PREGUNTA_META } from '../models/Encuesta';
 
 export interface RespuestaAgrupada {
   encuestaId: number;
@@ -58,14 +58,7 @@ export const calcularTotalRespuestas = (encuesta: RespuestaAgrupada): number => 
 };
 
 export const getTipoPreguntaLabel = (tipo: string): string => {
-  const labels: Record<string, string> = {
-    rating: '⭐ Rating',
-    texto: '📝 Texto',
-    multiple_choice: '☑️ Opción múltiple',
-    si_no: '✓/✗ Sí/No',
-    horario: '🕐 Horario',
-  };
-  return labels[tipo] || tipo;
+  return TIPO_PREGUNTA_META[tipo as keyof typeof TIPO_PREGUNTA_META]?.label ?? tipo;
 };
 
 /** Formatea un ISO datetime string del tipo horario como "dd/mm/aaaa-hh:mm". */

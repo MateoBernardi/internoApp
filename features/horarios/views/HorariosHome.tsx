@@ -38,7 +38,7 @@ export function HorariosHome() {
     return (
       <View style={styles.subScreen}>
         {headerToggle}
-        <EncuestasScreenHeader title="Manejo de turnos" left={backButton} />
+        <EncuestasScreenHeader title="Turnos del día" left={backButton} />
         <GestionHorarios />
       </View>
     );
@@ -48,7 +48,7 @@ export function HorariosHome() {
     return (
       <View style={styles.subScreen}>
         {headerToggle}
-        <EncuestasScreenHeader title="Horas extra" left={backButton} />
+        <EncuestasScreenHeader title="Horas cumplidas" left={backButton} />
         <HorasExtras />
       </View>
     );
@@ -65,7 +65,7 @@ export function HorariosHome() {
               <Ionicons name="cloud-upload-outline" size={26} color={colors.lightTint} />
             </View>
             <View style={styles.cardTextContainer}>
-              <Text style={styles.optionTitle}>Manejo de turnos</Text>
+              <Text style={styles.optionTitle}>Turnos del día</Text>
               <Text style={styles.optionDescription}>Cargar, editar e importar turnos del día</Text>
             </View>
             <Ionicons name="chevron-forward" size={22} color={glassColors.textMuted} />
@@ -78,8 +78,8 @@ export function HorariosHome() {
               <Ionicons name="cash-outline" size={26} color={AMBER} />
             </View>
             <View style={styles.cardTextContainer}>
-              <Text style={styles.optionTitle}>Manejo de horas extras</Text>
-              <Text style={styles.optionDescription}>Ver y liquidar horas extra por empleado</Text>
+              <Text style={styles.optionTitle}>Horas cumplidas</Text>
+              <Text style={styles.optionDescription}>Ver las horas cumplidas por empleado</Text>
             </View>
             <Ionicons name="chevron-forward" size={22} color={glassColors.textMuted} />
           </View>

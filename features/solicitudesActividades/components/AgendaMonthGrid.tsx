@@ -2,6 +2,7 @@ import { Colors, UI } from '@/constants/theme';
 import { glassStyles } from '@/shared/ui/glass';
 import React, { useMemo } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { AGENDA_COLORS } from '../agenda/agendaColors';
 import { formatDateKey, WEEKDAY_LABELS, type MonthGridCell } from '../agenda/dateUtils';
 import type { Activity } from '../models/activityTypes';
 
@@ -153,7 +154,7 @@ const styles = StyleSheet.create({
     paddingTop: 4,
   },
   dayCellSelected: {
-    backgroundColor: colors.lightTint + '1A',
+    backgroundColor: 'rgba(26,115,232,0.1)',
   },
   dayCellNumber: {
     color: colors.text,
@@ -178,19 +179,19 @@ const styles = StyleSheet.create({
     width: 14,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#2f86d6',
+    backgroundColor: AGENDA_COLORS.turno,
   },
   markLicencia: {
     width: 14,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#7b5ce0',
+    backgroundColor: AGENDA_COLORS.licencia,
   },
   markActividad: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#1f9d57',
+    backgroundColor: AGENDA_COLORS.actividad,
   },
   legend: {
     flexDirection: 'row',

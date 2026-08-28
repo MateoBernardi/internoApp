@@ -51,6 +51,7 @@ import { MoveModal } from '../components/MoverObjetivo';
 import { DetailModal } from '../components/Objetivo';
 import {
     useDeleteObjetivo,
+    useMarcarObjetivoVisto,
     useObjetivos,
     useUpdateObjetivo
 } from '../hooks/useObjetivos';
@@ -523,6 +524,7 @@ function ObjetivoItem({
                         <Text style={styles.cardTitle} numberOfLines={2}>
                             {objetivo.titulo}
                         </Text>
+                        {!objetivo.seen && <View style={styles.unseenDot} />}
                     </View>
 
                     {Boolean(objetivo.descripcion) && (
@@ -827,6 +829,7 @@ export function KanbanBoard() {
     const { data: objetivos = [], isLoading, error } = useObjetivos();
     const updateMutation = useUpdateObjetivo();
     const deleteMutation = useDeleteObjetivo();
+    const marcarVistoMutation = useMarcarObjetivoVisto();
 
     // Estados de modales
     const [formModalVisible, setFormModalVisible] = useState(false);
@@ -983,7 +986,10 @@ export function KanbanBoard() {
     const handleShowDetail = useCallback((objetivo: Objetivo) => {
         setSelectedObjetivoId(objetivo.id);
         setDetailModalVisible(true);
-    }, []);
+        if (!objetivo.seen) {
+            marcarVistoMutation.mutate(objetivo.id);
+        }
+    }, [marcarVistoMutation]);
 
     const handleOpenCreate = useCallback((estado?: VisibleEstado) => {
         if (!formModalMinimized) {
@@ -1739,6 +1745,13 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         fontSize: 13,
         lineHeight: 18,
+    },
+    unseenDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        marginTop: 4,
+        backgroundColor: '#FF3B30',
     },
     cardDescription: {
         color: '#667085',

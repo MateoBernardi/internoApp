@@ -19,7 +19,6 @@ export default function HomeScreen() {
   const { isEmployeeOrEncargado, canRespondEncuestas } = useRoleCheck();
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const isUserContextReady = Boolean(user?.user_context_id);
   const puedeResponderEncuestas = canRespondEncuestas();
   const shouldEnableHomeQueries = isUserContextReady && puedeResponderEncuestas;
@@ -30,7 +29,6 @@ export default function HomeScreen() {
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    setRefreshTrigger((prev) => prev + 1);
     await queryClient.invalidateQueries();
     setRefreshing(false);
   }, [queryClient]);
@@ -46,7 +44,7 @@ export default function HomeScreen() {
         <>
           {/* Sección superior: novedades y encuestas */}
           <View style={styles.topSection}>
-            <TablonNovedades refreshTrigger={refreshTrigger} enabled={isUserContextReady} />
+            <TablonNovedades enabled={isUserContextReady} />
             <TurnoScanCard />
             {puedeResponderEncuestas && <EncuestasPendientes enabled={shouldEnableHomeQueries} />}
           </View>

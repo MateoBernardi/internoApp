@@ -147,7 +147,7 @@ const getMimeType = (fileName: string, providedType?: string): string => {
 };
 
 export async function getArchivosUnseenCount(accessToken: string): Promise<number> {
-    const response = await apiRequest({ method: 'GET', endpoint: '/archivos/unseen-count', token: accessToken });
+    const response = await apiRequest({ method: 'GET', endpoint: '/archivos/unseen', token: accessToken });
 
     if (!response.ok) {
         const errData = await response.json().catch(() => ({}));

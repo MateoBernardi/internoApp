@@ -25,24 +25,8 @@ const CANCELABLE_HOST_STATES: EstadoInvitacionDB[] = [
     'SENT', 'SEEN', 'MODIFIED', 'MODIFIED_BY_HOST', 'ACCEPTED_BY_HOST',
 ];
 
-function formatTipoSolicitud(tipo?: string): string {
-    if (tipo === 'MANDATO') return 'Actividad';
-    if (tipo === 'REUNION') return 'Reunión';
-    if (tipo === 'CHAT') return 'Conversación';
-    return tipo ?? 'Solicitud';
-}
-
 function mapEstado(estado: string): string {
     return estadoInvitacionMapping[estado as EstadoInvitacionDB] ?? estado;
-}
-
-function getTipoBadgeStyle(tipo?: string) {
-    switch (tipo) {
-        case 'MANDATO': return { borderColor: '#2563eb', backgroundColor: '#2563eb12', textColor: '#2563eb' };
-        case 'REUNION': return { borderColor: '#7c3aed', backgroundColor: '#7c3aed12', textColor: '#7c3aed' };
-        case 'CHAT': return { borderColor: '#0ea5e9', backgroundColor: '#0ea5e912', textColor: '#0ea5e9' };
-        default: return { borderColor: '#6b7280', backgroundColor: '#6b728012', textColor: '#6b7280' };
-    }
 }
 
 function getEstadoBadgeStyle(estado: string) {
@@ -167,13 +151,8 @@ export function SolicitudesList({ solicitudes, onRefresh, refreshing, isLoading,
     // --- FILTROS (derivados de la página actual) ---
     const [showFilters, setShowFilters] = useState(false);
     const [rolFilter, setRolFilter] = useState<string[]>([]);
-    const [tipoFilter, setTipoFilter] = useState<string[]>([]);
     const [estadoFilter, setEstadoFilter] = useState<string[]>([]);
 
-    const tipoOptions = useMemo(
-        () => Array.from(new Set(solicitudesDeduplicadas.map(s => s.tipo_actividad).filter(Boolean))),
-        [solicitudesDeduplicadas],
-    );
     const estadoOptions = useMemo(() => {
         const base = solicitudesDeduplicadas.map(getEstadoRelevante);
         const defaultEstados = [
@@ -187,14 +166,13 @@ export function SolicitudesList({ solicitudes, onRefresh, refreshing, isLoading,
         () => solicitudesDeduplicadas.filter(s => {
             const rol = s.is_host ? 'host' : 'guest';
             const rolOk = rolFilter.length === 0 || rolFilter.includes(rol);
-            const tipoOk = tipoFilter.length === 0 || tipoFilter.includes(s.tipo_actividad);
             const estadoOk = estadoFilter.length === 0 || estadoFilter.includes(getEstadoRelevante(s));
-            return rolOk && tipoOk && estadoOk;
+            return rolOk && estadoOk;
         }),
-        [solicitudesDeduplicadas, rolFilter, tipoFilter, estadoFilter],
+        [solicitudesDeduplicadas, rolFilter, estadoFilter],
     );
 
-    const activeFilterCount = rolFilter.length + tipoFilter.length + estadoFilter.length;
+    const activeFilterCount = rolFilter.length + estadoFilter.length;
 
     const toggleValue = useCallback(
         (setFn: React.Dispatch<React.SetStateAction<string[]>>, value: string) => {
@@ -204,7 +182,6 @@ export function SolicitudesList({ solicitudes, onRefresh, refreshing, isLoading,
     );
     const clearFilters = useCallback(() => {
         setRolFilter([]);
-        setTipoFilter([]);
         setEstadoFilter([]);
     }, []);
 
@@ -274,17 +251,6 @@ export function SolicitudesList({ solicitudes, onRefresh, refreshing, isLoading,
                             <FilterChip label="Invitado" active={rolFilter.includes('guest')} onPress={() => toggleValue(setRolFilter, 'guest')} />
                         </View>
                     </View>
-
-                    {tipoOptions.length > 0 && (
-                        <View style={styles.filterGroup}>
-                            <ThemedText style={styles.filterGroupLabel}>Tipo</ThemedText>
-                            <View style={styles.chipRow}>
-                                {tipoOptions.map(t => (
-                                    <FilterChip key={t} label={formatTipoSolicitud(t)} active={tipoFilter.includes(t)} onPress={() => toggleValue(setTipoFilter, t)} />
-                                ))}
-                            </View>
-                        </View>
-                    )}
 
                     {estadoOptions.length > 0 && (
                         <View style={styles.filterGroup}>
@@ -378,8 +344,6 @@ function SolicitudItem({ solicitud, currentUserId, onPress, onHide, isHiding, on
         return `De: ${solicitud.nombre_creador} ${solicitud.apellido_creador}`;
     }, [solicitud]);
 
-    const tipoLabel = formatTipoSolicitud(solicitud.tipo_actividad);
-    const tipoBadgeStyle = getTipoBadgeStyle(solicitud.tipo_actividad);
     const estadoBadgeStyle = getEstadoBadgeStyle(estadoUI);
     const isUnseen = tieneNovedadSinVer(solicitud);
     const containerColor = getContainerColor(isUnseen);
@@ -449,9 +413,6 @@ function SolicitudItem({ solicitud, currentUserId, onPress, onHide, isHiding, on
                 )}
 
                 <View style={styles.badgeRow}>
-                    <View style={[styles.badge, { borderColor: tipoBadgeStyle.borderColor, backgroundColor: tipoBadgeStyle.backgroundColor }]}>
-                        <ThemedText style={[styles.badgeText, { color: tipoBadgeStyle.textColor }]}>{tipoLabel}</ThemedText>
-                    </View>
                     <View style={[styles.badge, { borderColor: estadoBadgeStyle.borderColor, backgroundColor: estadoBadgeStyle.backgroundColor }]}>
                         <ThemedText style={[styles.badgeText, { color: estadoBadgeStyle.textColor }]}>{estadoUI}</ThemedText>
                     </View>

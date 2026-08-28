@@ -33,6 +33,15 @@ const CONTABLE_ROLES: UserRole[] = ['contable', 'sistemas'];
 const isEmployeeRole = (role: UserRole): boolean => PERSONAL_ROLES.includes(role);
 const isContableRole = (role: UserRole): boolean => CONTABLE_ROLES.includes(role);
 
+// Roles autorizados por el backend para GET /licencias/solicitudes/unseen.
+export const LICENCIAS_UNSEEN_ROLES: UserRole[] = ['presidencia', 'encargado', 'gerencia'];
+
+// Roles habilitados a responder encuestas: empleado-*, encargado, gerencia, presidencia y consejo.
+export const canRoleRespondEncuestas = (role: UserRole | string | null | undefined): boolean => {
+  if (!role) return false;
+  return isEmployeeRole(role as UserRole) || ['encargado', 'gerencia', 'presidencia', 'consejo'].includes(role);
+};
+
 export const ALL_ROLES: UserRole[] = [
   'admin',
   'contable',
@@ -105,9 +114,8 @@ export function useRoleCheck() {
     return isEmployee() || hasRole('encargado');
   };
 
-  // Roles habilitados a responder encuestas: empleado-*, encargado, gerencia, presidencia y consejo.
   const canRespondEncuestas = (): boolean => {
-    return isEmployee() || hasRole(['encargado', 'gerencia', 'presidencia', 'consejo']);
+    return canRoleRespondEncuestas(getUserRole());
   };
 
   const isAdmin = (): boolean => {

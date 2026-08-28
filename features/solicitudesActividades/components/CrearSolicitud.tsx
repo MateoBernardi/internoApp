@@ -289,11 +289,6 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
       onSuccess: (response: CrearSolicitudResponse) => {
         if (!response.success && (response.rangosOcupados?.length ?? 0) > 0) {
           setBackendRangosOcupados(response.rangosOcupados ?? []);
-          // El backend rechazó por solapamientos. Si el usuario fuerza la
-          // creación (crear_de_todos_modos), es una operación lógica nueva:
-          // renovamos la key para que un backend idempotente no devuelva la
-          // respuesta cacheada de conflicto. El re-render ocurre antes de que el
-          // usuario confirme el modal, así que la nueva key ya estará vigente.
           regenerateIdempotencyKey();
           return;
         }
@@ -381,7 +376,7 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
     const payload: CrearSolicitudRequest = {
       titulo: fromChatsTab ? (esGrupoChat ? titulo.trim() : '') : titulo.trim(),
       descripcion: descripcion.trim(),
-      tipo_actividad: fromChatsTab ? 'CHAT' : undefined,
+      tipo_actividad: fromChatsTab ? 'CHAT' : 'SOLICITUD',
       invitados: invitadoIds,
       crear_de_todos_modos: 0,
       es_grupo: esGrupoChat,

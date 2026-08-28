@@ -75,12 +75,6 @@ function ceilToNextMinute(date: Date): Date {
   return d;
 }
 
-function formatTipoActividad(tipo?: string): string {
-  if (tipo === 'MANDATO') return 'Actividad';
-  if (tipo === 'REUNION') return 'Reunión';
-  return tipo ?? 'Solicitud';
-}
-
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface SolicitudProps {
@@ -770,18 +764,6 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                   ) : null
                 }
               />
-
-              {/* Título */}
-              <View style={styles.contentBlock}>
-                <View style={styles.badgeRow}>
-                  <View style={styles.chip}>
-                    <Ionicons name="pricetag-outline" size={12} color={colors.lightTint} style={{ marginRight: 5 }} />
-                    <ThemedText style={styles.chipText}>
-                      {formatTipoActividad(solicitud.tipo_actividad)}
-                    </ThemedText>
-                  </View>
-                </View>
-              </View>
 
               {/* Banner expirada */}
               {isExpiredState && (

@@ -251,18 +251,3 @@ export function syncPushPayloadToCache(
   const matched = Array.from(domains);
   return matched;
 }
-
-export const RealtimeQueryKeys = {
-  solicitudesUnseen: ['solicitudes', 'unseen'] as const,
-  actividadesSemanales: ['actividades', 'semanales'] as const,
-  objetivos: ['objetivos'] as const,
-  reportes: (usuarioId?: string) => ['reportes', usuarioId ?? 'all'] as const,
-  reportesPendingCount: ['reportes', 'pending-count'] as const,
-  licenciasAdmin: ['solicitudes-licencias', {}] as const,
-  licenciasUsuario: ['solicitudes-licencias', 'usuario'] as const,
-  licenciasUnseenCount: ['solicitudes-licencias', 'unseen-count'] as const,
-  saldosLicencias: ['saldos-licencias'] as const,
-  tiposLicencias: ['tipos-licencias'] as const,
-  archivosEmpresa: ['archivos', 'list'] as const,
-  archivosUnseenCount: ['archivos', 'unseen-count'] as const,
-};

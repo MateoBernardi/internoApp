@@ -8,7 +8,7 @@ import { useReportesPendingCount } from '@/features/reportes/viewmodels/useRepor
 import { useSolicitudesUnseen } from '@/features/solicitudesActividades/viewmodels/useSolicitudes';
 import { useLicenciasUnseenCount } from '@/features/solicitudesLicencias/viewmodels/useSolicitudes';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
-import { useRoleCheck } from '@/hooks/useRoleCheck';
+import { LICENCIAS_UNSEEN_ROLES, useRoleCheck } from '@/hooks/useRoleCheck';
 import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { Href, Redirect, Tabs, useRouter, useSegments } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -99,7 +99,7 @@ export default function TabLayout() {
   const mensajesBadgeLabel = unseenSolicitudes > 99 ? '99+' : String(unseenSolicitudes);
 
   const { data: licenciasUnseenCount = 0 } = useLicenciasUnseenCount(
-    (canSeeLicenciasAdmin || canSeeLicenciasPersonal) && hasSessionContext
+    hasRole(LICENCIAS_UNSEEN_ROLES) && hasSessionContext
   );
   const { data: reportesPendingCount = 0 } = useReportesPendingCount(
     (canSeeReportesAdmin || canSeeReportesPersonal) && hasSessionContext

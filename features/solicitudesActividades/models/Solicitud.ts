@@ -104,15 +104,13 @@ export interface SolicitudEnviadaAgrupada {
 }
 
 export type TipoActividad = 'PETICION' | 'REUNION' | 'CHAT';
-export type TipoActividadDB = 'MANDATO' | 'REUNION' | 'CHAT';
+export type TipoActividadDB = 'MANDATO' | 'REUNION' | 'CHAT' | 'SOLICITUD';
 
 export interface CrearSolicitudRequest {
   titulo: string;
   descripcion: string;
   fecha_inicio?: Date | null;
   fecha_fin?: Date | null;
-  // Sin selector de tipo en la creación: 'CHAT' para conversaciones, undefined
-  // (se omite del payload) para el resto — ya no hay distinción reunión/actividad.
   tipo_actividad?: TipoActividadDB;
   invitados: number[]; // Array de IDs de usuario_entidad
   crear_de_todos_modos?: number;

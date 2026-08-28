@@ -9,7 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { GlassButton } from '@/shared/ui/GlassButton';
 import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { useIdempotencyKey } from '@/shared/useIdempotencyKey';
-import React, { useEffect, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Alert,
   ScrollView,
@@ -20,7 +20,7 @@ import {
 } from 'react-native';
 import type { Novedad } from '../models/Novedades';
 import { formatNovedadDate, getNovedadCategory } from '../novedadPresentation';
-import { useNovedad } from '../viewmodels/useNovedad';
+import { useCrearNovedad, useActualizarNovedad, useEliminarNovedad, useGetNovedades } from '../viewmodels/useNovedades';
 
 // Roles que tienen permiso para crear, editar y eliminar novedades
 const supervisorRoles = ['gerencia', 'personasRelaciones', 'encargado', 'presidencia', 'sistemas'];
@@ -31,7 +31,6 @@ interface NovedadView extends Novedad {
 }
 
 interface TablonNovedadesProps {
-  refreshTrigger?: number;
   enabled?: boolean;
 }
 
@@ -51,13 +50,29 @@ const DEFAULT_NOVEDAD_DRAFT: NovedadCreateDraft = {
   prioridad: 2,
 };
 
-export default function TablonNovedades({ refreshTrigger, enabled = true }: TablonNovedadesProps) {
+export default function TablonNovedades({ enabled = true }: TablonNovedadesProps) {
   const { user } = useAuth();
   const { idempotencyKey, regenerateIdempotencyKey } = useIdempotencyKey();
-  const { obtenerNovedades, crearNovedad, actualizarNovedad, eliminarNovedad, isLoading, error } =
-    useNovedad();
+  const { data: novedadesData, isLoading, error, refetch } = useGetNovedades(enabled);
+  const crearNovedadMutation = useCrearNovedad();
+  const actualizarNovedadMutation = useActualizarNovedad();
+  const eliminarNovedadMutation = useEliminarNovedad();
 
-  const [novedades, setNovedades] = useState<NovedadView[]>([]);
+  const novedades: NovedadView[] = useMemo(() => {
+    return (novedadesData ?? [])
+      .slice()
+      .sort((a, b) => {
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return dateB - dateA;
+      })
+      .map((n) => ({
+        ...n,
+        categoria: getNovedadCategory(n.id_etiqueta),
+        fecha: formatNovedadDate(n.createdAt),
+      }));
+  }, [novedadesData]);
+
   const [selectedNovedad, setSelectedNovedad] = useState<NovedadView | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
@@ -66,51 +81,6 @@ export default function TablonNovedades({ refreshTrigger, enabled = true }: Tabl
   const [resetFormDraftSignal, setResetFormDraftSignal] = useState(0);
   const [formMode, setFormMode] = useState<'create' | 'edit'>('create');
   const [createDraft, setCreateDraft] = useState<NovedadCreateDraft>(DEFAULT_NOVEDAD_DRAFT);
-  const [localLoading, setLocalLoading] = useState(true);
-
-  // Cargar novedades al montar el componente
-  useEffect(() => {
-    if (!enabled) {
-      setLocalLoading(false);
-      return;
-    }
-
-    loadNovedades();
-  }, [enabled]);
-
-  // Recargar cuando se dispara refresh desde el padre
-  useEffect(() => {
-    if (!enabled) {
-      return;
-    }
-
-    if (refreshTrigger && refreshTrigger > 0) {
-      loadNovedades();
-    }
-  }, [enabled, refreshTrigger]);
-
-  const loadNovedades = async () => {
-    setLocalLoading(true);
-    const result = await obtenerNovedades();
-
-    if (result.success && result.data) {
-      const viewData: NovedadView[] = result.data
-        .sort((a, b) => {
-          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-          return dateB - dateA;
-        })
-        .map((n) => ({
-          ...n,
-          categoria: getNovedadCategory(n.id_etiqueta),
-          fecha: formatNovedadDate(n.createdAt),
-        }));
-      setNovedades(viewData);
-    }
-
-    setLocalLoading(false);
-  };
-
 
 
   const handleNovedadPress = (novedad: NovedadView) => {
@@ -149,13 +119,12 @@ export default function TablonNovedades({ refreshTrigger, enabled = true }: Tabl
           text: 'Eliminar',
           style: 'destructive',
           onPress: async () => {
-            const result = await eliminarNovedad(selectedNovedad.id!);
-            if (result.success) {
-              setNovedades((prev) => prev.filter((n) => n.id !== selectedNovedad.id));
+            try {
+              await eliminarNovedadMutation.mutateAsync(selectedNovedad.id!);
               setIsDetailModalOpen(false);
               setSelectedNovedad(null);
-            } else {
-              Alert.alert('Error', result.error || 'Intenta nuevamente');
+            } catch (err: any) {
+              Alert.alert('Error', err?.message || 'Intenta nuevamente');
             }
           },
         },
@@ -165,41 +134,22 @@ export default function TablonNovedades({ refreshTrigger, enabled = true }: Tabl
 
   const handleFormSubmit = async (data: Omit<Novedad, 'id' | 'createdAt'>) => {
     if (formMode === 'create') {
-      const result = await crearNovedad({ ...data }, idempotencyKey);
-
-      if (result.success && result.data) {
+      try {
+        await crearNovedadMutation.mutateAsync({ data: { ...data }, idempotencyKey });
         // La novedad ya existe: la próxima creación es una operación nueva.
         regenerateIdempotencyKey();
-        const newNovedadView: NovedadView = {
-          ...result.data,
-          categoria: getNovedadCategory(result.data.id_etiqueta),
-          fecha: formatNovedadDate(result.data.createdAt),
-        };
-        setNovedades((prev) => [newNovedadView, ...prev]);
-      } else {
-        Alert.alert('Error', result.error || 'Intenta nuevamente');
+      } catch (err: any) {
+        Alert.alert('Error', err?.message || 'Intenta nuevamente');
       }
     } else if (formMode === 'edit' && selectedNovedad?.id) {
-      const result = await actualizarNovedad({
-        id: selectedNovedad.id,
-        ...data,
-      });
-
-      if (result.success && result.data) {
-        setNovedades((prev) =>
-          prev.map((n) =>
-            n.id === selectedNovedad.id
-              ? {
-                ...result.data!,
-                categoria: getNovedadCategory(result.data!.id_etiqueta),
-                fecha: formatNovedadDate(result.data!.createdAt),
-              }
-              : n
-          )
-        );
+      try {
+        await actualizarNovedadMutation.mutateAsync({
+          id: selectedNovedad.id,
+          ...data,
+        });
         setSelectedNovedad(null);
-      } else {
-        Alert.alert('Error', result.error || 'Intenta nuevamente');
+      } catch (err: any) {
+        Alert.alert('Error', err?.message || 'Intenta nuevamente');
       }
     }
   };
@@ -252,7 +202,7 @@ export default function TablonNovedades({ refreshTrigger, enabled = true }: Tabl
   const canCreate = hasPermission;
   const canEdit = hasPermission;
 
-  if (localLoading || isLoading) {
+  if (isLoading) {
     return (
       <ScreenSkeleton rows={4} />
     );
@@ -261,8 +211,8 @@ export default function TablonNovedades({ refreshTrigger, enabled = true }: Tabl
   if (error) {
     return (
       <View style={styles.centerContainer}>
-        <Text style={styles.errorText}>{error}</Text>
-        <GlassButton label="Reintentar" onPress={loadNovedades} />
+        <Text style={styles.errorText}>{error.message || 'Intenta nuevamente'}</Text>
+        <GlassButton label="Reintentar" onPress={() => refetch()} />
       </View>
     );
   }

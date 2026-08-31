@@ -39,6 +39,7 @@ import {
   useCancelarSolicitudLicencia,
   useGetSolicitudesLicencias,
   useGetSolicitudesUsuario,
+  useGetTiposLicencias,
   useRechazarSolicitudLicencia,
 } from '../viewmodels/useSolicitudes';
 
@@ -111,6 +112,7 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
   const { data: solicitudesUsuario } = useGetSolicitudesUsuario(
     resolvedType === 'enviada'
   );
+  const { data: tiposLicencias } = useGetTiposLicencias();
 
   // Mutations
   const { mutate: aprobarSolicitud, isPending: isApproving } =
@@ -323,11 +325,13 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
 
   const estadoUI = estadoMapping[solicitud.estado];
   const isExpiredState = solicitud.estado === 'EXPIRADA';
+  const isGerencia = user?.rol_nombre === 'gerencia';
   const canTakeAction =
     isFromReceivedView &&
     !isCreator &&
     ['PENDIENTE', 'PENDIENTE_APROBACION'].includes(solicitud.estado) &&
     !isExpiredState;
+  const canApproveExpired = isFromReceivedView && !isCreator && isGerencia && isExpiredState;
   const isExpired = solicitud.fecha_fin ? new Date(solicitud.fecha_fin) < new Date() : false;
   const hasStarted = (() => {
     if (!solicitud.fecha_inicio) return false;
@@ -344,10 +348,10 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
     !isExpired &&
     !isExpiredState &&
     !hasStarted;
-  const isGerencia = user?.rol_nombre === 'gerencia';
+  const tipoLicencia = tiposLicencias?.find((t) => t.id === solicitud.tipo_licencia_id);
   const canUploadDoc =
     (isCreator && solicitud.estado === 'PENDIENTE_DOCUMENTACION') ||
-    (isGerencia && solicitud.estado === 'EXPIRADA');
+    (isGerencia && solicitud.estado === 'EXPIRADA' && !!tipoLicencia?.requiere_adjunto);
 
   return (
     <FullScreenPortal>
@@ -521,25 +525,26 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
             </ScrollView>
 
             {/* Footer Actions */}
-            {(canTakeAction || canCancel) && (
+            {(canTakeAction || canApproveExpired || canCancel) && (
               <View style={styles.footerActions}>
                 {canTakeAction && (
-                  <>
-                    <GlassButton
-                      variant="danger"
-                      label="Rechazar"
-                      onPress={handleRejectPress}
-                      disabled={isRejecting}
-                      style={styles.footerActionBtn}
-                    />
-                    <GlassButton
-                      variant="success"
-                      label="Aprobar"
-                      onPress={handleApprovePress}
-                      disabled={isApproving}
-                      style={styles.footerActionBtn}
-                    />
-                  </>
+                  <GlassButton
+                    variant="danger"
+                    label="Rechazar"
+                    onPress={handleRejectPress}
+                    disabled={isRejecting}
+                    style={styles.footerActionBtn}
+                  />
+                )}
+
+                {(canTakeAction || canApproveExpired) && (
+                  <GlassButton
+                    variant="success"
+                    label="Aprobar"
+                    onPress={handleApprovePress}
+                    disabled={isApproving}
+                    style={styles.footerActionBtn}
+                  />
                 )}
 
                 {canCancel && (

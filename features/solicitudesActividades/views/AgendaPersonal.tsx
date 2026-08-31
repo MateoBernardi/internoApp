@@ -443,7 +443,9 @@ const AgendaPersonal: React.FC = () => {
       <Stack.Screen
         options={{
           headerRight: () => (
-            <CreateButton onPress={openAddActivityModal} accessibilityLabel="Nueva actividad" />
+            <View style={styles.createButtonWrapper}>
+              <CreateButton onPress={openAddActivityModal} accessibilityLabel="Nueva actividad" />
+            </View>
           ),
         }}
       />
@@ -606,6 +608,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
+  },
+  createButtonWrapper: {
+    paddingRight: UI.spacing.md,
   },
   activitiesContainer: {
     flex: 1,

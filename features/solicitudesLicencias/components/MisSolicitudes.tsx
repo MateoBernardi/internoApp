@@ -1,7 +1,7 @@
 import { ThemedText } from '@/components/themed-text';
 import { CreateButton } from '@/components/ui/CreateButton';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
-import { Colors } from '@/constants/theme';
+import { Colors, UI } from '@/constants/theme';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { glassStyles } from '@/shared/ui/glass';
 import React, { useCallback, useState } from 'react';
@@ -107,10 +107,12 @@ export function MisSolicitudes() {
         <Stack.Screen
           options={{
             headerRight: () => (
-              <CreateButton
-                onPress={handleCreateNew}
-                accessibilityLabel="Nueva solicitud de licencia"
-              />
+              <View style={styles.createButtonWrapper}>
+                <CreateButton
+                  onPress={handleCreateNew}
+                  accessibilityLabel="Nueva solicitud de licencia"
+                />
+              </View>
             ),
           }}
         />
@@ -239,6 +241,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.componentBackground,
+  },
+  createButtonWrapper: {
+    paddingRight: UI.spacing.md,
   },
   centerContainer: {
     flex: 1,

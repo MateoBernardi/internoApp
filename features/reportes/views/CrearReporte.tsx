@@ -15,6 +15,7 @@ import { AppBackButton } from '@/shared/ui/AppBackButton';
 import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
 import { GlassButton } from '@/shared/ui/GlassButton';
 import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
+import { useKeyboardVisible } from '@/shared/ui/keyboard';
 import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { useIdempotencyKey } from '@/shared/useIdempotencyKey';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -50,6 +51,7 @@ export default function CrearReporte(props?: CrearReporteProps) {
 	const router = useRouter();
 	const insets = useSafeAreaInsets();
 	const bottomInset = useSafeBottomInset();
+	const isKeyboardOpen = useKeyboardVisible();
 	const params = useLocalSearchParams();
 	const { tokens } = useAuth();
 	const { idempotencyKey, regenerateIdempotencyKey } = useIdempotencyKey();
@@ -295,12 +297,12 @@ export default function CrearReporte(props?: CrearReporteProps) {
 		<FullScreenPortal>
 		<View style={[glassStyles.sheet, styles.fullScreen]}>
 			<ModalKeyboardView style={styles.keyboardContainer}>
-				<View style={[glassStyles.sheet, styles.container, { paddingBottom: bottomInset }]}>
+				<View style={[glassStyles.sheet, styles.container, { paddingBottom: isKeyboardOpen ? 0 : bottomInset }]}>
 					<View style={[glassStyles.sheetHeader, styles.modalHeader, { paddingTop: insets.top + 10 }]}>
 						<AppBackButton onPress={handleClose} />
 					</View>
 
-						<ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
+						<ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 							{/* Usuario reportado */}
 							<View style={[glassStyles.fieldGlass, styles.inputSection, focusedField === 'usuario' && styles.inputFocused]}>
 								<TextInput
@@ -445,7 +447,7 @@ export default function CrearReporte(props?: CrearReporteProps) {
 							</View>
 						</ScrollView>
 
-						<View style={[styles.uploadButtonContainer, { paddingBottom: bottomInset }]}>
+						<View style={[styles.uploadButtonContainer, { paddingBottom: isKeyboardOpen ? 0 : bottomInset }]}>
 							<GlassButton
 								label="Crear"
 								onPress={handleCrearReporte}

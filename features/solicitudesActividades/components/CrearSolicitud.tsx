@@ -268,6 +268,19 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
     );
   }, [fromChatsTab, esGrupoChat, titulo, descripcion, selectedUsers, dateErrorMessage, isConsejo]);
 
+  const missingFieldsMessages = useMemo(() => {
+    const msgs: string[] = [];
+    if (fromChatsTab) {
+      if (selectedUsers.length === 0) msgs.push('Seleccioná al menos un destinatario.');
+      if (descripcion.trim().length === 0) msgs.push('Escribí un mensaje.');
+      if (esGrupoChat && titulo.trim().length === 0) msgs.push('Ingresá un título para el grupo.');
+    } else {
+      if (titulo.trim().length === 0) msgs.push('Ingresá un título.');
+      if (!isConsejo && selectedUsers.length === 0) msgs.push('Seleccioná al menos un participante.');
+    }
+    return msgs;
+  }, [fromChatsTab, esGrupoChat, titulo, descripcion, selectedUsers, isConsejo]);
+
   const avisosBackend = useMemo(() => {
     const grouped = new Map<string, number>();
     backendRangosOcupados.forEach((rango) => {
@@ -597,6 +610,9 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
             </ScrollView>
 
             <View style={[styles.uploadButtonContainer, { paddingBottom: isKeyboardOpen ? 0 : bottomInset }]}>
+              {!isFormValid && missingFieldsMessages.length > 0 && (
+                <ThemedText style={styles.errorText}>{missingFieldsMessages.join(' ')}</ThemedText>
+              )}
               {(() => {
                 // `isPending` permanece true durante TODOS los reintentos de
                 // TanStack Query, por lo que el botón no se desbloquea mientras

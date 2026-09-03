@@ -2,7 +2,6 @@ import { AlertModal, type AlertModalAction } from '@/components/AlertModal';
 import { FilePreview, getExt, useOpenFilePreview } from '@/components/filePreview';
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
-import { useAuth } from '@/features/auth/context/AuthContext';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { generateIdempotencyKey } from '@/shared/idempotency';
 import { AppBackButton } from '@/shared/ui/AppBackButton';
@@ -48,10 +47,21 @@ interface ReporteModalProps {
 
 const colors = Colors['light'];
 
+const TIPO_ACCION_LABELS: Record<string, string> = {
+	ACEPTACION: 'Aceptó el reporte',
+	RECHAZO: 'Respondió (en disputa)',
+	DESESTIMACION: 'Desestimó el reporte',
+	MODIFICACION: 'Modificó el estado',
+	COMENTARIO: 'Comentario',
+};
+
+function formatTipoAccion(tipoAccion: string): string {
+	return TIPO_ACCION_LABELS[tipoAccion] ?? tipoAccion;
+}
+
 export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModalProps) {
 	const { mutate: updateReporte, isPending } = useUpdateReporte();
 	const { hasRole } = useRoleCheck();
-	const { user } = useAuth();
 	const insets = useSafeAreaInsets();
 	const bottomInset = useSafeBottomInset();
 	const { previewFile, openWithUri, closePreview } = useOpenFilePreview();
@@ -78,8 +88,9 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 	const isGerencia = hasRole('gerencia');
 	const canModify = !isReporteFinal || isGerencia;
 	const hasSupervisorRole = hasRole(['gerencia', 'personasRelaciones', 'encargado']);
-	const isCreator = !!(user?.user_context_id && reporte.creador_id && user.user_context_id === reporte.creador_id);
-	const canManageFiles = hasSupervisorRole && isCreator;
+	// Cualquier rol supervisor puede adjuntar/quitar imágenes, no solo quien creó
+	// el reporte (el backend ya restringe estas rutas a supervisorRoles).
+	const canManageFiles = hasSupervisorRole;
 	const estadoPresentation = getReporteEstadoPresentation(reporte.estado);
 
 	useEffect(() => {
@@ -344,6 +355,33 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 								<ThemedText style={styles.descriptionText}>{reporte.descripcion}</ThemedText>
 							</View>
 
+							{/* Bitácora: historial de respuestas/cambios de estado */}
+							{!!reporte.bitacora?.length && (
+								<View style={styles.section}>
+									<View style={styles.sectionHeaderRow}>
+										<ThemedText style={styles.sectionLabel}>Respuestas</ThemedText>
+									</View>
+									<View style={styles.bitacoraList}>
+										{reporte.bitacora.map((item) => (
+											<View key={item.id} style={styles.bitacoraItem}>
+												<View style={styles.bitacoraItemHeader}>
+													<ThemedText style={styles.bitacoraAutor}>
+														{item.usuario_nombre} {item.usuario_apellido ?? ''}
+													</ThemedText>
+													<ThemedText style={styles.bitacoraFecha}>
+														{new Date(item.created_at).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+													</ThemedText>
+												</View>
+												<ThemedText style={styles.bitacoraTipo}>{formatTipoAccion(item.tipo_accion)}</ThemedText>
+												{!!item.observacion && (
+													<ThemedText style={styles.bitacoraObservacion}>{item.observacion}</ThemedText>
+												)}
+											</View>
+										))}
+									</View>
+								</View>
+							)}
+
 							{/* Imágenes del reporte */}
 							<View style={styles.section}>
 								<View style={styles.sectionHeaderRow}>
@@ -560,6 +598,39 @@ const styles = StyleSheet.create({
 	emptyText: {
 		fontSize: 13,
 		color: colors.secondaryText,
+	},
+	bitacoraList: {
+		gap: 10,
+	},
+	bitacoraItem: {
+		backgroundColor: 'rgba(17,24,28,0.03)',
+		borderRadius: 10,
+		padding: 12,
+		gap: 4,
+	},
+	bitacoraItemHeader: {
+		flexDirection: 'row',
+		justifyContent: 'space-between',
+		alignItems: 'center',
+	},
+	bitacoraAutor: {
+		fontSize: 13,
+		fontWeight: '700',
+		color: glassColors.text,
+	},
+	bitacoraFecha: {
+		fontSize: 11,
+		color: colors.secondaryText,
+	},
+	bitacoraTipo: {
+		fontSize: 12,
+		fontWeight: '600',
+		color: glassColors.link,
+	},
+	bitacoraObservacion: {
+		fontSize: 14,
+		color: glassColors.text,
+		lineHeight: 20,
 	},
 	imageGrid: {
 		flexDirection: 'row',

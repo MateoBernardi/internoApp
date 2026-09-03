@@ -10,8 +10,8 @@ export async function getReportesPendingCount(accessToken: string): Promise<numb
     const response = await apiRequest({ method: 'GET', endpoint: '/reportes/pending', token: accessToken });
 
     if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.message || errData.error || response.statusText);
+        const errorText = await response.text();
+        throwApiError(errorText, response);
     }
 
     const data = await response.json();
@@ -65,8 +65,8 @@ export async function updateReporte (accessToken: string, payload: reporte.Updat
     const response = await apiRequest({ method: 'PUT', endpoint: `/reportes/${id}`, token: accessToken, body: payload});
 
     if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.message || errData.error || response.statusText);
+        const errorText = await response.text();
+        throwApiError(errorText, response);
     }
 
     const data: reporte.Reporte = await response.json();
@@ -82,8 +82,8 @@ export async function getReporteStats (accessToken: string): Promise<reporte.Rep
         });
                 
         if (!response.ok) {
-            const errData = await response.json().catch(() => ({}));
-            throw new Error(errData.message || errData.error || response.statusText);
+            const errorText = await response.text();
+            throwApiError(errorText, response);
         }
 
         const rawData: any[] = await response.json();
@@ -93,6 +93,7 @@ export async function getReporteStats (accessToken: string): Promise<reporte.Rep
             usuario_id: item.user_context_id || item.usuario_id,
             nombre: item.nombre,
             apellido: item.apellido,
+            rol: item.rol_nombre ?? item.rol,
             negativos: item.negativos_puros ?? item.negativos ?? 0,
             positivos: item.positivos_puros ?? item.positivos ?? 0,
             total_positivos: item.total_positivos ?? 0,
@@ -112,8 +113,8 @@ export async function getTopEmployee (accessToken: string): Promise<reporte.TopP
 
     if (!response.ok) {
         console.error('Error fetching top employee:', { status: response.status, statusText: response.statusText });
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.message || errData.error || response.statusText);
+        const errorText = await response.text();
+        throwApiError(errorText, response);
     }
 
     const data: reporte.TopPositiveUser = await response.json();
@@ -125,8 +126,8 @@ export async function getUpgradedEmployee (accessToken: string): Promise<reporte
 
     if (!response.ok) {
         console.error('Error fetching upgraded employee:', { status: response.status, statusText: response.statusText });
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.message || errData.error || response.statusText);
+        const errorText = await response.text();
+        throwApiError(errorText, response);
     }
 
     const data: reporte.MostImprovedUser = await response.json();
@@ -150,8 +151,8 @@ export async function getReporteImagenes (
     });
 
     if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.message || errData.error || response.statusText);
+        const errorText = await response.text();
+        throwApiError(errorText, response);
     }
 
     return response.json();
@@ -260,8 +261,8 @@ export async function archivoReporte(
     });
 
     if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.message || errData.error || response.statusText);
+        const errorText = await response.text();
+        throwApiError(errorText, response);
     }
 }
 
@@ -283,8 +284,8 @@ export async function updateReporteImageOrder (
     });
 
     if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.message || errData.error || response.statusText);
+        const errorText = await response.text();
+        throwApiError(errorText, response);
     }
 
     return response.json();

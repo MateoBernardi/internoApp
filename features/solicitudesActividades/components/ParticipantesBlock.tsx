@@ -247,7 +247,7 @@ const s = StyleSheet.create({
     gap: 8,
     paddingVertical: 10,
     paddingHorizontal: 12,
-    backgroundColor: 'rgba(17,24,28,0.03)',
+    backgroundColor: '#ffffff',
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(17,24,28,0.08)',
   },

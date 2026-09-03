@@ -22,7 +22,13 @@ export default function CrearReporteEncargado() {
 	const params = useLocalSearchParams<{ comparingWith?: string }>();
 	const [searchQuery, setSearchQuery] = useState('');
 
-	const { data: usuarios, isLoading: isSearching } = useSearchUsers(searchQuery);
+	const { data: searchResults, isLoading: isSearching } = useSearchUsers(searchQuery);
+	// Solo se puede reportar a empleados/encargados (ver reportesServices.createReporte
+	// en el backend); filtramos acá para que ni siquiera aparezcan como opción.
+	const usuarios = useMemo(
+		() => (searchResults ?? []).filter((u) => u.role?.some((r) => r === 'encargado' || r.startsWith('empleado'))),
+		[searchResults],
+	);
 	const isComparingMode = typeof params.comparingWith === 'string' && params.comparingWith.length > 0;
 
 	const comparingUsers = useMemo(() => {

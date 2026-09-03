@@ -381,13 +381,10 @@ export const conversacionStyles = StyleSheet.create({
     gap: 8,
   },
   selectorCard: {
+    ...glassStyles.card,
     marginTop: 4,
     marginBottom: 4,
     padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.neutralBorder,
-    backgroundColor: colors.background,
   },
   participanteAvatar: {
     width: 36,

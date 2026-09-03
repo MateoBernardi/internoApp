@@ -4,6 +4,7 @@ import { GlassButton } from '@/shared/ui/GlassButton';
 import { GlassTabSelector } from '@/components/ui/GlassTabSelector';
 import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
 import { focusBorderStyles, glassColors, glassStyles } from '@/shared/ui/glass';
+import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { useFocusBorder } from '@/shared/ui/useFocusBorder';
 import { useSafeBottomInset } from '@/hooks/useSafeBottomInset';
 import { useAuth } from '@/features/auth/context/AuthContext';
@@ -124,6 +125,8 @@ export function DetailModal({ visible, objetivo, onClose, onDelete, onMove, curr
     // Inicialización y sincronización con cache
     useEffect(() => {
         if (!visible || !objetivo) return;
+        // No pisar una edición de título/descripción en curso con un refetch en segundo plano.
+        if (isEditingTitle || isEditingDescription) return;
 
         setLocalObjetivo(objetivo);
         setInvitedUsers(objetivo.invitados ?? []);
@@ -141,7 +144,7 @@ export function DetailModal({ visible, objetivo, onClose, onDelete, onMove, curr
                     : makePlaceholderUser(inv.user_id)
             )
         );
-    }, [visible]);
+    }, [visible, objetivo, isEditingTitle, isEditingDescription]);
 
     useEffect(() => {
         if (!visible) return;
@@ -434,6 +437,7 @@ export function DetailModal({ visible, objetivo, onClose, onDelete, onMove, curr
                         </TouchableOpacity>
                     </View>
 
+                    <ModalKeyboardView style={{ flex: 1 }}>
                     <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 8 }}>
                         <View style={[glassStyles.card, styles.summaryCard]}>
                         <Text style={styles.metaAuthor}>
@@ -722,6 +726,7 @@ export function DetailModal({ visible, objetivo, onClose, onDelete, onMove, curr
                             textStyle={styles.footerButtonText}
                         />
                     </View>
+                    </ModalKeyboardView>
 
                     <RoleUserSelectionModal
                         visible={showRoleModal}
@@ -983,13 +988,10 @@ const styles = StyleSheet.create({
         gap: 10,
     },
     selectorCard: {
+        ...glassStyles.card,
         marginTop: 12,
         marginBottom: 12,
         padding: 12,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: 'rgba(17,24,28,0.12)',
-        backgroundColor: 'rgba(17,24,28,0.03)',
     },
     roleToggleRow: {
         flexDirection: 'row',

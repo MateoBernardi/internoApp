@@ -465,9 +465,17 @@ function ObjetivoItem({
             runOnJS(onDragStateChange)(null);
         });
 
+    const pressed = useSharedValue(0);
+
     const tapGesture = Gesture.Tap()
         .enabled(!isOptimisticLoading)
         .maxDuration(LONG_PRESS_MS - 40)
+        .onBegin(() => {
+            pressed.value = withTiming(1, { duration: 80 });
+        })
+        .onFinalize(() => {
+            pressed.value = withTiming(0, { duration: 120 });
+        })
         .onEnd((_e, success) => {
             if (success) {
                 runOnJS(onPress)(objetivo);
@@ -475,6 +483,12 @@ function ObjetivoItem({
         });
 
     const composedGesture = Gesture.Race(dragGesture, tapGesture);
+
+    // Feedback de presión (desktop/web y touch): la tarjeta se achica levemente
+    // al presionar y vuelve a su tamaño al soltar.
+    const pressAnimatedStyle = useAnimatedStyle(() => ({
+        transform: [{ scale: 1 - pressed.value * 0.03 }],
+    }));
 
     // Mientras se arrastra, la tarjeta se convierte en un placeholder vacío
     // (borde punteado, contenido invisible) — el overlay flotante muestra el título real.
@@ -504,6 +518,7 @@ function ObjetivoItem({
                 compact && styles.cardCompact,
                 isOptimisticLoading && styles.cardOptimistic,
                 placeholderStyle,
+                pressAnimatedStyle,
             ]}
         >
             {isOptimisticLoading && (
@@ -827,6 +842,7 @@ export function KanbanBoard() {
     const isCompactHeader = width < 640;
     const compactColumnWidth = Math.min(COLUMN_WIDTH, Math.max(272, width - BOARD_PADDING * 2));
     const { data: objetivos = [], isLoading, error } = useObjetivos();
+    const sinVerCount = useMemo(() => objetivos.filter(o => !o.seen).length, [objetivos]);
     const updateMutation = useUpdateObjetivo();
     const deleteMutation = useDeleteObjetivo();
     const marcarVistoMutation = useMarcarObjetivoVisto();
@@ -1279,6 +1295,14 @@ export function KanbanBoard() {
                                 {objetivos.length} objetivo{objetivos.length !== 1 ? 's' : ''}
                             </Text>
                         </View>
+                        {sinVerCount > 0 && (
+                            <View style={styles.headerMetaItem}>
+                                <Ionicons name="alert-circle" size={14} color="#FF3B30" />
+                                <Text style={[styles.headerMetaText, styles.headerMetaTextUnseen]}>
+                                    {sinVerCount} sin ver
+                                </Text>
+                            </View>
+                        )}
                     </View>
                 </View>
             </View>
@@ -1540,6 +1564,10 @@ const styles = StyleSheet.create({
         color: '#667085',
         fontSize: 12,
         lineHeight: 17,
+    },
+    headerMetaTextUnseen: {
+        color: '#FF3B30',
+        fontWeight: '700',
     },
     // Board
     boardScrollWrapper: {

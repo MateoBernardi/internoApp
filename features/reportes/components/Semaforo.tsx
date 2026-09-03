@@ -33,11 +33,12 @@ const zonaConfig: Record<'rojo' | 'amarillo' | 'verde', { label: string; backgro
 
 interface SemaforoProps {
 	query?: string;
+	hasActiveFilter?: boolean;
 	filteredData?: ReporteStats[];
 	comparingWith?: string;
 }
 
-export function Semaforo({ query = '', filteredData, comparingWith }: SemaforoProps = {}) {
+export function Semaforo({ query = '', hasActiveFilter = false, filteredData, comparingWith }: SemaforoProps = {}) {
 	const { data: stats, error, isLoading } = useReporteStats();
 	const [expandedZones, setExpandedZones] = useState<Record<'rojo' | 'amarillo' | 'verde', boolean>>({
 		rojo: true,
@@ -80,16 +81,27 @@ export function Semaforo({ query = '', filteredData, comparingWith }: SemaforoPr
 	if (error) {
 		return (
 			<View style={styles.centerContainer}>
-
+				<ThemedText>No se pudieron cargar los datos.</ThemedText>
 			</View>
 		);
 	}
 
-	// Si hay búsqueda pero no hay resultados
-	if (query && dataToUse.length === 0) {
+	// Si hay un filtro activo (búsqueda y/o rol) pero no hay resultados
+	if (hasActiveFilter && dataToUse.length === 0) {
 		return (
 			<View style={styles.centerContainer}>
-				<ThemedText>No se encontraron resultados para "{query}"</ThemedText>
+				<ThemedText>
+					{query ? `No se encontraron resultados para "${query}"` : 'No se encontraron resultados para ese filtro'}
+				</ThemedText>
+			</View>
+		);
+	}
+
+	// Sin filtros activos y sin reportes registrados en absoluto
+	if (!hasActiveFilter && dataToUse.length === 0) {
+		return (
+			<View style={styles.centerContainer}>
+				<ThemedText>No hay reportes registrados.</ThemedText>
 			</View>
 		);
 	}
@@ -97,8 +109,8 @@ export function Semaforo({ query = '', filteredData, comparingWith }: SemaforoPr
 	return (
 		<View style={styles.container}>
 			{(['rojo', 'amarillo', 'verde'] as const).map((zona) => {
-				// Si hay búsqueda activa, mostrar solo las zonas que tengan items
-				if (query && grouped[zona].length === 0) {
+				// Si hay un filtro activo, mostrar solo las zonas que tengan items
+				if (hasActiveFilter && grouped[zona].length === 0) {
 					return null;
 				}
 				return (

@@ -41,12 +41,18 @@ export interface MessageBubbleProps {
   /** Resaltado por la búsqueda dentro del chat (coincidencia actual). */
   highlighted?: boolean;
   onLayout?: (y: number) => void;
+  /** Vista previa del mensaje al que este responde, si corresponde. */
+  replyTo?: { id: string; usuarioNombre: string; usuarioApellido: string; observacion: string | null } | null;
+  /** Presente solo cuando este mensaje admite ser respondido. */
+  onReply?: () => void;
+  /** Ir al mensaje citado. Presente solo cuando hay `replyTo`. */
+  onReplyPress?: () => void;
 }
 
-export function MessageBubble({
+function MessageBubbleComponent({
   id, usuarioNombre, usuarioApellido, createdAt, observacion, isOwn, hideTitle, hideName, estadoKey,
   archivos, fechaInicioMsg, fechaFinMsg, esPropuesta, isOptimistic, isFailed, onRetryFailed, onOpenArchivo, onOpenImage,
-  seenBy, otherParticipantIds, resolveParticipantName, highlighted, onLayout,
+  seenBy, otherParticipantIds, resolveParticipantName, highlighted, onLayout, replyTo, onReply, onReplyPress,
 }: MessageBubbleProps) {
   const [showViewers, setShowViewers] = useState(false);
 
@@ -75,6 +81,24 @@ export function MessageBubble({
             <ThemedText style={[conversacionStyles.bitacoraAction, isOwn && conversacionStyles.bitacoraActionOwn]}>
               {estadoInvitacionMapping[estadoKey]}
             </ThemedText>
+          )}
+          {replyTo && (
+            <TouchableOpacity
+              activeOpacity={onReplyPress ? 0.6 : 1}
+              disabled={!onReplyPress}
+              onPress={onReplyPress}
+              style={[localStyles.replyQuote, isOwn && localStyles.replyQuoteOwn]}
+            >
+              <ThemedText style={[localStyles.replyQuoteName, isOwn && localStyles.replyQuoteNameOwn]}>
+                {replyTo.usuarioNombre} {replyTo.usuarioApellido}
+              </ThemedText>
+              <ThemedText
+                style={[localStyles.replyQuoteText, isOwn && localStyles.replyQuoteTextOwn]}
+                numberOfLines={1}
+              >
+                {replyTo.observacion || '...'}
+              </ThemedText>
+            </TouchableOpacity>
           )}
           {observacion && (
             <View style={conversacionStyles.bitacoraBubble}>
@@ -134,6 +158,16 @@ export function MessageBubble({
           )}
           {!isOptimistic && (
             <View style={localStyles.metaRow}>
+              {onReply && (
+                <TouchableOpacity
+                  onPress={onReply}
+                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Responder a este mensaje"
+                >
+                  <Ionicons name="arrow-undo-outline" size={14} color={isOwn ? 'rgba(255,255,255,0.75)' : colors.secondaryText} />
+                </TouchableOpacity>
+              )}
               <ThemedText style={[conversacionStyles.bitacoraDate, isOwn && conversacionStyles.bitacoraDateOwn]}>
                 {formatDateDDMMYYYY(new Date(createdAt))} {formatTimeHHMM(new Date(createdAt))}
               </ThemedText>
@@ -190,10 +224,40 @@ export function MessageBubble({
   );
 }
 
+export const MessageBubble = React.memo(MessageBubbleComponent);
+
 const localStyles = StyleSheet.create({
   bitacoraCardHighlighted: {
     borderWidth: 2,
     borderColor: '#FFC107',
+  },
+  replyQuote: {
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.lightTint,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    marginBottom: 4,
+  },
+  replyQuoteOwn: {
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    borderLeftColor: '#ffffff',
+  },
+  replyQuoteName: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.lightTint,
+  },
+  replyQuoteNameOwn: {
+    color: '#ffffff',
+  },
+  replyQuoteText: {
+    fontSize: 12,
+    color: colors.text,
+  },
+  replyQuoteTextOwn: {
+    color: 'rgba(255,255,255,0.85)',
   },
   metaRow: {
     flexDirection: 'row',

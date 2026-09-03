@@ -142,6 +142,7 @@ export interface ActualizarEstadoInvitacionRequest {
   crear_de_todos_modos?: number;
   archivosIds?: number[];
   titulo?: string;
+  reply_to_id?: number | null;
 }
 
 export interface ActualizarEstadoInvitacionResponse {
@@ -166,6 +167,7 @@ export interface UpdateSolicitudRequest {
   crear_de_todos_modos?: number;
   archivosIds?: number[];
   titulo?: string;
+  reply_to_id?: number | null;
 }
 
 export interface UpdateSolicitudResponse {
@@ -224,6 +226,14 @@ export interface BitacoraVisto {
   seen_at: Date;
 }
 
+export interface BitacoraReplyTo {
+  id: number;
+  usuario_id: number | null;
+  usuario_nombre: string;
+  usuario_apellido: string;
+  observacion: string | null;
+}
+
 export interface BitacoraSolicitud {
   id: number | null;
   solicitud_id?: number;
@@ -243,6 +253,8 @@ export interface BitacoraSolicitud {
   estado: EstadoInvitacionDB;
   archivos?: Archivo[];
   seen_by?: BitacoraVisto[];
+  reply_to_id?: number | null;
+  reply_to?: BitacoraReplyTo | null;
 }
 
 export interface BitacoraPage {

@@ -7,19 +7,23 @@ export type SyncDomain =
   | 'licencias'
   | 'documentos';
 
+const BADGES_QUERY_KEY = ['badges', 'prefetch'];
+
 const DOMAIN_QUERY_KEYS: Record<SyncDomain, readonly (readonly unknown[])[]> = {
   solicitudesActividades: [
     ['solicitudes'],
     ['actividades', 'semanales'],
+    BADGES_QUERY_KEY,
   ],
   kanban: [['objetivos']],
-  reportes: [['reportes']],
+  reportes: [['reportes'], BADGES_QUERY_KEY],
   licencias: [
     ['solicitudes-licencias'],
     ['saldos-licencias'],
     ['tipos-licencias'],
+    BADGES_QUERY_KEY,
   ],
-  documentos: [['archivos']],
+  documentos: [['archivos'], BADGES_QUERY_KEY],
 };
 
 // Count-specific query keys invalidated alongside their parent domain keys via DOMAIN_QUERY_KEYS

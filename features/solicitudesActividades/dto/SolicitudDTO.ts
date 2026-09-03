@@ -72,6 +72,14 @@ export interface SolicitudBitacoraVistoDTO {
   seen_at: BackendDate;
 }
 
+export interface SolicitudBitacoraReplyToDTO {
+  id: number;
+  usuario_id: number | null;
+  usuario_nombre: string;
+  usuario_apellido: string;
+  observacion: string | null;
+}
+
 export interface SolicitudBitacoraDTO {
   id?: number;
   solicitud_id?: number;
@@ -87,6 +95,8 @@ export interface SolicitudBitacoraDTO {
   // Participantes que ya vieron esta entrada. Opcional: el mensaje simplemente
   // no muestra la marca de visto si el backend no lo envía.
   seen_by?: SolicitudBitacoraVistoDTO[];
+  reply_to_id?: number | null;
+  reply_to?: SolicitudBitacoraReplyToDTO | null;
 }
 
 export interface SolicitudInvitadoDTO {

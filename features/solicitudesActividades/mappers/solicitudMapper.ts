@@ -101,6 +101,8 @@ export function mapSolicitudBitacoraDTOToBitacora(dto: SolicitudBitacoraDTO): Bi
       apellido: v.apellido,
       seen_at: parseBackendDate(v.seen_at) ?? new Date(0),
     })),
+    reply_to_id: dto.reply_to_id ?? null,
+    reply_to: dto.reply_to ?? null,
   };
 }
 
@@ -162,6 +164,7 @@ export function mapUpdateSolicitudRequestToPayload(
       ? { crear_de_todos_modos: request.crear_de_todos_modos }
       : {}),
     ...(request.titulo !== undefined ? { titulo: request.titulo } : {}),
+    ...(request.reply_to_id !== undefined ? { reply_to_id: request.reply_to_id } : {}),
   };
 }
 

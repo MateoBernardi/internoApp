@@ -76,6 +76,25 @@ function RootNavigator() {
     const eventType = String(payload.event ?? payload.type ?? '').toLowerCase();
     const solicitudId = Number(payload.solicitud_id ?? payload.solicitudId ?? payload.request_id ?? payload.requestId);
     const actividadId = Number(payload.actividad_id ?? payload.actividadId);
+    const domain = String(payload.domain ?? '').toLowerCase();
+
+    if (domain === 'reportes') {
+      const usuarioReportadoId = Number(payload.usuario_reportado_id);
+      if (Number.isFinite(usuarioReportadoId) && usuarioReportadoId > 0) {
+        if (usuarioReportadoId === user?.user_context_id) {
+          router.push('/(extras)/mis-reportes' as any);
+        } else {
+          router.push({
+            pathname: '/(extras)/detalle-empleados' as any,
+            params: {
+              selectedUsers: JSON.stringify([{ id: usuarioReportadoId, nombre: '', apellido: '' }]),
+              source: 'reportes-encargado',
+            },
+          });
+        }
+      }
+      return;
+    }
 
     if (eventType !== 'estado_actualizado' && eventType !== 'status_changed') {
       return;
@@ -98,7 +117,7 @@ function RootNavigator() {
       });
     }
   },
-    [navigateFromNotificationUrl, router]
+    [navigateFromNotificationUrl, router, user?.user_context_id]
   );
   // Obtiene el push token, registra el dispositivo y sincroniza cache de queries por eventos push.
   useRegisterDevice({

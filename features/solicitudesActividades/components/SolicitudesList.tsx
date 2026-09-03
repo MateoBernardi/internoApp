@@ -21,10 +21,6 @@ import { useCancelarSolicitud, useOcultarSolicitudInvitado } from '../viewmodels
 
 const colors = Colors['light'];
 
-const CANCELABLE_HOST_STATES: EstadoInvitacionDB[] = [
-    'SENT', 'SEEN', 'MODIFIED', 'MODIFIED_BY_HOST', 'ACCEPTED_BY_HOST',
-];
-
 function mapEstado(estado: string): string {
     return estadoInvitacionMapping[estado as EstadoInvitacionDB] ?? estado;
 }
@@ -331,7 +327,8 @@ interface SolicitudItemProps {
 function SolicitudItem({ solicitud, currentUserId, onPress, onHide, isHiding, onCancel, isCancelling }: SolicitudItemProps) {
     const estadoUI = useMemo(() => getEstadoRelevante(solicitud), [solicitud]);
     const puedeCancelar = solicitud.is_host
-        && CANCELABLE_HOST_STATES.includes(solicitud.estado as EstadoInvitacionDB);
+        && solicitud.estado === 'SENT'
+        && (!solicitud.fecha_inicio || new Date(solicitud.fecha_inicio) > new Date());
 
     const contextoTexto = useMemo(() => {
         if (solicitud.is_host) {

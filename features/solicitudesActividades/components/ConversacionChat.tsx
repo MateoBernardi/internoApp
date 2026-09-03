@@ -146,6 +146,7 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
   const { previewFile, openFile, openWithUri, closePreview } = useOpenFilePreview();
   const { data: chatArchivos, isLoading: isLoadingArchivos } = useChatArchivos(solicitudId, showArchivosModal);
   const [messageDraft, setMessageDraft] = useState('');
+  const [replyTarget, setReplyTarget] = useState<any>(null);
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [pendingMessages, setPendingMessages] = useState<OptimisticMessage[]>([]);
   const queryClient = useQueryClient();
@@ -171,6 +172,15 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
     handleSelectParticipantes, handleQuitarParticipante, handleToggleUserParticipante,
     handleSelectAllParticipantes, handleDeselectAllParticipantes,
   } = useParticipantesManager({ solicitud, solicitudId, actualizarInvitados });
+
+  const participanteNameById = useMemo(
+    () => new Map(displayParticipantes.map(p => [p.user_id, getParticipanteDisplayName(p)])),
+    [displayParticipantes, getParticipanteDisplayName],
+  );
+  const resolveParticipantName = useCallback(
+    (uid: number) => participanteNameById.get(uid) ?? '',
+    [participanteNameById],
+  );
 
   const { messagesScrollRef, handleMessagesScroll, handleMessagesContentSizeChange, isNearBottomRef } = useMessagesScroll({
     hasNextPage, isFetchingNextPage, fetchNextPage,
@@ -228,6 +238,14 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
     [solicitud.invitados],
   );
 
+  const otherParticipantIdsByAuthor = useMemo(() => {
+    const map = new Map<number, number[]>();
+    todosParticipantesIds.forEach(authorId => {
+      map.set(authorId, todosParticipantesIds.filter(id => id !== authorId));
+    });
+    return map;
+  }, [todosParticipantesIds]);
+
   const todosArchivos = useMemo(() => {
     const archivosBase = chatArchivos ?? [];
     return archivosBase;
@@ -236,6 +254,7 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
   // ─── Flags de estado ──────────────────────────────────────────────────────
 
   const isExpiredState = solicitud.estado === 'EXPIRED';
+  const isFinalState = solicitud.estado === 'ACTIVIDAD_CREADA';
 
   // ─── Mensajes / bitácora ──────────────────────────────────────────────────
 
@@ -267,6 +286,7 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
     const base = (descripcion || (solicitud.fecha_inicio && solicitud.fecha_fin)) && !hasNextPage
       ? [{
         id: 'descripcion',
+        real_id: entradaInicial?.id,
         usuario_id: solicitud.created_by ?? null,
         usuario_nombre: solicitud.nombre_creador ?? '',
         usuario_apellido: solicitud.apellido_creador ?? '',
@@ -275,7 +295,7 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
         estado: 'MESSAGE' as const,
         fecha_inicio_nueva: null,
         fecha_fin_nueva: null,
-        archivos: solicitud.archivos ?? [],
+        archivos: entradaInicial?.archivos ?? solicitud.archivos ?? [],
         seen_by: entradaInicial?.seen_by,
       }, ...bitacoraVisible]
       : bitacoraVisible;
@@ -295,9 +315,9 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
   }, [bitacoraItems, bitacoraVisible, solicitud, isExpiredState, hasNextPage, pendingMessages]);
 
   const canSendMessage = useMemo(() => {
-    if (isExpiredState) return false;
+    if (isFinalState) return false;
     return messageDraft.trim().length > 0 || pickedFiles.length > 0;
-  }, [isExpiredState, messageDraft, pickedFiles]);
+  }, [isFinalState, messageDraft, pickedFiles]);
 
   // ─── Búsqueda dentro del chat ─────────────────────────────────────────────
 
@@ -359,6 +379,7 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
       estado: isHost ? 'MODIFIED_BY_HOST' : 'MODIFIED',
       observacion: trimmed || null,
       ...(archivosIds.length > 0 ? { archivosIds } : {}),
+      reply_to_id: replyTarget?.id ?? null,
     };
     const optimistic: OptimisticMessage = {
       id: tempId,
@@ -379,10 +400,11 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
     setPendingMessages(prev => [...prev, optimistic]);
     setMessageDraft('');
     setPickedFiles([]);
+    setReplyTarget(null);
     setIsSendingMessage(false);
 
     attemptSend(tempId, payload, idempotencyKey);
-  }, [canSendMessage, uploadPickedFiles, messageDraft, pickedFiles, attemptSend, solicitudId, isHost, setPickedFiles, user]);
+  }, [canSendMessage, uploadPickedFiles, messageDraft, pickedFiles, attemptSend, solicitudId, isHost, setPickedFiles, user, replyTarget]);
 
   const handleRetryMessage = useCallback((tempId: string) => {
     const pending = pendingMessages.find(m => m.id === tempId);
@@ -584,11 +606,17 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
                         const isSystem = b.isSystem === true;
                         const estadoKey = b.estado in estadoInvitacionMapping ? b.estado as EstadoInvitacionDB : null;
                         const hideTitle = isDescripcion || isSystem || (
-                          MESSAGE_STATES.includes(b.estado) && b.estado !== 'ACCEPTED' && b.estado !== 'ACCEPTED_BY_HOST'
+                          MESSAGE_STATES.includes(b.estado) && !['ACCEPTED', 'ACCEPTED_BY_HOST', 'REJECTED'].includes(b.estado)
                         );
                         const fechaInicioMsg = b.fecha_inicio_nueva ?? (isDescripcion && !hasAnyFechaPropuesta ? solicitud.fecha_inicio : null);
                         const fechaFinMsg = b.fecha_fin_nueva ?? (isDescripcion && !hasAnyFechaPropuesta ? solicitud.fecha_fin : null);
                         const archivos = Array.isArray(b.archivos) ? b.archivos : [];
+                        const replyTo = b.reply_to ? {
+                          id: String(b.reply_to.id ?? b.reply_to_id),
+                          usuarioNombre: b.reply_to.usuario_nombre,
+                          usuarioApellido: b.reply_to.usuario_apellido,
+                          observacion: b.reply_to.observacion,
+                        } : null;
 
                         const currentDate = new Date(b.created_at);
                         const previousDate = index > 0 ? new Date(mensajes[index - 1].created_at) : null;
@@ -635,13 +663,15 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
                               onOpenArchivo={handleOpenAsPreview}
                               onOpenImage={(archivo, uri) => openWithUri(buildArchivoFileItem({ ...archivo, _resolvedUri: uri }))}
                               seenBy={b.seen_by}
-                              otherParticipantIds={todosParticipantesIds.filter(id => id !== b.usuario_id)}
-                              resolveParticipantName={(uid) => {
-                                const p = displayParticipantes.find(inv => inv.user_id === uid);
-                                return p ? getParticipanteDisplayName(p) : '';
-                              }}
+                              otherParticipantIds={otherParticipantIdsByAuthor.get(b.usuario_id) ?? []}
+                              resolveParticipantName={resolveParticipantName}
                               highlighted={mensajesSearch.isCurrentMatch(String(b.id))}
                               onLayout={(y) => mensajesSearch.registerLayout(String(b.id), y)}
+                              replyTo={replyTo}
+                              onReply={b.__optimistic ? undefined : (isDescripcion
+                                ? (b.real_id ? () => setReplyTarget({ ...b, id: b.real_id }) : undefined)
+                                : () => setReplyTarget(b))}
+                              onReplyPress={replyTo ? () => mensajesSearch.jumpTo(replyTo.id) : undefined}
                             />
                           </React.Fragment>
                         );
@@ -669,8 +699,24 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
                     </View>
                   )}
 
+                  {replyTarget && (
+                    <View style={styles.replyBanner}>
+                      <View style={styles.replyBannerContent}>
+                        <ThemedText style={styles.replyBannerName}>
+                          {replyTarget.usuario_nombre} {replyTarget.usuario_apellido}
+                        </ThemedText>
+                        <ThemedText style={styles.replyBannerText} numberOfLines={1}>
+                          {replyTarget.observacion || '...'}
+                        </ThemedText>
+                      </View>
+                      <TouchableOpacity onPress={() => setReplyTarget(null)} style={styles.replyBannerClose}>
+                        <Ionicons name="close" size={16} color={colors.secondaryText} />
+                      </TouchableOpacity>
+                    </View>
+                  )}
+
                   <View style={[styles.chatComposerRow, composerFocus.isFocused && { borderColor: glassColors.link }]}>
-                    {!isExpiredState && (
+                    {!isFinalState && (
                       <TouchableOpacity style={styles.chatActionButton} onPress={handleAgregarAdjunto}>
                         <Ionicons name="attach" size={20} color={colors.lightTint} />
                       </TouchableOpacity>
@@ -685,10 +731,10 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
                       onFocus={composerFocus.onFocus}
                       onBlur={composerFocus.onBlur}
                       multiline
-                      editable={!isExpiredState}
+                      editable={!isFinalState}
                     />
 
-                    {!isExpiredState && (
+                    {!isFinalState && (
                       <TouchableOpacity
                         style={[styles.chatActionButton, styles.chatActionButtonPrimary, !canSendMessage && styles.messageActionButtonDisabled]}
                         onPress={handleEnviarMensaje}
@@ -749,6 +795,7 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
 
             {/* Modal Participantes (solo grupos, se abre al tocar el nombre del grupo) */}
             <Modal visible={showParticipantesModal} transparent animationType="fade" onRequestClose={() => setShowParticipantesModal(false)}>
+              <ModalKeyboardView style={{ flex: 1 }}>
               <TouchableWithoutFeedback onPress={() => setShowParticipantesModal(false)}>
                 <View style={styles.modalOverlay}>
                   <TouchableWithoutFeedback onPress={e => e.stopPropagation()}>
@@ -789,6 +836,7 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
                   </TouchableWithoutFeedback>
                 </View>
               </TouchableWithoutFeedback>
+              </ModalKeyboardView>
             </Modal>
 
             {/* Modal Selección por Rol (participantes) */}
@@ -1099,6 +1147,35 @@ const localStyles = StyleSheet.create({
   chatComposerAttachmentAction: {
     padding: 4,
   },
+  replyBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    marginHorizontal: 12,
+    marginTop: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.lightTint,
+  },
+  replyBannerContent: {
+    flex: 1,
+    marginRight: 8,
+  },
+  replyBannerName: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.lightTint,
+  },
+  replyBannerText: {
+    fontSize: 13,
+    color: colors.secondaryText,
+  },
+  replyBannerClose: {
+    padding: 4,
+  },
   chatComposerRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1108,7 +1185,7 @@ const localStyles = StyleSheet.create({
     borderColor: 'rgba(17,24,28,0.12)',
     backgroundColor: 'rgba(17,24,28,0.03)',
     paddingHorizontal: 6,
-    paddingVertical: 6,
+    paddingVertical: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,

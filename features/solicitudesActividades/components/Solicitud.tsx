@@ -43,10 +43,12 @@ import { buildArchivoFileItem } from '../conversacion/fileHelpers';
 import { useAdjuntos } from '../conversacion/hooks/useAdjuntos';
 import { useAlertModal } from '../conversacion/hooks/useAlertModal';
 import { useMarcarVisto } from '../conversacion/hooks/useMarcarVisto';
+import { useMessageJump } from '../conversacion/hooks/useMessageJump';
 import { useMessagesScroll } from '../conversacion/hooks/useMessagesScroll';
 import { useParticipantesManager } from '../conversacion/hooks/useParticipantesManager';
 import { conversacionStyles } from '../conversacion/styles';
 import {
+  BitacoraSolicitud,
   EstadoInvitacionDB,
   RangoOcupado,
   SolicitudEnviada,
@@ -147,6 +149,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
   const [rejectObservation, setRejectObservation] = useState('');
   const [messageDraft, setMessageDraft] = useState('');
   const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const [replyTarget, setReplyTarget] = useState<BitacoraSolicitud | null>(null);
   const [isModifyMode, setIsModifyMode] = useState(false);
   const { alertModal, showModal, closeAlert, onModalDismiss } = useAlertModal();
   const {
@@ -199,6 +202,15 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
     handleSelectAllParticipantes, handleDeselectAllParticipantes,
   } = useParticipantesManager({ solicitud, solicitudId, actualizarInvitados });
 
+  const participanteNameById = useMemo(
+    () => new Map(displayParticipantes.map(p => [p.user_id, getParticipanteDisplayName(p)])),
+    [displayParticipantes, getParticipanteDisplayName],
+  );
+  const resolveParticipantName = useCallback(
+    (uid: number) => participanteNameById.get(uid) ?? '',
+    [participanteNameById],
+  );
+
   const { messagesScrollRef, handleMessagesScroll, handleMessagesContentSizeChange, isNearBottomRef } = useMessagesScroll({
     hasNextPage, isFetchingNextPage, fetchNextPage,
   });
@@ -248,6 +260,14 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
     return [...new Set(ids)];
   }, [solicitud.invitados, user]);
 
+  const otherParticipantIdsByAuthor = useMemo(() => {
+    const map = new Map<number, number[]>();
+    todosParticipantesIds.forEach(authorId => {
+      map.set(authorId, todosParticipantesIds.filter(id => id !== authorId));
+    });
+    return map;
+  }, [todosParticipantesIds]);
+
   const todosArchivos = useMemo(() => {
     const archivosBase = solicitud.archivos ?? [];
     const archivosBitacora = (bitacora ?? []).flatMap((b: any) => b.archivos ?? []);
@@ -263,7 +283,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
   const hasDates = !!(solicitud.fecha_inicio && solicitud.fecha_fin);
   const isExpiredState = efectivoEstado === 'EXPIRED';
   const esActividadCreada = efectivoEstado === 'ACTIVIDAD_CREADA';
-  const isFinalState = ['ACTIVIDAD_CREADA', 'EXPIRED', 'ACCEPTED', 'REJECTED'].includes(efectivoEstado);
+  const isFinalState = efectivoEstado === 'ACTIVIDAD_CREADA';
   const isAceptarModificacionesFlow = isHost && efectivoEstado === 'MODIFIED';
   // Ninguna de las dos partes puede aceptar mientras la solicitud está en el
   // estado que su propio último mensaje/propuesta generó: el invitado no
@@ -274,19 +294,25 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
     (!isHost && efectivoEstado === 'MODIFIED') ||
     (isHost && efectivoEstado === 'MODIFIED_BY_HOST');
 
-  // Reglas de creación: por cantidad de participantes (no por tipo).
-  // - 2 participantes (creador + 1 invitado): ambos pueden crear una vez que el invitado acepta.
+  // Reglas de creación:
+  // - 2 participantes (creador + 1 invitado): ambos pueden crear una vez que el invitado
+  //   acepta, salvo que sea REUNION/SOLICITUD con fecha — ahí solo el creador (ver abajo).
   // - Más de 2: solo el creador, habilitado apenas algún invitado aceptó.
   const totalParticipantes = solicitud.invitados.length; // incluye al creador
   const esCreacionElegible = solicitud.tipo_actividad !== 'CHAT' && !esActividadCreada;
   const invitadoUnico = totalParticipantes === 2 ? invitadosSinCreador[0] : undefined;
   const algunInvitadoAceptado = invitadosSinCreador.some(inv => inv.estado === 'ACCEPTED');
 
+  const requiereCreadorParaCrear = solicitud.tipo_actividad !== 'MANDATO' && hasDates;
+
   const puedeCrearActividad = useMemo(() => {
     if (!esCreacionElegible) return false;
-    if (totalParticipantes === 2) return invitadoUnico?.estado === 'ACCEPTED';
+    if (totalParticipantes === 2) {
+      if (invitadoUnico?.estado !== 'ACCEPTED') return false;
+      return requiereCreadorParaCrear ? isHost : true;
+    }
     return isHost && algunInvitadoAceptado;
-  }, [esCreacionElegible, totalParticipantes, invitadoUnico, isHost, algunInvitadoAceptado]);
+  }, [esCreacionElegible, totalParticipantes, invitadoUnico, isHost, algunInvitadoAceptado, requiereCreadorParaCrear]);
 
   const puedeCrearObjetivo = puedeCrearActividad && !hasDates;
 
@@ -338,6 +364,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
     const base = (descripcion || (solicitud.fecha_inicio && solicitud.fecha_fin)) && !hasNextPage
       ? [{
         id: 'descripcion',
+        real_id: entradaInicial?.id,
         usuario_id: solicitud.created_by ?? null,
         usuario_nombre: solicitud.nombre_creador ?? '',
         usuario_apellido: solicitud.apellido_creador ?? '',
@@ -346,7 +373,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
         estado: 'MESSAGE' as const,
         fecha_inicio_nueva: null,
         fecha_fin_nueva: null,
-        archivos: solicitud.archivos ?? [],
+        archivos: entradaInicial?.archivos ?? solicitud.archivos ?? [],
         seen_by: entradaInicial?.seen_by,
       }, ...bitacoraVisible]
       : bitacoraVisible;
@@ -356,7 +383,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
       id: 'system-actividad-creada', usuario_id: null,
       usuario_nombre: 'Sistema', usuario_apellido: '',
       created_at: new Date().toISOString(),
-      observacion: '✅ Actividad creada y agregada a la agenda.',
+      observacion: '✅ Actividad creada.',
       estado: 'SYSTEM', fecha_inicio_nueva: null, fecha_fin_nueva: null,
       archivos: [], isSystem: true,
     });
@@ -371,6 +398,10 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
 
     return [...base, ...sistema];
   }, [bitacora, bitacoraVisible, solicitud, esActividadCreada, isExpiredState, hasNextPage]);
+
+  const { registerLayout, jumpTo } = useMessageJump(mensajes, messagesScrollRef, {
+    hasNextPage, isFetchingNextPage, fetchNextPage,
+  });
 
   // La propuesta de fecha vigente es la del mensaje más reciente que trae
   // fecha_inicio_nueva/fecha_fin_nueva — solo se muestra mientras el estado
@@ -514,6 +545,10 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
             return;
           }
           if (hasDates) {
+            if (requiereCreadorParaCrear) {
+              showModal('Éxito', 'Solicitud aceptada');
+              return;
+            }
             showModal('Solicitud aceptada', '¿Querés crear la actividad ahora?', [
               { key: 'create', label: 'Crear actividad', onPress: openCrearActividadModal },
               { key: 'later', label: 'Ahora no', onPress: () => { } },
@@ -529,7 +564,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
         onError: e => Alert.alert('Error', e instanceof Error ? e.message : 'Intenta nuevamente'),
       },
     );
-  }, [solicitudId, actualizarEstado, acceptObservation, closeAcceptModal, solicitud, totalParticipantes, hasDates, showModal, openCrearActividadModal, openCrearObjetivoModal]);
+  }, [solicitudId, actualizarEstado, acceptObservation, closeAcceptModal, solicitud, totalParticipantes, hasDates, requiereCreadorParaCrear, showModal, openCrearActividadModal, openCrearObjetivoModal]);
 
   const confirmAceptarModificaciones = useCallback(() => {
     actualizarEstado(
@@ -635,13 +670,14 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
         estado: isHost ? 'MODIFIED_BY_HOST' : 'MODIFIED',
         observacion: trimmed || null,
         ...(archivosIds.length > 0 ? { archivosIds } : {}),
+        reply_to_id: replyTarget?.id ?? null,
       },
       {
-        onSuccess: () => { setMessageDraft(''); setPickedFiles([]); setIsSendingMessage(false); },
+        onSuccess: () => { setMessageDraft(''); setPickedFiles([]); setReplyTarget(null); setIsSendingMessage(false); },
         onError: e => { setIsSendingMessage(false); Alert.alert('Error', e instanceof Error ? e.message : 'Intenta nuevamente'); },
       },
     );
-  }, [canSendMessage, canSubmitModificar, isModifyMode, confirmModificar, uploadPickedFiles, messageDraft, actualizarEstado, solicitudId, isHost, setPickedFiles]);
+  }, [canSendMessage, canSubmitModificar, isModifyMode, confirmModificar, uploadPickedFiles, messageDraft, actualizarEstado, solicitudId, isHost, setPickedFiles, replyTarget]);
 
   // ─── Agenda ───────────────────────────────────────────────────────────────
 
@@ -857,11 +893,17 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                         const isSystem = b.isSystem === true;
                         const estadoKey = b.estado in estadoInvitacionMapping ? b.estado as EstadoInvitacionDB : null;
                         const hideTitle = isDescripcion || isSystem || (
-                          MESSAGE_STATES.includes(b.estado) && b.estado !== 'ACCEPTED' && b.estado !== 'ACCEPTED_BY_HOST'
+                          MESSAGE_STATES.includes(b.estado) && !['ACCEPTED', 'ACCEPTED_BY_HOST', 'REJECTED'].includes(b.estado)
                         );
                         const fechaInicioMsg = b.fecha_inicio_nueva ?? (isDescripcion && !hasAnyFechaPropuesta ? solicitud.fecha_inicio : null);
                         const fechaFinMsg = b.fecha_fin_nueva ?? (isDescripcion && !hasAnyFechaPropuesta ? solicitud.fecha_fin : null);
                         const archivos = Array.isArray(b.archivos) ? b.archivos : [];
+                        const replyTo = b.reply_to ? {
+                          id: String(b.reply_to.id ?? b.reply_to_id),
+                          usuarioNombre: b.reply_to.usuario_nombre,
+                          usuarioApellido: b.reply_to.usuario_apellido,
+                          observacion: b.reply_to.observacion,
+                        } : null;
 
                         const currentDate = new Date(b.created_at);
                         const previousDate = index > 0 ? new Date(mensajes[index - 1].created_at) : null;
@@ -904,11 +946,14 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                               onOpenArchivo={handleOpenAsPreview}
                               onOpenImage={(archivo, uri) => openWithUri(buildArchivoFileItem({ ...archivo, _resolvedUri: uri }))}
                               seenBy={b.seen_by}
-                              otherParticipantIds={todosParticipantesIds.filter(id => id !== b.usuario_id)}
-                              resolveParticipantName={(uid) => {
-                                const p = displayParticipantes.find(inv => inv.user_id === uid);
-                                return p ? getParticipanteDisplayName(p) : '';
-                              }}
+                              otherParticipantIds={otherParticipantIdsByAuthor.get(b.usuario_id) ?? []}
+                              resolveParticipantName={resolveParticipantName}
+                              onLayout={(y) => registerLayout(String(b.id), y)}
+                              replyTo={replyTo}
+                              onReply={isDescripcion
+                                ? (b.real_id ? () => setReplyTarget({ ...b, id: b.real_id }) : undefined)
+                                : () => setReplyTarget(b)}
+                              onReplyPress={replyTo ? () => jumpTo(replyTo.id) : undefined}
                             />
                           </React.Fragment>
                         );
@@ -957,6 +1002,22 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                       {modDateErrorMessage && (
                         <ThemedText style={styles.inlineDateError}>{modDateErrorMessage}</ThemedText>
                       )}
+                    </View>
+                  )}
+
+                  {replyTarget && (
+                    <View style={styles.replyBanner}>
+                      <View style={styles.replyBannerContent}>
+                        <ThemedText style={styles.replyBannerName}>
+                          {replyTarget.usuario_nombre} {replyTarget.usuario_apellido}
+                        </ThemedText>
+                        <ThemedText style={styles.replyBannerText} numberOfLines={1}>
+                          {replyTarget.observacion || '...'}
+                        </ThemedText>
+                      </View>
+                      <TouchableOpacity onPress={() => setReplyTarget(null)} style={styles.replyBannerClose}>
+                        <Ionicons name="close" size={16} color={colors.secondaryText} />
+                      </TouchableOpacity>
                     </View>
                   )}
 
@@ -1358,6 +1419,35 @@ function ParticipantesCheckList({ invitados, selectedIds, onToggle, getLabel }: 
 // ─── localStyles ───────────────────────────────────────────────────────────────
 
 const localStyles = StyleSheet.create({
+  replyBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    marginHorizontal: 12,
+    marginTop: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.lightTint,
+  },
+  replyBannerContent: {
+    flex: 1,
+    marginRight: 8,
+  },
+  replyBannerName: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.lightTint,
+  },
+  replyBannerText: {
+    fontSize: 13,
+    color: colors.secondaryText,
+  },
+  replyBannerClose: {
+    padding: 4,
+  },
   // Sin scroll de pantalla completa: participantes/chip/banners quedan en un
   // bloque acotado arriba, y la tarjeta de mensajes ocupa el resto del alto
   // disponible con su propio scroll interno (mismo patrón que ConversacionChat).

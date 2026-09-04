@@ -78,7 +78,7 @@ if (process.env.GOOGLE_IOS_URL_SCHEME) {
 export default ({ config }: ConfigContext): ExpoConfig => ({
   name: "Italo Argentina",
   slug: "internoApp",
-  version: "1.0.5",
+  version: "2.0.0",
   orientation: "portrait",
   icon: "./assets/images/icon-1024.png",
   scheme: "internoapp",

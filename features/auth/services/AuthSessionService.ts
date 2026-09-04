@@ -418,7 +418,7 @@ class AuthSessionService {
 
       this.scheduleRefresh();
       if (!requiresAssociation) {
-        void this.loadUserContext();
+        await this.loadUserContext();
       }
     } catch (error) {
       console.error('Error initializing auth:', error);

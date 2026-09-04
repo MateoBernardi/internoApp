@@ -544,7 +544,7 @@ function EmptyState({ onSelect }: { onSelect: () => void }) {
 // ─── Styles ───────────────────────────────────────────────────────────────────────
 const s = StyleSheet.create({
   fullScreen: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     width: '100%',
     height: '100%',
     backgroundColor: '#ffffff',

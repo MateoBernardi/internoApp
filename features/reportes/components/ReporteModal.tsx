@@ -476,7 +476,7 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 
 const styles = StyleSheet.create({
 	fullScreen: {
-		...StyleSheet.absoluteFillObject,
+		...StyleSheet.absoluteFill,
 		zIndex: 1000,
 		elevation: 8,
 	},

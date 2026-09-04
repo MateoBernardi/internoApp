@@ -318,7 +318,7 @@ export const ConvocarReunionModal: React.FC<ConvocarReunionModalProps> = ({
 
 const localStyles = StyleSheet.create({
   fullScreen: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: colors.componentBackground,
     zIndex: 1000,
     elevation: 8,

@@ -40,7 +40,6 @@ describe('useCreateObjetivo — idempotency invariant', () => {
 
   beforeEach(() => {
     fetchMock = jest.fn();
-    // @ts-expect-error: override global fetch for the test
     global.fetch = fetchMock;
   });
 

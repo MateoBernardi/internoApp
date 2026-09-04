@@ -15,6 +15,7 @@ import {
   View,
 } from 'react-native';
 import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
+import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
 import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { SearchBar } from '@/components/ui/SearchBar';
 import { useAuth } from '@/features/auth/context/AuthContext';
@@ -154,7 +155,7 @@ export function GestionHorarios() {
     if (!editingTurno) return;
     const payload: UpdateHorarioPayload = {
       id: editingTurno.id,
-      turno: editingTurno.turno,
+      turno: TURNO_LABEL[editingTurno.turno],
       horario_in: `${editingTurno.fechaISO}T${editingTurno.ingreso}:00`,
       horario_out: `${editingTurno.fechaISO}T${editingTurno.egreso}:00`,
       sede_id_in: editingTurno.sedeIdIngreso,
@@ -182,7 +183,7 @@ export function GestionHorarios() {
       if (result.canceled || !result.assets?.[0]) return;
       const { uri, name } = result.assets[0];
       uploadShifts(
-        { uri, name: name ?? 'shifts.csv' },
+        { uri, name: name ?? 'shifts.csv', fechaISO: selDateISO },
         {
           onSuccess: (resp) => {
             const omitidosSuffix = resp.totalOmitidos > 0 ? ` · ${resp.totalOmitidos} omitido${resp.totalOmitidos !== 1 ? 's' : ''}` : '';
@@ -198,6 +199,19 @@ export function GestionHorarios() {
     }
   };
 
+  const handleShowCsvHelp = useCallback(() => {
+    Alert.alert(
+      'Formato del CSV',
+      'Columnas: user_context_id, nombre_apellido, turno, horario_in, horario_out, sede_in, sede_out.\n\n' +
+        '• La plantilla ya trae, para cada usuario, el turno de este día (o su turno base si el día todavía no tiene uno propio).\n' +
+        '• Editá solo lo que necesites cambiar; el resto de las filas se puede dejar tal cual.\n' +
+        '• Si un usuario no tiene turno ese día ni turno base, sus columnas vienen vacías: completalas para asignarle un turno, o dejalas vacías para que se lo omita.\n' +
+        '• No modifiques la columna user_context_id: es la que identifica al usuario.\n' +
+        '• horario_in y horario_out van en formato HHmm (ej: 0800, 1630).\n' +
+        '• sede_in y sede_out son el ID numérico de la sede.',
+    );
+  }, []);
+
   const handleDownloadPlantilla = async () => {
     if (isDownloadingPlantilla) return;
     const token = tokens?.accessToken;
@@ -207,10 +221,10 @@ export function GestionHorarios() {
     }
     setIsDownloadingPlantilla(true);
     try {
-      const fileName = 'plantilla_shifts.csv';
+      const fileName = `plantilla_turnos_${selDateISO}.csv`;
 
       if (Platform.OS === 'web') {
-        const blob = await downloadPlantillaShifts(token);
+        const blob = await downloadPlantillaShifts(token, selDateISO);
         const blobUrl = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = blobUrl;
@@ -225,7 +239,7 @@ export function GestionHorarios() {
         await destinationDir.create({ idempotent: true, intermediates: true });
 
         // RN's Blob no implementa .text(); descargamos directo a disco en vez de pasar por blob.
-        await FileSystem.File.downloadFileAsync(getPlantillaShiftsUrl(), destinationFile, {
+        await FileSystem.File.downloadFileAsync(getPlantillaShiftsUrl(selDateISO), destinationFile, {
           idempotent: true,
           headers: {
             Authorization: `Bearer ${token}`,
@@ -293,16 +307,18 @@ export function GestionHorarios() {
         </View>
 
         {showDatePicker && (
-          <DateTimePicker
-            visible={showDatePicker}
-            value={isoToDate(selDateISO)}
-            mode="date"
-            onConfirm={(date) => {
-              setSelDateISO(dateToISO(date));
-              setShowDatePicker(false);
-            }}
-            onCancel={() => setShowDatePicker(false)}
-          />
+          <FullScreenPortal>
+            <DateTimePicker
+              visible={showDatePicker}
+              value={isoToDate(selDateISO)}
+              mode="date"
+              onConfirm={(date) => {
+                setSelDateISO(dateToISO(date));
+                setShowDatePicker(false);
+              }}
+              onCancel={() => setShowDatePicker(false)}
+            />
+          </FullScreenPortal>
         )}
 
         {/* CSV import card */}
@@ -320,6 +336,9 @@ export function GestionHorarios() {
               {isUploading ? 'Subiendo planilla…' : 'Planilla de turnos (.csv)'}
             </Text>
           </View>
+          <TouchableOpacity style={styles.importPlantillaBtn} onPress={handleShowCsvHelp}>
+            <Ionicons name="help-circle-outline" size={20} color={NAVY} />
+          </TouchableOpacity>
           <TouchableOpacity
             style={styles.importPlantillaBtn}
             onPress={handleDownloadPlantilla}

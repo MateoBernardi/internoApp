@@ -16,6 +16,7 @@ import { CreateButton } from '@/components/ui/CreateButton';
 import { GlassTabSelector } from '@/components/ui/GlassTabSelector';
 import { SearchBar } from '@/components/ui/SearchBar';
 import { Colors } from '@/constants/theme';
+import { boxShadow } from '@/shared/ui/boxShadow';
 
 // Componentes de Dominio
 import { ChatsList } from '../components/ChatsList';
@@ -262,9 +263,7 @@ const styles = StyleSheet.create({
     padding: 6,
     alignItems: 'center',
     elevation: 4,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    boxShadow: boxShadow({ width: 0, height: 0 }, 0.1, 4),
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.05)',
   },

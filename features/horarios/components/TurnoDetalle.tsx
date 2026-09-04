@@ -205,7 +205,7 @@ export function TurnoDetalle({ activity, visible, onClose }: TurnoDetalleProps) 
 
 const styles = StyleSheet.create({
   fullScreen: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 1000,
     elevation: 8,
   },

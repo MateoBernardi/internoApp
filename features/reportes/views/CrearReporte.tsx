@@ -298,7 +298,7 @@ export default function CrearReporte(props?: CrearReporteProps) {
 		<View style={[glassStyles.sheet, styles.fullScreen]}>
 			<ModalKeyboardView style={styles.keyboardContainer}>
 				<View style={[glassStyles.sheet, styles.container, { paddingBottom: isKeyboardOpen ? 0 : bottomInset }]}>
-					<View style={[glassStyles.sheetHeader, styles.modalHeader, { paddingTop: insets.top + 10 }]}>
+					<View style={[glassStyles.sheetHeader, styles.modalHeader, { paddingTop: insets.top + 12 }]}>
 						<AppBackButton onPress={handleClose} />
 					</View>
 
@@ -503,7 +503,7 @@ export default function CrearReporte(props?: CrearReporteProps) {
 
 const styles = StyleSheet.create({
 	fullScreen: {
-		...StyleSheet.absoluteFillObject,
+		...StyleSheet.absoluteFill,
 		zIndex: 1000,
 		elevation: 8,
 	},
@@ -515,7 +515,7 @@ const styles = StyleSheet.create({
 		flex: 1,
 	},
 	modalHeader: {
-		paddingHorizontal: 12,
+		paddingHorizontal: 16,
 		paddingVertical: 10,
 		borderBottomWidth: 1,
 		borderBottomColor: 'rgba(17,24,28,0.08)',

@@ -84,7 +84,7 @@ export function DetalleHorasExtraSheet({
       <ModalKeyboardView style={styles.kavWrapper}>
         <View style={[glassStyles.sheet, styles.container, { paddingBottom: bottomInset }]}>
           <View style={styles.boundedTop}>
-            <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
+            <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
               <AppBackButton onPress={onClose} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.title}>{displayEmpleado?.nombre} {displayEmpleado?.apellido}</Text>
@@ -214,7 +214,7 @@ export function DetalleHorasExtraSheet({
 
 const styles = StyleSheet.create({
   fullScreen: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: colors.componentBackground,
     zIndex: 1000,
     elevation: 8,
@@ -387,7 +387,7 @@ const styles = StyleSheet.create({
   },
   boundedTop: {
     flexGrow: 0,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingBottom: 14,
     gap: 14,
   },

@@ -17,6 +17,7 @@ import {
     createEvenLexoRanks,
     getLexoRankBetween,
 } from '../lexoRank';
+import { boxShadow } from '@/shared/ui/boxShadow';
 import { glassStyles } from '@/shared/ui/glass';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -642,7 +643,7 @@ function DropSlot({
         };
     });
 
-    return <Animated.View pointerEvents="none" style={[styles.dropPlaceholder, animatedStyle]} />;
+    return <Animated.View style={[styles.dropPlaceholder, animatedStyle, { pointerEvents: 'none' }]} />;
 }
 
 // ============================================
@@ -662,6 +663,7 @@ interface ColumnProps {
     isDragging?: boolean;
     columnWidth?: number;
     dragCtx: DragContext;
+    columnNativeGesture: NativeGesture;
 }
 
 function KanbanColumn({
@@ -677,6 +679,7 @@ function KanbanColumn({
     isDragging = false,
     columnWidth = COLUMN_WIDTH,
     dragCtx,
+    columnNativeGesture,
 }: ColumnProps) {
     const {
         hoveredEstado,
@@ -686,7 +689,6 @@ function KanbanColumn({
     } = dragCtx;
     const presentation = getColumnPresentation(estado);
     const contentViewportRef = useRef<View>(null);
-    const columnNativeGesture = useMemo(() => Gesture.Native(), []);
 
     const handleLayout = useCallback((e: LayoutChangeEvent) => {
         const { x, width } = e.nativeEvent.layout;
@@ -894,6 +896,20 @@ export function KanbanBoard() {
     const boardScrollRef = useAnimatedRef<any>();
 
     const boardNativeGesture = useMemo(() => Gesture.Native(), []);
+    // `simultaneousWithExternalGesture` sólo registra la relación en el gesto
+    // que la declara (es unidireccional), así que para que el scroll
+    // horizontal del board y el scroll vertical de cada columna convivan de
+    // verdad hace falta declararla en ambos sentidos. Se crean acá (en vez de
+    // dentro de KanbanColumn) para poder mutar boardNativeGesture con la
+    // relación inversa una sola vez.
+    const columnNativeGestures = useMemo(() => {
+        const gestures = {} as Record<VisibleEstado, NativeGesture>;
+        for (const estado of VISIBLE_ESTADOS) {
+            gestures[estado] = Gesture.Native().simultaneousWithExternalGesture(boardNativeGesture);
+        }
+        boardNativeGesture.simultaneousWithExternalGesture(...Object.values(gestures));
+        return gestures;
+    }, [boardNativeGesture]);
 
     const containerOrigin = useSharedValue({ x: 0, y: 0 });
     const activeDragId = useSharedValue<number | null>(null);
@@ -1325,6 +1341,7 @@ export function KanbanBoard() {
                             optimisticObjetivoId={optimisticObjetivoId}
                             isDragging={draggingObjetivo !== null}
                             dragCtx={dragCtx}
+                            columnNativeGesture={columnNativeGestures[estado]}
                             wide
                         />
                     ))}
@@ -1342,6 +1359,10 @@ export function KanbanBoard() {
                         horizontal
                         showsHorizontalScrollIndicator={Platform.OS === 'web'}
                         scrollEnabled={draggingObjetivo === null}
+                        // Ídem columna (ver comentario junto a columnNativeGestures): sin
+                        // esto el scroll horizontal del board gana por default la carrera
+                        // de gestos contra el scroll vertical de la columna.
+                        disallowInterruption={false}
                         scrollEventThrottle={16}
                         onScroll={scrollHandler}
                     >
@@ -1360,6 +1381,7 @@ export function KanbanBoard() {
                                     compact={isCompactHeader}
                                     isDragging={draggingObjetivo !== null}
                                     dragCtx={dragCtx}
+                                    columnNativeGesture={columnNativeGestures[estado]}
                                 />
                             ))}
                         </View>
@@ -1395,7 +1417,7 @@ export function KanbanBoard() {
             )}
 
             {draggingObjetivo && (
-                <Animated.View pointerEvents="none" style={[styles.dragOverlay, overlayStyle]}>
+                <Animated.View style={[styles.dragOverlay, overlayStyle, { pointerEvents: 'none' }]}>
                     <View style={[styles.dragOverlayDot, { backgroundColor: getEstadoColor(draggingObjetivo.estado) }]} />
                     <Text style={styles.dragOverlayText} numberOfLines={1}>
                         {draggingObjetivo.titulo}
@@ -1740,10 +1762,7 @@ const styles = StyleSheet.create({
         borderColor: '#C7D0DA',
         borderRadius: 9,
         overflow: 'hidden',
-        shadowColor: '#101828',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.08,
-        shadowRadius: 6,
+        boxShadow: boxShadow({ width: 0, height: 2 }, 0.08, 6, '#101828'),
     },
     cardWeb: {
         cursor: 'pointer',
@@ -1753,8 +1772,7 @@ const styles = StyleSheet.create({
         marginBottom: 8,
         paddingHorizontal: 10,
         paddingVertical: 10,
-        shadowOpacity: 0,
-        shadowRadius: 0,
+        boxShadow: 'none',
     },
     cardContent: {
         gap: 7,
@@ -1896,7 +1914,7 @@ const styles = StyleSheet.create({
         opacity: 0.7,
     },
     cardLoadingOverlay: {
-        ...StyleSheet.absoluteFillObject,
+        ...StyleSheet.absoluteFill,
         backgroundColor: 'rgba(255, 255, 255, 0.88)',
         borderRadius: 9,
         justifyContent: 'center',
@@ -1918,10 +1936,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#FFFFFF',
         borderWidth: 1,
         borderColor: '#D0D5DD',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.18,
-        shadowRadius: 16,
+        boxShadow: boxShadow({ width: 0, height: 6 }, 0.18, 16),
         zIndex: 50,
     },
     dragOverlayDot: {

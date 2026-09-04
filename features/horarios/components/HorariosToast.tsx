@@ -17,9 +17,8 @@ export function HorariosToast({ message, error = false, opacity }: HorariosToast
         glassStyles.pill,
         styles.toast,
         error && styles.toastError,
-        { opacity },
+        { opacity, pointerEvents: 'none' },
       ]}
-      pointerEvents="none"
     >
       <View style={[styles.dot, error && styles.dotError]} />
       <Text style={styles.text}>{message}</Text>

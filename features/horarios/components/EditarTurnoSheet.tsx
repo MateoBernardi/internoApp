@@ -34,17 +34,23 @@ function SedeSelect({
   value,
   sedes,
   onChange,
+  disabled,
 }: {
   value: number;
   sedes: SedeDTO[];
   onChange: (id: number) => void;
+  disabled?: boolean;
 }) {
   const [open, setOpen] = React.useState(false);
   const selectedName = sedes.find((s) => s.id === value)?.nombre ?? `Sede ${value}`;
 
   return (
     <>
-      <TouchableOpacity style={[glassStyles.fieldGlass, styles.sedeBtn]} onPress={() => setOpen(true)}>
+      <TouchableOpacity
+        style={[glassStyles.fieldGlass, styles.sedeBtn, disabled && styles.fieldDisabled]}
+        onPress={() => setOpen(true)}
+        disabled={disabled}
+      >
         <Text style={styles.sedeBtnText}>{selectedName}</Text>
         <Ionicons name="chevron-down" size={16} color={MUTED} />
       </TouchableOpacity>
@@ -93,6 +99,10 @@ export function EditarTurnoSheet({
   const lastDraftRef = useRef<Turno | null>(null);
   if (draft !== null) lastDraftRef.current = draft;
   const displayDraft = lastDraftRef.current;
+  // Cada lado del turno se bloquea por separado: si el empleado ya salió, el
+  // encargado sigue pudiendo corregir la salida mientras el turno está en curso.
+  const entradaBloqueada = Boolean(displayDraft?.marcadoInAt);
+  const salidaBloqueada = Boolean(displayDraft?.marcadoOutAt);
 
   return (
     <Modal
@@ -120,6 +130,19 @@ export function EditarTurnoSheet({
 
               {displayDraft && (
                 <>
+                  {(entradaBloqueada || salidaBloqueada) && (
+                    <View style={styles.escaneadoBanner}>
+                      <Ionicons name="lock-closed" size={14} color={MUTED} />
+                      <Text style={styles.escaneadoBannerText}>
+                        {entradaBloqueada && salidaBloqueada
+                          ? 'Turno ya escaneado — el horario no se puede modificar'
+                          : entradaBloqueada
+                          ? 'Entrada ya escaneada — el ingreso no se puede modificar'
+                          : 'Salida ya escaneada — el egreso no se puede modificar'}
+                      </Text>
+                    </View>
+                  )}
+
                   <View style={styles.field}>
                     <Text style={styles.fieldLabel}>NOMBRE</Text>
                     <Text style={styles.fieldReadOnly}>{displayDraft.nombre}</Text>
@@ -133,7 +156,7 @@ export function EditarTurnoSheet({
                   <View style={styles.row2}>
                     <View style={[styles.field, { flex: 1 }]}>
                       <Text style={styles.fieldLabel}>INGRESO</Text>
-                      <View style={[glassStyles.fieldGlass, styles.timeInputContainer, focusedField === 'ingreso' && styles.inputFocused]}>
+                      <View style={[glassStyles.fieldGlass, styles.timeInputContainer, focusedField === 'ingreso' && styles.inputFocused, entradaBloqueada && styles.fieldDisabled]}>
                         <TextInput
                           style={[styles.fieldInput, styles.inputNoOutline]}
                           value={displayDraft.ingreso}
@@ -142,6 +165,7 @@ export function EditarTurnoSheet({
                           placeholderTextColor={MUTED}
                           keyboardType="numeric"
                           maxLength={5}
+                          editable={!entradaBloqueada}
                           onFocus={() => setFocusedField('ingreso')}
                           onBlur={() => setFocusedField(null)}
                         />
@@ -149,7 +173,7 @@ export function EditarTurnoSheet({
                     </View>
                     <View style={[styles.field, { flex: 1 }]}>
                       <Text style={styles.fieldLabel}>EGRESO</Text>
-                      <View style={[glassStyles.fieldGlass, styles.timeInputContainer, focusedField === 'egreso' && styles.inputFocused]}>
+                      <View style={[glassStyles.fieldGlass, styles.timeInputContainer, focusedField === 'egreso' && styles.inputFocused, salidaBloqueada && styles.fieldDisabled]}>
                         <TextInput
                           style={[styles.fieldInput, styles.inputNoOutline]}
                           value={displayDraft.egreso}
@@ -158,6 +182,7 @@ export function EditarTurnoSheet({
                           placeholderTextColor={MUTED}
                           keyboardType="numeric"
                           maxLength={5}
+                          editable={!salidaBloqueada}
                           onFocus={() => setFocusedField('egreso')}
                           onBlur={() => setFocusedField(null)}
                         />
@@ -171,6 +196,7 @@ export function EditarTurnoSheet({
                       value={displayDraft.sedeIdIngreso}
                       sedes={sedes}
                       onChange={(id) => onField('sedeIdIngreso', id)}
+                      disabled={entradaBloqueada}
                     />
                   </View>
 
@@ -180,6 +206,7 @@ export function EditarTurnoSheet({
                       value={displayDraft.sedeIdEgreso}
                       sedes={sedes}
                       onChange={(id) => onField('sedeIdEgreso', id)}
+                      disabled={salidaBloqueada}
                     />
                   </View>
 
@@ -409,6 +436,23 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 15,
     fontWeight: '700',
+  },
+  escaneadoBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    backgroundColor: 'rgba(17,24,28,0.04)',
+  },
+  escaneadoBannerText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: MUTED,
+  },
+  fieldDisabled: {
+    opacity: 0.55,
   },
   inputNoOutline: {
     outlineStyle: 'none',

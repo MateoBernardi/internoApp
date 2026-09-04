@@ -6,12 +6,14 @@ import { useSedes } from '@/features/horarios/viewmodels/useHorarios';
 import type { SedeDTO } from '@/features/horarios/models/HorarioDTO';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { secureStorage } from '@/shared/secureStorage';
+import { boxShadow } from '@/shared/ui/boxShadow';
 import { GlassButton } from '@/shared/ui/GlassButton';
 import { glassStyles } from '@/shared/ui/glass';
 import { Redirect } from 'expo-router';
 import QRCode from 'react-native-qrcode-svg';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const colors = Colors['light'];
 
@@ -39,9 +41,10 @@ function isKioskConfig(value: unknown): value is KioskConfig {
 }
 
 export default function KioscoQrScreen() {
-  const { user, tokens } = useAuth();
+  const { user, tokens, signOut } = useAuth();
   const { isKiosk } = useRoleCheck();
   const token = tokens?.accessToken;
+  const insets = useSafeAreaInsets();
 
   const [config, setConfig] = useState<KioskConfig | null | undefined>(undefined); // undefined = todavía no se leyó SecureStore
   const [loadingSecret, setLoadingSecret] = useState(false);
@@ -83,6 +86,10 @@ export default function KioscoQrScreen() {
       setErrorMessage(null);
       try {
         const secret = await getKioskSecret(token, sede.id);
+        if (!secret.qrSecret) {
+          setErrorMessage('La sede no tiene un secreto QR configurado.');
+          return;
+        }
         const nextConfig: KioskConfig = {
           sedeId: sede.id,
           qrSecret: secret.qrSecret,
@@ -143,7 +150,7 @@ export default function KioscoQrScreen() {
 
   if (!config) {
     return (
-      <View style={styles.pickContainer}>
+      <View style={[styles.pickContainer, { paddingTop: insets.top + 24 }]}>
         <Text style={styles.pickTitle}>Elegí la sede de este kiosco</Text>
         <Text style={styles.pickSubtitle}>
           Esta elección queda guardada en el dispositivo; no hace falta repetirla.
@@ -174,12 +181,19 @@ export default function KioscoQrScreen() {
         {loadingSecret && (
           <ActivityIndicator size="small" color={colors.lightTint} style={styles.pickLoading} />
         )}
+
+        <GlassButton
+          label="Cerrar sesión"
+          variant="secondary"
+          onPress={signOut}
+          style={styles.logoutButton}
+        />
       </View>
     );
   }
 
   return (
-    <View style={styles.kioskContainer}>
+    <View style={[styles.kioskContainer, { paddingTop: insets.top + 24 }]}>
       <Text style={styles.sedeLabel}>{sedeNombre}</Text>
       <Text style={styles.kioskHint}>Escaneá este código para registrar tu entrada o salida</Text>
 
@@ -227,6 +241,12 @@ const styles = StyleSheet.create({
   },
   pickLoading: {
     marginTop: 20,
+  },
+  logoutButton: {
+    marginTop: 20,
+    marginBottom: 20,
+    alignSelf: 'center',
+    minWidth: 160,
   },
   errorText: {
     color: colors.error,
@@ -276,10 +296,7 @@ const styles = StyleSheet.create({
     minWidth: 328,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
+    boxShadow: boxShadow({ width: 0, height: 4 }, 0.15, 12),
   },
   changeSedeButton: {
     marginTop: 40,

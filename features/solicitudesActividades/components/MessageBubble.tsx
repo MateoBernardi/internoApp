@@ -100,7 +100,7 @@ function MessageBubbleComponent({
               </ThemedText>
             </TouchableOpacity>
           )}
-          {observacion && (
+          {!!observacion && (
             <View style={conversacionStyles.bitacoraBubble}>
               <ThemedText style={[conversacionStyles.bitacoraText, isOwn && conversacionStyles.bitacoraTextOwn]}>{observacion}</ThemedText>
             </View>
@@ -126,7 +126,7 @@ function MessageBubbleComponent({
               ))}
             </View>
           )}
-          {fechaInicioMsg && fechaFinMsg && (
+          {!!fechaInicioMsg && !!fechaFinMsg && (
             <View style={[localStyles.changeBubble, isOwn && localStyles.changeBubbleOwn]}>
               <ThemedText style={[localStyles.changeText, isOwn && localStyles.changeTextOwn]}>
                 {esPropuesta ? 'Propuso cambio:' : 'Fechas:'}

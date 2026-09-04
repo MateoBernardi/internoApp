@@ -5,7 +5,7 @@ import { parseLocal } from '../models/Turno';
 import { toISO } from '../utils/dateRange';
 import { getMisHorarios } from '../services/horariosService';
 
-/** El card de escaneo aparece 20 min antes del horario esperado (entrada o salida). */
+/** El card de escaneo de entrada aparece 20 min antes del horario esperado. */
 const WINDOW_BEFORE_MS = 20 * 60 * 1000;
 
 export interface TurnoScanActivo {
@@ -49,8 +49,8 @@ function useMisHorariosHoy(fecha: string) {
  * Reglas (ver plan "Rotating/Static QR + Kiosk + Employee Scan UI"):
  *  - Ventana de entrada: abre en `esperado_in - 20min`, cierra cuando se
  *    marca `marcado_in_at`.
- *  - Ventana de salida: abre en `esperado_out - 20min`, cierra cuando se
- *    marca `marcado_out_at`.
+ *  - Ventana de salida: abre apenas se marca `marcado_in_at` (sin esperar a
+ *    estar cerca de `esperado_out`), cierra cuando se marca `marcado_out_at`.
  *  - Si hay más de un turno/ventana activa a la vez, se muestra la de
  *    horario esperado más próximo.
  */
@@ -73,13 +73,18 @@ export function computeTurnoScanActivo(
 
     for (const attempt of attempts) {
       if (!attempt.esperado || attempt.marcado) continue;
+      // La salida no tiene ventana previa: está disponible en cuanto se
+      // marca la entrada, sin esperar a estar cerca de esperado_out.
+      if (attempt.tipo === 'OUT' && !shift.marcado_in_at) continue;
 
       const esperadoDate = parseLocal(attempt.esperado);
       const esperadoMs = esperadoDate.getTime();
       if (Number.isNaN(esperadoMs)) continue;
 
-      const windowOpensAt = esperadoMs - WINDOW_BEFORE_MS;
-      if (now < windowOpensAt) continue;
+      if (attempt.tipo === 'IN') {
+        const windowOpensAt = esperadoMs - WINDOW_BEFORE_MS;
+        if (now < windowOpensAt) continue;
+      }
       if (esperadoMs >= bestEsperadoMs) continue;
 
       bestEsperadoMs = esperadoMs;

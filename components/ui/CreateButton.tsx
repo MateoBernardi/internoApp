@@ -1,3 +1,4 @@
+import { boxShadow } from '@/shared/ui/boxShadow';
 import { glassColors } from '@/shared/ui/glass';
 import { Ionicons } from '@expo/vector-icons';
 import React, { memo } from 'react';
@@ -40,9 +41,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(26,115,232,0.12)',
     borderWidth: 1,
     borderColor: 'rgba(26,115,232,0.35)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
+    boxShadow: boxShadow({ width: 0, height: 4 }, 0.08, 16),
   },
 });

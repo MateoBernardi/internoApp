@@ -20,6 +20,8 @@ export interface HorarioDTO {
   esta_de_licencia?: boolean;
   feriado?: boolean;
   acepted_at?: string | null;
+  marcado_in_at?: string | null;
+  marcado_out_at?: string | null;
 }
 
 export interface SedeDTO {
@@ -27,6 +29,7 @@ export interface SedeDTO {
   nombre: string;
 }
 
+/** Respuesta de `POST /horarios/plantilla-dia` (subida de turnos de un día puntual). */
 export interface UploadShiftsResponse {
   success: boolean;
   message: string;
@@ -34,9 +37,12 @@ export interface UploadShiftsResponse {
   totalOmitidos: number;
 }
 
+/** Valores aceptados por la columna `turno_enum` del backend. */
+export type TurnoEnum = 'Mañana' | 'Tarde' | 'Noche' | 'Rotativo';
+
 export interface UpdateHorarioPayload {
   id: number;            // planificacion_id
-  turno: 'MANANA' | 'TARDE';
+  turno: TurnoEnum;
   horario_in: string;    // "YYYY-MM-DDTHH:MM:00"
   horario_out: string;   // "YYYY-MM-DDTHH:MM:00"
   sede_id_in: number;
@@ -77,7 +83,7 @@ export interface KioskSecretDTO {
 /** Body de `PUT /horarios/scan`. */
 export interface ScanPayload {
   fecha: string;   // "YYYY-MM-DD"
-  turno: 'MANANA' | 'TARDE';
+  turno: TurnoEnum;
   time: string;    // ISO datetime, momento del escaneo
   latitud: number;
   longitud: number;

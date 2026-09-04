@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
     maxWidth: '92%',
   },
   webOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 999,
     justifyContent: 'center',
     alignItems: 'center',

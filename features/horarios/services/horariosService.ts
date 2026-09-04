@@ -1,6 +1,7 @@
 import { apiRequest, throwApiError } from '@/shared/apiRequest';
 import { idempotencyHeaders } from '@/shared/idempotency';
 import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 import type {
   HorarioDTO,
   HorarioUsuarioDTO,
@@ -81,15 +82,26 @@ export async function getFeriadosByRange(
   return res.json();
 }
 
+/** Sube la planilla de turnos de un día puntual (POST /horarios/plantilla-dia?fecha=). */
 export async function uploadShiftsFile(
   token: string,
   fileUri: string,
   fileName: string,
+  fechaISO: string, // "YYYY-MM-DD"
 ): Promise<UploadShiftsResponse> {
   const form = new FormData();
-  form.append('file', { uri: fileUri, name: fileName, type: 'text/csv' } as any);
 
-  const res = await fetch(`${API_BASE_URL}/horarios/upload-shifts`, {
+  if (Platform.OS === 'web') {
+    // En web, FormData.append no acepta un objeto {uri, name, type} como en
+    // React Native: hay que convertir el uri (blob:/data:) a un Blob real.
+    const fileResponse = await fetch(fileUri);
+    const blob = await fileResponse.blob();
+    form.append('file', blob, fileName);
+  } else {
+    form.append('file', { uri: fileUri, name: fileName, type: 'text/csv' } as any);
+  }
+
+  const res = await fetch(`${API_BASE_URL}/horarios/plantilla-dia?fecha=${fechaISO}`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
@@ -105,20 +117,20 @@ export async function uploadShiftsFile(
   return res.json();
 }
 
-/** Descarga la plantilla CSV de referencia (GET /horarios/upload-shifts/template). */
-export async function downloadPlantillaShifts(token: string): Promise<Blob> {
+/** Descarga la plantilla CSV de un día puntual (GET /horarios/plantilla-dia?fecha=). */
+export async function downloadPlantillaShifts(token: string, fechaISO: string): Promise<Blob> {
   const res = await apiRequest({
     method: 'GET',
-    endpoint: '/horarios/upload-shifts/template',
+    endpoint: `/horarios/plantilla-dia?fecha=${fechaISO}`,
     token,
   });
   if (!res.ok) throwApiError(await extractError(res), res);
   return res.blob();
 }
 
-/** URL absoluta de la plantilla, para descargas nativas via FileSystem.File.downloadFileAsync. */
-export function getPlantillaShiftsUrl(): string {
-  return `${API_BASE_URL}/horarios/upload-shifts/template`;
+/** URL absoluta de la plantilla de un día, para descargas nativas via FileSystem.File.downloadFileAsync. */
+export function getPlantillaShiftsUrl(fechaISO: string): string {
+  return `${API_BASE_URL}/horarios/plantilla-dia?fecha=${fechaISO}`;
 }
 
 export async function updateHorario(
@@ -164,8 +176,10 @@ export async function getKioskSecret(token: string, sedeId: number): Promise<Kio
 /**
  * Envía un escaneo de entrada/salida. `idempotencyKey` viaja en
  * `X-Idempotency-Key` para que reintentos de red no dupliquen el marcado.
- * Lanza un Error con el mensaje del backend en respuestas no-2xx (incluido
- * el 409 de token/geofence/dispositivo inválido).
+ * Lanza un Error con el mensaje del backend en respuestas no-2xx. Ojo: un
+ * escaneo rechazado (QR/geofence inválido, turno ya completo) responde 200
+ * con `{ success: false, message }`, no un status de error — el caller debe
+ * revisar `success`, no solo si la promesa resolvió.
  */
 export async function enviarScan(
   token: string,
@@ -179,6 +193,18 @@ export async function enviarScan(
     body: payload,
     headers: idempotencyHeaders(idempotencyKey),
   });
-  if (!res.ok) throwApiError(await extractError(res), res);
+  if (!res.ok) {
+    const errText = await extractError(res);
+    console.error('[enviarScan] scan failed', {
+      status: res.status,
+      statusText: res.statusText,
+      body: errText,
+      idempotencyKey,
+      fecha: payload.fecha,
+      turno: payload.turno,
+      time: payload.time,
+    });
+    throwApiError(errText, res);
+  }
   return res.json();
 }

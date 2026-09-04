@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 /**
  * Portal manual (sin dependencias nuevas) para que las pantallas completas
@@ -23,8 +23,11 @@ let nextPortalId = 0;
 export function FullScreenPortalHost({ children }: { children: React.ReactNode }) {
   const [entries, setEntries] = useState<Record<string, React.ReactNode>>({});
 
+  // Si el nodo es idéntico al ya montado devolvemos el mismo objeto: un `setEntries`
+  // con un objeto nuevo re-renderiza el Host, y eso vuelve a disparar el efecto de
+  // cada <FullScreenPortal> (ver abajo), encadenando renders sin fin.
   const mount = useCallback((id: string, node: React.ReactNode) => {
-    setEntries((prev) => ({ ...prev, [id]: node }));
+    setEntries((prev) => (prev[id] === node ? prev : { ...prev, [id]: node }));
   }, []);
 
   const unmount = useCallback((id: string) => {
@@ -36,8 +39,11 @@ export function FullScreenPortalHost({ children }: { children: React.ReactNode }
     });
   }, []);
 
+  // Memoizado: un value nuevo en cada render re-renderiza a todos los consumidores.
+  const contextValue = useMemo(() => ({ mount, unmount }), [mount, unmount]);
+
   return (
-    <PortalContext.Provider value={{ mount, unmount }}>
+    <PortalContext.Provider value={contextValue}>
       {children}
       {Object.entries(entries).map(([id, node]) => (
         <React.Fragment key={id}>{node}</React.Fragment>
@@ -54,7 +60,7 @@ export function FullScreenPortal({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!ctx) return;
     ctx.mount(idRef.current, children);
-  });
+  }, [ctx, children]);
 
   useEffect(() => {
     return () => ctx?.unmount(idRef.current);

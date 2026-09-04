@@ -74,10 +74,10 @@ export function useUploadShifts() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ uri, name }: { uri: string; name: string }) => {
+    mutationFn: async ({ uri, name, fechaISO }: { uri: string; name: string; fechaISO: string }) => {
       const token = tokens?.accessToken;
       if (!token) throw new Error('No access token');
-      return uploadShiftsFile(token, uri, name);
+      return uploadShiftsFile(token, uri, name, fechaISO);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: horariosQueryKeys.all });

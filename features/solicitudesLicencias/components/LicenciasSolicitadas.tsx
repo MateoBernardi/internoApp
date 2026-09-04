@@ -1,6 +1,7 @@
 import { ThemedText } from '@/components/themed-text';
 import { SearchBar } from '@/components/ui/SearchBar';
 import { Colors } from '@/constants/theme';
+import { boxShadow } from '@/shared/ui/boxShadow';
 import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { useSearchUsers } from '@/shared/users/useUser';
 import { Ionicons } from '@expo/vector-icons'; // Importar iconos
@@ -319,7 +320,7 @@ const styles = StyleSheet.create({
     marginHorizontal: '4%',
     borderRadius: 8,
     elevation: 5,
-    shadowOpacity: 0.1,
+    boxShadow: boxShadow({ width: 0, height: 0 }, 0.1, 0),
     zIndex: 10,
     marginTop: 8,
   },

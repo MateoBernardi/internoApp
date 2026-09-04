@@ -1,6 +1,7 @@
 import { Colors, UI } from '@/constants/theme';
 import { AppBackButton } from '@/shared/ui/AppBackButton';
 import { Stack, useRouter } from 'expo-router';
+import { View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ExtrasLayout() {
@@ -16,22 +17,16 @@ export default function ExtrasLayout() {
         headerShown: true,
         headerTitleAlign: 'center',
         headerShadowVisible: false,
-        headerStyle: {
-          height: UI.header.height,
-        },
         headerTitleStyle: {
           fontSize: UI.fontSize.xxl,
-          lineHeight: UI.lineHeight.title,
           fontWeight: '500',
           color: Colors.light.lightTint,
         },
-        headerLeftContainerStyle: {
-          paddingLeft: UI.header.leftPadding,
-        },
-        headerTitleContainerStyle: {
-          paddingHorizontal: UI.header.horizontalPadding,
-        },
-        headerLeft: () => <AppBackButton onPress={() => router.back()} />,
+        headerLeft: () => (
+          <View style={{ paddingLeft: UI.spacing.lg }}>
+            <AppBackButton onPress={() => router.back()} />
+          </View>
+        ),
       }}
     >
       <Stack.Screen name="agenda-personal" options={{ title: 'Agenda Personal' }} />

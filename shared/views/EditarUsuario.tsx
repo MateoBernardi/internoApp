@@ -11,6 +11,7 @@ import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, Sc
 
 import { KEYBOARD_BEHAVIOR } from '@/shared/ui/keyboard';
 import { glassStyles } from '@/shared/ui/glass';
+import { boxShadow } from '@/shared/ui/boxShadow';
 const colors = Colors['light'];
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -426,9 +427,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     marginTop: 8,
     elevation: 4,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
+    boxShadow: boxShadow({ width: 0, height: 3 }, 0.15, 8),
   },
   buttonText: {
     fontSize: 14,

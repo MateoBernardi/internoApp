@@ -365,7 +365,7 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
             <Text style={[conversacionStyles.modalHeaderTitle, styles.headerTitleCentered]} numberOfLines={1}>
               {solicitud.tipo_nombre ?? 'Solicitud de Licencia'}
             </Text>
-            <View style={styles.headerSpacer} pointerEvents="none" />
+            <View style={[styles.headerSpacer, { pointerEvents: 'none' }]} />
           </View>
             <ScrollView
               style={styles.content}
@@ -624,7 +624,7 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
   );
 } const styles = StyleSheet.create({
   fullScreen: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: colors.componentBackground,
     zIndex: 1000,
     elevation: 8,

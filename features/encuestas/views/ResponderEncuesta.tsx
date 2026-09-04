@@ -311,7 +311,7 @@ export const ResponderEncuesta: React.FC<ResponderEncuestaProps> = ({ encuesta, 
 
   return (
     <View style={styles.container}>
-      <View style={styles.contentWrapper} pointerEvents={isPending ? 'none' : 'auto'}>
+      <View style={[styles.contentWrapper, { pointerEvents: isPending ? 'none' : 'auto' }]}>
         <View style={styles.header}>
           <Text style={styles.headerTitle}>{esHorario ? 'Turnero disponible' : encuesta.titulo}</Text>
           {encuesta.descripcion && <Text style={styles.headerDescripcion}>{encuesta.descripcion}</Text>}

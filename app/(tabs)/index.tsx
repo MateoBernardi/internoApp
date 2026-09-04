@@ -64,7 +64,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   topSection: {
-    paddingBottom: 8,
+    paddingBottom: 20,
   },
   mainSection: {
     flex: 1,

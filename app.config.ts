@@ -6,8 +6,8 @@ import { resolve } from "path";
 // por lo que las variables quedaban undefined y se publicaban bundles sin API_BASE_URL.
 // Los cargamos explícitamente acá. dotenv no pisa variables ya definidas, así que las
 // inyectadas por EAS Build / `--environment` siguen teniendo prioridad.
-loadDotenv({ path: resolve(__dirname, ".env.local") });
-loadDotenv({ path: resolve(__dirname, ".env") });
+loadDotenv({ path: resolve(__dirname, ".env.local"), quiet: true });
+loadDotenv({ path: resolve(__dirname, ".env"), quiet: true });
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -83,7 +83,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   icon: "./assets/images/icon-1024.png",
   scheme: "internoapp",
   userInterfaceStyle: "automatic",
-  newArchEnabled: true,
   ios: {
     ...(process.env.GOOGLE_SERVICES_IOS
       ? { googleServicesFile: process.env.GOOGLE_SERVICES_IOS }
@@ -109,7 +108,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       backgroundImage: "./assets/images/android-icon-background.png",
       monochromeImage: "./assets/images/android-icon-monochrome.png",
     },
-    edgeToEdgeEnabled: true,
   },
   web: {
     output: "static" as const,
@@ -129,10 +127,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     backgroundColor: "#e3e6eb",
     barStyle: "dark-content",
     translucent: false,
-  },
-  androidNavigationBar: {
-    backgroundColor: "#dfe3e8",
-    barStyle: "dark-content",
   },
   plugins,
   experiments: {

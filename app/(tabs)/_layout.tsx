@@ -31,8 +31,8 @@ interface MenuOption {
 }
 
 export default function TabLayout() {
-  const { user, signOut, isLoggingOut, isAuthenticated, requiresAssociation } = useAuth();
-  const { hasRole, isKnownRole, isEmployee, isContableOrSistemas } = useRoleCheck();
+  const { user, signOut, isLoggingOut, isAuthenticated, requiresAssociation, isLoading } = useAuth();
+  const { hasRole, isKnownRole, isEmployee, isContableOrSistemas, isKiosk } = useRoleCheck();
   const router = useRouter();
   const segments = useSegments();
   const insets = useSafeAreaInsets();
@@ -304,7 +304,7 @@ export default function TabLayout() {
       const arrowLeft = Math.min(Math.max(rawArrowLeft, 14), Math.max(menuWidth - 26, 14));
 
       return (
-        <View style={styles.menuLayer} pointerEvents={activeMenu ? 'box-none' : 'none'}>
+        <View style={[styles.menuLayer, { pointerEvents: activeMenu ? 'box-none' : 'none' }]}>
           <Pressable style={styles.dismissArea} onPress={() => setActiveMenu(null)} />
           <Animated.View
             style={[
@@ -364,7 +364,7 @@ export default function TabLayout() {
     const arrowLeft = Math.min(Math.max(rawArrowLeft, 14), Math.max(menuWidth - 26, 14));
 
     return (
-      <View style={styles.menuLayer} pointerEvents={activeMenu ? 'box-none' : 'none'}>
+      <View style={[styles.menuLayer, { pointerEvents: activeMenu ? 'box-none' : 'none' }]}>
         <Pressable style={styles.dismissArea} onPress={() => setActiveMenu(null)} />
         <Animated.View
           style={[
@@ -404,6 +404,22 @@ export default function TabLayout() {
     return <Redirect href="/login" />;
   }
 
+  // El layout raíz ya no puede dejar de renderizar su <Stack> mientras se resuelve la
+  // sesión, así que este grupo se monta antes de tener tokens. Diferir el contenido acá
+  // (sí está permitido en un layout anidado) evita que las pantallas de los tabs lancen
+  // queries sin `accessToken` y queden cacheadas en error.
+  if (isLoading) {
+    return <View style={styles.tabsLoading} />;
+  }
+
+  // Defensa en profundidad: el kiosco nunca debe ver la barra de tabs normal. No
+  // redirigimos desde acá: con `anchor: '(tabs)'` este layout queda montado *debajo*
+  // de /(extras)/kiosco-qr, así que un <Redirect> propio competiría con el del layout
+  // raíz sobre el mismo destino y encadenaría navegaciones en cada render.
+  if (isKiosk()) {
+    return null;
+  }
+
   return (
     <SafeAreaView
       style={{ flex: 1, backgroundColor: colors.background }}
@@ -424,6 +440,12 @@ export default function TabLayout() {
           tabBarActiveTintColor: glassColors.link,
           headerShown: false,
           sceneStyle: isDesktopWeb ? styles.desktopScene : undefined,
+          // Sin esto, el botón por defecto de @react-navigation/bottom-tabs
+          // dispara el ripple nativo de Android (mancha expandiéndose) al tocar una tab.
+          tabBarButton: (props: any) => {
+            const { style, android_ripple, pressOpacity, hoverEffect, pressColor, ...rest } = props;
+            return <Pressable {...rest} style={style} android_ripple={{ color: 'transparent' }} />;
+          },
           tabBarStyle: isDesktopWeb
             ? { display: 'none' }
             : {
@@ -528,6 +550,10 @@ export default function TabLayout() {
 }
 
 const styles = StyleSheet.create({
+  tabsLoading: {
+    flex: 1,
+    backgroundColor: Colors.light.background,
+  },
   menuLayer: {
     position: 'absolute',
     top: 0,
@@ -537,7 +563,7 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   dismissArea: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   // Posición/relleno propios; el fondo/borde/sombra sólidos vienen de
   // glassStyles.modalCard (mismo recipe que el resto de los diálogos).

@@ -637,7 +637,7 @@ const styles = StyleSheet.create({
     // Full screen (converted from Modal)
     // ============================================
     fullScreen: {
-        ...StyleSheet.absoluteFillObject,
+        ...StyleSheet.absoluteFill,
         ...glassStyles.sheet,
         zIndex: 1000,
     },

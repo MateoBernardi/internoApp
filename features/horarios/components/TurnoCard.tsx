@@ -45,6 +45,12 @@ export const TurnoCard = React.memo(function TurnoCard({ turno, sedes, onPress }
               <Text style={styles.aceptadoText}>Aceptado</Text>
             </View>
           )}
+          {!!turno.marcadoInAt && (
+            <View style={styles.aceptadoPill}>
+              <Ionicons name="qr-code" size={11} color={ACEPTADO_COLOR} />
+              <Text style={styles.aceptadoText}>Escaneado</Text>
+            </View>
+          )}
           {turno.feriado && (
             <View style={styles.feriadoPill}>
               <Ionicons name="star" size={11} color={FERIADO_COLOR} />

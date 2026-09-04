@@ -678,7 +678,7 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
 
 const styles = StyleSheet.create({
   fullScreen: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     width: '100%',
     height: '100%',
     backgroundColor: '#ffffff',

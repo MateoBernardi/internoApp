@@ -1,6 +1,6 @@
-import { normalizeTurno, type HorarioDTO } from './HorarioDTO';
+import { normalizeTurno, type HorarioDTO, type TurnoEnum } from './HorarioDTO';
 
-export const TURNO_LABEL: Record<'MANANA' | 'TARDE', string> = {
+export const TURNO_LABEL: Record<'MANANA' | 'TARDE', TurnoEnum> = {
   MANANA: 'Mañana',
   TARDE: 'Tarde',
 };
@@ -26,6 +26,8 @@ export interface Turno {
   feriado: boolean;
   isNew?: boolean;
   aceptedAt?: string | null;
+  marcadoInAt?: string | null;
+  marcadoOutAt?: string | null;
 }
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -54,5 +56,7 @@ export function mapHorarioDTOToTurno(dto: HorarioDTO): Turno {
     licencia: dto.licencia ?? dto.esta_de_licencia ?? false,
     feriado: dto.feriado ?? false,
     aceptedAt: dto.acepted_at ?? null,
+    marcadoInAt: dto.marcado_in_at ?? null,
+    marcadoOutAt: dto.marcado_out_at ?? null,
   };
 }

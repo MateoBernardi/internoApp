@@ -585,7 +585,7 @@ export const styles = StyleSheet.create({
     marginBottom: 4,
   },
   convocarHeader: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: colors.background,

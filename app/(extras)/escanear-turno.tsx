@@ -2,16 +2,20 @@ import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import type { ScanPayload } from '@/features/horarios/models/HorarioDTO';
 import { enviarScan } from '@/features/horarios/services/horariosService';
+import { TURNO_LABEL } from '@/features/horarios/models/Turno';
+import { horariosQueryKeys } from '@/features/horarios/viewmodels/useHorarios';
 import { getDeviceIdentifier } from '@/features/horarios/utils/deviceIdentifier';
 import { generateIdempotencyKey } from '@/shared/idempotency';
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera';
 import { GlassButton } from '@/shared/ui/GlassButton';
 import { glassColors, glassStyles } from '@/shared/ui/glass';
+import { useQueryClient } from '@tanstack/react-query';
 import * as Location from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const colors = Colors['light'];
 
@@ -24,8 +28,16 @@ type ScanState = 'scanning' | 'processing' | 'result' | 'location-denied';
  * cámara en vivo (estados 'scanning'/'processing').
  */
 function ScanHeader({ title, onBack, dark }: { title: string; onBack: () => void; dark?: boolean }) {
+  const insets = useSafeAreaInsets();
   return (
-    <View style={[styles.header, dark && styles.headerDark, dark && styles.headerAbsolute]}>
+    <View
+      style={[
+        styles.header,
+        { paddingTop: insets.top + 12 },
+        dark && styles.headerDark,
+        dark && styles.headerAbsolute,
+      ]}
+    >
       <TouchableOpacity
         style={[styles.backButton, dark && styles.backButtonDark]}
         onPress={onBack}
@@ -43,6 +55,7 @@ function ScanHeader({ title, onBack, dark }: { title: string; onBack: () => void
 export default function EscanearTurnoScreen() {
   const router = useRouter();
   const { tokens } = useAuth();
+  const queryClient = useQueryClient();
   const params = useLocalSearchParams<{ tipo?: string; turno?: string; fecha?: string }>();
 
   const [permission, requestPermission] = useCameraPermissions();
@@ -96,7 +109,7 @@ export default function EscanearTurnoScreen() {
 
         const payload: ScanPayload = {
           fecha,
-          turno,
+          turno: TURNO_LABEL[turno],
           time: new Date().toISOString(),
           latitud: position.coords.latitude,
           longitud: position.coords.longitude,
@@ -106,7 +119,8 @@ export default function EscanearTurnoScreen() {
 
         const idempotencyKey = generateIdempotencyKey();
         const response = await enviarScan(token, payload, idempotencyKey);
-        finish(response.message, false);
+        await queryClient.invalidateQueries({ queryKey: horariosQueryKeys.all });
+        finish(response.message, !response.success);
       } catch (error) {
         finish(
           error instanceof Error ? error.message : 'No se pudo registrar el escaneo. Intentá de nuevo.',
@@ -114,7 +128,7 @@ export default function EscanearTurnoScreen() {
         );
       }
     },
-    [fecha, finish, tokens?.accessToken, turno]
+    [fecha, finish, queryClient, tokens?.accessToken, turno]
   );
 
   const retryLocationPermission = useCallback(async () => {
@@ -208,7 +222,7 @@ export default function EscanearTurnoScreen() {
     <View style={styles.root}>
       <View style={styles.cameraContainer}>
         <CameraView
-          style={StyleSheet.absoluteFillObject}
+          style={StyleSheet.absoluteFill}
           facing="back"
           barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
           onBarcodeScanned={state === 'scanning' ? handleBarcodeScanned : undefined}
@@ -216,7 +230,7 @@ export default function EscanearTurnoScreen() {
 
         <ScanHeader title={screenTitle} onBack={goBack} dark />
 
-        <View style={styles.overlay} pointerEvents="none">
+        <View style={styles.overlay}>
           <View style={styles.frame} />
           <Text style={styles.overlayText}>
             {tipo === 'IN' ? 'Escaneá el QR para registrar tu entrada' : 'Escaneá el QR para registrar tu salida'}
@@ -244,7 +258,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    paddingHorizontal: 13,
+    paddingHorizontal: 16,
     paddingVertical: 13,
     backgroundColor: '#ffffff',
     borderBottomWidth: 1,
@@ -341,9 +355,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#000',
   },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
+    pointerEvents: 'none',
   },
   frame: {
     width: 240,
@@ -361,7 +376,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   processingOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0,0,0,0.55)',
     alignItems: 'center',
     justifyContent: 'center',

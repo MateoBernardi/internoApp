@@ -1,4 +1,5 @@
 import { StyleSheet } from 'react-native';
+import { boxShadow } from './boxShadow';
 
 export const glassColors = {
   text: '#11181C',
@@ -34,10 +35,7 @@ export const glassStyles = StyleSheet.create({
     borderRadius: 16,
     // Sin elevation: en Android, elevation + backgroundColor translúcido fuerza
     // una capa de sombra opaca que se ve como una caja blanca detrás del input.
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
+    boxShadow: boxShadow({ width: 0, height: 4 }, 0.08, 16),
   },
   button: {
     flexDirection: 'row',
@@ -49,10 +47,7 @@ export const glassStyles = StyleSheet.create({
     borderRadius: 18,
     paddingVertical: 14,
     paddingHorizontal: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
+    boxShadow: boxShadow({ width: 0, height: 4 }, 0.08, 16),
   },
   buttonSecondary: {
     flexDirection: 'row',
@@ -85,10 +80,7 @@ export const glassStyles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(17,24,28,0.08)',
     borderRadius: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
+    boxShadow: boxShadow({ width: 0, height: 2 }, 0.06, 8),
   },
   // Dim backdrop behind centered dialogs / bottom sheets.
   modalOverlay: {
@@ -106,10 +98,7 @@ export const glassStyles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(17,24,28,0.08)',
     borderRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 24,
+    boxShadow: boxShadow({ width: 0, height: 8 }, 0.15, 24),
   },
   // FullScreenPortal sheet background. Solid: these are full screens, not
   // cards — glass identity comes from inner chrome (fieldGlass, button).
@@ -131,10 +120,7 @@ export const glassStyles = StyleSheet.create({
     borderRadius: 18,
     paddingVertical: 14,
     paddingHorizontal: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
+    boxShadow: boxShadow({ width: 0, height: 4 }, 0.08, 16),
   },
   // Green-family counterpart of `button`, same opacity recipe.
   buttonSuccess: {
@@ -147,10 +133,7 @@ export const glassStyles = StyleSheet.create({
     borderRadius: 18,
     paddingVertical: 14,
     paddingHorizontal: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
+    boxShadow: boxShadow({ width: 0, height: 4 }, 0.08, 16),
   },
   // Floating "minimized draft" pill.
   pill: {
@@ -163,10 +146,7 @@ export const glassStyles = StyleSheet.create({
     paddingLeft: 10,
     paddingRight: 6,
     paddingVertical: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
+    boxShadow: boxShadow({ width: 0, height: 2 }, 0.08, 6),
   },
   // Neutral field background for inputs/dropdowns/rows.
   fieldGlass: {

@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { UpdateHorarioPayload } from '../models/HorarioDTO';
-import { mapHorarioDTOToTurno, type Turno } from '../models/Turno';
+import { mapHorarioDTOToTurno, TURNO_LABEL, type Turno } from '../models/Turno';
 import type { FeriadosRangeFilter } from '../services/horariosService';
 import { currentWeek, dayName, formatDDMM } from '../utils/dateRange';
 import { useFeriadosByRange, useSedes, useUpdateHorario } from '../viewmodels/useHorarios';
@@ -46,7 +46,7 @@ export function FeriadosList({ filter, onToast }: FeriadosListProps) {
     if (!editingTurno) return;
     const payload: UpdateHorarioPayload = {
       id: editingTurno.id,
-      turno: editingTurno.turno,
+      turno: TURNO_LABEL[editingTurno.turno],
       horario_in: `${editingTurno.fechaISO}T${editingTurno.ingreso}:00`,
       horario_out: `${editingTurno.fechaISO}T${editingTurno.egreso}:00`,
       sede_id_in: editingTurno.sedeIdIngreso,

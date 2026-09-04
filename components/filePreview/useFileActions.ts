@@ -1,5 +1,4 @@
 import * as FileSystem from 'expo-file-system';
-import * as MediaLibrary from 'expo-media-library';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { useCallback, useState } from 'react';
@@ -48,6 +47,7 @@ export function useFileActions(file: FileItem | null) {
     setBusy(true);
     try {
       if (file.kind === 'image' && Platform.OS === 'ios') {
+        const MediaLibrary = await import('expo-media-library');
         const localUri = await ensureLocalUri(file.uri, file.name);
         const { status } = await MediaLibrary.requestPermissionsAsync();
         if (status !== 'granted') {

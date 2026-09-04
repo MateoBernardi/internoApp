@@ -6,6 +6,7 @@ import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { generateIdempotencyKey } from '@/shared/idempotency';
+import { boxShadow } from '@/shared/ui/boxShadow';
 import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
 import { focusBorderStyles, glassColors, glassStyles } from '@/shared/ui/glass';
 import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
@@ -1186,10 +1187,7 @@ const localStyles = StyleSheet.create({
     backgroundColor: 'rgba(17,24,28,0.03)',
     paddingHorizontal: 6,
     paddingVertical: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
+    boxShadow: boxShadow({ width: 0, height: 2 }, 0.08, 4),
   },
   chatComposerInput: {
     flex: 1,

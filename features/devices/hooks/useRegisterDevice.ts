@@ -1,7 +1,7 @@
 import { useAuth } from '@/features/auth/context/AuthContext';
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
-import * as Notifications from 'expo-notifications';
+import { Notifications } from '../services/notificationsCompat';
 import { useRouter } from 'expo-router';
 import { Unsubscribe, onMessage } from 'firebase/messaging';
 import { useEffect, useRef, useState } from 'react';
@@ -49,7 +49,20 @@ export function useRegisterDevice(options: UseRegisterDeviceOptions = {}) {
   const router = useRouter();
   const { enabled = true } = options;
   const { onPushPayload, onNotificationOpen } = options;
+  // Los callbacks suelen venir inline desde el layout raíz, así que cambian de
+  // identidad en cada render. Guardados en refs, los efectos que suscriben listeners
+  // dependen sólo de `enabled` y no se re-suscriben (ni re-procesan la notificación
+  // de arranque) en cada render.
+  const onPushPayloadRef = useRef(onPushPayload);
+  const onNotificationOpenRef = useRef(onNotificationOpen);
+  const handledColdStartResponseRef = useRef(false);
   const { tokens, isAuthenticated } = useAuth();
+
+  useEffect(() => {
+    onPushPayloadRef.current = onPushPayload;
+    onNotificationOpenRef.current = onNotificationOpen;
+  }, [onPushPayload, onNotificationOpen]);
+
   const [expoPushToken, setExpoPushToken] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const isLoadingToken = useRef(false);
@@ -104,7 +117,7 @@ export function useRegisterDevice(options: UseRegisterDeviceOptions = {}) {
       if (!m) return;
 
       const unsubscribe = onMessage(m, (payload) => {
-        onPushPayload?.(payload, 'web-foreground');
+        onPushPayloadRef.current?.(payload, 'web-foreground');
 
         if (Notification.permission !== 'granted') return;
 
@@ -121,7 +134,7 @@ export function useRegisterDevice(options: UseRegisterDeviceOptions = {}) {
           const nextLink = (event.target as Notification | null)?.data?.url || null;
           if (nextLink) {
             router.push(nextLink as any);
-            onNotificationOpen?.(payload);
+            onNotificationOpenRef.current?.(payload);
           }
         };
       });
@@ -133,7 +146,7 @@ export function useRegisterDevice(options: UseRegisterDeviceOptions = {}) {
       if (event.data?.type !== 'PUSH_NOTIFICATION') {
         return;
       }
-      onPushPayload?.(event.data.payload, 'web-service-worker');
+      onPushPayloadRef.current?.(event.data.payload, 'web-service-worker');
     };
 
     let unsubscribe: Unsubscribe | null = null;
@@ -156,11 +169,11 @@ export function useRegisterDevice(options: UseRegisterDeviceOptions = {}) {
         navigator.serviceWorker.removeEventListener('message', handleServiceWorkerMessage);
       }
     };
-  }, [onNotificationOpen, onPushPayload, router, token, enabled]);
+  }, [router, token, enabled]);
 
   // Configurar los canales de notificación para Android
   useEffect(() => {
-    if (!enabled) {
+    if (!enabled || !Notifications) {
       return;
     }
 
@@ -175,26 +188,30 @@ export function useRegisterDevice(options: UseRegisterDeviceOptions = {}) {
   }, [enabled]);
 
   useEffect(() => {
-    if (!enabled || Platform.OS === 'web') {
+    if (!enabled || Platform.OS === 'web' || !Notifications) {
       return;
     }
 
     const onReceived = Notifications.addNotificationReceivedListener((notification) => {
-      onPushPayload?.(notification.request.content.data, 'native');
+      onPushPayloadRef.current?.(notification.request.content.data, 'native');
     });
 
     const onResponse = Notifications.addNotificationResponseReceivedListener((response) => {
       const payload = response.notification.request.content.data;
-      onPushPayload?.(payload, 'native');
-      onNotificationOpen?.(payload);
+      onPushPayloadRef.current?.(payload, 'native');
+      onNotificationOpenRef.current?.(payload);
     });
 
     const response = Notifications.getLastNotificationResponse();
 
-    if (response) {
+    // `clearLastNotificationResponse` puede no existir según la plataforma/versión, así
+    // que el flag propio es lo que garantiza que la notificación que abrió la app se
+    // procese (y navegue) una sola vez.
+    if (response && !handledColdStartResponseRef.current) {
+      handledColdStartResponseRef.current = true;
       const payload = response.notification.request.content.data;
-      onPushPayload?.(payload, 'native');
-      onNotificationOpen?.(payload);
+      onPushPayloadRef.current?.(payload, 'native');
+      onNotificationOpenRef.current?.(payload);
 
       const notificationsModule = Notifications as typeof Notifications & {
         clearLastNotificationResponse?: () => void;
@@ -206,7 +223,7 @@ export function useRegisterDevice(options: UseRegisterDeviceOptions = {}) {
       onReceived.remove();
       onResponse.remove();
     };
-  }, [enabled, onNotificationOpen, onPushPayload]);
+  }, [enabled]);
 
 
   // Request de permisos de notificaciones y obtener el push token (nativo)
@@ -216,6 +233,8 @@ export function useRegisterDevice(options: UseRegisterDeviceOptions = {}) {
     }
 
     if (Platform.OS === 'web') return; // Web se maneja arriba con FCM
+    if (!Notifications) return; // No disponible en Expo Go (SDK 53+)
+    const notifications = Notifications;
 
     let isMounted = true;
 
@@ -229,11 +248,11 @@ export function useRegisterDevice(options: UseRegisterDeviceOptions = {}) {
         }
 
         // Verificar permisos
-        const { status: existingStatus } = await Notifications.getPermissionsAsync();
+        const { status: existingStatus } = await notifications.getPermissionsAsync();
         let finalStatus = existingStatus;
 
         if (existingStatus !== 'granted') {
-          const { status } = await Notifications.requestPermissionsAsync({
+          const { status } = await notifications.requestPermissionsAsync({
             ios: {
               allowAlert: true,
               allowBadge: true,
@@ -265,7 +284,7 @@ export function useRegisterDevice(options: UseRegisterDeviceOptions = {}) {
 
         // Obtener el push token
         const token = (
-          await Notifications.getExpoPushTokenAsync({
+          await notifications.getExpoPushTokenAsync({
             projectId,
           })
         ).data;
@@ -285,7 +304,7 @@ export function useRegisterDevice(options: UseRegisterDeviceOptions = {}) {
     setupPushNotifications();
 
     let tokenSubscription: { remove?: () => void } | null = null;
-    const addPushTokenListener = (Notifications as any).addPushTokenListener;
+    const addPushTokenListener = (notifications as any).addPushTokenListener;
     if (typeof addPushTokenListener === 'function') {
       tokenSubscription = addPushTokenListener((event: { data?: string }) => {
         const nextToken = event?.data;

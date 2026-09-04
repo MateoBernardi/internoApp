@@ -236,7 +236,7 @@ export function CrearActividadModal({
 
 const styles = StyleSheet.create({
   fullScreen: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: colors.componentBackground,
     zIndex: 1000,
     elevation: 8,

@@ -1,5 +1,6 @@
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
+import { boxShadow } from '@/shared/ui/boxShadow';
 import { focusBorderStyles, glassColors } from '@/shared/ui/glass';
 import { useFocusBorder } from '@/shared/ui/useFocusBorder';
 import { UserSummary } from '@/shared/users/User';
@@ -347,10 +348,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     maxHeight: 320,
     elevation: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
+    boxShadow: boxShadow({ width: 0, height: 2 }, 0.15, 4),
     width: '100%',
     overflow: 'hidden',
   },

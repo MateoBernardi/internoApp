@@ -2,6 +2,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
+import { boxShadow } from '@/shared/ui/boxShadow';
 import { glassColors } from '@/shared/ui/glass';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useMemo } from 'react';
@@ -199,10 +200,7 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         borderWidth: 1,
         borderColor: 'rgba(17,24,28,0.08)',
-        shadowColor: '#101828',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.08,
-        shadowRadius: 6,
+        boxShadow: boxShadow({ width: 0, height: 2 }, 0.08, 6, '#101828'),
     },
     avatar: {
         width: 44,

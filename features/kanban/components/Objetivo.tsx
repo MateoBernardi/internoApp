@@ -823,7 +823,7 @@ function getStateColor(estado: string): string {
 
 const styles = StyleSheet.create({
     fullScreen: {
-        ...StyleSheet.absoluteFillObject,
+        ...StyleSheet.absoluteFill,
         ...glassStyles.sheet,
         zIndex: 1000,
     },

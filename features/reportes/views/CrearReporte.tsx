@@ -15,12 +15,13 @@ import { AppBackButton } from '@/shared/ui/AppBackButton';
 import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
 import { GlassButton } from '@/shared/ui/GlassButton';
 import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
-import { useKeyboardVisible } from '@/shared/ui/keyboard';
+import { useKeyboardHeight } from '@/shared/ui/keyboard';
 import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { useIdempotencyKey } from '@/shared/useIdempotencyKey';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSafeBottomInset } from '@/hooks/useSafeBottomInset';
 import { uploadReporteImage } from '../services/reportesApi';
+import { buildImageAssetUpload } from '../utils/imageAsset';
 import { useCreateReporte } from '../viewmodels/useReportes';
 
 let ImagePicker: typeof ImagePickerTypes | null = null;
@@ -51,7 +52,8 @@ export default function CrearReporte(props?: CrearReporteProps) {
 	const router = useRouter();
 	const insets = useSafeAreaInsets();
 	const bottomInset = useSafeBottomInset();
-	const isKeyboardOpen = useKeyboardVisible();
+	const keyboardHeight = useKeyboardHeight();
+	const isKeyboardOpen = keyboardHeight > 0;
 	const params = useLocalSearchParams();
 	const { tokens } = useAuth();
 	const { idempotencyKey, regenerateIdempotencyKey } = useIdempotencyKey();
@@ -130,9 +132,7 @@ export default function CrearReporte(props?: CrearReporteProps) {
 	// ── Imagen handlers ──────────────────────────────────────────────────────────
 
 	const addAsset = useCallback((asset: ImagePickerTypes.ImagePickerAsset) => {
-		const ext = asset.uri.split('.').pop() ?? 'jpg';
-		const name = asset.fileName ?? `imagen_${Date.now()}.${ext}`;
-		const mimeType = asset.mimeType ?? `image/${ext}`;
+		const { name, mimeType } = buildImageAssetUpload(asset);
 		setPendingImages((prev) => [...prev, { uri: asset.uri, name, mimeType, description: '' }]);
 	}, []);
 
@@ -297,12 +297,12 @@ export default function CrearReporte(props?: CrearReporteProps) {
 		<FullScreenPortal>
 		<View style={[glassStyles.sheet, styles.fullScreen]}>
 			<ModalKeyboardView style={styles.keyboardContainer}>
-				<View style={[glassStyles.sheet, styles.container, { paddingBottom: isKeyboardOpen ? 0 : bottomInset }]}>
+				<View style={[glassStyles.sheet, styles.container]}>
 					<View style={[glassStyles.sheetHeader, styles.modalHeader, { paddingTop: insets.top + 12 }]}>
 						<AppBackButton onPress={handleClose} />
 					</View>
 
-						<ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+						<ScrollView style={styles.content} contentContainerStyle={[styles.contentContainer, { paddingBottom: 28 + keyboardHeight }]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 							{/* Usuario reportado */}
 							<View style={[glassStyles.fieldGlass, styles.inputSection, focusedField === 'usuario' && styles.inputFocused]}>
 								<TextInput
@@ -689,10 +689,10 @@ const styles = StyleSheet.create({
 		borderTopWidth: StyleSheet.hairlineWidth,
 		borderTopColor: 'rgba(17,24,28,0.08)',
 		paddingHorizontal: '4%',
-		paddingTop: 10,
-		paddingBottom: 10,
+		paddingTop: 14,
 	},
 	uploadButton: {
 		alignSelf: 'stretch',
+		paddingVertical: 16,
 	},
 });

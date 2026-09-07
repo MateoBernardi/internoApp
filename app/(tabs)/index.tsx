@@ -10,7 +10,7 @@ import TablonNovedades from '@/features/novedades/views/TablonNovedades';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { useQueryClient } from '@tanstack/react-query';
 import React, { useCallback, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
 const colors = Colors['light'];
 
@@ -42,12 +42,23 @@ export default function HomeScreen() {
         <ScreenSkeleton rows={6} />
       ) : (
         <>
-          {/* Sección superior: novedades y encuestas */}
-          <View style={styles.topSection}>
+          {/* Sección superior: novedades y encuestas (con pull-to-refresh) */}
+          <ScrollView
+            style={styles.topSection}
+            contentContainerStyle={styles.topSectionContent}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={handleRefresh}
+                colors={[colors.tint]}
+                tintColor={colors.tint}
+              />
+            }
+          >
             <TablonNovedades enabled={isUserContextReady} />
             <TurnoScanCard />
             {puedeResponderEncuestas && <EncuestasPendientes enabled={shouldEnableHomeQueries} />}
-          </View>
+          </ScrollView>
 
           {/* Sección principal: solicitudes o kanban (fuera del ScrollView para que el FAB flote) */}
           <View style={styles.mainSection}>
@@ -64,6 +75,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   topSection: {
+    flexGrow: 0,
+  },
+  topSectionContent: {
     paddingBottom: 20,
   },
   mainSection: {

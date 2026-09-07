@@ -348,7 +348,7 @@ export function CrearDocumento({ visible, onClose, initialFiles, initialFolderId
     <FullScreenPortal>
       <View style={s.fullScreen}>
         <ModalKeyboardView style={s.keyboardContainer}>
-          <View style={[s.container, { paddingBottom: bottomInset }]}>
+          <View style={s.container}>
             {/* Header */}
             <View style={[s.header, { paddingTop: insets.top + 10 }]}>
               <TouchableOpacity
@@ -389,7 +389,7 @@ export function CrearDocumento({ visible, onClose, initialFiles, initialFolderId
 
             {/* Footer */}
             {files.length > 0 && (
-              <View style={[s.footer, { paddingBottom: (insets.bottom || 0) + 14 }]}>
+              <View style={[s.footer, { paddingBottom: bottomInset }]}>
                 {uploading && (
                   <View style={[s.footerBtn, s.footerBtnUploading]}>
                     <ActivityIndicator size="small" color={glassColors.text} style={{ marginRight: 10 }} />

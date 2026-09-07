@@ -1,6 +1,7 @@
 /**
  * Componente Kanban avanzado con modales para crear, editar y ver detalles
- * Incluye gestión completa: crear, mover arrastrando o con observación, ver bitácora y eliminar
+ * Incluye gestión completa: crear, mover con observación (o con los botones
+ * de orden/mover), ver bitácora y eliminar.
 */
 
 import { CreateButton } from '@/components/ui/CreateButton';
@@ -8,6 +9,7 @@ import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { Breakpoints, Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
+import { useSafeBottomInset } from '@/hooks/useSafeBottomInset';
 import {
     formatObjectiveDate,
     getObjectiveAssignee,
@@ -20,33 +22,18 @@ import {
 import { boxShadow } from '@/shared/ui/boxShadow';
 import { glassStyles } from '@/shared/ui/glass';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
-    LayoutChangeEvent,
     Platform,
+    ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
     useWindowDimensions,
     View
 } from 'react-native';
-import * as Haptics from 'expo-haptics';
-import { Gesture, GestureDetector, ScrollView as GHScrollView, type NativeGesture } from 'react-native-gesture-handler';
-import Animated, {
-    scrollTo,
-    useAnimatedRef,
-    useAnimatedScrollHandler,
-    useAnimatedStyle,
-    useFrameCallback,
-    useSharedValue,
-    runOnJS,
-    withSpring,
-    withTiming,
-    type AnimatedRef,
-    type SharedValue,
-} from 'react-native-reanimated';
 import { FormObjetivoModal } from '../components/CrearObjetivo';
 import { MoveModal } from '../components/MoverObjetivo';
 import { DetailModal } from '../components/Objetivo';
@@ -57,8 +44,6 @@ import {
     useUpdateObjetivo
 } from '../hooks/useObjetivos';
 import { ESTADOS, type CreateObjetivo, type Objetivo } from '../models/Objetivo';
-
-const AnimatedGHScrollView = Animated.createAnimatedComponent(GHScrollView);
 
 const DEFAULT_OBJETIVO_ESTADO = 'PENDIENTE' as const;
 
@@ -79,7 +64,7 @@ const DEFAULT_MOVE_DRAFT: MoveDraft = {
 };
 
 // ============================================
-// Layout de tablero (usado para el auto-scroll móvil)
+// Layout de tablero
 // ============================================
 
 const VISIBLE_ESTADOS = ESTADOS;
@@ -88,18 +73,6 @@ type VisibleEstado = typeof VISIBLE_ESTADOS[number];
 const COLUMN_WIDTH = 296;
 const COLUMN_GAP = 12;
 const BOARD_PADDING = 12;
-const BOARD_CONTENT_WIDTH =
-    VISIBLE_ESTADOS.length * COLUMN_WIDTH +
-    (VISIBLE_ESTADOS.length - 1) * COLUMN_GAP +
-    BOARD_PADDING * 2;
-// Al arrastrar una card en mobile, si el dedo cruza más del 50% del ancho
-// de columna por fuera de la columna "ancla" actual, saltamos automáticamente
-// a la columna adyacente (en vez de auto-scroll continuo por proximidad al borde).
-const COLUMN_SCROLL_OVERLAP_RATIO = 0.5;
-const COLUMN_SCROLL_DURATION_MS = 380;
-const DRAG_OVERLAY_WIDTH = 220;
-const LONG_PRESS_MS = 220;
-const DRAG_END_LINGER_MS = 160;
 
 interface ColumnPresentation {
     icon: React.ComponentProps<typeof Ionicons>['name'];
@@ -175,111 +148,6 @@ function getRankAtEnd(
     );
 }
 
-
-function triggerDragHaptic() {
-    if (Platform.OS !== 'web') {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-    }
-}
-
-interface ViewportRect {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-}
-
-interface ColumnRect {
-    x: number;
-    width: number;
-}
-
-interface CardRect {
-    id: number;
-    y: number;
-    height: number;
-}
-
-interface ColumnViewport {
-    y: number;
-    height: number;
-}
-
-// Compara la posición absoluta del dedo contra los rects (relativos al
-// contenido, no a la pantalla) de cada columna, ajustando por el scroll
-// horizontal actual. Corre enteramente en el hilo de UI.
-function hitTestColumnWorklet(
-    absoluteX: number,
-    absoluteY: number,
-    viewport: ViewportRect,
-    scrollOffsetX: number,
-    rects: Record<string, ColumnRect>
-): string | null {
-    'worklet';
-    if (absoluteY < viewport.y || absoluteY > viewport.y + viewport.height) {
-        return null;
-    }
-    const localX = absoluteX - viewport.x + scrollOffsetX;
-    for (const estado of VISIBLE_ESTADOS) {
-        const rect = rects[estado];
-        if (rect && localX >= rect.x && localX <= rect.x + rect.width) {
-            return estado;
-        }
-    }
-    return null;
-}
-
-function getDropIndexWorklet(
-    absoluteY: number,
-    estado: string,
-    activeObjetivoId: number,
-    viewports: Record<string, ColumnViewport>,
-    scrollOffsets: Record<string, number>,
-    cardRects: Record<string, CardRect[]>
-): number {
-    'worklet';
-    const viewport = viewports[estado];
-    const cards = cardRects[estado] ?? [];
-    if (!viewport) return cards.length;
-
-    const localY = absoluteY - viewport.y + (scrollOffsets[estado] ?? 0);
-    let visibleIndex = 0;
-
-    for (const card of cards) {
-        if (card.id === activeObjetivoId) continue;
-        if (localY < card.y + card.height / 2) return visibleIndex;
-        visibleIndex += 1;
-    }
-
-    return visibleIndex;
-}
-
-
-interface DragContext {
-    boardNativeGesture: NativeGesture;
-    activeDragId: SharedValue<number | null>;
-    activeDragEstado: SharedValue<string | null>;
-    hoveredEstado: SharedValue<string | null>;
-    hoveredIndex: SharedValue<number | null>;
-    touchX: SharedValue<number>;
-    touchY: SharedValue<number>;
-    isDraggingSV: SharedValue<boolean>;
-    scrollAnchorEstado: SharedValue<string | null>;
-    isAutoScrollingSV: SharedValue<boolean>;
-    scrollCooldown: SharedValue<number>;
-    boardScrollRef: AnimatedRef<any>;
-    boardContentWidthSV: SharedValue<number>;
-    boardViewportOrigin: SharedValue<ViewportRect>;
-    scrollOffsetX: SharedValue<number>;
-    columnLocalRects: SharedValue<Record<string, ColumnRect>>;
-    columnViewports: SharedValue<Record<string, ColumnViewport>>;
-    columnScrollOffsets: SharedValue<Record<string, number>>;
-    columnCardRects: SharedValue<Record<string, CardRect[]>>;
-    isDesktopWideSV: SharedValue<boolean>;
-    onDragStateChange: (objetivo: Objetivo | null) => void;
-    onDragCommit: (objetivoId: number, nuevoEstado: string, targetIndex: number) => void;
-}
-
 // ============================================
 // Componente Item
 // ============================================
@@ -293,8 +161,6 @@ interface ObjetivoItemProps {
     canMoveDown: boolean;
     isOptimisticLoading?: boolean;
     compact?: boolean;
-    dragCtx: DragContext;
-    columnNativeGesture: NativeGesture;
 }
 
 function ObjetivoItem({
@@ -306,220 +172,18 @@ function ObjetivoItem({
     canMoveDown,
     isOptimisticLoading,
     compact = false,
-    dragCtx,
-    columnNativeGesture,
 }: ObjetivoItemProps) {
-    const {
-        boardNativeGesture,
-        activeDragId,
-        activeDragEstado,
-        hoveredEstado,
-        hoveredIndex,
-        touchX,
-        touchY,
-        isDraggingSV,
-        scrollAnchorEstado,
-        isAutoScrollingSV,
-        scrollCooldown,
-        boardScrollRef,
-        boardContentWidthSV,
-        boardViewportOrigin,
-        scrollOffsetX,
-        columnLocalRects,
-        columnViewports,
-        columnScrollOffsets,
-        columnCardRects,
-        isDesktopWideSV,
-        onDragStateChange,
-        onDragCommit,
-    } = dragCtx;
-
-    const handleCardLayout = useCallback((event: LayoutChangeEvent) => {
-        const { y, height } = event.nativeEvent.layout;
-        const currentColumn = columnCardRects.value[objetivo.estado] ?? [];
-        const nextColumn = [
-            ...currentColumn.filter((card) => card.id !== objetivo.id),
-            { id: objetivo.id, y, height },
-        ].sort((left, right) => left.y - right.y);
-
-        columnCardRects.value = {
-            ...columnCardRects.value,
-            [objetivo.estado]: nextColumn,
-        };
-    }, [columnCardRects, objetivo.estado, objetivo.id]);
-
-    // Un único Pan con activación diferida evita la carrera entre LongPress,
-    // Pan manual y los ScrollView anidados en móvil.
-    const dragGesture = Gesture.Pan()
-        .enabled(!isOptimisticLoading)
-        .activateAfterLongPress(LONG_PRESS_MS)
-        .shouldCancelWhenOutside(false)
-        .simultaneousWithExternalGesture(boardNativeGesture, columnNativeGesture)
-        .onStart((e) => {
-            touchX.value = e.absoluteX;
-            touchY.value = e.absoluteY;
-            activeDragId.value = objetivo.id;
-            activeDragEstado.value = objetivo.estado;
-            hoveredEstado.value = objetivo.estado;
-            hoveredIndex.value = getDropIndexWorklet(
-                e.absoluteY,
-                objetivo.estado,
-                objetivo.id,
-                columnViewports.value,
-                columnScrollOffsets.value,
-                columnCardRects.value
-            );
-            isDraggingSV.value = true;
-            scrollAnchorEstado.value = objetivo.estado;
-            isAutoScrollingSV.value = false;
-            runOnJS(onDragStateChange)(objetivo);
-            runOnJS(triggerDragHaptic)();
-        })
-        .onUpdate((e) => {
-            touchX.value = e.absoluteX;
-            touchY.value = e.absoluteY;
-            const targetEstado = hitTestColumnWorklet(
-                e.absoluteX,
-                e.absoluteY,
-                boardViewportOrigin.value,
-                scrollOffsetX.value,
-                columnLocalRects.value
-            );
-            hoveredEstado.value = targetEstado;
-            hoveredIndex.value = targetEstado
-                ? getDropIndexWorklet(
-                    e.absoluteY,
-                    targetEstado,
-                    objetivo.id,
-                    columnViewports.value,
-                    columnScrollOffsets.value,
-                    columnCardRects.value
-                )
-                : null;
-
-            // En mobile: si el dedo se corre más del 50% del ancho de la
-            // columna "ancla" por fuera de ella, saltamos automáticamente a
-            // la columna adyacente para que el scroll horizontal siga a la card.
-            if (!isDesktopWideSV.value && !isAutoScrollingSV.value) {
-                const anchor = scrollAnchorEstado.value;
-                const anchorRect = anchor ? columnLocalRects.value[anchor] : null;
-                if (anchorRect) {
-                    const anchorScreenLeft =
-                        boardViewportOrigin.value.x + (anchorRect.x - scrollOffsetX.value);
-                    const anchorScreenRight = anchorScreenLeft + anchorRect.width;
-                    const threshold = anchorRect.width * COLUMN_SCROLL_OVERLAP_RATIO;
-                    const currentIndex = VISIBLE_ESTADOS.indexOf(anchor as VisibleEstado);
-
-                    let nextAnchor: VisibleEstado | null = null;
-                    if (
-                        e.absoluteX - anchorScreenRight > threshold &&
-                        currentIndex < VISIBLE_ESTADOS.length - 1
-                    ) {
-                        nextAnchor = VISIBLE_ESTADOS[currentIndex + 1];
-                    } else if (anchorScreenLeft - e.absoluteX > threshold && currentIndex > 0) {
-                        nextAnchor = VISIBLE_ESTADOS[currentIndex - 1];
-                    }
-
-                    if (nextAnchor) {
-                        const targetRect = columnLocalRects.value[nextAnchor];
-                        if (targetRect) {
-                            isAutoScrollingSV.value = true;
-                            scrollAnchorEstado.value = nextAnchor;
-                            const maxOffset = Math.max(
-                                0,
-                                boardContentWidthSV.value - boardViewportOrigin.value.width
-                            );
-                            const targetX = Math.min(
-                                Math.max(targetRect.x - BOARD_PADDING, 0),
-                                maxOffset
-                            );
-                            scrollTo(boardScrollRef, targetX, 0, true);
-                            scrollCooldown.value = withTiming(
-                                1,
-                                { duration: COLUMN_SCROLL_DURATION_MS },
-                                (finished) => {
-                                    if (finished) {
-                                        isAutoScrollingSV.value = false;
-                                    }
-                                }
-                            );
-                        }
-                    }
-                }
-            }
-        })
-        .onEnd(() => {
-            const target = hoveredEstado.value;
-            const targetPosition = hoveredIndex.value;
-            if (target && targetPosition !== null) {
-                runOnJS(onDragCommit)(objetivo.id, target, targetPosition);
-            }
-        })
-        .onFinalize(() => {
-            activeDragId.value = null;
-            activeDragEstado.value = null;
-            hoveredEstado.value = null;
-            hoveredIndex.value = null;
-            isDraggingSV.value = false;
-            scrollAnchorEstado.value = null;
-            isAutoScrollingSV.value = false;
-            runOnJS(onDragStateChange)(null);
-        });
-
-    const pressed = useSharedValue(0);
-
-    const tapGesture = Gesture.Tap()
-        .enabled(!isOptimisticLoading)
-        .maxDuration(LONG_PRESS_MS - 40)
-        .onBegin(() => {
-            pressed.value = withTiming(1, { duration: 80 });
-        })
-        .onFinalize(() => {
-            pressed.value = withTiming(0, { duration: 120 });
-        })
-        .onEnd((_e, success) => {
-            if (success) {
-                runOnJS(onPress)(objetivo);
-            }
-        });
-
-    const composedGesture = Gesture.Race(dragGesture, tapGesture);
-
-    // Feedback de presión (desktop/web y touch): la tarjeta se achica levemente
-    // al presionar y vuelve a su tamaño al soltar.
-    const pressAnimatedStyle = useAnimatedStyle(() => ({
-        transform: [{ scale: 1 - pressed.value * 0.03 }],
-    }));
-
-    // Mientras se arrastra, la tarjeta se convierte en un placeholder vacío
-    // (borde punteado, contenido invisible) — el overlay flotante muestra el título real.
-    const placeholderStyle = useAnimatedStyle(() => {
-        const dragging = activeDragId.value === objetivo.id;
-        return {
-            borderStyle: dragging ? 'dashed' : 'solid',
-            borderColor: dragging ? 'rgba(17,24,28,0.25)' : '#C7D0DA',
-            backgroundColor: dragging ? 'rgba(17,24,28,0.04)' : '#FFFFFF',
-        };
-    });
-
-    const contentStyle = useAnimatedStyle(() => ({
-        opacity: withTiming(activeDragId.value === objetivo.id ? 0 : 1, { duration: 120 }),
-    }));
-
     const assignee = getObjectiveAssignee(objetivo);
     const displayedDate = formatObjectiveDate(objetivo.updated_at || objetivo.created_at);
     const isPriority = objetivo.estado === 'PRIORIDAD';
 
     return (
-        <Animated.View
-            onLayout={handleCardLayout}
+        <View
             style={[
                 styles.card,
                 Platform.OS === 'web' && styles.cardWeb,
                 compact && styles.cardCompact,
                 isOptimisticLoading && styles.cardOptimistic,
-                placeholderStyle,
-                pressAnimatedStyle,
             ]}
         >
             {isOptimisticLoading && (
@@ -529,56 +193,54 @@ function ObjetivoItem({
                 </View>
             )}
 
-            <GestureDetector gesture={composedGesture}>
-                <Animated.View
-                    style={[styles.cardContent, compact && styles.cardContentCompact, contentStyle]}
-                    accessible
-                    accessibilityRole="button"
-                    accessibilityLabel={'Abrir objetivo ' + objetivo.titulo}
-                >
-                    <View style={styles.cardHeader}>
-                        <Text style={styles.cardTitle} numberOfLines={2}>
-                            {objetivo.titulo}
+            <TouchableOpacity
+                style={[styles.cardContent, compact && styles.cardContentCompact]}
+                activeOpacity={0.7}
+                disabled={isOptimisticLoading}
+                onPress={() => onPress(objetivo)}
+                accessibilityRole="button"
+                accessibilityLabel={'Abrir objetivo ' + objetivo.titulo}
+            >
+                <View style={styles.cardHeader}>
+                    <Text style={styles.cardTitle} numberOfLines={2}>
+                        {objetivo.titulo}
+                    </Text>
+                    {!objetivo.seen && <View style={styles.unseenDot} />}
+                </View>
+
+                {Boolean(objetivo.descripcion) && (
+                    <Text style={styles.cardDescription} numberOfLines={compact ? 1 : 2}>
+                        {objetivo.descripcion}
+                    </Text>
+                )}
+
+                <View style={styles.cardFooter}>
+                    <View style={styles.cardDate}>
+                        <Ionicons name="calendar-outline" size={14} color="#667085" />
+                        <Text style={styles.cardDateText} numberOfLines={1}>
+                            {displayedDate}
                         </Text>
-                        {!objetivo.seen && <View style={styles.unseenDot} />}
                     </View>
 
-                    {Boolean(objetivo.descripcion) && (
-                        <Text style={styles.cardDescription} numberOfLines={compact ? 1 : 2}>
-                            {objetivo.descripcion}
-                        </Text>
+                    {isPriority && (
+                        <View style={styles.priorityBadge}>
+                            <Ionicons name="flag" size={12} color="#C62828" />
+                            <Text style={styles.priorityBadgeText}>Prioritario</Text>
+                        </View>
                     )}
 
-                    <View style={styles.cardFooter}>
-                        <View style={styles.cardDate}>
-                            <Ionicons name="calendar-outline" size={14} color="#667085" />
-                            <Text style={styles.cardDateText} numberOfLines={1}>
-                                {displayedDate}
-                            </Text>
+                    <View style={styles.assignee}>
+                        <View style={styles.assigneeAvatar}>
+                            <Text style={styles.assigneeAvatarText}>{assignee.initials}</Text>
                         </View>
-
-                        {isPriority && (
-                            <View style={styles.priorityBadge}>
-                                <Ionicons name="flag" size={12} color="#C62828" />
-                                <Text style={styles.priorityBadgeText}>Prioritario</Text>
-                            </View>
-                        )}
-
-                        <View style={styles.assignee}>
-                            <View style={styles.assigneeAvatar}>
-                                <Text style={styles.assigneeAvatarText}>{assignee.initials}</Text>
-                            </View>
-                            <Text style={styles.assigneeName} numberOfLines={1}>
-                                {assignee.name}
-                            </Text>
-                        </View>
+                        <Text style={styles.assigneeName} numberOfLines={1}>
+                            {assignee.name}
+                        </Text>
                     </View>
-                </Animated.View>
-            </GestureDetector>
+                </View>
+            </TouchableOpacity>
 
-            <Animated.View
-                style={[styles.cardActions, compact && styles.cardActionsCompact, contentStyle]}
-            >
+            <View style={[styles.cardActions, compact && styles.cardActionsCompact]}>
                 <TouchableOpacity
                     style={styles.moveButton}
                     onPress={() => onMove(objetivo)}
@@ -613,37 +275,9 @@ function ObjetivoItem({
                         <Ionicons name="chevron-down" size={16} color="#344054" />
                     </TouchableOpacity>
                 </View>
-            </Animated.View>
-        </Animated.View>
+            </View>
+        </View>
     );
-}
-
-function DropSlot({
-    estado,
-    index,
-    compact,
-    dragCtx,
-}: {
-    estado: VisibleEstado;
-    index: number;
-    compact?: boolean;
-    dragCtx: DragContext;
-}) {
-    const { activeDragId, hoveredEstado, hoveredIndex } = dragCtx;
-    const animatedStyle = useAnimatedStyle(() => {
-        const visible =
-            activeDragId.value !== null &&
-            hoveredEstado.value === estado &&
-            hoveredIndex.value === index;
-
-        return {
-            height: withTiming(visible ? (compact ? 118 : 140) : 0, { duration: 220 }),
-            opacity: withTiming(visible ? 1 : 0, { duration: 180 }),
-            marginBottom: withTiming(visible ? (compact ? 8 : 10) : 0, { duration: 220 }),
-        };
-    });
-
-    return <Animated.View style={[styles.dropPlaceholder, animatedStyle, { pointerEvents: 'none' }]} />;
 }
 
 // ============================================
@@ -660,10 +294,7 @@ interface ColumnProps {
     optimisticObjetivoId?: number | null;
     wide?: boolean;
     compact?: boolean;
-    isDragging?: boolean;
     columnWidth?: number;
-    dragCtx: DragContext;
-    columnNativeGesture: NativeGesture;
 }
 
 function KanbanColumn({
@@ -676,60 +307,16 @@ function KanbanColumn({
     optimisticObjetivoId,
     wide = false,
     compact = false,
-    isDragging = false,
     columnWidth = COLUMN_WIDTH,
-    dragCtx,
-    columnNativeGesture,
 }: ColumnProps) {
-    const {
-        hoveredEstado,
-        columnLocalRects,
-        columnViewports,
-        columnScrollOffsets,
-    } = dragCtx;
     const presentation = getColumnPresentation(estado);
-    const contentViewportRef = useRef<View>(null);
-
-    const handleLayout = useCallback((e: LayoutChangeEvent) => {
-        const { x, width } = e.nativeEvent.layout;
-        columnLocalRects.value = { ...columnLocalRects.value, [estado]: { x, width } };
-    }, [estado, columnLocalRects]);
-
-    const measureContentViewport = useCallback(() => {
-        contentViewportRef.current?.measureInWindow((_x, y, _width, height) => {
-            columnViewports.value = {
-                ...columnViewports.value,
-                [estado]: { y, height },
-            };
-        });
-    }, [columnViewports, estado]);
-
-    const verticalScrollHandler = useAnimatedScrollHandler({
-        onScroll: (event) => {
-            columnScrollOffsets.value = {
-                ...columnScrollOffsets.value,
-                [estado]: event.contentOffset.y,
-            };
-        },
-    });
-
-    const highlightStyle = useAnimatedStyle(() => {
-        const isHovered = hoveredEstado.value === estado;
-        return {
-            borderColor: isHovered ? presentation.accent : presentation.border,
-            backgroundColor: isHovered ? presentation.tint : presentation.surface,
-        };
-    });
-
-
 
     return (
-        <Animated.View
-            onLayout={handleLayout}
+        <View
             style={[
                 wide ? styles.columnWide : styles.column,
                 !wide && { width: columnWidth },
-                highlightStyle,
+                { borderColor: presentation.border, backgroundColor: presentation.surface },
             ]}
         >
             <View
@@ -762,74 +349,45 @@ function KanbanColumn({
                 <Text style={styles.tableResponsibleLabel}>Responsable</Text>
             </View>
 
-            <View
-                ref={contentViewportRef}
-                style={styles.columnContent}
-                onLayout={measureContentViewport}
-            >
-              <GestureDetector gesture={columnNativeGesture}>
-              <AnimatedGHScrollView
-                contentContainerStyle={objetivos.length === 0 ? styles.emptyScrollContent : undefined}
-                nestedScrollEnabled
-                scrollEnabled={!isDragging}
-                // El wrapper de RNGH activa `disallowInterruption` por default, lo que
-                // hace que el scroll nativo de la columna gane la carrera de gestos
-                // contra el Pan de una card durante la ventana de long-press, incluso
-                // con `simultaneousWithExternalGesture` declarado en el Pan — rompiendo
-                // el reordenamiento dentro de una misma columna en mobile. Lo relajamos
-                // acá para que esa relación "simultánea" se respete de verdad.
-                disallowInterruption={false}
-                showsVerticalScrollIndicator={false}
-                scrollEventThrottle={16}
-                onScroll={verticalScrollHandler}
-              >
-                <View style={[styles.cardsList, compact && styles.cardsListCompact]}>
-                    {objetivos.length === 0 ? (
-                        <View style={styles.emptyColumn}>
-                            <View style={styles.emptyIcon}>
-                                <Ionicons
-                                    name={presentation.icon}
-                                    size={28}
-                                    color={presentation.accent}
+            <View style={styles.columnContent}>
+                <ScrollView
+                    contentContainerStyle={objetivos.length === 0 ? styles.emptyScrollContent : undefined}
+                    showsVerticalScrollIndicator={false}
+                >
+                    <View style={[styles.cardsList, compact && styles.cardsListCompact]}>
+                        {objetivos.length === 0 ? (
+                            <View style={styles.emptyColumn}>
+                                <View style={styles.emptyIcon}>
+                                    <Ionicons
+                                        name={presentation.icon}
+                                        size={28}
+                                        color={presentation.accent}
+                                    />
+                                </View>
+                                <Text style={styles.emptyColumnTitle}>{presentation.emptyTitle}</Text>
+                                <View style={styles.emptyAction}>
+                                    <CreateButton onPress={onCreate} accessibilityLabel="Nuevo objetivo" />
+                                </View>
+                            </View>
+                        ) : (
+                            objetivos.map((objetivo, index) => (
+                                <ObjetivoItem
+                                    key={objetivo.id}
+                                    objetivo={objetivo}
+                                    onPress={onObjetivoPress}
+                                    onMove={onMovePress}
+                                    onReorder={onReorder}
+                                    canMoveUp={index > 0}
+                                    canMoveDown={index < objetivos.length - 1}
+                                    isOptimisticLoading={optimisticObjetivoId === objetivo.id}
+                                    compact={compact}
                                 />
-                            </View>
-                            <Text style={styles.emptyColumnTitle}>{presentation.emptyTitle}</Text>
-                            <View style={styles.emptyAction}>
-                                <CreateButton onPress={onCreate} accessibilityLabel="Nuevo objetivo" />
-                            </View>
-                        </View>
-                    ) : (
-                        <>
-                            <DropSlot estado={estado} index={0} compact={compact} dragCtx={dragCtx} />
-                            {objetivos.map((objetivo, index) => (
-                                <React.Fragment key={objetivo.id}>
-                                    <ObjetivoItem
-                                        objetivo={objetivo}
-                                        onPress={onObjetivoPress}
-                                        onMove={onMovePress}
-                                        onReorder={onReorder}
-                                        canMoveUp={index > 0}
-                                        canMoveDown={index < objetivos.length - 1}
-                                        isOptimisticLoading={optimisticObjetivoId === objetivo.id}
-                                        compact={compact}
-                                        dragCtx={dragCtx}
-                                        columnNativeGesture={columnNativeGesture}
-                                    />
-                                    <DropSlot
-                                        estado={estado}
-                                        index={index + 1}
-                                        compact={compact}
-                                        dragCtx={dragCtx}
-                                    />
-                                </React.Fragment>
-                            ))}
-                        </>
-                    )}
-                </View>
-              </AnimatedGHScrollView>
-              </GestureDetector>
+                            ))
+                        )}
+                    </View>
+                </ScrollView>
             </View>
-        </Animated.View>
+        </View>
     );
 }
 
@@ -843,6 +401,7 @@ export function KanbanBoard() {
     const isDesktopWide = Platform.OS === 'web' && width >= Breakpoints.desktop;
     const isCompactHeader = width < 640;
     const compactColumnWidth = Math.min(COLUMN_WIDTH, Math.max(272, width - BOARD_PADDING * 2));
+    const bottomInset = useSafeBottomInset();
     const { data: objetivos = [], isLoading, error } = useObjetivos();
     const sinVerCount = useMemo(() => objetivos.filter(o => !o.seen).length, [objetivos]);
     const updateMutation = useUpdateObjetivo();
@@ -876,130 +435,6 @@ export function KanbanBoard() {
 
     // Estado para tracking de operaciones optimistas
     const [optimisticObjetivoId, setOptimisticObjetivoId] = useState<number | null>(null);
-
-    // Objetivo actualmente arrastrado (solo para el contenido visual del overlay).
-    // Al soltar, se retrasa el "unmount" para dar tiempo a que termine la
-    // animación de desvanecimiento del overlay en vez de que desaparezca de golpe.
-    const [draggingObjetivo, setDraggingObjetivo] = useState<Objetivo | null>(null);
-    const handleDragStateChange = useCallback((objetivo: Objetivo | null) => {
-        if (objetivo) {
-            setDraggingObjetivo(objetivo);
-        } else {
-            setTimeout(() => setDraggingObjetivo(null), DRAG_END_LINGER_MS);
-        }
-    }, []);
-
-    // --- Drag-and-drop: refs y shared values ---
-    const containerRef = useRef<View>(null);
-    const boardWideRef = useRef<View>(null);
-    const boardScrollWrapperRef = useRef<View>(null);
-    const boardScrollRef = useAnimatedRef<any>();
-
-    const boardNativeGesture = useMemo(() => Gesture.Native(), []);
-    // `simultaneousWithExternalGesture` sólo registra la relación en el gesto
-    // que la declara (es unidireccional), así que para que el scroll
-    // horizontal del board y el scroll vertical de cada columna convivan de
-    // verdad hace falta declararla en ambos sentidos. Se crean acá (en vez de
-    // dentro de KanbanColumn) para poder mutar boardNativeGesture con la
-    // relación inversa una sola vez.
-    const columnNativeGestures = useMemo(() => {
-        const gestures = {} as Record<VisibleEstado, NativeGesture>;
-        for (const estado of VISIBLE_ESTADOS) {
-            gestures[estado] = Gesture.Native().simultaneousWithExternalGesture(boardNativeGesture);
-        }
-        boardNativeGesture.simultaneousWithExternalGesture(...Object.values(gestures));
-        return gestures;
-    }, [boardNativeGesture]);
-
-    const containerOrigin = useSharedValue({ x: 0, y: 0 });
-    const activeDragId = useSharedValue<number | null>(null);
-    const activeDragEstado = useSharedValue<string | null>(null);
-    const hoveredEstado = useSharedValue<string | null>(null);
-    const hoveredIndex = useSharedValue<number | null>(null);
-    const touchX = useSharedValue(0);
-    const touchY = useSharedValue(0);
-    const isDraggingSV = useSharedValue(false);
-    const scrollAnchorEstado = useSharedValue<string | null>(null);
-    const isAutoScrollingSV = useSharedValue(false);
-    const scrollCooldown = useSharedValue(0);
-    const scrollOffsetX = useSharedValue(0);
-    const boardViewportOrigin = useSharedValue<ViewportRect>({ x: 0, y: 0, width: 0, height: 0 });
-    const columnLocalRects = useSharedValue<Record<string, ColumnRect>>({});
-    const columnViewports = useSharedValue<Record<string, ColumnViewport>>({});
-    const columnScrollOffsets = useSharedValue<Record<string, number>>({});
-    const columnCardRects = useSharedValue<Record<string, CardRect[]>>({});
-    const isDesktopWideSV = useSharedValue(isDesktopWide);
-    const boardContentWidthSV = useSharedValue(BOARD_CONTENT_WIDTH);
-
-    useEffect(() => {
-        isDesktopWideSV.value = isDesktopWide;
-    }, [isDesktopWide, isDesktopWideSV]);
-
-    useEffect(() => {
-        boardContentWidthSV.value =
-            VISIBLE_ESTADOS.length * compactColumnWidth +
-            (VISIBLE_ESTADOS.length - 1) * COLUMN_GAP +
-            BOARD_PADDING * 2;
-    }, [boardContentWidthSV, compactColumnWidth]);
-
-    const measureViewport = useCallback((ref: React.RefObject<View | null>) => {
-        ref.current?.measureInWindow((x, y, viewWidth, viewHeight) => {
-            boardViewportOrigin.value = { x, y, width: viewWidth, height: viewHeight };
-        });
-    }, [boardViewportOrigin]);
-
-    const measureContainer = useCallback(() => {
-        containerRef.current?.measureInWindow((x, y) => {
-            containerOrigin.value = { x, y };
-        });
-    }, [containerOrigin]);
-
-    const scrollHandler = useAnimatedScrollHandler({
-        onScroll: (event) => {
-            scrollOffsetX.value = event.contentOffset.x;
-        },
-    });
-
-    // Mientras el board hace el salto animado a la columna vecina (tras cruzar
-    // el 50% del umbral en el Pan de la card), el dedo no necesariamente se
-    // mueve, así que no llegan nuevos eventos `onUpdate`. Este frame callback
-    // mantiene hoveredEstado/hoveredIndex al día usando el scrollOffsetX que
-    // va cambiando por la animación, para que el placeholder de drop no quede
-    // desactualizado durante el salto.
-    useFrameCallback(() => {
-        if (isDesktopWideSV.value || !isDraggingSV.value) return;
-        const activeId = activeDragId.value;
-        if (activeId === null) return;
-
-        const targetEstado = hitTestColumnWorklet(
-            touchX.value,
-            touchY.value,
-            boardViewportOrigin.value,
-            scrollOffsetX.value,
-            columnLocalRects.value
-        );
-        hoveredEstado.value = targetEstado;
-        hoveredIndex.value = targetEstado
-            ? getDropIndexWorklet(
-                touchY.value,
-                targetEstado,
-                activeId,
-                columnViewports.value,
-                columnScrollOffsets.value,
-                columnCardRects.value
-            )
-            : null;
-    });
-
-    const overlayStyle = useAnimatedStyle(() => {
-        const active = activeDragId.value !== null;
-        return {
-            left: touchX.value - containerOrigin.value.x - DRAG_OVERLAY_WIDTH / 2,
-            top: touchY.value - containerOrigin.value.y - 24,
-            opacity: withTiming(active ? 1 : 0, { duration: DRAG_END_LINGER_MS }),
-            transform: [{ scale: withSpring(active ? 1.04 : 0.85, { damping: 16, stiffness: 220 }) }],
-        };
-    });
 
     const objetivosPorEstado = useMemo<Record<VisibleEstado, Objetivo[]>>(
         () =>
@@ -1139,8 +574,9 @@ export function KanbanBoard() {
         [updateMutation, handleCloseMoveModal, objetivos]
     );
 
-    // Persiste tanto movimientos entre columnas como reordenamientos internos.
-    const handleDragCommit = useCallback(
+    // Persiste tanto un cambio de columna como un reordenamiento interno,
+    // calculando el rank_position destino según la posición objetivo.
+    const commitReorder = useCallback(
         async (objetivoId: number, nuevoEstado: string, targetIndex: number) => {
             const objetivo = objetivos.find((item) => item.id === objetivoId);
             if (!objetivo) return;
@@ -1212,9 +648,9 @@ export function KanbanBoard() {
             const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
 
             if (currentIndex < 0 || targetIndex < 0 || targetIndex >= column.length) return;
-            void handleDragCommit(objetivo.id, objetivo.estado, targetIndex);
+            void commitReorder(objetivo.id, objetivo.estado, targetIndex);
         },
-        [handleDragCommit, objetivosPorEstado]
+        [commitReorder, objetivosPorEstado]
     );
 
     const handleDeleteObjetivo = useCallback(
@@ -1229,54 +665,6 @@ export function KanbanBoard() {
         },
         [deleteMutation]
     );
-
-    const dragCtx: DragContext = useMemo(() => ({
-        boardNativeGesture,
-        activeDragId,
-        activeDragEstado,
-        hoveredEstado,
-        hoveredIndex,
-        touchX,
-        touchY,
-        isDraggingSV,
-        scrollAnchorEstado,
-        isAutoScrollingSV,
-        scrollCooldown,
-        boardScrollRef,
-        boardContentWidthSV,
-        boardViewportOrigin,
-        scrollOffsetX,
-        columnLocalRects,
-        columnViewports,
-        columnScrollOffsets,
-        columnCardRects,
-        isDesktopWideSV,
-        onDragStateChange: handleDragStateChange,
-        onDragCommit: handleDragCommit,
-    }), [
-        boardNativeGesture,
-        activeDragId,
-        activeDragEstado,
-        hoveredEstado,
-        hoveredIndex,
-        touchX,
-        touchY,
-        isDraggingSV,
-        scrollAnchorEstado,
-        isAutoScrollingSV,
-        scrollCooldown,
-        boardScrollRef,
-        boardContentWidthSV,
-        boardViewportOrigin,
-        scrollOffsetX,
-        columnLocalRects,
-        columnViewports,
-        columnScrollOffsets,
-        columnCardRects,
-        isDesktopWideSV,
-        handleDragStateChange,
-        handleDragCommit,
-    ]);
 
     if (isLoading) {
         return (
@@ -1295,7 +683,7 @@ export function KanbanBoard() {
     }
 
     return (
-        <View style={styles.container} ref={containerRef} onLayout={measureContainer}>
+        <View style={styles.container}>
             <View style={[styles.header, isCompactHeader && styles.headerCompact]}>
                 <View style={[styles.headerCopy, isCompactHeader && styles.headerCopyCompact]}>
                     <Text
@@ -1324,11 +712,7 @@ export function KanbanBoard() {
             </View>
 
             {isDesktopWide ? (
-                <View
-                    style={styles.boardWide}
-                    ref={boardWideRef}
-                    onLayout={() => measureViewport(boardWideRef)}
-                >
+                <View style={styles.boardWide}>
                     {VISIBLE_ESTADOS.map((estado) => (
                         <KanbanColumn
                             key={estado}
@@ -1339,32 +723,16 @@ export function KanbanBoard() {
                             onReorder={handleReorderObjetivo}
                             onCreate={() => handleOpenCreate(estado)}
                             optimisticObjetivoId={optimisticObjetivoId}
-                            isDragging={draggingObjetivo !== null}
-                            dragCtx={dragCtx}
-                            columnNativeGesture={columnNativeGestures[estado]}
                             wide
                         />
                     ))}
                 </View>
             ) : (
-                <View
-                    style={styles.boardScrollWrapper}
-                    ref={boardScrollWrapperRef}
-                    onLayout={() => measureViewport(boardScrollWrapperRef)}
-                >
-                    <GestureDetector gesture={boardNativeGesture}>
-                    <AnimatedGHScrollView
-                        ref={boardScrollRef}
+                <View style={styles.boardScrollWrapper}>
+                    <ScrollView
                         style={styles.boardScroll}
                         horizontal
                         showsHorizontalScrollIndicator={Platform.OS === 'web'}
-                        scrollEnabled={draggingObjetivo === null}
-                        // Ídem columna (ver comentario junto a columnNativeGestures): sin
-                        // esto el scroll horizontal del board gana por default la carrera
-                        // de gestos contra el scroll vertical de la columna.
-                        disallowInterruption={false}
-                        scrollEventThrottle={16}
-                        onScroll={scrollHandler}
                     >
                         <View style={styles.board}>
                             {VISIBLE_ESTADOS.map((estado) => (
@@ -1379,19 +747,15 @@ export function KanbanBoard() {
                                     optimisticObjetivoId={optimisticObjetivoId}
                                     columnWidth={compactColumnWidth}
                                     compact={isCompactHeader}
-                                    isDragging={draggingObjetivo !== null}
-                                    dragCtx={dragCtx}
-                                    columnNativeGesture={columnNativeGestures[estado]}
                                 />
                             ))}
                         </View>
-                    </AnimatedGHScrollView>
-                    </GestureDetector>
+                    </ScrollView>
                 </View>
             )}
 
             {formModalMinimized && (
-                <View style={[styles.minimizedDraftContainer, glassStyles.pill]}>
+                <View style={[styles.minimizedDraftContainer, glassStyles.pill, { bottom: bottomInset + 8 }]}>
                     <TouchableOpacity style={styles.minimizedDraftMain} onPress={handleRestoreCreateDraft}>
                         <Ionicons name="chevron-up" size={18} color={Colors.light.tint} />
                         <Text style={styles.minimizedDraftText}>
@@ -1405,7 +769,7 @@ export function KanbanBoard() {
             )}
 
             {moveModalMinimized && (
-                <View style={[styles.minimizedDraftContainer, glassStyles.pill]}>
+                <View style={[styles.minimizedDraftContainer, glassStyles.pill, { bottom: bottomInset + 8 }]}>
                     <TouchableOpacity style={styles.minimizedDraftMain} onPress={handleRestoreMoveDraft}>
                         <Ionicons name="chevron-up" size={18} color={Colors.light.tint} />
                         <Text style={styles.minimizedDraftText}>Borrador de movimiento</Text>
@@ -1414,15 +778,6 @@ export function KanbanBoard() {
                         <Ionicons name="close" size={16} color="#999" />
                     </TouchableOpacity>
                 </View>
-            )}
-
-            {draggingObjetivo && (
-                <Animated.View style={[styles.dragOverlay, overlayStyle, { pointerEvents: 'none' }]}>
-                    <View style={[styles.dragOverlayDot, { backgroundColor: getEstadoColor(draggingObjetivo.estado) }]} />
-                    <Text style={styles.dragOverlayText} numberOfLines={1}>
-                        {draggingObjetivo.titulo}
-                    </Text>
-                </Animated.View>
             )}
 
             {/* Modales */}
@@ -1472,27 +827,6 @@ export function KanbanBoard() {
             <OperacionPendienteModal visible={updateMutation.isPending || deleteMutation.isPending} />
         </View>
     );
-}
-
-// ============================================
-// Funciones auxiliares
-// ============================================
-
-// Color de acento por estado — usado únicamente en el badge/punto de cada
-// columna, nunca como relleno (las columnas son visualmente uniformes).
-function getEstadoColor(estado: string): string {
-    switch (estado) {
-        case 'PENDIENTE':
-            return '#FFB300';
-        case 'PRIORIDAD':
-            return '#FF7043';
-        case 'PROGRESO':
-            return '#29B6F6';
-        case 'REALIZADO':
-            return '#4CAF50';
-        default:
-            return '#9AA0A6';
-    }
 }
 
 const styles = StyleSheet.create({
@@ -1742,14 +1076,6 @@ const styles = StyleSheet.create({
     emptyAction: {
         marginTop: 18,
     },
-    dropPlaceholder: {
-        borderRadius: 9,
-        borderWidth: 1.5,
-        borderStyle: 'dashed',
-        borderColor: 'rgba(26,115,232,0.4)',
-        backgroundColor: 'rgba(26,115,232,0.06)',
-        overflow: 'hidden',
-    },
 
     // Objective cards
     card: {
@@ -1921,34 +1247,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         gap: 6,
         zIndex: 10,
-    },
-
-    // Drag overlay
-    dragOverlay: {
-        position: 'absolute',
-        width: DRAG_OVERLAY_WIDTH,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        paddingHorizontal: 14,
-        paddingVertical: 10,
-        borderRadius: 10,
-        backgroundColor: '#FFFFFF',
-        borderWidth: 1,
-        borderColor: '#D0D5DD',
-        boxShadow: boxShadow({ width: 0, height: 6 }, 0.18, 16),
-        zIndex: 50,
-    },
-    dragOverlayDot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-    },
-    dragOverlayText: {
-        flex: 1,
-        fontSize: 13,
-        fontWeight: '600',
-        color: '#172033',
     },
 
     // ============================================

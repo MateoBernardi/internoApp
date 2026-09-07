@@ -1,12 +1,11 @@
-import { focusBorderStyles, glassColors, glassStyles } from '@/shared/ui/glass';
-import { useFocusBorder } from '@/shared/ui/useFocusBorder';
+import { SearchBar } from '@/components/ui/SearchBar';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -47,7 +46,6 @@ export function ParticipantesBlock({
 }: Props) {
   const [expanded, setExpanded] = useState(initialExpanded);
   const [query, setQuery] = useState('');
-  const searchFocus = useFocusBorder();
 
   const stackAvatars = participantes.slice(0, 4);
   const overflow = participantes.length > 4 ? participantes.length - 4 : 0;
@@ -101,18 +99,13 @@ export function ParticipantesBlock({
         {expanded && (
           <View style={s.expandedSection}>
             {participantes.length > 6 && (
-              <View style={[s.searchBar, searchFocus.isFocused && { borderBottomColor: glassColors.link }]}>
-                <Ionicons name="search" size={15} color={glassColors.textMuted} />
-                <TextInput
-                  style={[s.searchInput, focusBorderStyles.inputNoOutline]}
-                  placeholder="Buscar participante"
-                  placeholderTextColor={glassColors.placeholder}
-                  value={query}
-                  onChangeText={setQuery}
-                  onFocus={searchFocus.onFocus}
-                  onBlur={searchFocus.onBlur}
-                />
-              </View>
+              <SearchBar
+                placeholder="Buscar participante"
+                value={query}
+                onChangeText={setQuery}
+                onClear={() => setQuery('')}
+                style={s.searchBar}
+              />
             )}
 
             <ScrollView style={s.list} nestedScrollEnabled showsVerticalScrollIndicator>
@@ -145,7 +138,7 @@ export function ParticipantesBlock({
               )}
             </ScrollView>
 
-            {extraContent}
+            {extraContent ? <View style={s.extraContentWrap}>{extraContent}</View> : null}
 
             <View style={s.footer}>
               <Text style={s.footerCount}>{participantes.length} en total</Text>
@@ -242,24 +235,19 @@ const s = StyleSheet.create({
     borderTopColor: 'rgba(17,24,28,0.08)',
   },
   searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(17,24,28,0.08)',
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 14,
-    color: glassColors.text,
+    marginHorizontal: 8,
+    marginTop: 8,
+    marginBottom: 0,
   },
   list: {
     maxHeight: 160,
     paddingHorizontal: 6,
     paddingVertical: 6,
+  },
+  extraContentWrap: {
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    paddingBottom: 4,
   },
   emptyFilter: {
     textAlign: 'center',
@@ -322,6 +310,7 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginTop: 8,
     paddingVertical: 9,
     paddingHorizontal: 14,
     borderTopWidth: 1,

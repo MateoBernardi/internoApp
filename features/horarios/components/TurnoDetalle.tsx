@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Alert,
   BackHandler,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -118,7 +119,11 @@ export function TurnoDetalle({ activity, visible, onClose }: TurnoDetalleProps) 
         </TouchableOpacity>
       </View>
 
-      <View style={styles.content}>
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+      >
             {/* Título */}
             <View style={[glassStyles.card, styles.contentBlock]}>
               <ThemedText style={styles.label}>Turno</ThemedText>
@@ -197,7 +202,7 @@ export function TurnoDetalle({ activity, visible, onClose }: TurnoDetalleProps) 
                 </TouchableOpacity>
               )}
             </View>
-      </View>
+      </ScrollView>
     </View>
     </FullScreenPortal>
   );
@@ -219,10 +224,12 @@ const styles = StyleSheet.create({
   closeButton: {
   },
   content: {
+    flex: 1,
+  },
+  contentContainer: {
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 24,
-    padding: 14,
     gap: 16,
   },
   contentBlock: {

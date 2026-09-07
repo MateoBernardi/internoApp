@@ -5,7 +5,6 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
   BackHandler,
-  Keyboard,
   Platform,
   ScrollView,
   StyleSheet,
@@ -15,8 +14,10 @@ import {
   View,
 } from 'react-native';
 import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
+import { useKeyboardHeight } from '@/shared/ui/keyboard';
 import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeBottomInset } from '@/hooks/useSafeBottomInset';
 import { Dropdown } from 'react-native-element-dropdown';
 import { ThemedText } from './themed-text';
 
@@ -82,9 +83,10 @@ export function NovedadFormModal({
   const [tipo, setTipo] = useState<number>(1);
   const [prioridad, setPrioridad] = useState<number>(2);
   const [loading, setLoading] = useState(false);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const keyboardHeight = useKeyboardHeight();
   const isKeyboardOpen = keyboardHeight > 0;
   const insets = useSafeAreaInsets();
+  const bottomInset = useSafeBottomInset();
   const tituloFocus = useFocusBorder();
   const descripcionFocus = useFocusBorder();
 
@@ -98,20 +100,6 @@ export function NovedadFormModal({
       ...partial,
     });
   };
-
-  useEffect(() => {
-    const onShow = Keyboard.addListener('keyboardDidShow', (event) => {
-      setKeyboardHeight(event.endCoordinates.height);
-    });
-    const onHide = Keyboard.addListener('keyboardDidHide', () => {
-      setKeyboardHeight(0);
-    });
-
-    return () => {
-      onShow.remove();
-      onHide.remove();
-    };
-  }, []);
 
   useEffect(() => {
     if (!visible) return;
@@ -187,7 +175,7 @@ export function NovedadFormModal({
       <FullScreenPortal>
       <View style={styles.fullScreen}>
         <ModalKeyboardView style={styles.modalKeyboardAvoiding}>
-          <View style={[styles.modalContainer, { paddingBottom: insets.bottom }]}>
+          <View style={styles.modalContainer}>
             <View style={[styles.modalHeader, glassStyles.sheetHeader, { paddingTop: insets.top + 12 }]}>
               <TouchableOpacity onPress={onClose} style={styles.headerIconButton} disabled={loading}>
                 <Ionicons name="chevron-back" size={24} color="#6b7280" />
@@ -295,7 +283,7 @@ export function NovedadFormModal({
 
             </ScrollView>
 
-            <View style={[styles.uploadButtonContainer]}>
+            <View style={[styles.uploadButtonContainer, { paddingBottom: bottomInset }]}>
               <TouchableOpacity
                 onPress={handleSubmit}
                 style={[styles.uploadButton, glassStyles.button]}
@@ -404,14 +392,13 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: 'rgba(17,24,28,0.08)',
     paddingHorizontal: '4%',
-    paddingTop: 10,
-    paddingBottom: 16,
+    paddingTop: 14,
   },
   uploadButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
+    paddingVertical: 16,
     borderRadius: 8,
     gap: 8,
   },

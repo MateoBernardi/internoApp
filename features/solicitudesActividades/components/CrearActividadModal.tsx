@@ -15,6 +15,7 @@ import {
   View,
 } from 'react-native';
 import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
+import { useKeyboardHeight } from '@/shared/ui/keyboard';
 import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSafeBottomInset } from '@/hooks/useSafeBottomInset';
@@ -78,6 +79,7 @@ export function CrearActividadModal({
   const insets = useSafeAreaInsets();
   const bottomInset = useSafeBottomInset();
   const [focusedField, setFocusedField] = useState<'titulo' | 'descripcion' | null>(null);
+  const keyboardHeight = useKeyboardHeight();
   const isFormValid = newActivity.title.trim().length > 0 && !activityDateErrorMessage;
 
   useEffect(() => {
@@ -95,7 +97,7 @@ export function CrearActividadModal({
     <FullScreenPortal>
     <View style={styles.fullScreen}>
       <ModalKeyboardView style={styles.modalKavWrapper}>
-          <View style={[styles.modalContainer, { paddingBottom: bottomInset }]}>
+          <View style={styles.modalContainer}>
             <View style={[styles.modalHeader, { paddingTop: insets.top + 12 }]}>
               <TouchableOpacity onPress={onClose} style={styles.closeButton}>
                 <Ionicons name="chevron-back" size={24} color={glassColors.textMuted} />
@@ -109,7 +111,7 @@ export function CrearActividadModal({
 
             <ScrollView
               style={styles.modalScroll}
-              contentContainerStyle={styles.modalScrollContent}
+              contentContainerStyle={[styles.modalScrollContent, { paddingBottom: 24 + keyboardHeight }]}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
             >
@@ -204,7 +206,7 @@ export function CrearActividadModal({
               </View>
             </ScrollView>
 
-            <View style={styles.uploadButtonContainer}>
+            <View style={[styles.uploadButtonContainer, { paddingBottom: bottomInset }]}>
               <TouchableOpacity
                 onPress={onSubmit}
                 disabled={isLoading || !isFormValid}
@@ -375,14 +377,14 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: 'rgba(17,24,28,0.08)',
     paddingHorizontal: '4%',
-    paddingTop: 10,
+    paddingTop: 14,
   },
   uploadButton: {
     ...glassStyles.button,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
+    paddingVertical: 16,
     borderRadius: 26,
     gap: 8,
   },

@@ -30,12 +30,13 @@ import { mapHorarioDTOToTurno, TURNO_LABEL, type Turno } from '../models/Turno';
 import { downloadPlantillaShifts, getPlantillaShiftsUrl, type HorariosByDateFilter } from '../services/horariosService';
 import {
   useHorariosByDate,
+  useMarcarFeriadoDia,
   useSedes,
   useUpdateHorario,
   useUploadShifts,
 } from '../viewmodels/useHorarios';
 
-import { CARD, INK, LINE, MUTED, NAVY, RED_FLASH } from '../theme';
+import { CARD, FERIADO_COLOR, INK, LINE, MUTED, NAVY, RED_FLASH } from '../theme';
 
 const DAY_NAMES = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
@@ -108,6 +109,7 @@ export function GestionHorarios() {
   const userSearchQuery = useSearchUsers(searchQuery);
   const { mutate: uploadShifts, isPending: isUploading } = useUploadShifts();
   const { mutate: updateShift, isPending: isSaving } = useUpdateHorario();
+  const { mutate: marcarFeriadoDia, isPending: isMarkingFeriado } = useMarcarFeriadoDia();
 
   const sedes = sedesQuery.data ?? [];
   const userResults = userSearchQuery.data ?? [];
@@ -138,6 +140,39 @@ export function GestionHorarios() {
   }, [horariosQuery.data, filter, sedeFilter]);
 
   const totalForDay = horariosQuery.data?.length ?? 0;
+  const diaEsFeriado = totalForDay > 0 && (horariosQuery.data ?? []).every((d) => d.feriado);
+
+  const handleToggleFeriadoDia = useCallback(() => {
+    const nuevoValor = !diaEsFeriado;
+    const dayLabel = formatDayLabel(selDateISO);
+    Alert.alert(
+      nuevoValor ? 'Marcar día como feriado' : 'Quitar feriado del día',
+      nuevoValor
+        ? `Se marcarán como feriado (×2) los ${totalForDay} turno${totalForDay !== 1 ? 's' : ''} del ${dayLabel}.`
+        : `Se quitará la marca de feriado de los ${totalForDay} turno${totalForDay !== 1 ? 's' : ''} del ${dayLabel}.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: nuevoValor ? 'Marcar feriado' : 'Quitar feriado',
+          onPress: () => {
+            marcarFeriadoDia(
+              { fechaISO: selDateISO, feriado: nuevoValor },
+              {
+                onSuccess: (resp) => {
+                  showToast(
+                    resp.affected > 0
+                      ? `${resp.affected} turno${resp.affected !== 1 ? 's' : ''} actualizados`
+                      : 'No hay turnos cargados para este día',
+                  );
+                },
+                onError: () => showToast('Error al actualizar el día. Intenta de nuevo.', true),
+              },
+            );
+          },
+        },
+      ],
+    );
+  }, [diaEsFeriado, totalForDay, selDateISO, marcarFeriadoDia, showToast]);
 
   const openEdit = useCallback((turno: Turno) => {
     setEditingTurno({ ...turno });
@@ -320,6 +355,26 @@ export function GestionHorarios() {
             />
           </FullScreenPortal>
         )}
+
+        {/* Feriado toggle for the whole day */}
+        <TouchableOpacity
+          style={[
+            styles.feriadoToggle,
+            diaEsFeriado && styles.feriadoToggleActive,
+            (isMarkingFeriado || totalForDay === 0) && styles.feriadoToggleDisabled,
+          ]}
+          onPress={handleToggleFeriadoDia}
+          disabled={isMarkingFeriado || totalForDay === 0}
+        >
+          {isMarkingFeriado ? (
+            <ActivityIndicator size="small" color={diaEsFeriado ? '#ffffff' : FERIADO_COLOR} />
+          ) : (
+            <Ionicons name="star" size={16} color={diaEsFeriado ? '#ffffff' : FERIADO_COLOR} />
+          )}
+          <Text style={[styles.feriadoToggleText, diaEsFeriado && styles.feriadoToggleTextActive]}>
+            {diaEsFeriado ? 'Día feriado' : 'Marcar día como feriado'}
+          </Text>
+        </TouchableOpacity>
 
         {/* CSV import card */}
         <View style={styles.importCard}>
@@ -636,6 +691,34 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: NAVY,
     textAlign: 'center',
+  },
+  feriadoToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(147,51,234,0.35)',
+    backgroundColor: 'rgba(147,51,234,0.08)',
+    marginBottom: 14,
+  },
+  feriadoToggleActive: {
+    backgroundColor: FERIADO_COLOR,
+    borderColor: FERIADO_COLOR,
+  },
+  feriadoToggleDisabled: {
+    opacity: 0.5,
+  },
+  feriadoToggleText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: FERIADO_COLOR,
+  },
+  feriadoToggleTextActive: {
+    color: '#ffffff',
   },
   importCard: {
     flexDirection: 'row',

@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 /**
  * Portal manual (sin dependencias nuevas) para que las pantallas completas
@@ -57,7 +57,15 @@ export function FullScreenPortal({ children }: { children: React.ReactNode }) {
   const ctx = useContext(PortalContext);
   const idRef = useRef(`fsp-${++nextPortalId}`);
 
-  useEffect(() => {
+  // useLayoutEffect (no useEffect): el mount debe ocurrir de forma síncrona,
+  // en el mismo flush que el commit que originó el nuevo `children` (p.ej. cada
+  // tecleo en un TextInput dentro del portal). Con useEffect, el commit real en
+  // el Host queda diferido a un segundo pase post-paint, desacoplado del evento
+  // de teclado original — eso rompe la restauración de cursor de los inputs
+  // controlados y corta la composición de teclas muertas/acentos (á, é, ñ...),
+  // porque el navegador ya no ve la actualización del valor como consecuencia
+  // síncrona del evento que la disparó.
+  useLayoutEffect(() => {
     if (!ctx) return;
     ctx.mount(idRef.current, children);
   }, [ctx, children]);

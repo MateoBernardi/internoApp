@@ -7,6 +7,7 @@ import {
   getHorariosByDate,
   getSedes,
   type HorariosByDateFilter,
+  marcarFeriadoDia,
   updateHorario,
   uploadShiftsFile,
 } from '../services/horariosService';
@@ -100,5 +101,21 @@ export function useUpdateHorario() {
     },
     retry: 2,
     retryDelay: (i) => Math.min(1000 * 2 ** i, 8000),
+  });
+}
+
+export function useMarcarFeriadoDia() {
+  const { tokens } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ fechaISO, feriado }: { fechaISO: string; feriado: boolean }) => {
+      const token = tokens?.accessToken;
+      if (!token) throw new Error('No access token');
+      return marcarFeriadoDia(token, fechaISO, feriado);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: horariosQueryKeys.all });
+    },
   });
 }

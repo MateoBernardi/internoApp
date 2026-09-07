@@ -238,6 +238,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: '4%',
   },
   modalCard: {
+    width: '100%',
     paddingHorizontal: '5%',
     paddingTop: '4%',
     paddingBottom: '5%',

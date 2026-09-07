@@ -325,13 +325,17 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
 
   const estadoUI = estadoMapping[solicitud.estado];
   const isExpiredState = solicitud.estado === 'EXPIRADA';
-  const isGerencia = user?.rol_nombre === 'gerencia';
+  // Únicos roles habilitados para aprobar/rechazar licencias (ver licenciaAprobadorRoles
+  // en el backend), en cualquier estado aprobable y aunque falte documentación.
+  const canApproveOrReject = ['gerencia', 'encargado', 'presidencia'].includes(user?.rol_nombre ?? '');
   const canTakeAction =
     isFromReceivedView &&
     !isCreator &&
-    ['PENDIENTE', 'PENDIENTE_APROBACION'].includes(solicitud.estado) &&
-    !isExpiredState;
-  const canApproveExpired = isFromReceivedView && !isCreator && isGerencia && isExpiredState;
+    canApproveOrReject &&
+    ['PENDIENTE', 'PENDIENTE_APROBACION', 'PENDIENTE_DOCUMENTACION', 'EXPIRADA'].includes(solicitud.estado);
+  const tipoLicencia = tiposLicencias?.find((t) => t.id === solicitud.tipo_licencia_id);
+  const requiresDocs = !!tipoLicencia?.requiere_adjunto;
+  const isMissingRequiredDocs = requiresDocs && !solicitud.archivos_adjuntos;
   const isExpired = solicitud.fecha_fin ? new Date(solicitud.fecha_fin) < new Date() : false;
   const hasStarted = (() => {
     if (!solicitud.fecha_inicio) return false;
@@ -348,10 +352,12 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
     !isExpired &&
     !isExpiredState &&
     !hasStarted;
-  const tipoLicencia = tiposLicencias?.find((t) => t.id === solicitud.tipo_licencia_id);
   const canUploadDoc =
-    (isCreator && solicitud.estado === 'PENDIENTE_DOCUMENTACION') ||
-    (isGerencia && solicitud.estado === 'EXPIRADA' && !!tipoLicencia?.requiere_adjunto);
+    (isCreator && (
+      solicitud.estado === 'PENDIENTE_DOCUMENTACION' ||
+      (requiresDocs && ['EXPIRADA', 'CONSUMIDA'].includes(solicitud.estado))
+    )) ||
+    (canApproveOrReject && solicitud.estado === 'EXPIRADA' && requiresDocs);
 
   return (
     <FullScreenPortal>
@@ -522,10 +528,23 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
                   />
                 </View>
               )}
+
+              {/* Aviso: aprobar esto implica una excepción (vencida y/o sin documentación) */}
+              {canTakeAction && (isExpiredState || isMissingRequiredDocs) && (
+                <View style={styles.uploadSection}>
+                  <ThemedText style={styles.uploadLabel}>
+                    {isExpiredState && isMissingRequiredDocs
+                      ? 'Esta solicitud está vencida y sin la documentación requerida. Podés aprobarla igual; quedará registrado un reporte de cumplimiento.'
+                      : isExpiredState
+                        ? 'Esta solicitud está vencida. Todavía podés aprobarla o rechazarla.'
+                        : 'Falta la documentación requerida. Podés aprobarla igual; quedará registrado un reporte de cumplimiento.'}
+                  </ThemedText>
+                </View>
+              )}
             </ScrollView>
 
             {/* Footer Actions */}
-            {(canTakeAction || canApproveExpired || canCancel) && (
+            {(canTakeAction || canCancel) && (
               <View style={styles.footerActions}>
                 {canTakeAction && (
                   <GlassButton
@@ -537,7 +556,7 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
                   />
                 )}
 
-                {(canTakeAction || canApproveExpired) && (
+                {canTakeAction && (
                   <GlassButton
                     variant="success"
                     label="Aprobar"

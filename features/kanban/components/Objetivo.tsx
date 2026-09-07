@@ -438,7 +438,7 @@ export function DetailModal({ visible, objetivo, onClose, onDelete, onMove, curr
                     </View>
 
                     <ModalKeyboardView style={{ flex: 1 }}>
-                    <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 8 }}>
+                    <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 32 }}>
                         <View style={[glassStyles.card, styles.summaryCard]}>
                         <Text style={styles.metaAuthor}>
                             {currentObjetivo.created_by_username}
@@ -659,19 +659,17 @@ export function DetailModal({ visible, objetivo, onClose, onDelete, onMove, curr
                                     initialExpanded
                                     extraContent={
                                         showSelector ? (
-                                            <View style={styles.selectorCard}>
-                                                <UserSelector
-                                                    selectedUsers={selectedUsers}
-                                                    onSelectUsers={handleSelectUsers}
-                                                    users={users}
-                                                    roles={rolesForSelector}
-                                                    isLoadingUsers={isLoadingUsers}
-                                                    isLoadingRoles={false}
-                                                    onSearch={setSearchQuery}
-                                                    onSelectRole={handleSelectRole}
-                                                    showSelectedChips={false}
-                                                />
-                                            </View>
+                                            <UserSelector
+                                                selectedUsers={selectedUsers}
+                                                onSelectUsers={handleSelectUsers}
+                                                users={users}
+                                                roles={rolesForSelector}
+                                                isLoadingUsers={isLoadingUsers}
+                                                isLoadingRoles={false}
+                                                onSearch={setSearchQuery}
+                                                onSelectRole={handleSelectRole}
+                                                showSelectedChips={false}
+                                            />
                                         ) : null
                                     }
                                     renderRowSub={(id) => {
@@ -986,12 +984,6 @@ const styles = StyleSheet.create({
     },
     tabSection: {
         gap: 10,
-    },
-    selectorCard: {
-        ...glassStyles.card,
-        marginTop: 12,
-        marginBottom: 12,
-        padding: 12,
     },
     roleToggleRow: {
         flexDirection: 'row',

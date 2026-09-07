@@ -27,6 +27,7 @@ import { generateIdempotencyKey } from '@/shared/idempotency';
 import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
 import { GlassButton } from '@/shared/ui/GlassButton';
 import { focusBorderStyles, glassColors, glassStyles } from '@/shared/ui/glass';
+import { useKeyboardHeight } from '@/shared/ui/keyboard';
 import { useFocusBorder } from '@/shared/ui/useFocusBorder';
 import { useSafeBottomInset } from '@/hooks/useSafeBottomInset';
 import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
@@ -78,6 +79,7 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
     const router = useRouter();
     const insets = useSafeAreaInsets();
     const bottomInset = useSafeBottomInset();
+    const keyboardHeight = useKeyboardHeight();
     const modalVisible = props?.visible ?? true;
     const handleClose = props?.onClose ?? (() => router.back());
 
@@ -385,7 +387,7 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
         <FullScreenPortal>
         <View style={styles.fullScreen}>
                 <ModalKeyboardView style={styles.keyboardContainer}>
-                    <View style={[styles.container, { paddingBottom: bottomInset }]}>
+                    <View style={styles.container}>
                         <View style={[conversacionStyles.modalHeader, { paddingTop: insets.top + 10, alignItems: 'flex-start' }]}>
                             <TouchableOpacity onPress={handleClose} style={conversacionStyles.backButton}>
                                 <Ionicons name="chevron-back" size={24} color={glassColors.textMuted} />
@@ -393,7 +395,7 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
                         </View>
                         <ScrollView
                             style={styles.content}
-                            contentContainerStyle={{ paddingBottom: 120 }}
+                            contentContainerStyle={{ paddingBottom: 120 + keyboardHeight }}
                             keyboardShouldPersistTaps="handled"
                             keyboardDismissMode="on-drag"
                             showsVerticalScrollIndicator={false}
@@ -910,9 +912,10 @@ const styles = StyleSheet.create({
         borderTopWidth: StyleSheet.hairlineWidth,
         borderTopColor: 'rgba(17,24,28,0.08)',
         paddingHorizontal: '4%',
-        paddingTop: 10,
+        paddingTop: 14,
     },
     uploadButton: {
         alignSelf: 'stretch',
+        paddingVertical: 16,
     },
 });

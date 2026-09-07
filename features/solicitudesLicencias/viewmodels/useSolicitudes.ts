@@ -1,4 +1,5 @@
 import { useAuth } from '@/features/auth/context/AuthContext';
+import { BADGES_QUERY_KEY } from '@/shared/badges/useBadges';
 import { IDEMPOTENT_MUTATION_RETRY } from '@/shared/idempotency';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as solicitudesLicencias from '../models/SolicitudLicencia';
@@ -7,28 +8,12 @@ import {
     aprobarSolicitudLicencia,
     cancelarSolicitudLicencia,
     createSolicitudLicencia,
-    getLicenciasUnseenCount,
     getSaldosLicencia,
     getSolicitudesLicencias,
     getSolicitudesUsuario,
     getTiposLicencia,
     rechazarSolicitudLicencia
 } from "../services/solicitudesApi";
-
-export function useLicenciasUnseenCount(enabled: boolean = true) {
-    const { tokens } = useAuth();
-
-    return useQuery({
-        queryKey: ['solicitudes-licencias', 'unseen-count'],
-        queryFn: async () => {
-            const token = tokens?.accessToken;
-            if (!token) throw new Error('No hay token de acceso');
-            return getLicenciasUnseenCount(token);
-        },
-        enabled: enabled && !!tokens?.accessToken,
-        staleTime: 1000 * 45,
-    });
-}
 
 export function useGetTiposLicencias() {
     const { tokens } = useAuth();
@@ -162,6 +147,7 @@ export function useCreateSolicitudLicencia() {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['solicitudes-licencias'] });
+            queryClient.invalidateQueries({ queryKey: BADGES_QUERY_KEY });
         },
         // Reintentos seguros: el mismo X-Idempotency-Key viaja en cada intento.
         ...IDEMPOTENT_MUTATION_RETRY,
@@ -184,6 +170,7 @@ export function useAdjuntarArchivo() {
         onSuccess: () => {
             // Invalidar las solicitudes para refrescar los datos
             queryClient.invalidateQueries({ queryKey: ['solicitudes-licencias'] });
+            queryClient.invalidateQueries({ queryKey: BADGES_QUERY_KEY });
         },
         // Reintentos seguros: el mismo X-Idempotency-Key viaja en cada intento.
         ...IDEMPOTENT_MUTATION_RETRY,
@@ -203,8 +190,10 @@ export function useCancelarSolicitudLicencia() {
             return cancelarSolicitudLicencia(token, solicitudId);
         },
         onSuccess: () => {
-            // Invalidar las solicitudes para refrescar los datos
+            // Invalidar las solicitudes y saldos (una cancelación de franco puede reintegrar saldo)
             queryClient.invalidateQueries({ queryKey: ['solicitudes-licencias'] });
+            queryClient.invalidateQueries({ queryKey: ['saldos-licencias'] });
+            queryClient.invalidateQueries({ queryKey: BADGES_QUERY_KEY });
         },
     });
 }
@@ -223,11 +212,13 @@ export function useAprobarSolicitudLicencia() {
             return aprobarSolicitudLicencia(token, data.solicitudId, data.observacion);
         },
         onSuccess: () => {
-            // Invalidar las solicitudes para refrescar los datos       
+            // Invalidar las solicitudes y saldos (una aprobación de franco consume saldo)
             queryClient.invalidateQueries({ queryKey: ['solicitudes-licencias'] });
+            queryClient.invalidateQueries({ queryKey: ['saldos-licencias'] });
+            queryClient.invalidateQueries({ queryKey: BADGES_QUERY_KEY });
         },
     });
-}       
+}
 
 export function useRechazarSolicitudLicencia() {
     const queryClient = useQueryClient();
@@ -244,8 +235,9 @@ export function useRechazarSolicitudLicencia() {
             return rechazarSolicitudLicencia(token, data.solicitudId, data.observacion);
         },
         onSuccess: () => {
-            // Invalidar las solicitudes para refrescar los datos       
+            // Invalidar las solicitudes para refrescar los datos
             queryClient.invalidateQueries({ queryKey: ['solicitudes-licencias'] });
+            queryClient.invalidateQueries({ queryKey: BADGES_QUERY_KEY });
         },
         onError: (error) => {
             console.error('[useRechazarSolicitudLicencia] Error en onError:', error);

@@ -6,11 +6,9 @@ import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { generateIdempotencyKey } from '@/shared/idempotency';
-import { boxShadow } from '@/shared/ui/boxShadow';
 import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
 import { focusBorderStyles, glassColors, glassStyles } from '@/shared/ui/glass';
 import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
-import { useKeyboardVisible } from '@/shared/ui/keyboard';
 import { useFocusBorder } from '@/shared/ui/useFocusBorder';
 import { useSafeBottomInset } from '@/hooks/useSafeBottomInset';
 import { adminRoles, allRoles } from '@/shared/users/roles';
@@ -187,8 +185,6 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
     hasNextPage, isFetchingNextPage, fetchNextPage,
   });
 
-  const keyboardVisible = useKeyboardVisible();
-
   const chatOtherUser = useMemo(() => {
     if (solicitud.es_grupo) return null;
     return displayParticipantes.find(p => p.user_id !== user?.user_context_id) ?? displayParticipantes[0] ?? null;
@@ -330,7 +326,15 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
 
   // ─── Marcar como visto ────────────────────────────────────────────────────
 
-  useMarcarVisto({ solicitud, solicitudId, invitadosSinCreador, marcarVisto });
+  const latestBitacoraId = useMemo(() => {
+    if (bitacoraItems.length === 0) return null;
+    return bitacoraItems.reduce<number | null>(
+      (max, b) => (typeof b.id === 'number' && (max === null || b.id > max) ? b.id : max),
+      null,
+    );
+  }, [bitacoraItems]);
+
+  useMarcarVisto({ solicitud, solicitudId, invitadosSinCreador, marcarVisto, latestBitacoraId });
 
   // ─── Enviar mensaje ───────────────────────────────────────────────────────
 
@@ -686,7 +690,14 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
                 </View>
 
                 {/* Composer */}
-                <View style={[styles.chatComposer, { marginBottom: keyboardVisible ? 0 : bottomInset }]}>
+                <View style={[
+                  styles.chatComposer,
+                  composerFocus.isFocused && { borderColor: glassColors.link },
+                  // Igual que en las pantallas de "Crear" (p.ej. CrearActividadModal):
+                  // el padding de abajo no se colapsa mientras el teclado está
+                  // abierto — el keyboard-avoiding view ya se encarga del solape.
+                  { marginBottom: bottomInset },
+                ]}>
                   {pickedFiles.length > 0 && (
                     <View style={styles.chatComposerAttachments}>
                       {pickedFiles.map((f, i) => (
@@ -716,7 +727,7 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
                     </View>
                   )}
 
-                  <View style={[styles.chatComposerRow, composerFocus.isFocused && { borderColor: glassColors.link }]}>
+                  <View style={styles.chatComposerRow}>
                     {!isFinalState && (
                       <TouchableOpacity style={styles.chatActionButton} onPress={handleAgregarAdjunto}>
                         <Ionicons name="attach" size={20} color={colors.lightTint} />
@@ -818,18 +829,16 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
                         canManage={isHost}
                         extraContent={
                           isHost && showParticipantesSelector ? (
-                            <View style={styles.selectorCard}>
-                              <UserSelector
-                                selectedUsers={participantesSelectedUsers}
-                                onSelectUsers={handleSelectParticipantes}
-                                users={participantesSearchResults ?? []}
-                                roles={rolesForSelector}
-                                isLoadingUsers={isSearchingParticipantes || isLoadingParticipantesRole}
-                                onSearch={setParticipantesSearchQuery}
-                                onSelectRole={role => { setParticipantesActiveRole(role); setShowParticipantesRoleModal(true); }}
-                                showSelectedChips={false}
-                              />
-                            </View>
+                            <UserSelector
+                              selectedUsers={participantesSelectedUsers}
+                              onSelectUsers={handleSelectParticipantes}
+                              users={participantesSearchResults ?? []}
+                              roles={rolesForSelector}
+                              isLoadingUsers={isSearchingParticipantes || isLoadingParticipantesRole}
+                              onSearch={setParticipantesSearchQuery}
+                              onSelectRole={role => { setParticipantesActiveRole(role); setShowParticipantesRoleModal(true); }}
+                              showSelectedChips={false}
+                            />
                           ) : null
                         }
                       />
@@ -1122,12 +1131,21 @@ const localStyles = StyleSheet.create({
   messagesListFlex: {
     flex: 1,
   },
+  // Un único contenedor con borde (misma receta que `messageComposer` en
+  // Solicitud.tsx) para que el banner de "respondiendo a" y el input queden
+  // visualmente contenidos en una sola caja, en vez de que el banner flote
+  // suelto arriba de la píldora del input.
   chatComposer: {
     marginTop: 8,
+    borderRadius: 18,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(17,24,28,0.12)',
+    backgroundColor: 'rgba(17,24,28,0.03)',
+    overflow: 'hidden',
   },
   chatComposerAttachments: {
-    paddingHorizontal: 4,
-    paddingBottom: 8,
+    paddingHorizontal: 8,
+    paddingTop: 8,
     gap: 6,
   },
   chatComposerAttachmentRow: {
@@ -1154,7 +1172,7 @@ const localStyles = StyleSheet.create({
     justifyContent: 'space-between',
     backgroundColor: colors.background,
     borderRadius: 8,
-    marginHorizontal: 12,
+    marginHorizontal: 8,
     marginTop: 8,
     paddingVertical: 6,
     paddingHorizontal: 8,
@@ -1177,17 +1195,15 @@ const localStyles = StyleSheet.create({
   replyBannerClose: {
     padding: 4,
   },
+  // El borde/fondo/sombra de la píldora ahora los da el `chatComposer` que
+  // envuelve todo (ver arriba); esta fila queda como layout puro para no
+  // duplicar la caja.
   chatComposerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: 'rgba(17,24,28,0.12)',
-    backgroundColor: 'rgba(17,24,28,0.03)',
     paddingHorizontal: 6,
     paddingVertical: 12,
-    boxShadow: boxShadow({ width: 0, height: 2 }, 0.08, 4),
   },
   chatComposerInput: {
     flex: 1,

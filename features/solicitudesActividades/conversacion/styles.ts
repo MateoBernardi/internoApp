@@ -380,12 +380,6 @@ export const conversacionStyles = StyleSheet.create({
   participantesSection: {
     gap: 8,
   },
-  selectorCard: {
-    ...glassStyles.card,
-    marginTop: 4,
-    marginBottom: 4,
-    padding: 12,
-  },
   participanteAvatar: {
     width: 36,
     height: 36,

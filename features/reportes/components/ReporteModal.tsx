@@ -29,6 +29,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSafeBottomInset } from '@/hooks/useSafeBottomInset';
 import { EstadoReporte, Reporte, ReporteImagen } from '../models/Reporte';
 import { getReporteEstadoPresentation } from '../presentation';
+import { buildImageAssetUpload } from '../utils/imageAsset';
 import { useReporteImagenes, useUnlinkReporteImage, useUpdateReporte, useUploadReporteImage } from '../viewmodels/useReportes';
 
 let ImagePicker: typeof ImagePickerTypes | null = null;
@@ -86,11 +87,13 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 	// ── Permisos ─────────────────────────────────────────────────────────────
 	const isReporteFinal = reporte.estado === 'ASENTADO' || reporte.estado === 'DESESTIMADO';
 	const isGerencia = hasRole('gerencia');
-	const canModify = !isReporteFinal || isGerencia;
+	// Los reportes positivos nacen ya Asentados: no se editan nunca, ni gerencia.
+	const canModify = !isReporteFinal || (isGerencia && reporte.categoria !== 'POSITIVO');
 	const hasSupervisorRole = hasRole(['gerencia', 'personasRelaciones', 'encargado']);
 	// Cualquier rol supervisor puede adjuntar/quitar imágenes, no solo quien creó
-	// el reporte (el backend ya restringe estas rutas a supervisorRoles).
-	const canManageFiles = hasSupervisorRole;
+	// el reporte (el backend ya restringe estas rutas a supervisorRoles). Una vez
+	// Asentado (o Desestimado) el reporte queda cerrado, no se suman más imágenes.
+	const canManageFiles = hasSupervisorRole && !isReporteFinal;
 	const estadoPresentation = getReporteEstadoPresentation(reporte.estado);
 
 	useEffect(() => {
@@ -126,9 +129,7 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 	// Solo imágenes (por decisión); se suben/listan vía el sistema reportesImagenes.
 
 	const uploadAsset = useCallback(async (asset: ImagePickerTypes.ImagePickerAsset) => {
-		const ext = asset.uri.split('.').pop() ?? 'jpg';
-		const name = asset.fileName ?? `imagen_${Date.now()}.${ext}`;
-		const mimeType = asset.mimeType ?? `image/${ext}`;
+		const { name, mimeType } = buildImageAssetUpload(asset);
 		setIsUploadingImage(true);
 		try {
 			await uploadImagen({
@@ -249,7 +250,7 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 	};
 
 	const renderControles = () => {
-		if (isReporteFinal && !isGerencia) return null;
+		if (isReporteFinal && (!isGerencia || reporte.categoria === 'POSITIVO')) return null;
 
 		const isMisReportes = origen === 'mis';
 

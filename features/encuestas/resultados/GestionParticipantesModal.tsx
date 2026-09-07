@@ -1,6 +1,7 @@
 import { GlassTabSelector } from '@/components/ui/GlassTabSelector';
 import { UserSelector } from '@/components/UserSelector';
 import { Colors } from '@/constants/theme';
+import { ParticipantesBlock } from '@/features/solicitudesActividades/components/ParticipantesBlock';
 import { RoleUserSelectionModal } from '@/features/solicitudesActividades/components/RoleUserSelectionModal';
 import { GlassButton } from '@/shared/ui/GlassButton';
 import { UserSummary } from '@/shared/users/User';
@@ -150,42 +151,37 @@ export const GestionParticipantesModal: React.FC<GestionParticipantesModalProps>
           {tab === 'agregar' && (
             <>
               <ScrollView
-                style={{ paddingHorizontal: 20, marginTop: 12 }}
+                style={{ flex: 1, paddingHorizontal: 20, marginTop: 12 }}
                 contentContainerStyle={{ paddingBottom: 12 }}
                 keyboardShouldPersistTaps="handled"
                 showsVerticalScrollIndicator={false}
               >
-                <UserSelector
-                  selectedUsers={usersToAdd}
-                  onSelectUsers={setUsersToAdd}
-                  users={searchResults ?? []}
-                  roles={allRoles}
-                  isLoadingUsers={isLoadingUsers}
-                  isLoadingRoles={false}
-                  onSearch={setSearchQuery}
-                  onSelectRole={(role) => { setActiveRole(role); setShowRoleModal(true); }}
+                {/* Mismo patrón que "Añadir participantes" en Kanban: lista +
+                    buscador conviven dentro de una única tarjeta con borde y
+                    espaciado propio, en vez de flotar sueltos. */}
+                <ParticipantesBlock
+                  participantes={
+                    participantesActuales.length > 0
+                      ? participantesActuales.map((p) => ({
+                          id: p.user_context_id,
+                          nombre: `${p.nombre} ${p.apellido}`,
+                        }))
+                      : [{ id: -1, nombre: 'Todos los empleados' }]
+                  }
+                  initialExpanded
+                  extraContent={
+                    <UserSelector
+                      selectedUsers={usersToAdd}
+                      onSelectUsers={setUsersToAdd}
+                      users={searchResults ?? []}
+                      roles={allRoles}
+                      isLoadingUsers={isLoadingUsers}
+                      isLoadingRoles={false}
+                      onSearch={setSearchQuery}
+                      onSelectRole={(role) => { setActiveRole(role); setShowRoleModal(true); }}
+                    />
+                  }
                 />
-
-                <View style={styles.invitadosSection}>
-                  <Text style={styles.invitadosSectionTitle}>
-                    Invitados{participantesActuales.length > 0 ? ` (${participantesActuales.length})` : ''}
-                  </Text>
-                  {participantesActuales.length === 0 ? (
-                    <View style={styles.invitadoRow}>
-                      <Ionicons name="people-outline" size={18} color={colors.secondaryText} />
-                      <Text style={styles.invitadoNombre}>Todos los empleados</Text>
-                    </View>
-                  ) : (
-                    participantesActuales.map((p) => (
-                      <View key={p.user_context_id} style={styles.invitadoRow}>
-                        <Ionicons name="person-circle-outline" size={20} color={colors.secondaryText} />
-                        <Text style={styles.invitadoNombre}>
-                          {p.nombre} {p.apellido}
-                        </Text>
-                      </View>
-                    ))
-                  )}
-                </View>
               </ScrollView>
 
               <View style={styles.gestionFooter}>
@@ -216,7 +212,7 @@ export const GestionParticipantesModal: React.FC<GestionParticipantesModalProps>
                   </Text>
                 </View>
               ) : (
-                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 8 }}>
+                <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 8 }}>
                   {participantesActuales.map((p) => {
                     const isSelected = selectedToRemove.has(p.user_context_id);
                     return (

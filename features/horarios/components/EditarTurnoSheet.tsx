@@ -103,6 +103,9 @@ export function EditarTurnoSheet({
   // encargado sigue pudiendo corregir la salida mientras el turno está en curso.
   const entradaBloqueada = Boolean(displayDraft?.marcadoInAt);
   const salidaBloqueada = Boolean(displayDraft?.marcadoOutAt);
+  // Una vez que hubo algún escaneo, marcar "de licencia" retroactivamente no
+  // tiene sentido: el empleado ya fichó ese turno.
+  const licenciaBloqueada = entradaBloqueada || salidaBloqueada;
 
   return (
     <Modal
@@ -130,15 +133,15 @@ export function EditarTurnoSheet({
 
               {displayDraft && (
                 <>
-                  {(entradaBloqueada || salidaBloqueada) && (
+                  {licenciaBloqueada && (
                     <View style={styles.escaneadoBanner}>
                       <Ionicons name="lock-closed" size={14} color={MUTED} />
                       <Text style={styles.escaneadoBannerText}>
                         {entradaBloqueada && salidaBloqueada
-                          ? 'Turno ya escaneado — el horario no se puede modificar'
+                          ? 'Turno ya escaneado — el horario y la licencia no se pueden modificar'
                           : entradaBloqueada
-                          ? 'Entrada ya escaneada — el ingreso no se puede modificar'
-                          : 'Salida ya escaneada — el egreso no se puede modificar'}
+                          ? 'Entrada ya escaneada — el ingreso y la licencia no se pueden modificar'
+                          : 'Salida ya escaneada — el egreso y la licencia no se pueden modificar'}
                       </Text>
                     </View>
                   )}
@@ -212,10 +215,11 @@ export function EditarTurnoSheet({
 
                   <View style={styles.field}>
                     <Text style={styles.fieldLabel}>LICENCIA</Text>
-                    <View style={styles.licenciaRow}>
+                    <View style={[styles.licenciaRow, licenciaBloqueada && styles.fieldDisabled]}>
                       <TouchableOpacity
                         style={[styles.licenciaBtn, !displayDraft.licencia && styles.licenciaBtnActive]}
                         onPress={() => onField('licencia', false)}
+                        disabled={licenciaBloqueada}
                       >
                         <Text style={[styles.licenciaBtnText, !displayDraft.licencia && styles.licenciaBtnTextActive]}>
                           No
@@ -224,6 +228,7 @@ export function EditarTurnoSheet({
                       <TouchableOpacity
                         style={[styles.licenciaBtn, displayDraft.licencia && styles.licenciaBtnActive]}
                         onPress={() => onField('licencia', true)}
+                        disabled={licenciaBloqueada}
                       >
                         <Text style={[styles.licenciaBtnText, displayDraft.licencia && styles.licenciaBtnTextActive]}>
                           Sí

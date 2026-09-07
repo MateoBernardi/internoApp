@@ -103,11 +103,13 @@ const styles = StyleSheet.create({
   },
   mid: {
     flex: 1,
+    minWidth: 0,
     gap: 3,
   },
   nombreRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    minWidth: 0,
     gap: 6,
   },
   nombre: {

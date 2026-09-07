@@ -8,11 +8,11 @@ import { OBJETIVOS_QUERY_KEY } from '@/features/kanban/hooks/useObjetivos';
 import { fetchObjetivos } from '@/features/kanban/services/kanbanApi';
 import { NOVEDADES_KEYS } from '@/features/novedades/viewmodels/useNovedades';
 import * as novedadesApi from '@/features/novedades/services/novedadesApi';
-import { getReportesPendingCount } from '@/features/reportes/services/reportesApi';
 import { getSolicitudesUnseen } from '@/features/solicitudesActividades/services/solicitudesApi';
 import { solicitudesQueryKeys } from '@/features/solicitudesActividades/viewmodels/useSolicitudes';
-import { getLicenciasUnseenCount } from '@/features/solicitudesLicencias/services/solicitudesApi';
-import { canRoleRespondEncuestas, LICENCIAS_UNSEEN_ROLES } from '@/hooks/useRoleCheck';
+import { canRoleRespondEncuestas } from '@/hooks/useRoleCheck';
+import { fetchPrefetchBadges } from '@/shared/badges/badgesApi';
+import { BADGES_QUERY_KEY } from '@/shared/badges/useBadges';
 import { QueryClient } from '@tanstack/react-query';
 
 interface PrefetchContext {
@@ -50,15 +50,12 @@ export async function prefetchCoreRealtimeData(
     { name: 'horariosHoy', run: () => queryClient.prefetchQuery({ queryKey: horariosUserQueryKeys.hoy(today), queryFn: () => getMisHorarios(context.accessToken, today, today) }) },
     { name: 'solicitudesUnseen', run: () => queryClient.prefetchQuery({ queryKey: solicitudesQueryKeys.unseen(), queryFn: () => getSolicitudesUnseen(context.accessToken), staleTime: 1000 * 45 }) },
     { name: 'archivosUnseenCount', run: () => queryClient.prefetchQuery({ queryKey: ARCHIVOS_KEYS.unseenCount(), queryFn: () => getArchivosUnseenCount(context.accessToken), staleTime: 1000 * 45 }) },
-    { name: 'reportesPendingCount', run: () => queryClient.prefetchQuery({ queryKey: ['reportes', 'pending-count'], queryFn: () => getReportesPendingCount(context.accessToken), staleTime: 1000 * 45 }) },
+    // Contadores mine/managed de reportes y licencias, ya resueltos por rol en el backend.
+    { name: 'badgesPrefetch', run: () => queryClient.prefetchQuery({ queryKey: BADGES_QUERY_KEY, queryFn: () => fetchPrefetchBadges(context.accessToken), staleTime: 1000 * 45 }) },
   ];
 
   if (canRoleRespondEncuestas(role)) {
     tasks.push({ name: 'encuestas', run: () => queryClient.prefetchQuery({ queryKey: ['encuestas'], queryFn: () => fetchEncuestas(context.accessToken) }) });
-  }
-
-  if (LICENCIAS_UNSEEN_ROLES.some((allowed) => allowed.toLowerCase() === role)) {
-    tasks.push({ name: 'licenciasUnseenCount', run: () => queryClient.prefetchQuery({ queryKey: ['solicitudes-licencias', 'unseen-count'], queryFn: () => getLicenciasUnseenCount(context.accessToken), staleTime: 1000 * 45 }) });
   }
 
   const failed: string[] = [];

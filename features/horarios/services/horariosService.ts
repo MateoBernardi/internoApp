@@ -146,6 +146,22 @@ export async function updateHorario(
   if (!res.ok) throwApiError(await extractError(res), res);
 }
 
+/** Marca (o desmarca) como feriado todos los turnos de un día calendario de una vez. */
+export async function marcarFeriadoDia(
+  token: string,
+  fechaISO: string, // "YYYY-MM-DD"
+  feriado: boolean,
+): Promise<{ message: string; affected: number }> {
+  const res = await apiRequest({
+    method: 'PATCH',
+    endpoint: '/horarios/dia/feriado',
+    token,
+    body: { fecha: fechaISO, feriado },
+  });
+  if (!res.ok) throwApiError(await extractError(res), res);
+  return res.json();
+}
+
 /** Turnos propios del usuario autenticado en un rango de fechas ("YYYY-MM-DD"). */
 export async function getMisHorarios(
   token: string,

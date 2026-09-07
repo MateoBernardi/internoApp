@@ -19,7 +19,6 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   BackHandler,
-  Keyboard,
   Platform,
   ScrollView,
   Switch,
@@ -28,6 +27,7 @@ import {
   View,
 } from 'react-native';
 import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
+import { useKeyboardHeight } from '@/shared/ui/keyboard';
 import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { UserSelector } from '../../../components/UserSelector';
@@ -70,7 +70,7 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [datePickerMode, setDatePickerMode] = useState<'date' | 'time'>('date');
   const [activeDateType, setActiveDateType] = useState<'start' | 'end' | null>(null);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const keyboardHeight = useKeyboardHeight();
   const [backendRangosOcupados, setBackendRangosOcupados] = useState<RangoOcupado[]>([]);
   const [pendingPayload, setPendingPayload] = useState<CrearSolicitudRequest | null>(null);
   const isKeyboardOpen = keyboardHeight > 0;
@@ -113,8 +113,12 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
     setPendingPayload(null);
     setPickedFiles([]);
     setEnviarPorSeparado(false);
+    // El componente permanece montado entre aperturas (solo se oculta con
+    // `if (!visible) return null`), así que si no cerramos el modal de éxito
+    // acá, la próxima vez que se abra el formulario reaparece de inmediato.
+    closeAlert();
     onClose();
-  }, [onClose, setPickedFiles]);
+  }, [onClose, setPickedFiles, closeAlert]);
 
   const blockDatePickerFromToggle = useCallback(() => {
     ignoreDatePressUntilRef.current = Date.now() + 300;
@@ -212,24 +216,6 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
     setShowDatePicker(true);
   };
 
-  useEffect(() => {
-    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-
-    const onShow = Keyboard.addListener(showEvent, (event) => {
-      setKeyboardHeight(event.endCoordinates.height);
-    });
-
-    const onHide = Keyboard.addListener(hideEvent, () => {
-      setKeyboardHeight(0);
-    });
-
-    return () => {
-      onShow.remove();
-      onHide.remove();
-    };
-  }, []);
-
   const hasDates = !fromChatsTab && includeDates;
   const now = ceilToNextMinute(new Date());
   const areDatesMissing = hasDates && (!fechaInicio || !fechaFin);
@@ -253,33 +239,43 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
   // siempre lleva un título obligatorio; la conversación directa, no.
   const esGrupoChat = fromChatsTab && selectedUsers.length > 1 && !enviarPorSeparado;
 
+  // El backend exige título siempre y, para solicitudes (no chat), al menos
+  // uno de descripción / fechas / archivos (`validateSolicitudData`). Para
+  // chats de grupo alcanza con el título (backend `validateChatData`); solo
+  // los chats 1 a 1 exigen mensaje.
+  const hasContenido = descripcion.trim().length > 0 || hasDates || pickedFiles.length > 0;
+
   const isFormValid = useMemo(() => {
     if (fromChatsTab) {
       return (
         selectedUsers.length > 0 &&
-        descripcion.trim().length > 0 &&
-        (!esGrupoChat || titulo.trim().length > 0)
+        (esGrupoChat ? titulo.trim().length > 0 : descripcion.trim().length > 0)
       );
     }
     return (
       titulo.trim().length > 0 &&
       (isConsejo || selectedUsers.length > 0) &&
+      hasContenido &&
       !dateErrorMessage
     );
-  }, [fromChatsTab, esGrupoChat, titulo, descripcion, selectedUsers, dateErrorMessage, isConsejo]);
+  }, [fromChatsTab, esGrupoChat, titulo, descripcion, selectedUsers, dateErrorMessage, isConsejo, hasContenido]);
 
   const missingFieldsMessages = useMemo(() => {
     const msgs: string[] = [];
     if (fromChatsTab) {
       if (selectedUsers.length === 0) msgs.push('Seleccioná al menos un destinatario.');
-      if (descripcion.trim().length === 0) msgs.push('Escribí un mensaje.');
-      if (esGrupoChat && titulo.trim().length === 0) msgs.push('Ingresá un título para el grupo.');
+      if (esGrupoChat) {
+        if (titulo.trim().length === 0) msgs.push('Ingresá un título para el grupo.');
+      } else if (descripcion.trim().length === 0) {
+        msgs.push('Escribí un mensaje.');
+      }
     } else {
       if (titulo.trim().length === 0) msgs.push('Ingresá un título.');
       if (!isConsejo && selectedUsers.length === 0) msgs.push('Seleccioná al menos un participante.');
+      if (!hasContenido) msgs.push('Agregá una descripción, fechas o un archivo adjunto.');
     }
     return msgs;
-  }, [fromChatsTab, esGrupoChat, titulo, descripcion, selectedUsers, isConsejo]);
+  }, [fromChatsTab, esGrupoChat, titulo, descripcion, selectedUsers, isConsejo, hasContenido]);
 
   const avisosBackend = useMemo(() => {
     const grouped = new Map<string, number>();
@@ -372,12 +368,17 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
         archivosIds = validos.map((r) => r.data.id);
 
         if (validos.length === 0) {
-          showModal('Error de archivos', 'No se pudo subir ningún archivo. Se continuará sin adjuntos.');
+          // No creamos la solicitud sin el adjunto que el usuario eligió:
+          // se cancela para que pueda reintentar la subida, en vez de
+          // enviarla silenciosamente sin el archivo.
+          showModal('Error de archivos', 'No se pudo subir el archivo adjunto. Volvé a intentar antes de enviar.');
+          return;
         } else if (fallidos.length > 0) {
-          showModal('Archivos parciales', `Se subieron ${validos.length} de ${pickedFiles.length}`);
+          showModal('Archivos parciales', `Se subieron ${validos.length} de ${pickedFiles.length}. Los demás quedaron sin adjuntar.`);
         }
       } catch {
-        showModal('Error de archivos', 'No se pudieron subir los archivos. Se continuará sin adjuntos.');
+        showModal('Error de archivos', 'No se pudieron subir los archivos. Volvé a intentar antes de enviar.');
+        return;
       } finally {
         setIsUploadingFile(false);
       }
@@ -437,7 +438,7 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
     <FullScreenPortal>
     <View style={styles.fullScreen}>
       <ModalKeyboardView style={styles.keyboardContainer}>
-        <View style={[styles.container, { paddingBottom: isKeyboardOpen ? 0 : bottomInset }]}>
+        <View style={styles.container}>
           {/* Header */}
           <View style={[styles.modalHeader, { paddingTop: insets.top + 10, alignItems: 'flex-start' }]}>
             <TouchableOpacity onPress={handleClose} style={styles.backButton}>
@@ -449,7 +450,7 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
               style={styles.content}
               contentContainerStyle={[
                 styles.contentContainer,
-                { paddingBottom: 88 },
+                { paddingBottom: 88 + keyboardHeight },
               ]}
               keyboardShouldPersistTaps={isKeyboardOpen ? 'handled' : 'never'}
               keyboardDismissMode={isKeyboardOpen ? 'none' : (Platform.OS === 'ios' ? 'interactive' : 'on-drag')}
@@ -551,9 +552,9 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
               </View>
 
               {(!fromChatsTab || esGrupoChat) && (
-                <View style={[styles.inputSection, tituloFocus.isFocused && focusBorderStyles.inputBorderFocused]}>
+                <View style={[styles.titleBox, tituloFocus.isFocused && focusBorderStyles.inputBorderFocused]}>
                   <TextInput
-                    style={[styles.input, focusBorderStyles.inputNoOutline]}
+                    style={[styles.titleInput, focusBorderStyles.inputNoOutline]}
                     placeholder={fromChatsTab ? 'Nombre del grupo' : 'Asunto'}
                     placeholderTextColor={colors.secondaryText}
                     value={titulo}
@@ -611,7 +612,11 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
 
             <View style={[styles.uploadButtonContainer, { paddingBottom: isKeyboardOpen ? 0 : bottomInset }]}>
               {!isFormValid && missingFieldsMessages.length > 0 && (
-                <ThemedText style={styles.errorText}>{missingFieldsMessages.join(' ')}</ThemedText>
+                <View>
+                  {missingFieldsMessages.map((msg) => (
+                    <ThemedText key={msg} style={styles.errorText}>{msg}</ThemedText>
+                  ))}
+                </View>
               )}
               {(() => {
                 // `isPending` permanece true durante TODOS los reintentos de
@@ -628,6 +633,7 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
                     loading={isBusy}
                     icon={(color) => <Ionicons name="cloud-upload" size={20} color={color} style={{ marginRight: 8 }} />}
                     accessibilityLabel="Enviar solicitud"
+                    style={styles.submitButtonPadding}
                   />
                 );
               })()}

@@ -4,8 +4,10 @@ import { focusBorderStyles, glassColors, glassStyles } from '@/shared/ui/glass';
 import { useFocusBorder } from '@/shared/ui/useFocusBorder';
 import { ArchivoUso } from '@/features/docs/models/Archivo';
 import { useUploadArchivo } from '@/features/docs/viewmodels/useArchivos';
+import { useSafeBottomInset } from '@/hooks/useSafeBottomInset';
 import { ApiOperationResult } from '@/shared/types/apiStatus';
 import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
+import { useKeyboardHeight } from '@/shared/ui/keyboard';
 import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { UserSummary } from '@/shared/users/User';
 import { adminRoles, allRoles } from '@/shared/users/roles';
@@ -16,7 +18,6 @@ import React, { useEffect, useState } from 'react';
 import {
     Alert,
     BackHandler,
-    Keyboard,
     Platform,
     ScrollView,
     StyleSheet,
@@ -59,6 +60,7 @@ export function FormObjetivoModal({
     resetDraftSignal = 0,
 }: FormObjetivoModalProps) {
     const insets = useSafeAreaInsets();
+    const bottomInset = useSafeBottomInset();
     const tituloFocus = useFocusBorder();
     const descripcionFocus = useFocusBorder();
     const { user } = useAuth();
@@ -70,7 +72,7 @@ export function FormObjetivoModal({
     const [searchQuery, setSearchQuery] = useState('');
     const [showRoleModal, setShowRoleModal] = useState(false);
     const [activeRole, setActiveRole] = useState('');
-    const [keyboardHeight, setKeyboardHeight] = useState(0);
+    const keyboardHeight = useKeyboardHeight();
     const createMutation = useCreateObjetivo();
     const updateMutation = useUpdateObjetivo();
     const [pickedFiles, setPickedFiles] = useState<any[]>([]);
@@ -206,19 +208,6 @@ export function FormObjetivoModal({
         }
     };
 
-    useEffect(() => {
-        const onShow = Keyboard.addListener('keyboardDidShow', (event) => {
-            setKeyboardHeight(event.endCoordinates.height);
-        });
-        const onHide = Keyboard.addListener('keyboardDidHide', () => {
-            setKeyboardHeight(0);
-        });
-
-        return () => {
-            onShow.remove();
-            onHide.remove();
-        };
-    }, []);
 
     // Actualizar estado cuando el modal se abre o el objetivo cambia.
     // Si se está restaurando un borrador minimizado, preservamos el contenido.
@@ -413,7 +402,7 @@ export function FormObjetivoModal({
                             style={styles.modalFormContent}
                             contentContainerStyle={[
                                 styles.modalFormContentContainer,
-                                { paddingBottom: 88 },
+                                { paddingBottom: 88 + keyboardHeight },
                             ]}
                             keyboardShouldPersistTaps={isKeyboardOpen ? 'handled' : 'never'}
                             keyboardDismissMode={isKeyboardOpen ? 'none' : (Platform.OS === 'ios' ? 'interactive' : 'on-drag')}
@@ -614,7 +603,7 @@ export function FormObjetivoModal({
                         />
                     </View>
 
-                    <View style={[styles.uploadButtonContainer, { paddingBottom: insets.bottom || 10 }]}>
+                    <View style={[styles.uploadButtonContainer, { paddingBottom: bottomInset }]}>
                         <TouchableOpacity
                             onPress={handleSubmit}
                             disabled={isLoading || !titulo.trim()}
@@ -682,13 +671,13 @@ const styles = StyleSheet.create({
         borderTopWidth: StyleSheet.hairlineWidth,
         borderTopColor: 'rgba(17,24,28,0.08)',
         paddingHorizontal: '4%',
-        paddingTop: 10,
+        paddingTop: 14,
     },
     uploadButton: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: 14,
+        paddingVertical: 16,
         borderRadius: 8,
         gap: 8,
     },

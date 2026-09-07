@@ -71,6 +71,19 @@ export const styles = StyleSheet.create({
     color: colors.text,
     padding: 0,
   },
+  titleBox: {
+    ...glassStyles.fieldGlass,
+    marginHorizontal: 16,
+    marginTop: 12,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+  },
+  titleInput: {
+    flex: 1,
+    fontSize: 16,
+    color: colors.text,
+    paddingVertical: 12,
+  },
   chip: {
     paddingHorizontal: 16,
     paddingVertical: 8,
@@ -193,7 +206,10 @@ export const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: 'rgba(17,24,28,0.08)',
     paddingHorizontal: '4%',
-    paddingTop: 10,
+    paddingTop: 14,
+  },
+  submitButtonPadding: {
+    paddingVertical: 16,
   },
   section: {
     marginTop: 12,

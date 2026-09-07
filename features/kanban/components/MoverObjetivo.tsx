@@ -11,7 +11,6 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
     Alert,
-    Keyboard,
     Modal,
     Platform,
     ScrollView,
@@ -21,6 +20,7 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
+import { useKeyboardHeight } from '@/shared/ui/keyboard';
 import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ESTADOS, Objetivo } from "../models/Objetivo";
@@ -67,7 +67,7 @@ export function MoveModal({
     const observacionFocus = useFocusBorder();
     const [nuevoEstado, setNuevoEstado] = useState('');
     const [observacion, setObservacion] = useState('');
-    const [keyboardHeight, setKeyboardHeight] = useState(0);
+    const keyboardHeight = useKeyboardHeight();
     const isKeyboardOpen = keyboardHeight > 0;
 
     const syncMoveDraft = (partial: Partial<MoveDraft>) => {
@@ -78,20 +78,6 @@ export function MoveModal({
             ...partial,
         });
     };
-
-    useEffect(() => {
-        const onShow = Keyboard.addListener('keyboardDidShow', (event) => {
-            setKeyboardHeight(event.endCoordinates.height);
-        });
-        const onHide = Keyboard.addListener('keyboardDidHide', () => {
-            setKeyboardHeight(0);
-        });
-
-        return () => {
-            onShow.remove();
-            onHide.remove();
-        };
-    }, []);
 
     useEffect(() => {
         if (!visible) return;
@@ -140,7 +126,7 @@ export function MoveModal({
         >
             <View style={[glassStyles.modalOverlay, styles.overlay]}>
                 <ModalKeyboardView style={styles.modalKeyboardAvoiding}>
-                    <View style={[glassStyles.sheet, styles.modalContainer, { paddingBottom: bottomInset }]}>
+                    <View style={[glassStyles.sheet, styles.modalContainer]}>
                         <View style={[styles.modalHeader, glassStyles.sheetHeader]}>
                             <ThemedText style={styles.modalTitle}>Mover objetivo</ThemedText>
                             <TouchableOpacity onPress={handleClose} style={styles.modalIconButton} disabled={isLoading}>
@@ -288,13 +274,13 @@ const styles = StyleSheet.create({
         borderTopWidth: StyleSheet.hairlineWidth,
         borderTopColor: 'rgba(17,24,28,0.08)',
         paddingHorizontal: '4%',
-        paddingTop: 10,
+        paddingTop: 14,
     },
     uploadButton: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: 14,
+        paddingVertical: 16,
         borderRadius: 8,
         gap: 8,
     },
@@ -302,13 +288,13 @@ const styles = StyleSheet.create({
     // Forms
     // ============================================
     formGroup: {
-        marginBottom: 20,
+        marginBottom: 28,
     },
     label: {
         fontSize: 14,
         fontWeight: '600',
         color: glassColors.text,
-        marginBottom: 8,
+        marginBottom: 10,
     },
     input: {
         backgroundColor: 'rgba(17,24,28,0.03)',
@@ -327,7 +313,7 @@ const styles = StyleSheet.create({
     estadoButtons: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        gap: 8,
+        gap: 12,
     },
     estadoButton: {
         flex: 1,
@@ -357,6 +343,7 @@ const styles = StyleSheet.create({
     // ============================================
     objetivoInfo: {
         padding: 12,
+        marginBottom: 16,
         borderLeftWidth: 3,
         borderLeftColor: glassColors.link,
     },

@@ -260,6 +260,22 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
     return [...new Set(ids)];
   }, [solicitud.invitados, user]);
 
+  // Solo invitados que ya aceptaron (más el creador) pueden recibir una
+  // actividad/objetivo creado desde esta solicitud — a quien no aceptó no se
+  // le crea nada, ver `ParticipantesCheckList` y los handlers de creación.
+  const aceptadosParticipantesIds = useMemo(() => {
+    const ids = solicitud.invitados
+      .filter(inv => inv.user_id === solicitud.created_by || inv.estado === 'ACCEPTED')
+      .map(inv => inv.user_id);
+    if (user?.user_context_id && !ids.includes(user.user_context_id)) ids.push(user.user_context_id);
+    return [...new Set(ids)];
+  }, [solicitud.invitados, solicitud.created_by, user]);
+
+  const noAceptadosParticipantesIds = useMemo(
+    () => new Set(todosParticipantesIds.filter(id => !aceptadosParticipantesIds.includes(id))),
+    [todosParticipantesIds, aceptadosParticipantesIds],
+  );
+
   const otherParticipantIdsByAuthor = useMemo(() => {
     const map = new Map<number, number[]>();
     todosParticipantesIds.forEach(authorId => {
@@ -469,7 +485,15 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
 
   // ─── Marcar como visto ────────────────────────────────────────────────────
 
-  useMarcarVisto({ solicitud, solicitudId, invitadosSinCreador, marcarVisto });
+  const latestBitacoraId = useMemo(() => {
+    if (bitacora.length === 0) return null;
+    return bitacora.reduce<number | null>(
+      (max, b) => (typeof b.id === 'number' && (max === null || b.id > max) ? b.id : max),
+      null,
+    );
+  }, [bitacora]);
+
+  useMarcarVisto({ solicitud, solicitudId, invitadosSinCreador, marcarVisto, latestBitacoraId });
 
   // ─── Handlers aceptar / rechazar ─────────────────────────────────────────
 
@@ -488,14 +512,14 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
       setAgendaFechaInicio(new Date(solicitud.fecha_inicio));
       setAgendaFechaFin(new Date(solicitud.fecha_fin));
     }
-    setSelectedActivityParticipantIds(todosParticipantesIds);
+    setSelectedActivityParticipantIds(aceptadosParticipantesIds);
     setShowAddToAgendaModal(true);
-  }, [solicitud, todosParticipantesIds]);
+  }, [solicitud, aceptadosParticipantesIds]);
 
   const openCrearObjetivoModal = useCallback(() => {
-    setSelectedActivityParticipantIds(todosParticipantesIds);
+    setSelectedActivityParticipantIds(aceptadosParticipantesIds);
     setShowObjetivoParticipantesModal(true);
-  }, [todosParticipantesIds]);
+  }, [aceptadosParticipantesIds]);
 
   const buildObjetivoInvitadosSeleccionados = useCallback((): Invitado[] =>
     selectedActivityParticipantIds.map(uid => ({
@@ -519,11 +543,17 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
       await crearObjetivo(payload);
       setLocalEstado('ACTIVIDAD_CREADA');
       setShowObjetivoParticipantesModal(false);
-      showModal('Éxito', 'Objetivo creado');
+      const excluidos = [...noAceptadosParticipantesIds].map(resolveParticipantName).filter(Boolean);
+      showModal(
+        'Éxito',
+        excluidos.length > 0
+          ? `Objetivo creado. No se incluyó a: ${excluidos.join(', ')} (no aceptaron la solicitud).`
+          : 'Objetivo creado',
+      );
     } catch (e) {
       showModal('Error', e instanceof Error ? e.message : 'Intenta nuevamente');
     }
-  }, [solicitud, solicitudId, todosArchivos, buildObjetivoInvitadosSeleccionados, crearObjetivo, showModal]);
+  }, [solicitud, solicitudId, todosArchivos, buildObjetivoInvitadosSeleccionados, crearObjetivo, showModal, noAceptadosParticipantesIds, resolveParticipantName]);
 
   const handleOpenAsPreview = useCallback((archivo: any) => openFile(archivo), [openFile]);
 
@@ -580,11 +610,11 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
     actualizarEstado(
       { solicitud_id: solicitudId, estado: 'REJECTED', observacion: rejectObservation.trim() || null },
       {
-        onSuccess: () => { closeRejectModal(); Alert.alert('Éxito', 'Solicitud rechazada'); router.back(); },
+        onSuccess: () => { closeRejectModal(); Alert.alert('Éxito', 'Solicitud rechazada'); handleClose(); },
         onError: e => Alert.alert('Error', e instanceof Error ? e.message : 'Intenta nuevamente'),
       },
     );
-  }, [solicitudId, actualizarEstado, rejectObservation, closeRejectModal, router]);
+  }, [solicitudId, actualizarEstado, rejectObservation, closeRejectModal, handleClose]);
 
   // ─── Modificar ────────────────────────────────────────────────────────────
 
@@ -715,13 +745,17 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
           setBackendActividadRangos([]);
           setLocalEstado('ACTIVIDAD_CREADA');
           setShowAddToAgendaModal(false);
-          Alert.alert('Éxito', esGrupal
+          const excluidos = [...noAceptadosParticipantesIds].map(resolveParticipantName).filter(Boolean);
+          const baseMsg = esGrupal
             ? 'Actividad agregada a la agenda de los participantes seleccionados'
-            : 'Actividad agregada a tu agenda');
+            : 'Actividad agregada a tu agenda';
+          Alert.alert('Éxito', excluidos.length > 0
+            ? `${baseMsg}. No se incluyó a: ${excluidos.join(', ')} (no aceptaron la solicitud).`
+            : baseMsg);
         },
       },
     );
-  }, [agendaFechaInicio, agendaFechaFin, solicitud, solicitudId, crearActividad, selectedActivityParticipantIds]);
+  }, [agendaFechaInicio, agendaFechaFin, solicitud, solicitudId, crearActividad, selectedActivityParticipantIds, noAceptadosParticipantesIds, resolveParticipantName]);
 
   const confirmAgregarAAgenda = useCallback(() => {
     if (agendaDateErrorMessage || selectedActivityParticipantIds.length === 0) return;
@@ -785,18 +819,16 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                 canManage={isHost}
                 extraContent={
                   isHost && showParticipantesSelector ? (
-                    <View style={styles.selectorCard}>
-                      <UserSelector
-                        selectedUsers={participantesSelectedUsers}
-                        onSelectUsers={handleSelectParticipantes}
-                        users={participantesSearchResults ?? []}
-                        roles={rolesForSelector}
-                        isLoadingUsers={isSearchingParticipantes || isLoadingParticipantesRole}
-                        onSearch={setParticipantesSearchQuery}
-                        onSelectRole={role => { setParticipantesActiveRole(role); setShowParticipantesRoleModal(true); }}
-                        showSelectedChips={false}
-                      />
-                    </View>
+                    <UserSelector
+                      selectedUsers={participantesSelectedUsers}
+                      onSelectUsers={handleSelectParticipantes}
+                      users={participantesSearchResults ?? []}
+                      roles={rolesForSelector}
+                      isLoadingUsers={isSearchingParticipantes || isLoadingParticipantesRole}
+                      onSearch={setParticipantesSearchQuery}
+                      onSelectRole={role => { setParticipantesActiveRole(role); setShowParticipantesRoleModal(true); }}
+                      showSelectedChips={false}
+                    />
                   ) : null
                 }
               />
@@ -1260,6 +1292,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                         <ParticipantesCheckList
                           invitados={displayParticipantes}
                           selectedIds={selectedActivityParticipantIds}
+                          disabledIds={noAceptadosParticipantesIds}
                           onToggle={toggleActivityParticipant}
                           getLabel={getParticipanteDisplayName}
                         />
@@ -1315,6 +1348,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                         <ParticipantesCheckList
                           invitados={displayParticipantes}
                           selectedIds={selectedActivityParticipantIds}
+                          disabledIds={noAceptadosParticipantesIds}
                           onToggle={toggleActivityParticipant}
                           getLabel={getParticipanteDisplayName}
                         />
@@ -1387,9 +1421,11 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
 
 // ─── ParticipantesCheckList ─────────────────────────────────────────────────
 
-function ParticipantesCheckList({ invitados, selectedIds, onToggle, getLabel }: {
+function ParticipantesCheckList({ invitados, selectedIds, disabledIds, onToggle, getLabel }: {
   invitados: SolicitudInvitado[];
   selectedIds: number[];
+  /** Invitados que todavía no aceptaron: no se pueden tildar. */
+  disabledIds?: Set<number>;
   onToggle: (id: number) => void;
   getLabel: (inv: SolicitudInvitado) => string;
 }) {
@@ -1397,18 +1433,25 @@ function ParticipantesCheckList({ invitados, selectedIds, onToggle, getLabel }: 
     <ScrollView style={localStyles.checkList} nestedScrollEnabled showsVerticalScrollIndicator>
       {invitados.map(inv => {
         const checked = selectedIds.includes(inv.user_id);
+        const disabled = disabledIds?.has(inv.user_id) ?? false;
         return (
           <TouchableOpacity
             key={inv.user_id}
             style={localStyles.checkRow}
-            onPress={() => onToggle(inv.user_id)}
+            onPress={() => { if (!disabled) onToggle(inv.user_id); }}
+            disabled={disabled}
           >
             <Ionicons
               name={checked ? 'checkbox' : 'square-outline'}
               size={20}
-              color={checked ? colors.tint : colors.secondaryText}
+              color={disabled ? colors.secondaryText : (checked ? colors.tint : colors.secondaryText)}
             />
-            <ThemedText style={localStyles.checkRowText}>{getLabel(inv)}</ThemedText>
+            <ThemedText style={[localStyles.checkRowText, disabled && localStyles.checkRowTextDisabled]}>
+              {getLabel(inv)}
+            </ThemedText>
+            {disabled && (
+              <ThemedText style={localStyles.checkRowHint}>no aceptó</ThemedText>
+            )}
           </TouchableOpacity>
         );
       })}
@@ -1624,6 +1667,15 @@ const localStyles = StyleSheet.create({
   checkRowText: {
     fontSize: 14,
     color: colors.text,
+  },
+  checkRowTextDisabled: {
+    color: colors.secondaryText,
+  },
+  checkRowHint: {
+    fontSize: 12,
+    color: colors.secondaryText,
+    fontStyle: 'italic',
+    marginLeft: 'auto',
   },
 });
 

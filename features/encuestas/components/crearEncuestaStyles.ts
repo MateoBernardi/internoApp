@@ -6,6 +6,12 @@ const colors = Colors['light'];
 
 /** Estilos compartidos por `CrearEncuesta` y `FormularioPregunta`. */
 export const styles = StyleSheet.create({
+  fullScreen: {
+    ...StyleSheet.absoluteFill,
+    zIndex: 1000,
+    elevation: 8,
+    backgroundColor: colors.componentBackground,
+  },
   container: {
     flex: 1,
     backgroundColor: colors.componentBackground,
@@ -236,7 +242,7 @@ export const styles = StyleSheet.create({
   cancelarButton: {
     ...glassStyles.buttonSecondary,
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 16,
     borderRadius: 18,
     alignItems: 'center',
   },
@@ -248,7 +254,7 @@ export const styles = StyleSheet.create({
   guardarButton: {
     ...glassStyles.button,
     flex: 2,
-    paddingVertical: 12,
+    paddingVertical: 16,
     borderRadius: 18,
     alignItems: 'center',
   },
@@ -365,6 +371,6 @@ export const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.secondaryText,
     textAlign: 'center',
-    marginTop: 8,
+    marginTop: 18,
   },
 });

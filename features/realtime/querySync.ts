@@ -38,6 +38,7 @@ const DOMAIN_ALIASES: Record<string, SyncDomain> = {
   solicitudesactividades: 'solicitudesActividades',
   activityrequests: 'solicitudesActividades',
   kanban: 'kanban',
+  objetivo: 'kanban',
   objetivos: 'kanban',
   reportes: 'reportes',
   misreportes: 'reportes',
@@ -55,6 +56,7 @@ const ENDPOINT_HINTS: { includes: string; domain: SyncDomain }[] = [
   { includes: 'actividades', domain: 'solicitudesActividades' },
   { includes: 'kanban', domain: 'kanban' },
   { includes: 'objetivos', domain: 'kanban' },
+  { includes: 'objetivo', domain: 'kanban' },
   { includes: 'reportes', domain: 'reportes' },
   { includes: 'licencias', domain: 'licencias' },
   { includes: 'documentos', domain: 'documentos' },
@@ -236,7 +238,7 @@ export function syncPushPayloadToCache(
       contractIssues: contract.issues,
     });
 
-    const fallbackDomains: SyncDomain[] = ['solicitudesActividades', 'reportes', 'licencias'];
+    const fallbackDomains: SyncDomain[] = ['solicitudesActividades', 'reportes', 'licencias', 'kanban', 'documentos'];
     fallbackDomains.forEach((domain) => {
       DOMAIN_QUERY_KEYS[domain].forEach((queryKey) => {
         queryClient.invalidateQueries({ queryKey });

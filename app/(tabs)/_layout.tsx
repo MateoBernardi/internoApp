@@ -4,11 +4,10 @@ import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { useArchivosUnseenCount } from '@/features/docs/viewmodels/useArchivos';
-import { useReportesPendingCount } from '@/features/reportes/viewmodels/useReportes';
 import { useSolicitudesUnseen } from '@/features/solicitudesActividades/viewmodels/useSolicitudes';
-import { useLicenciasUnseenCount } from '@/features/solicitudesLicencias/viewmodels/useSolicitudes';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
-import { LICENCIAS_UNSEEN_ROLES, useRoleCheck } from '@/hooks/useRoleCheck';
+import { useRoleCheck } from '@/hooks/useRoleCheck';
+import { usePrefetchBadges } from '@/shared/badges/useBadges';
 import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { Href, Redirect, Tabs, useRouter, useSegments } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -98,21 +97,20 @@ export default function TabLayout() {
   const hasMensajesBadge = unseenSolicitudes > 0;
   const mensajesBadgeLabel = unseenSolicitudes > 99 ? '99+' : String(unseenSolicitudes);
 
-  const { data: licenciasUnseenCount = 0 } = useLicenciasUnseenCount(
-    hasRole(LICENCIAS_UNSEEN_ROLES) && hasSessionContext
-  );
-  const { data: reportesPendingCount = 0 } = useReportesPendingCount(
-    (canSeeReportesAdmin || canSeeReportesPersonal) && hasSessionContext
-  );
+  // Contadores "mine"/"managed" de reportes y licencias en un solo request
+  // (ver GET /badges/prefetch) — antes se pedía un solo contador y se
+  // reusaba para el badge personal y el de admin, así que nunca coincidían
+  // con el sub-estado correcto (propio vs. de subordinados).
+  const { data: badges } = usePrefetchBadges(hasSessionContext);
   const { data: archivosUnseenCount = 0 } = useArchivosUnseenCount(hasSessionContext);
 
   const hasArchivosBadge = archivosUnseenCount > 0;
   const archivosBadgeLabel = archivosUnseenCount > 99 ? '99+' : String(archivosUnseenCount);
 
-  const hasSolicitudesLicenciasPendientesAdmin = canSeeLicenciasAdmin && licenciasUnseenCount > 0;
-  const hasSolicitudesLicenciasPendientesPersonal = canSeeLicenciasPersonal && licenciasUnseenCount > 0;
-  const hasReportesPendientesAdmin = canSeeReportesAdmin && reportesPendingCount > 0;
-  const hasReportesPendientesPersonal = canSeeReportesPersonal && reportesPendingCount > 0;
+  const hasSolicitudesLicenciasPendientesAdmin = canSeeLicenciasAdmin && (badges?.licencias.managed ?? 0) > 0;
+  const hasSolicitudesLicenciasPendientesPersonal = canSeeLicenciasPersonal && (badges?.licencias.mine ?? 0) > 0;
+  const hasReportesPendientesAdmin = canSeeReportesAdmin && (badges?.reportes.managed ?? 0) > 0;
+  const hasReportesPendientesPersonal = canSeeReportesPersonal && (badges?.reportes.mine ?? 0) > 0;
 
   const hasAdminBadge =
     hasAdminTab &&
@@ -137,7 +135,7 @@ export default function TabLayout() {
       route: '/(extras)/solicitudes-licencias' as Href,
       hasBadge: hasSolicitudesLicenciasPendientesAdmin,
     }] : []),
-    ...(hasRole(['gerencia', 'encargado', 'contable', 'personasRelaciones', 'consejo', 'presidencia']) ? [{
+    ...(hasRole(['gerencia', 'personasRelaciones', 'presidencia', 'contable', 'sistemas', 'consejo']) ? [{
       id: 'encuestas',
       label: 'Encuestas',
       route: '/(extras)/encuestas' as Href,

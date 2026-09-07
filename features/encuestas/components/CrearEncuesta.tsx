@@ -4,8 +4,10 @@ import { UserSelector } from '@/components/UserSelector';
 import { Colors } from '@/constants/theme';
 import { RoleUserSelectionModal } from '@/features/solicitudesActividades/components/RoleUserSelectionModal';
 import { AppBackButton } from '@/shared/ui/AppBackButton';
+import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
 import { glassColors } from '@/shared/ui/glass';
-import { KEYBOARD_BEHAVIOR } from '@/shared/ui/keyboard';
+import { KEYBOARD_BEHAVIOR, useKeyboardHeight } from '@/shared/ui/keyboard';
+import { useSafeBottomInset } from '@/hooks/useSafeBottomInset';
 import { useIdempotencyKey } from '@/shared/useIdempotencyKey';
 import { UserSummary } from '@/shared/users/User';
 import { allRoles } from '@/shared/users/roles';
@@ -24,7 +26,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Encuesta, Pregunta, TIPO_PREGUNTA_META } from '../models/Encuesta';
 import { useCreateEncuestaCompleta } from '../viewmodels/useEncuestas';
 import { styles } from './crearEncuestaStyles';
@@ -39,7 +40,8 @@ interface CrearEncuestaProps {
 const colors = Colors['light'];
 
 export const CrearEncuesta: React.FC<CrearEncuestaProps> = ({ onEncuestaCreada, onVolver }) => {
-  const insets = useSafeAreaInsets();
+  const bottomInset = useSafeBottomInset();
+  const keyboardHeight = useKeyboardHeight();
   const [titulo, setTitulo] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [focusedField, setFocusedField] = useState<'titulo' | 'descripcion' | null>(null);
@@ -195,6 +197,8 @@ export const CrearEncuesta: React.FC<CrearEncuestaProps> = ({ onEncuestaCreada, 
   }
 
   return (
+    <FullScreenPortal>
+    <View style={styles.fullScreen}>
     <KeyboardAvoidingView
       style={styles.container}
       behavior={KEYBOARD_BEHAVIOR}
@@ -202,7 +206,7 @@ export const CrearEncuesta: React.FC<CrearEncuestaProps> = ({ onEncuestaCreada, 
     >
       <EncuestasScreenHeader title="Crear Encuesta" left={<AppBackButton onPress={onVolver} />} />
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 + keyboardHeight }}>
 
         {/* Información básica */}
         <View style={styles.section}>
@@ -385,7 +389,7 @@ export const CrearEncuesta: React.FC<CrearEncuestaProps> = ({ onEncuestaCreada, 
         </View>
       </ScrollView>
 
-      <View style={[styles.footerDos, { paddingBottom: insets.bottom || 16 }]}>
+      <View style={[styles.footerDos, { paddingBottom: bottomInset }]}>
         <TouchableOpacity style={styles.cancelarButton} onPress={onVolver}>
           <Text style={styles.cancelarButtonText}>Cancelar</Text>
         </TouchableOpacity>
@@ -413,5 +417,7 @@ export const CrearEncuesta: React.FC<CrearEncuestaProps> = ({ onEncuestaCreada, 
         onDeselectAll={handleDeselectAllRoleUsers}
       />
     </KeyboardAvoidingView>
+    </View>
+    </FullScreenPortal>
   );
 };

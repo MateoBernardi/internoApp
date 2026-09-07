@@ -276,7 +276,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(17,24,28,0.12)',
     borderRadius: 8,
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
   label: {
     fontSize: 16,
@@ -287,7 +288,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     padding: 0,
-    height: 30, // Increased height for easier touch
+    height: 40, // Increased height for easier touch
   },
   rolesButton: {
     flexDirection: 'row',

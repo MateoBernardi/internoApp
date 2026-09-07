@@ -16,7 +16,10 @@ import { AppBackButton } from '@/shared/ui/AppBackButton';
 import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
 import { GlassButton } from '@/shared/ui/GlassButton';
 import { focusBorderStyles, glassColors } from '@/shared/ui/glass';
+import { useKeyboardHeight } from '@/shared/ui/keyboard';
+import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { useFocusBorder } from '@/shared/ui/useFocusBorder';
+import { useSafeBottomInset } from '@/hooks/useSafeBottomInset';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Respuesta } from '../models/Encuesta';
 import { ConvocarReunionesResult, ReunionPersonaRequest, useConvocarReuniones } from '../viewmodels/useEncuestas';
@@ -50,6 +53,8 @@ export const ConvocarReunionModal: React.FC<ConvocarReunionModalProps> = ({
   onSuccess,
 }) => {
   const insets = useSafeAreaInsets();
+  const bottomInset = useSafeBottomInset();
+  const keyboardHeight = useKeyboardHeight();
   const { enviar, isPending } = useConvocarReuniones();
 
   const [titulo, setTitulo] = useState('Reunión de equipo');
@@ -153,7 +158,8 @@ export const ConvocarReunionModal: React.FC<ConvocarReunionModalProps> = ({
   return (
     <FullScreenPortal>
     <View style={localStyles.fullScreen}>
-      <View style={[localStyles.sheetFull, { paddingBottom: insets.bottom + 16 }]}>
+      <ModalKeyboardView style={{ flex: 1 }}>
+      <View style={localStyles.sheetFull}>
 
           <View style={[styles.convocarHeader, { paddingTop: insets.top + 12 }]}>
             <View style={localStyles.headerTopRow}>
@@ -167,7 +173,12 @@ export const ConvocarReunionModal: React.FC<ConvocarReunionModalProps> = ({
             </View>
           </View>
 
-          <ScrollView style={styles.convocarBody} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 16 }}>
+          <ScrollView
+            style={styles.convocarBody}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingBottom: 16 + keyboardHeight }}
+            keyboardShouldPersistTaps="handled"
+          >
             {resultado ? (
               // Vista de resultados post-envío
               <View style={{ paddingTop: 16 }}>
@@ -273,24 +284,26 @@ export const ConvocarReunionModal: React.FC<ConvocarReunionModalProps> = ({
             )}
           </ScrollView>
 
-          <View style={styles.convocarFooter}>
+          <View style={[styles.convocarFooter, { paddingBottom: bottomInset }]}>
             <Text style={styles.convocarFooterCount}>
               {resultado
                 ? `${resultado.exitosas + resultado.fallidas.length} procesadas`
                 : `${personas.length} solicitud${personas.length !== 1 ? 'es' : ''}`}
             </Text>
             {resultado ? (
-              <GlassButton label="Cerrar" onPress={handleCerrar} />
+              <GlassButton label="Cerrar" onPress={handleCerrar} style={localStyles.footerButton} />
             ) : (
               <GlassButton
                 label="Enviar"
                 onPress={handleEnviar}
                 disabled={!titulo.trim() || isPending}
                 loading={isPending}
+                style={localStyles.footerButton}
               />
             )}
           </View>
         </View>
+      </ModalKeyboardView>
 
       {pickerStep === 'date' && (
         <DateTimePicker
@@ -331,5 +344,8 @@ const localStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  footerButton: {
+    paddingVertical: 16,
   },
 });

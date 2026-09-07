@@ -9,5 +9,5 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
  */
 export function useSafeBottomInset(minPx = 16): number {
   const { bottom } = useSafeAreaInsets();
-  return Math.max(bottom, minPx);
+  return Math.max(bottom, minPx) + 6;
 }

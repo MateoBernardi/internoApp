@@ -781,19 +781,17 @@ export function ActividadDetalle({
                   }}
                   extraContent={
                     isHost && showSelector ? (
-                      <View style={styles.selectorCard}>
-                        <UserSelector
-                          selectedUsers={selectedUsers}
-                          onSelectUsers={handleSelectUsers}
-                          users={users}
-                          roles={allRoles}
-                          isLoadingUsers={isLoadingUsers}
-                          isLoadingRoles={false}
-                          onSearch={setSearchQuery}
-                          onSelectRole={handleSelectRole}
-                          showSelectedChips={false}
-                        />
-                      </View>
+                      <UserSelector
+                        selectedUsers={selectedUsers}
+                        onSelectUsers={handleSelectUsers}
+                        users={users}
+                        roles={allRoles}
+                        isLoadingUsers={isLoadingUsers}
+                        isLoadingRoles={false}
+                        onSearch={setSearchQuery}
+                        onSelectRole={handleSelectRole}
+                        showSelectedChips={false}
+                      />
                     ) : null
                   }
                 />
@@ -1124,13 +1122,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: glassColors.link,
-  },
-  // ── Participantes ─────────────────────────────────────────────────────────
-  selectorCard: {
-    ...glassStyles.card,
-    marginTop: 4,
-    marginBottom: 4,
-    padding: 12,
   },
   // ── Archivos ──────────────────────────────────────────────────────────────
   section: {

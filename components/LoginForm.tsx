@@ -6,9 +6,11 @@ import { useAuth } from '@/features/auth/context/AuthContext';
 import { useAuthFormLayout } from '@/shared/ui/authLayout';
 import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { GoogleSignin, isGoogleSignInAvailable } from '@/features/auth/services/googleSignInClient';
+import { isGoogleIdentityServicesAvailable, renderGoogleButton } from '@/features/auth/services/googleIdentityServicesWeb';
+import { GoogleLogo } from '@/shared/ui/GoogleLogo';
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Image, Keyboard, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 const colors = Colors['light'];
@@ -23,6 +25,7 @@ export const LoginForm: React.FC = () => {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
   const passRef = useRef<TextInput>(null);
+  const googleButtonContainerRef = useRef<View>(null);
 
   // Validación de formulario
   const isFormValid = useMemo(() => {
@@ -95,6 +98,31 @@ export const LoginForm: React.FC = () => {
       setGoogleLoading(false);
     }
   }, [signInWithGoogle]);
+
+  // Sign in con Google en web vía Google Identity Services (idToken llega por callback del botón oficial)
+  const onGoogleCredential = useCallback(async (idToken: string) => {
+    setGoogleLoading(true);
+    setError("");
+
+    try {
+      await signInWithGoogle(idToken);
+      // El RootLayout maneja el redirect automáticamente basado en isAuthenticated y requiresAssociation
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Intenta nuevamente");
+    } finally {
+      setGoogleLoading(false);
+    }
+  }, [signInWithGoogle]);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !isGoogleIdentityServicesAvailable) return;
+    const node = googleButtonContainerRef.current as unknown as HTMLElement | null;
+    if (!node) return;
+
+    renderGoogleButton(node, onGoogleCredential).catch((err) => {
+      console.error('No se pudo inicializar Google Identity Services:', err);
+    });
+  }, [onGoogleCredential]);
 
   // Cambios de usuario y contraseña
   const handleUserChange = useCallback((text: string) => {
@@ -184,11 +212,17 @@ export const LoginForm: React.FC = () => {
             accessibilityLabel="Botón continuar con Google"
             android_ripple={{ color: colors.lightTint }}
           >
-            <Feather name="chrome" size={20} color={glassColors.text} style={{ marginRight: 8 }} />
+            <View style={{ marginRight: 8 }}>
+              <GoogleLogo size={20} />
+            </View>
             <ThemedText style={[styles.loginButtonText, { color: glassColors.text }]}>
               {googleLoading ? "Ingresando..." : "Continuar con Google"}
             </ThemedText>
           </Pressable>
+        )}
+
+        {Platform.OS === 'web' && isGoogleIdentityServicesAvailable && (
+          <View ref={googleButtonContainerRef} style={styles.googleButtonWebContainer} />
         )}
 
         <View style={styles.linksContainer}>
@@ -242,6 +276,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginTop: 32,
     borderRadius: 18,
+    overflow: 'hidden',
     paddingVertical: 14,
     paddingHorizontal: 32,
   },
@@ -250,6 +285,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: glassColors.text,
     backgroundColor: 'transparent',
+  },
+  googleButtonWebContainer: {
+    marginTop: 12,
+    alignItems: 'center',
   },
   loginCardText: {
     color: colors.componentBackground,

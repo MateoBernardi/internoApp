@@ -1,6 +1,8 @@
-import { config as loadDotenv } from "dotenv";
-import { ConfigContext, ExpoConfig } from "expo/config";
-import { resolve } from "path";
+const { config: loadDotenv } = require("dotenv");
+const { resolve } = require("path");
+
+/** @typedef {import('expo/config').ExpoConfig} ExpoConfig */
+/** @typedef {import('expo/config').ConfigContext} ConfigContext */
 
 // EAS no carga los archivos .env durante `eas update` (a diferencia de `expo start`),
 // por lo que las variables quedaban undefined y se publicaban bundles sin API_BASE_URL.
@@ -9,7 +11,11 @@ import { resolve } from "path";
 loadDotenv({ path: resolve(__dirname, ".env.local"), quiet: true });
 loadDotenv({ path: resolve(__dirname, ".env"), quiet: true });
 
-function requireEnv(name: string): string {
+/**
+ * @param {string} name
+ * @returns {string}
+ */
+function requireEnv(name) {
   const value = process.env[name];
   if (!value) {
     throw new Error(
@@ -20,7 +26,8 @@ function requireEnv(name: string): string {
   return value;
 }
 
-const plugins: NonNullable<ExpoConfig["plugins"]> = [
+/** @type {NonNullable<ExpoConfig["plugins"]>} */
+const plugins = [
   [
     "expo-notifications",
     {
@@ -75,7 +82,8 @@ if (process.env.GOOGLE_IOS_URL_SCHEME) {
   ]);
 }
 
-export default ({ config }: ConfigContext): ExpoConfig => ({
+/** @type {(ctx: ConfigContext) => ExpoConfig} */
+module.exports = ({ config }) => ({
   name: "Italo Argentina",
   slug: "internoApp",
   version: "2.0.0",
@@ -90,12 +98,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     supportsTablet: true,
     bundleIdentifier: "ar.com.italoarg",
     infoPlist: {
-      infoPlist: {
-        UIBackgroundModes: ["remote-notification"],
-        NSCameraUsageDescription: "Esta aplicación requiere acceso a la cámara para que los empleados puedan escanear códigos QR o capturar imágenes de remitos, productos, o reportes por ejemplo, al registrar un control de stock en el depósito de la empresa.",
-        NSLocationWhenInUseUsageDescription: "Esta aplicación requiere acceso a tu ubicación para verificar que te encontrás dentro del predio de Italo Argentina, por ejemplo, al momento de registrar de forma válida tu asistencia, entrada o salida laboral.",
-        NSPhotoLibraryUsageDescription: "Esta aplicación requiere acceso a tu biblioteca de fotos para que los empleados puedan seleccionar y subir imágenes de comprobantes, recibos o reportes de daños guardados en el dispositivo hacia el sistema de la empresa.",
-      },
+      UIBackgroundModes: ["remote-notification"],
+      NSCameraUsageDescription: "Esta aplicación requiere acceso a la cámara para que los empleados puedan escanear códigos QR o capturar imágenes de remitos, productos, o reportes por ejemplo, al registrar un control de stock en el depósito de la empresa.",
+      NSLocationWhenInUseUsageDescription: "Esta aplicación requiere acceso a tu ubicación para verificar que te encontrás dentro del predio de Italo Argentina, por ejemplo, al momento de registrar de forma válida tu asistencia, entrada o salida laboral.",
+      NSPhotoLibraryUsageDescription: "Esta aplicación requiere acceso a tu biblioteca de fotos para que los empleados puedan seleccionar y subir imágenes de comprobantes, recibos o reportes de daños guardados en el dispositivo hacia el sistema de la empresa.",
     },
   },
   android: {
@@ -110,7 +116,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     },
   },
   web: {
-    output: "static" as const,
+    output: "static",
     favicon: "./assets/images/favicon.png",
     name: "Italo Argentina",
     shortName: "Italo Arg",

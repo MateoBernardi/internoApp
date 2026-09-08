@@ -35,7 +35,7 @@ export default function Root({ children }: PropsWithChildren) {
           httpEquiv="Content-Security-Policy"
           content={`
             default-src 'self';
-            script-src 'self' 'unsafe-inline' https://www.gstatic.com https://static.cloudflareinsights.com;
+            script-src 'self' 'unsafe-inline' https://www.gstatic.com https://static.cloudflareinsights.com https://accounts.google.com;
             style-src 'self' 'unsafe-inline';
             img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com;
             font-src 'self' https://fonts.gstatic.com;
@@ -49,7 +49,9 @@ export default function Root({ children }: PropsWithChildren) {
               https://fcmregistrations.googleapis.com
               https://firebaseinstallations.googleapis.com
               https://firebaselogging-pa.googleapis.com
-              https://cloudflareinsights.com;
+              https://cloudflareinsights.com
+              https://accounts.google.com;
+            frame-src https://accounts.google.com;
             worker-src 'self' blob:;
             manifest-src 'self';
             object-src 'none';
@@ -67,10 +69,10 @@ export default function Root({ children }: PropsWithChildren) {
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="Italo Arg" />
-        <link rel="apple-touch-icon" href="/assets/images/icon-1024.png" />
+        <link rel="apple-touch-icon" href="/images/icon-1024.png" />
 
         {/* Favicon */}
-        <link rel="icon" type="image/png" href="/assets/images/favicon.png" />
+        <link rel="icon" type="image/png" href="/images/favicon.png" />
 
         {/* Disable phone number detection on iOS Safari */}
         <meta name="format-detection" content="telephone=no" />

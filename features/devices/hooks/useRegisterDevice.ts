@@ -125,7 +125,7 @@ export function useRegisterDevice(options: UseRegisterDeviceOptions = {}) {
 
         const n = new Notification(payload.notification?.title || 'Nueva notificación', {
           body: payload.notification?.body,
-          icon: '/assets/images/icon-1024.png',
+          icon: '/images/icon-1024.png',
           data: link ? { url: link } : undefined,
         });
 

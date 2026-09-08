@@ -150,7 +150,7 @@ export const styles = StyleSheet.create({
   errorText: {
     color: colors.error,
     fontSize: 12,
-    marginTop: 8,
+    marginTop: 2,
   },
   messageInput: {
     fontSize: 16,

@@ -363,9 +363,14 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
   // modificación) — no la fecha original de la solicitud. Usarlas como fallback
   // en el mensaje sintético de "descripción" duplicaría esa fecha en el primer
   // mensaje en vez de mostrarla solo en el mensaje que realmente la propuso.
+  // Se usa `bitacoraVisible` (no `bitacora` crudo) porque la entrada 'SENT' de
+  // creación también trae `fecha_inicio_nueva`/`fecha_fin_nueva` (la fecha
+  // original) pero nunca se renderiza como mensaje propio: si se la incluyera
+  // acá, `hasAnyFechaPropuesta` daría true desde el primer render y la fecha
+  // jamás se mostraría en el mensaje sintético de descripción.
   const hasAnyFechaPropuesta = useMemo(
-    () => (bitacora ?? []).some(b => b.fecha_inicio_nueva && b.fecha_fin_nueva),
-    [bitacora],
+    () => bitacoraVisible.some(b => b.fecha_inicio_nueva && b.fecha_fin_nueva),
+    [bitacoraVisible],
   );
 
   const mensajes = useMemo(() => {

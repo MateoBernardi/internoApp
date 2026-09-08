@@ -263,9 +263,14 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
   // Ver comentario equivalente en Solicitud.tsx: `solicitud.fecha_inicio`/`fecha_fin`
   // reflejan la propuesta más reciente, no la original — no usarlas como
   // fallback en el mensaje sintético si ya hubo una propuesta real.
+  // Se usa `bitacoraVisible` (no `bitacoraItems`) porque la entrada 'SENT' de
+  // creación también trae `fecha_inicio_nueva`/`fecha_fin_nueva` (la fecha
+  // original) pero nunca se renderiza como mensaje propio: si se la incluyera
+  // acá, `hasAnyFechaPropuesta` daría true desde el primer render y la fecha
+  // jamás se mostraría en el mensaje sintético de descripción.
   const hasAnyFechaPropuesta = useMemo(
-    () => bitacoraItems.some(b => b.fecha_inicio_nueva && b.fecha_fin_nueva),
-    [bitacoraItems],
+    () => bitacoraVisible.some(b => b.fecha_inicio_nueva && b.fecha_fin_nueva),
+    [bitacoraVisible],
   );
 
   const mensajes = useMemo(() => {

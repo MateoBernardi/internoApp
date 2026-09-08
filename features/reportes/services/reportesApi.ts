@@ -1,6 +1,7 @@
 import { apiRequest, throwApiError } from '@/shared/apiRequest';
 import { IDEMPOTENCY_HEADER, idempotencyHeaders } from '@/shared/idempotency';
 import Constants from 'expo-constants';
+import * as FileSystem from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
 import * as reporte from '../models/Reporte';
 
@@ -164,40 +165,55 @@ export async function uploadReporteImage (
     orden: number,
     idempotencyKey?: string,
 ): Promise<reporte.UploadReporteImageResponse> {
-    const formData = new FormData();
+    const endpoint = `${API_BASE_URL}/reportesImagenes/upload`;
+    const headers = {
+        Authorization: `Bearer ${accessToken}`,
+        'x-app-entorno': 'interno',
+        ...(idempotencyKey ? { [IDEMPOTENCY_HEADER]: idempotencyKey } : {}),
+    };
 
-    // El campo `file` se arma distinto según la plataforma:
-    // - Web: el patrón { uri, name, type } NO es un archivo real (se serializa
-    //   como "[object Object]" y el backend recibe vacío). Hay que materializar
-    //   el contenido en un Blob real antes de adjuntarlo.
-    // - Native: React Native sí acepta el objeto { uri, name, type } para
-    //   representar archivos locales (file://, content://, ph://).
-    if (Platform.OS === 'web') {
-        const fileResponse = await fetch(fileUri);
-        if (!fileResponse.ok) {
-            throw new Error(`No se pudo leer la imagen seleccionada (HTTP ${fileResponse.status})`);
+    if (Platform.OS !== 'web') {
+        const uploadResult = await FileSystem.uploadAsync(endpoint, fileUri, {
+            httpMethod: 'POST',
+            uploadType: FileSystem.FileSystemUploadType.MULTIPART,
+            fieldName: 'file',
+            mimeType,
+            parameters: {
+                reporteId: String(reporteId),
+                description,
+                orden: String(orden),
+            },
+            headers,
+        });
+
+        if (uploadResult.status < 200 || uploadResult.status >= 300) {
+            throwApiError(
+                uploadResult.body,
+                new Response(uploadResult.body, { status: uploadResult.status }),
+            );
         }
-        const blob = await fileResponse.blob();
-        if (blob.size === 0) {
-            throw new Error('La imagen seleccionada está vacía o ya no está disponible.');
-        }
-        formData.append('file', blob, fileName);
-    } else {
-        formData.append('file', { uri: fileUri, name: fileName, type: mimeType } as any);
+
+        return JSON.parse(uploadResult.body);
     }
 
+    const fileResponse = await fetch(fileUri);
+    if (!fileResponse.ok) {
+        throw new Error(`No se pudo leer la imagen seleccionada (HTTP ${fileResponse.status})`);
+    }
+    const blob = await fileResponse.blob();
+    if (blob.size === 0) {
+        throw new Error('La imagen seleccionada está vacía o ya no está disponible.');
+    }
+
+    const formData = new FormData();
+    formData.append('file', blob, fileName);
     formData.append('reporteId', String(reporteId));
     formData.append('description', description);
     formData.append('orden', String(orden));
 
-    const response = await fetch(`${API_BASE_URL}/reportesImagenes/upload`, {
+    const response = await fetch(endpoint, {
         method: 'POST',
-        headers: {
-            Authorization: `Bearer ${accessToken}`,
-            'x-app-entorno': 'interno',
-            ...(idempotencyKey ? { [IDEMPOTENCY_HEADER]: idempotencyKey } : {}),
-            // NO establecer Content-Type — fetch lo agrega automáticamente con el boundary correcto
-        },
+        headers,
         body: formData,
     });
 

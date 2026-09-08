@@ -335,6 +335,11 @@ export function GestionHorarios() {
           >
             <Text style={styles.dayLabel}>{formatDayLabel(selDateISO)}</Text>
             <Ionicons name="calendar-outline" size={16} color={NAVY} />
+            {diaEsFeriado && (
+              <View style={styles.dayFeriadoBadge}>
+                <Ionicons name="star" size={11} color="#ffffff" />
+              </View>
+            )}
           </TouchableOpacity>
           <TouchableOpacity style={styles.navBtn} onPress={() => setSelDateISO((d) => shiftDay(d, 1))}>
             <Ionicons name="chevron-forward" size={22} color={NAVY} />
@@ -355,26 +360,6 @@ export function GestionHorarios() {
             />
           </FullScreenPortal>
         )}
-
-        {/* Feriado toggle for the whole day */}
-        <TouchableOpacity
-          style={[
-            styles.feriadoToggle,
-            diaEsFeriado && styles.feriadoToggleActive,
-            (isMarkingFeriado || totalForDay === 0) && styles.feriadoToggleDisabled,
-          ]}
-          onPress={handleToggleFeriadoDia}
-          disabled={isMarkingFeriado || totalForDay === 0}
-        >
-          {isMarkingFeriado ? (
-            <ActivityIndicator size="small" color={diaEsFeriado ? '#ffffff' : FERIADO_COLOR} />
-          ) : (
-            <Ionicons name="star" size={16} color={diaEsFeriado ? '#ffffff' : FERIADO_COLOR} />
-          )}
-          <Text style={[styles.feriadoToggleText, diaEsFeriado && styles.feriadoToggleTextActive]}>
-            {diaEsFeriado ? 'Día feriado' : 'Marcar día como feriado'}
-          </Text>
-        </TouchableOpacity>
 
         {/* CSV import card */}
         <View style={styles.importCard}>
@@ -413,6 +398,26 @@ export function GestionHorarios() {
             <Text style={styles.importBtnText}>Subir</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Feriado toggle for the whole day */}
+        <TouchableOpacity
+          style={[
+            styles.feriadoToggle,
+            diaEsFeriado && styles.feriadoToggleActive,
+            (isMarkingFeriado || totalForDay === 0) && styles.feriadoToggleDisabled,
+          ]}
+          onPress={handleToggleFeriadoDia}
+          disabled={isMarkingFeriado || totalForDay === 0}
+        >
+          {isMarkingFeriado ? (
+            <ActivityIndicator size="small" color={diaEsFeriado ? '#ffffff' : FERIADO_COLOR} />
+          ) : (
+            <Ionicons name={diaEsFeriado ? 'checkmark-circle' : 'star-outline'} size={16} color={diaEsFeriado ? '#ffffff' : FERIADO_COLOR} />
+          )}
+          <Text style={[styles.feriadoToggleText, diaEsFeriado && styles.feriadoToggleTextActive]}>
+            {diaEsFeriado ? 'Día feriado' : 'Marcar día como feriado'}
+          </Text>
+        </TouchableOpacity>
 
         {/* Filters */}
         <View style={styles.filters}>
@@ -691,6 +696,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: NAVY,
     textAlign: 'center',
+  },
+  dayFeriadoBadge: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: FERIADO_COLOR,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   feriadoToggle: {
     flexDirection: 'row',

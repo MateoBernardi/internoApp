@@ -1,17 +1,17 @@
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
+import { AppBackButton } from '@/shared/ui/AppBackButton';
 import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
 import { glassColors, glassStyles } from '@/shared/ui/glass';
+import { GlassButton } from '@/shared/ui/GlassButton';
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   BackHandler,
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import type { Activity } from '@/features/solicitudesActividades/models/activityTypes';
@@ -114,9 +114,7 @@ export function TurnoDetalle({ activity, visible, onClose }: TurnoDetalleProps) 
     <View style={[glassStyles.sheet, styles.fullScreen, { paddingBottom: bottomInset }]}>
       {/* Header */}
       <View style={[glassStyles.sheetHeader, styles.modalHeader, { paddingTop: insets.top + 12 }]}>
-        <TouchableOpacity onPress={onClose} style={[glassStyles.buttonSecondary, styles.closeButton]}>
-          <Ionicons name="chevron-back" size={24} color={glassColors.textMuted} />
-        </TouchableOpacity>
+        <AppBackButton onPress={onClose} iconName="chevron-back" />
       </View>
 
       <ScrollView
@@ -125,13 +123,13 @@ export function TurnoDetalle({ activity, visible, onClose }: TurnoDetalleProps) 
         showsVerticalScrollIndicator={false}
       >
             {/* Título */}
-            <View style={[glassStyles.card, styles.contentBlock]}>
+            <View style={styles.contentBlock}>
               <ThemedText style={styles.label}>Turno</ThemedText>
               <ThemedText style={styles.titulo}>{activity.title}</ThemedText>
             </View>
 
             {/* Fecha */}
-            <View style={[glassStyles.card, styles.contentBlock]}>
+            <View style={styles.contentBlock}>
               <View style={styles.sectionTitleRow}>
                 <Ionicons name="calendar-outline" size={16} color={glassColors.link} />
                 <ThemedText style={[styles.label, styles.labelInline]}>Fecha</ThemedText>
@@ -140,7 +138,7 @@ export function TurnoDetalle({ activity, visible, onClose }: TurnoDetalleProps) 
             </View>
 
             {/* Horario */}
-            <View style={[glassStyles.card, styles.contentBlock]}>
+            <View style={styles.contentBlock}>
               <View style={styles.sectionTitleRow}>
                 <Ionicons name="time-outline" size={16} color={glassColors.link} />
                 <ThemedText style={[styles.label, styles.labelInline]}>Horario</ThemedText>
@@ -157,7 +155,7 @@ export function TurnoDetalle({ activity, visible, onClose }: TurnoDetalleProps) 
 
             {/* Sede */}
             {(activity.sede_ingreso || activity.sede_egreso) && (
-              <View style={[glassStyles.card, styles.contentBlock]}>
+              <View style={styles.contentBlock}>
                 <View style={styles.sectionTitleRow}>
                   <Ionicons name="location-outline" size={16} color={glassColors.link} />
                   <ThemedText style={[styles.label, styles.labelInline]}>Sede</ThemedText>
@@ -174,32 +172,25 @@ export function TurnoDetalle({ activity, visible, onClose }: TurnoDetalleProps) 
             {/* Aceptación */}
             <View style={styles.acceptSection}>
               {yaAceptado ? (
-                <View style={styles.acceptedBadge}>
+                <View style={styles.acceptedRow}>
                   <Ionicons name="checkmark-circle" size={20} color={ACEPTADO_COLOR} />
-                  <Text style={styles.acceptedBadgeText}>
+                  <Text style={styles.acceptedRowText}>
                     Aceptado el {aceptedAt ? formatAceptadoLabel(aceptedAt) : ''}
                   </Text>
                 </View>
               ) : yaComenzo ? (
-                <View style={styles.pasadoBadge}>
+                <View style={styles.pasadoRow}>
                   <Ionicons name="time-outline" size={18} color={glassColors.placeholder} />
-                  <Text style={styles.pasadoBadgeText}>El horario de entrada ya pasó</Text>
+                  <Text style={styles.pasadoRowText}>El horario de entrada ya pasó</Text>
                 </View>
               ) : (
-                <TouchableOpacity
-                  style={[glassStyles.buttonSuccess, styles.acceptButton, (isPending || !hasValidId) && styles.acceptButtonDisabled]}
+                <GlassButton
+                  label="Aceptar"
                   onPress={handleAceptar}
-                  disabled={isPending || !hasValidId}
-                >
-                  {isPending ? (
-                    <ActivityIndicator size="small" color={glassColors.text} />
-                  ) : (
-                    <>
-                      <Ionicons name="checkmark" size={18} color={glassColors.text} />
-                      <Text style={styles.acceptButtonText}>Aceptar</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
+                  loading={isPending}
+                  disabled={!hasValidId}
+                  icon={(color) => <Ionicons name="checkmark" size={18} color={color} />}
+                />
               )}
             </View>
       </ScrollView>
@@ -220,8 +211,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'flex-start',
     alignItems: 'center',
-  },
-  closeButton: {
   },
   content: {
     flex: 1,
@@ -275,50 +264,26 @@ const styles = StyleSheet.create({
   acceptSection: {
     marginTop: 8,
   },
-  acceptButton: {
+  acceptedRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    paddingVertical: 14,
-    borderRadius: 12,
+    paddingVertical: 8,
   },
-  acceptButtonDisabled: {
-    opacity: 0.6,
-  },
-  acceptButtonText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: glassColors.text,
-  },
-  acceptedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 14,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: ACEPTADO_COLOR,
-    backgroundColor: 'rgba(22,163,74,0.08)',
-  },
-  acceptedBadgeText: {
+  acceptedRowText: {
     fontSize: 14,
     fontWeight: '700',
     color: ACEPTADO_COLOR,
   },
-  pasadoBadge: {
+  pasadoRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    paddingVertical: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(17,24,28,0.12)',
-    backgroundColor: 'rgba(17,24,28,0.03)',
+    paddingVertical: 8,
   },
-  pasadoBadgeText: {
+  pasadoRowText: {
     fontSize: 14,
     fontWeight: '600',
     color: glassColors.placeholder,

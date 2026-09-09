@@ -1,5 +1,5 @@
 import React from 'react';
-import { Keyboard, KeyboardAvoidingViewProps } from 'react-native';
+import { Keyboard, KeyboardAvoidingViewProps, Platform } from 'react-native';
 
 /**
  * Comportamiento estándar para KeyboardAvoidingView en toda la app.
@@ -37,4 +37,37 @@ export function useKeyboardVisible(): boolean {
     }, []);
 
     return visible;
+}
+
+/**
+ * Altura actual del teclado en px (0 cuando está oculto). Usado por los
+ * formularios de creación/edición para sumarle esta altura al padding
+ * inferior del contenido scrolleable, así el último campo (y el botón fijo
+ * de "Crear" debajo del scroll) nunca queda tapado por el teclado — y vuelve
+ * a su posición original apenas el teclado se cierra.
+ */
+export function useKeyboardHeight(): number {
+    const [height, setHeight] = React.useState(0);
+
+    React.useEffect(() => {
+        // En iOS, `keyboardWill*` llega antes que `keyboardDid*` (previo a la
+        // animación), lo que sincroniza mejor el padding con el movimiento real
+        // del teclado. Android no dispara `keyboardWill*` de forma confiable,
+        // así que ahí seguimos usando los eventos `Did*`.
+        const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+        const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+        const show = Keyboard.addListener(showEvent, (event) => {
+            setHeight(event.endCoordinates.height);
+        });
+        const hide = Keyboard.addListener(hideEvent, () => {
+            setHeight(0);
+        });
+        return () => {
+            show.remove();
+            hide.remove();
+        };
+    }, []);
+
+    return height;
 }

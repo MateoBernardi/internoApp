@@ -1,6 +1,9 @@
 import { ThemedText } from '@/components/themed-text';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { Colors } from '@/constants/theme';
+import { useAuth } from '@/features/auth/context/AuthContext';
+import { boxShadow } from '@/shared/ui/boxShadow';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
@@ -13,33 +16,14 @@ import {
     View,
 } from 'react-native';
 import { EstadoInvitacionDB, SolicitudEnviada, estadoInvitacionMapping } from '../models/Solicitud';
-import { tieneNovedadSinVer } from '../badgeState';
+import { getGroupSeenState, tieneNovedadSinVer } from '../badgeState';
+import { buildUltimoMensajePreview } from '../conversacion/constants';
 import { useCancelarSolicitud, useOcultarSolicitudInvitado } from '../viewmodels/useSolicitudes';
 
 const colors = Colors['light'];
 
-const CANCELABLE_HOST_STATES: EstadoInvitacionDB[] = [
-    'SENT', 'SEEN', 'MODIFIED', 'MODIFIED_BY_HOST', 'ACCEPTED_BY_HOST',
-];
-
-function formatTipoSolicitud(tipo?: string): string {
-    if (tipo === 'MANDATO') return 'Actividad';
-    if (tipo === 'REUNION') return 'Reunión';
-    if (tipo === 'CHAT') return 'Conversación';
-    return tipo ?? 'Solicitud';
-}
-
 function mapEstado(estado: string): string {
     return estadoInvitacionMapping[estado as EstadoInvitacionDB] ?? estado;
-}
-
-function getTipoBadgeStyle(tipo?: string) {
-    switch (tipo) {
-        case 'MANDATO': return { borderColor: '#2563eb', backgroundColor: '#2563eb12', textColor: '#2563eb' };
-        case 'REUNION': return { borderColor: '#7c3aed', backgroundColor: '#7c3aed12', textColor: '#7c3aed' };
-        case 'CHAT': return { borderColor: '#0ea5e9', backgroundColor: '#0ea5e912', textColor: '#0ea5e9' };
-        default: return { borderColor: '#6b7280', backgroundColor: '#6b728012', textColor: '#6b7280' };
-    }
 }
 
 function getEstadoBadgeStyle(estado: string) {
@@ -90,10 +74,11 @@ function getEstadoRelevante(solicitud: SolicitudEnviada): string {
     )[0];
 }
 
-function getContainerColor(solicitud: SolicitudEnviada): string {
-    // El realce de "novedad sin ver" usa el estado propio del usuario (igual que
-    // el resto de los badges), no el estado agregado de los invitados.
-    return tieneNovedadSinVer(solicitud) ? colors.componentBackground : colors.background;
+function getContainerColor(isUnseen: boolean): string {
+    // Sin ver = requiere acción: card más blanca/opaca para resaltar. Vista =
+    // sin acción pendiente: queda en su apariencia glass normal, NUNCA atenuada
+    // (una opacidad baja en todo el contenido se leía como "deshabilitado").
+    return isUnseen ? '#ffffff' : 'rgba(255,255,255,0.6)';
 }
 
 interface SolicitudesListProps {
@@ -106,6 +91,8 @@ interface SolicitudesListProps {
 }
 
 export function SolicitudesList({ solicitudes, onRefresh, refreshing, isLoading, onOpenSolicitud, emptyMessage }: SolicitudesListProps) {
+    const { user } = useAuth();
+    const currentUserId = user?.user_context_id;
     const { mutate: ocultarSolicitud, isPending: isHiding } = useOcultarSolicitudInvitado();
     const { mutate: cancelarSolicitud, isPending: isCancelling } = useCancelarSolicitud();
 
@@ -161,13 +148,8 @@ export function SolicitudesList({ solicitudes, onRefresh, refreshing, isLoading,
     // --- FILTROS (derivados de la página actual) ---
     const [showFilters, setShowFilters] = useState(false);
     const [rolFilter, setRolFilter] = useState<string[]>([]);
-    const [tipoFilter, setTipoFilter] = useState<string[]>([]);
     const [estadoFilter, setEstadoFilter] = useState<string[]>([]);
 
-    const tipoOptions = useMemo(
-        () => Array.from(new Set(solicitudesDeduplicadas.map(s => s.tipo_actividad).filter(Boolean))),
-        [solicitudesDeduplicadas],
-    );
     const estadoOptions = useMemo(() => {
         const base = solicitudesDeduplicadas.map(getEstadoRelevante);
         const defaultEstados = [
@@ -181,14 +163,13 @@ export function SolicitudesList({ solicitudes, onRefresh, refreshing, isLoading,
         () => solicitudesDeduplicadas.filter(s => {
             const rol = s.is_host ? 'host' : 'guest';
             const rolOk = rolFilter.length === 0 || rolFilter.includes(rol);
-            const tipoOk = tipoFilter.length === 0 || tipoFilter.includes(s.tipo_actividad);
             const estadoOk = estadoFilter.length === 0 || estadoFilter.includes(getEstadoRelevante(s));
-            return rolOk && tipoOk && estadoOk;
+            return rolOk && estadoOk;
         }),
-        [solicitudesDeduplicadas, rolFilter, tipoFilter, estadoFilter],
+        [solicitudesDeduplicadas, rolFilter, estadoFilter],
     );
 
-    const activeFilterCount = rolFilter.length + tipoFilter.length + estadoFilter.length;
+    const activeFilterCount = rolFilter.length + estadoFilter.length;
 
     const toggleValue = useCallback(
         (setFn: React.Dispatch<React.SetStateAction<string[]>>, value: string) => {
@@ -198,7 +179,6 @@ export function SolicitudesList({ solicitudes, onRefresh, refreshing, isLoading,
     );
     const clearFilters = useCallback(() => {
         setRolFilter([]);
-        setTipoFilter([]);
         setEstadoFilter([]);
     }, []);
 
@@ -236,7 +216,7 @@ export function SolicitudesList({ solicitudes, onRefresh, refreshing, isLoading,
                     <Ionicons
                         name="filter-outline"
                         size={20}
-                        color={activeFilterCount > 0 ? colors.lightTint : colors.secondaryText}
+                        color={activeFilterCount > 0 ? glassColors.link : glassColors.textMuted}
                     />
                     <ThemedText
                         style={[
@@ -269,17 +249,6 @@ export function SolicitudesList({ solicitudes, onRefresh, refreshing, isLoading,
                         </View>
                     </View>
 
-                    {tipoOptions.length > 0 && (
-                        <View style={styles.filterGroup}>
-                            <ThemedText style={styles.filterGroupLabel}>Tipo</ThemedText>
-                            <View style={styles.chipRow}>
-                                {tipoOptions.map(t => (
-                                    <FilterChip key={t} label={formatTipoSolicitud(t)} active={tipoFilter.includes(t)} onPress={() => toggleValue(setTipoFilter, t)} />
-                                ))}
-                            </View>
-                        </View>
-                    )}
-
                     {estadoOptions.length > 0 && (
                         <View style={styles.filterGroup}>
                             <ThemedText style={styles.filterGroupLabel}>Estado</ThemedText>
@@ -309,20 +278,17 @@ export function SolicitudesList({ solicitudes, onRefresh, refreshing, isLoading,
                         <ThemedText style={{ color: colors.icon }}>Sin resultados para los filtros</ThemedText>
                     </View>
                 ) : (
-                    solicitudesFiltradas.map((item, index) => (
-                        <React.Fragment key={item.solicitud_id.toString()}>
-                            {index > 0 && (
-                                <View style={styles.separator} />
-                            )}
-                            <SolicitudItem
-                                solicitud={item}
-                                onPress={() => onOpenSolicitud(item)}
-                                onHide={() => handleOcultar(item.solicitud_id)}
-                                isHiding={isHiding}
-                                onCancel={() => handleCancelar(item.solicitud_id)}
-                                isCancelling={isCancelling}
-                            />
-                        </React.Fragment>
+                    solicitudesFiltradas.map((item) => (
+                        <SolicitudItem
+                            key={item.solicitud_id.toString()}
+                            solicitud={item}
+                            currentUserId={currentUserId}
+                            onPress={() => onOpenSolicitud(item)}
+                            onHide={() => handleOcultar(item.solicitud_id)}
+                            isHiding={isHiding}
+                            onCancel={() => handleCancelar(item.solicitud_id)}
+                            isCancelling={isCancelling}
+                        />
                     ))
                 )}
             </ScrollView>
@@ -351,6 +317,7 @@ function FilterChip({ label, active, onPress }: FilterChipProps) {
 
 interface SolicitudItemProps {
     solicitud: SolicitudEnviada;
+    currentUserId?: number;
     onPress: () => void;
     onHide: () => void;
     isHiding: boolean;
@@ -358,10 +325,11 @@ interface SolicitudItemProps {
     isCancelling: boolean;
 }
 
-function SolicitudItem({ solicitud, onPress, onHide, isHiding, onCancel, isCancelling }: SolicitudItemProps) {
+function SolicitudItem({ solicitud, currentUserId, onPress, onHide, isHiding, onCancel, isCancelling }: SolicitudItemProps) {
     const estadoUI = useMemo(() => getEstadoRelevante(solicitud), [solicitud]);
     const puedeCancelar = solicitud.is_host
-        && CANCELABLE_HOST_STATES.includes(solicitud.estado as EstadoInvitacionDB);
+        && solicitud.estado === 'SENT'
+        && (!solicitud.fecha_inicio || new Date(solicitud.fecha_inicio) > new Date());
 
     const contextoTexto = useMemo(() => {
         if (solicitud.is_host) {
@@ -374,10 +342,27 @@ function SolicitudItem({ solicitud, onPress, onHide, isHiding, onCancel, isCance
         return `De: ${solicitud.nombre_creador} ${solicitud.apellido_creador}`;
     }, [solicitud]);
 
-    const tipoLabel = formatTipoSolicitud(solicitud.tipo_actividad);
-    const tipoBadgeStyle = getTipoBadgeStyle(solicitud.tipo_actividad);
     const estadoBadgeStyle = getEstadoBadgeStyle(estadoUI);
-    const containerColor = getContainerColor(solicitud);
+    const isUnseen = tieneNovedadSinVer(solicitud);
+    const containerColor = getContainerColor(isUnseen);
+
+    // Flecha enviado/recibido: solo si el backend informó quién mandó la
+    // última entrada. Sin ese dato no se muestra (degrada al preview simple).
+    // Enviado = flecha arriba, recibido = flecha abajo (misma dirección que
+    // en Chats).
+    const sentByMe = solicitud.ultimo_mensaje_autor_id != null && currentUserId != null
+        ? solicitud.ultimo_mensaje_autor_id === currentUserId
+        : null;
+
+    const descripcionPreview = useMemo(
+        () => buildUltimoMensajePreview(solicitud, currentUserId),
+        [solicitud, currentUserId],
+    );
+
+    // Marca de visto: solo en grupos (más de 2 participantes) y solo sobre lo
+    // que yo mandé, igual que en los mensajes individuales del chat.
+    const groupSeenState = solicitud.invitados.length > 2 ? getGroupSeenState(solicitud) : null;
+    const showSeenMark = sentByMe === true && groupSeenState !== null;
 
     return (
         <TouchableOpacity
@@ -389,18 +374,43 @@ function SolicitudItem({ solicitud, onPress, onHide, isHiding, onCancel, isCance
                     {contextoTexto}
                 </ThemedText>
 
-                <ThemedText type="defaultSemiBold" numberOfLines={1}>
-                    {solicitud.titulo}
-                </ThemedText>
+                <View style={styles.tituloRow}>
+                    <ThemedText
+                        type={isUnseen ? 'defaultSemiBold' : 'default'}
+                        numberOfLines={1}
+                        style={[isUnseen ? styles.tituloUnseen : styles.tituloSeen, styles.tituloText]}
+                    >
+                        {solicitud.titulo}
+                    </ThemedText>
+                    {isUnseen && <View style={styles.stateDot} />}
+                </View>
 
-                <ThemedText numberOfLines={2} style={[styles.description, { color: colors.secondaryText }]}>
-                    {solicitud.descripcion}
-                </ThemedText>
+                {!!descripcionPreview && (
+                    <View style={styles.descriptionRow}>
+                        {sentByMe !== null && (
+                            <Ionicons
+                                name={sentByMe ? 'arrow-up-outline' : 'arrow-down-outline'}
+                                size={12}
+                                color={colors.secondaryText}
+                            />
+                        )}
+                        {descripcionPreview.icon && (
+                            <Ionicons name={descripcionPreview.icon as any} size={13} color={colors.secondaryText} />
+                        )}
+                        <ThemedText numberOfLines={1} style={[styles.description, { color: colors.secondaryText, flex: 1 }]}>
+                            {descripcionPreview.text}
+                        </ThemedText>
+                        {showSeenMark && (
+                            <Ionicons
+                                name={groupSeenState === 'all' ? 'checkmark-done' : 'checkmark'}
+                                size={14}
+                                color={groupSeenState === 'all' ? colors.lightTint : colors.secondaryText}
+                            />
+                        )}
+                    </View>
+                )}
 
                 <View style={styles.badgeRow}>
-                    <View style={[styles.badge, { borderColor: tipoBadgeStyle.borderColor, backgroundColor: tipoBadgeStyle.backgroundColor }]}>
-                        <ThemedText style={[styles.badgeText, { color: tipoBadgeStyle.textColor }]}>{tipoLabel}</ThemedText>
-                    </View>
                     <View style={[styles.badge, { borderColor: estadoBadgeStyle.borderColor, backgroundColor: estadoBadgeStyle.backgroundColor }]}>
                         <ThemedText style={[styles.badgeText, { color: estadoBadgeStyle.textColor }]}>{estadoUI}</ThemedText>
                     </View>
@@ -461,25 +471,25 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
     filterToggleActive: {
-        borderColor: colors.lightTint,
-        backgroundColor: colors.lightTint + '12',
+        borderColor: 'rgba(26,115,232,0.35)',
+        backgroundColor: 'rgba(26,115,232,0.12)',
     },
     filterToggleInactive: {
-        borderColor: '#d1d5db',
-        backgroundColor: '#f8fafc',
+        borderColor: 'rgba(17,24,28,0.12)',
+        backgroundColor: 'rgba(17,24,28,0.03)',
     },
     filterToggleTextActive: {
-        color: colors.lightTint,
+        color: glassColors.link,
     },
     filterToggleTextInactive: {
-        color: colors.secondaryText,
+        color: glassColors.textMuted,
     },
     filterBadge: {
         minWidth: 18,
         height: 18,
         borderRadius: 9,
         paddingHorizontal: 4,
-        backgroundColor: colors.lightTint,
+        backgroundColor: glassColors.link,
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -491,17 +501,14 @@ const styles = StyleSheet.create({
     clearText: {
         fontSize: 13,
         fontWeight: '600',
-        color: colors.lightTint,
+        color: glassColors.link,
     },
     filterPanel: {
         marginHorizontal: '4%',
         marginBottom: 6,
         padding: 12,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: colors.neutralBorder,
-        backgroundColor: colors.componentBackground,
         gap: 10,
+        ...glassStyles.card,
     },
     filterGroup: {
         gap: 6,
@@ -521,20 +528,20 @@ const styles = StyleSheet.create({
         paddingVertical: 6,
         borderRadius: 999,
         borderWidth: 1,
-        borderColor: '#d1d5db',
-        backgroundColor: 'transparent',
+        borderColor: 'rgba(17,24,28,0.12)',
+        backgroundColor: 'rgba(17,24,28,0.03)',
     },
     filterChipActive: {
-        borderColor: colors.lightTint,
-        backgroundColor: colors.lightTint + '18',
+        borderColor: 'rgba(26,115,232,0.35)',
+        backgroundColor: 'rgba(26,115,232,0.12)',
     },
     filterChipText: {
         fontSize: 12,
         fontWeight: '600',
-        color: colors.secondaryText,
+        color: glassColors.textMuted,
     },
     filterChipTextActive: {
-        color: colors.lightTint,
+        color: glassColors.link,
     },
     noResults: {
         alignItems: 'center',
@@ -547,30 +554,55 @@ const styles = StyleSheet.create({
         paddingHorizontal: '4%',
         paddingVertical: 100,
     },
-    separator: {
-        height: StyleSheet.hairlineWidth,
-        backgroundColor: colors.secondaryText,
-        marginHorizontal: '4%',
-        opacity: 0.3
-    },
     itemContainer: {
         marginHorizontal: '4%',
         marginVertical: 4,
         paddingHorizontal: '3%',
         paddingVertical: '3%',
         borderRadius: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(17,24,28,0.08)',
+        boxShadow: boxShadow({ width: 0, height: 2 }, 0.08, 6, '#101828'),
     },
     itemContent: {
         flexDirection: 'column',
+    },
+    tituloRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    tituloText: {
+        flex: 1,
+    },
+    stateDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: colors.error,
+        flexShrink: 0,
+    },
+    tituloUnseen: {
+        color: '#000000',
+    },
+    tituloSeen: {
+        color: colors.secondaryText,
+        fontWeight: '400',
     },
     contexto: {
         fontSize: 12,
         marginTop: 2,
         fontWeight: '500',
     },
+    descriptionRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        marginTop: 4,
+    },
     description: {
         fontSize: 13,
-        marginTop: 4,
+        flexShrink: 1,
     },
     badgeRow: {
         flexDirection: 'row',
@@ -603,7 +635,9 @@ const styles = StyleSheet.create({
         borderRadius: 14,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: colors.error + '14',
+        backgroundColor: 'rgba(244,67,54,0.12)',
+        borderWidth: 1,
+        borderColor: 'rgba(244,67,54,0.35)',
     },
     hideButtonDisabled: {
         opacity: 0.6,

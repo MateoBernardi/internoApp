@@ -1,18 +1,23 @@
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
+import { AppBackButton } from '@/shared/ui/AppBackButton';
+import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
+import { GlassButton } from '@/shared/ui/GlassButton';
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
-  Modal,
+  BackHandler,
+  ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import type { Activity } from '@/features/solicitudesActividades/models/activityTypes';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeBottomInset } from '@/hooks/useSafeBottomInset';
+import { ACEPTADO_COLOR } from '../theme';
 import { useAceptarTurno } from '../viewmodels/useTurnosAgenda';
 
 const colors = Colors['light'];
@@ -52,6 +57,7 @@ interface TurnoDetalleProps {
 
 export function TurnoDetalle({ activity, visible, onClose }: TurnoDetalleProps) {
   const insets = useSafeAreaInsets();
+  const bottomInset = useSafeBottomInset();
   const modalVisible = visible ?? true;
 
   // Estado local para reflejar el "aceptado" al instante, sin esperar el
@@ -62,6 +68,15 @@ export function TurnoDetalle({ activity, visible, onClose }: TurnoDetalleProps) 
     if (!modalVisible) return;
     setAceptedAt(activity.acepted_at ?? null);
   }, [modalVisible, activity.acepted_at]);
+
+  useEffect(() => {
+    if (!modalVisible) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      onClose();
+      return true;
+    });
+    return () => sub.remove();
+  }, [modalVisible, onClose]);
 
   const { mutate: aceptar, isPending } = useAceptarTurno();
 
@@ -92,18 +107,21 @@ export function TurnoDetalle({ activity, visible, onClose }: TurnoDetalleProps) 
     });
   };
 
-  return (
-    <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <View style={[styles.container, { paddingBottom: insets.bottom }]}>
-          {/* Header */}
-          <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Ionicons name="chevron-down" size={24} color="#6b7280" />
-            </TouchableOpacity>
-          </View>
+  if (!modalVisible) return null;
 
-          <View style={styles.content}>
+  return (
+    <FullScreenPortal>
+    <View style={[glassStyles.sheet, styles.fullScreen, { paddingBottom: bottomInset }]}>
+      {/* Header */}
+      <View style={[glassStyles.sheetHeader, styles.modalHeader, { paddingTop: insets.top + 12 }]}>
+        <AppBackButton onPress={onClose} iconName="chevron-back" />
+      </View>
+
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+      >
             {/* Título */}
             <View style={styles.contentBlock}>
               <ThemedText style={styles.label}>Turno</ThemedText>
@@ -113,7 +131,7 @@ export function TurnoDetalle({ activity, visible, onClose }: TurnoDetalleProps) 
             {/* Fecha */}
             <View style={styles.contentBlock}>
               <View style={styles.sectionTitleRow}>
-                <Ionicons name="calendar-outline" size={16} color={colors.lightTint} />
+                <Ionicons name="calendar-outline" size={16} color={glassColors.link} />
                 <ThemedText style={[styles.label, styles.labelInline]}>Fecha</ThemedText>
               </View>
               <ThemedText style={styles.dateValue}>{formatDateLabel(activity.date)}</ThemedText>
@@ -122,7 +140,7 @@ export function TurnoDetalle({ activity, visible, onClose }: TurnoDetalleProps) 
             {/* Horario */}
             <View style={styles.contentBlock}>
               <View style={styles.sectionTitleRow}>
-                <Ionicons name="time-outline" size={16} color={colors.lightTint} />
+                <Ionicons name="time-outline" size={16} color={glassColors.link} />
                 <ThemedText style={[styles.label, styles.labelInline]}>Horario</ThemedText>
               </View>
               <View style={styles.dateRow}>
@@ -139,7 +157,7 @@ export function TurnoDetalle({ activity, visible, onClose }: TurnoDetalleProps) 
             {(activity.sede_ingreso || activity.sede_egreso) && (
               <View style={styles.contentBlock}>
                 <View style={styles.sectionTitleRow}>
-                  <Ionicons name="location-outline" size={16} color={colors.lightTint} />
+                  <Ionicons name="location-outline" size={16} color={glassColors.link} />
                   <ThemedText style={[styles.label, styles.labelInline]}>Sede</ThemedText>
                 </View>
                 <ThemedText style={styles.dateValue}>
@@ -154,67 +172,50 @@ export function TurnoDetalle({ activity, visible, onClose }: TurnoDetalleProps) 
             {/* Aceptación */}
             <View style={styles.acceptSection}>
               {yaAceptado ? (
-                <View style={styles.acceptedBadge}>
-                  <Ionicons name="checkmark-circle" size={20} color={colors.success} />
-                  <Text style={styles.acceptedBadgeText}>
+                <View style={styles.acceptedRow}>
+                  <Ionicons name="checkmark-circle" size={20} color={ACEPTADO_COLOR} />
+                  <Text style={styles.acceptedRowText}>
                     Aceptado el {aceptedAt ? formatAceptadoLabel(aceptedAt) : ''}
                   </Text>
                 </View>
               ) : yaComenzo ? (
-                <View style={styles.pasadoBadge}>
-                  <Ionicons name="time-outline" size={18} color="#9ca3af" />
-                  <Text style={styles.pasadoBadgeText}>El horario de entrada ya pasó</Text>
+                <View style={styles.pasadoRow}>
+                  <Ionicons name="time-outline" size={18} color={glassColors.placeholder} />
+                  <Text style={styles.pasadoRowText}>El horario de entrada ya pasó</Text>
                 </View>
               ) : (
-                <TouchableOpacity
-                  style={[styles.acceptButton, (isPending || !hasValidId) && styles.acceptButtonDisabled]}
+                <GlassButton
+                  label="Aceptar"
                   onPress={handleAceptar}
-                  disabled={isPending || !hasValidId}
-                >
-                  {isPending ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                  ) : (
-                    <>
-                      <Ionicons name="checkmark" size={18} color="#fff" />
-                      <Text style={styles.acceptButtonText}>Aceptar</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
+                  loading={isPending}
+                  disabled={!hasValidId}
+                  icon={(color) => <Ionicons name="checkmark" size={18} color={color} />}
+                />
               )}
             </View>
-          </View>
-        </View>
-      </View>
-    </Modal>
+      </ScrollView>
+    </View>
+    </FullScreenPortal>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
-  container: {
-    marginTop: '10%',
-    backgroundColor: colors.componentBackground,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    overflow: 'hidden',
+  fullScreen: {
+    ...StyleSheet.absoluteFill,
+    zIndex: 1000,
+    elevation: 8,
   },
   modalHeader: {
     paddingHorizontal: 16,
     paddingVertical: 12,
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'flex-start',
     alignItems: 'center',
   },
-  closeButton: {
-    padding: 6,
-    borderRadius: 16,
-    backgroundColor: '#f3f4f6',
-  },
   content: {
+    flex: 1,
+  },
+  contentContainer: {
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 24,
@@ -231,7 +232,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#6b7280',
+    color: glassColors.textMuted,
     marginBottom: 4,
   },
   labelInline: {
@@ -251,7 +252,7 @@ const styles = StyleSheet.create({
   },
   dateLabelSmall: {
     fontSize: 12,
-    color: '#9ca3af',
+    color: glassColors.placeholder,
     fontWeight: '500',
     width: 60,
   },
@@ -263,53 +264,28 @@ const styles = StyleSheet.create({
   acceptSection: {
     marginTop: 8,
   },
-  acceptButton: {
+  acceptedRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    paddingVertical: 14,
-    borderRadius: 12,
-    backgroundColor: colors.lightTint,
+    paddingVertical: 8,
   },
-  acceptButtonDisabled: {
-    opacity: 0.6,
-  },
-  acceptButtonText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  acceptedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 14,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: colors.success + '50',
-    backgroundColor: colors.success + '10',
-  },
-  acceptedBadgeText: {
+  acceptedRowText: {
     fontSize: 14,
     fontWeight: '700',
-    color: colors.success,
+    color: ACEPTADO_COLOR,
   },
-  pasadoBadge: {
+  pasadoRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    paddingVertical: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    backgroundColor: '#f3f4f6',
+    paddingVertical: 8,
   },
-  pasadoBadgeText: {
+  pasadoRowText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#9ca3af',
+    color: glassColors.placeholder,
   },
 });

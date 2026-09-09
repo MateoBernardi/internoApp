@@ -19,7 +19,7 @@ export const EncuestasScreenHeader: React.FC<EncuestasScreenHeaderProps> = ({ ti
   return (
     <View style={[styles.headerContainer, { paddingTop: insets.top + 12 }]}>
       {left ?? <View style={styles.spacer} />}
-      <ThemedText type="title" style={styles.headerTitle}>{title}</ThemedText>
+      <ThemedText type="title" style={styles.headerTitle} numberOfLines={1}>{title}</ThemedText>
       {right ?? <View style={styles.spacer} />}
     </View>
   );
@@ -41,8 +41,11 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 18,
+    lineHeight: 22,
     fontWeight: '600',
     textAlign: 'center',
+    textAlignVertical: 'center',
+    includeFontPadding: false,
     flex: 1,
   },
 });

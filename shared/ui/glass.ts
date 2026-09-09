@@ -1,0 +1,158 @@
+import { StyleSheet } from 'react-native';
+import { boxShadow } from './boxShadow';
+
+export const glassColors = {
+  text: '#11181C',
+  textMuted: '#687076',
+  link: '#1a73e8',
+  placeholder: '#8a8f98',
+  disabledText: '#9aa0a6',
+  error: '#F44336',
+  success: '#2e7d32',
+};
+
+// Two-state border for TextInputs/search bars: gray at rest, accent on focus,
+// with the browser's mismatched native outline suppressed on web.
+export const focusBorderStyles = StyleSheet.create({
+  inputBorderDefault: {
+    borderWidth: 1,
+    borderColor: 'rgba(17,24,28,0.12)',
+  },
+  inputBorderFocused: {
+    borderColor: glassColors.link,
+  },
+  inputNoOutline: {
+    outlineStyle: 'none',
+    outlineWidth: 0,
+  } as any,
+});
+
+export const glassStyles = StyleSheet.create({
+  box: {
+    backgroundColor: 'rgba(255,255,255,0.6)',
+    borderWidth: 1,
+    borderColor: 'rgba(17,24,28,0.08)',
+    borderRadius: 16,
+    // Sin elevation: en Android, elevation + backgroundColor translúcido fuerza
+    // una capa de sombra opaca que se ve como una caja blanca detrás del input.
+    boxShadow: boxShadow({ width: 0, height: 4 }, 0.08, 16),
+  },
+  button: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(26,115,232,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(26,115,232,0.35)',
+    borderRadius: 18,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    boxShadow: boxShadow({ width: 0, height: 4 }, 0.08, 16),
+  },
+  buttonSecondary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(17,24,28,0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(17,24,28,0.12)',
+    borderRadius: 18,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+  },
+  errorBox: {
+    backgroundColor: 'rgba(244,67,54,0.08)',
+    borderRadius: 8,
+    padding: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#F44336',
+  },
+  successBox: {
+    backgroundColor: 'rgba(46,125,50,0.08)',
+    borderRadius: 8,
+    padding: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#2e7d32',
+  },
+  // Content/list-item card sitting on the flat page background.
+  card: {
+    backgroundColor: 'rgba(255,255,255,0.6)',
+    borderWidth: 1,
+    borderColor: 'rgba(17,24,28,0.08)',
+    borderRadius: 14,
+    boxShadow: boxShadow({ width: 0, height: 2 }, 0.06, 8),
+  },
+  // Dim backdrop behind centered dialogs / bottom sheets.
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(17,24,28,0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  // Centered dialog box. Solid, not translucent: a modal floats over the
+  // dimmed overlay with nothing reliable behind it to blur, so any dialog
+  // content (forms, file pickers, lists) needs full contrast/opacity to
+  // read cleanly. Only page-level chrome (cards, fields, buttons) is glass.
+  modalCard: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: 'rgba(17,24,28,0.08)',
+    borderRadius: 20,
+    boxShadow: boxShadow({ width: 0, height: 8 }, 0.15, 24),
+  },
+  // FullScreenPortal sheet background. Solid: these are full screens, not
+  // cards — glass identity comes from inner chrome (fieldGlass, button).
+  sheet: {
+    backgroundColor: '#ffffff',
+  },
+  sheetHeader: {
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(17,24,28,0.08)',
+  },
+  // Red-family counterpart of `button`, same opacity recipe.
+  buttonDanger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(244,67,54,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(244,67,54,0.35)',
+    borderRadius: 18,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    boxShadow: boxShadow({ width: 0, height: 4 }, 0.08, 16),
+  },
+  // Green-family counterpart of `button`, same opacity recipe.
+  buttonSuccess: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(46,125,50,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(46,125,50,0.35)',
+    borderRadius: 18,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    boxShadow: boxShadow({ width: 0, height: 4 }, 0.08, 16),
+  },
+  // Floating "minimized draft" pill.
+  pill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.75)',
+    borderWidth: 1,
+    borderColor: 'rgba(17,24,28,0.08)',
+    borderRadius: 999,
+    paddingLeft: 10,
+    paddingRight: 6,
+    paddingVertical: 6,
+    boxShadow: boxShadow({ width: 0, height: 2 }, 0.08, 6),
+  },
+  // Neutral field background for inputs/dropdowns/rows.
+  fieldGlass: {
+    backgroundColor: 'rgba(17,24,28,0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(17,24,28,0.12)',
+    borderRadius: 8,
+  },
+});

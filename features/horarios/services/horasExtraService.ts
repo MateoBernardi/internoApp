@@ -2,6 +2,7 @@ import { apiRequest, throwApiError } from '@/shared/apiRequest';
 import { idempotencyHeaders } from '@/shared/idempotency';
 import type {
   HorasExtraDTO,
+  HorasSemanalDTO,
   LiquidarHorasExtraResult,
   MovimientoDTO,
   ObjetivoHorasDTO,
@@ -83,6 +84,30 @@ export async function liquidarHorasExtra(
 }
 
 /**
+ * GET /horarios/objetivos/semanal: horas trabajadas vs. objetivo semanal por
+ * usuario, para un rango de fechas (semana). Solo incluye usuarios que ya
+ * tienen un objetivo cargado (mismo universo que getObjetivosHoras).
+ */
+export async function getHorasSemanalesVsObjetivo(
+  token: string,
+  fechaInicio: string,
+  fechaFin: string,
+  filter: HorasExtraFilter = {},
+): Promise<HorasSemanalDTO[]> {
+  const params = new URLSearchParams({ fechaInicio, fechaFin });
+  if (filter.userContextId != null) params.set('user_context_id', String(filter.userContextId));
+  if (filter.role) params.set('role', filter.role);
+
+  const res = await apiRequest({
+    method: 'GET',
+    endpoint: `/horarios/objetivos/semanal?${params.toString()}`,
+    token,
+  });
+  if (!res.ok) throwApiError(await extractError(res), res);
+  return res.json();
+}
+
+/**
  * GET /horarios/objetivos: sólo devuelve los usuarios que ya tienen un
  * objetivo semanal de horas cargado (la migración sembró uno para el
  * personal existente; usuarios nuevos no aparecen hasta crearlo con
@@ -132,6 +157,23 @@ export async function updateObjetivoHoras(
     endpoint: `/horarios/objetivos/${userContextId}`,
     token,
     body: { horas },
+  });
+  if (!res.ok) throwApiError(await extractError(res), res);
+  return res.json();
+}
+
+/**
+ * DELETE /horarios/objetivos/:userContextId: elimina el objetivo semanal ya
+ * existente de un usuario. 404 si todavía no tiene uno cargado.
+ */
+export async function deleteObjetivoHoras(
+  token: string,
+  userContextId: number,
+): Promise<{ message: string }> {
+  const res = await apiRequest({
+    method: 'DELETE',
+    endpoint: `/horarios/objetivos/${userContextId}`,
+    token,
   });
   if (!res.ok) throwApiError(await extractError(res), res);
   return res.json();

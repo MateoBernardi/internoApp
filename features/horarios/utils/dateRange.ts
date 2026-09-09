@@ -67,6 +67,17 @@ export function lastWeek(today: Date = new Date()): WeekRange {
   return { from: toISO(prevMonday), to: toISO(prevSunday) };
 }
 
+/** Desplaza una semana (lunes→domingo) por `delta` semanas (puede ser negativo). */
+export function shiftWeek(range: WeekRange, delta: number): WeekRange {
+  const newMonday = parseISO(addDays(range.from, delta * 7));
+  return currentWeek(newMonday);
+}
+
+/** Etiqueta legible para una semana, p. ej. "18/08 - 24/08". */
+export function weekLabel(range: WeekRange): string {
+  return `${formatDDMM(range.from)} - ${formatDDMM(range.to)}`;
+}
+
 export const MONTH_NAMES = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',

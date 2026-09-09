@@ -121,7 +121,7 @@ export function ImageViewer({ file, onClose }: Props) {
       {/* Image body */}
       <View style={styles.body}>
         <ZoomableImage uri={file.uri} />
-        <View style={styles.captionChip} pointerEvents="none">
+        <View style={[styles.captionChip, { pointerEvents: 'none' }]}>
           <Text style={styles.captionText}>
             {file.ext.toUpperCase()}{file.size ? ` · ${file.size}` : ''} · pellizcá o tocá 2× para zoom
           </Text>

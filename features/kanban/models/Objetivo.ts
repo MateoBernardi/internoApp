@@ -31,6 +31,7 @@ export interface Objetivo {
     updated_by?: number;
     created_at: string;
     updated_at: string;
+    seen?: boolean;
     bitacora: Bitacora[];
     invitados?: Invitado[];
     archivos?: Archivo[];

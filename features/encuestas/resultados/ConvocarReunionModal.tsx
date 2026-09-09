@@ -1,17 +1,25 @@
 import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
 import { Colors } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
-  Modal,
+  BackHandler,
   ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { AppBackButton } from '@/shared/ui/AppBackButton';
+import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
+import { GlassButton } from '@/shared/ui/GlassButton';
+import { focusBorderStyles, glassColors } from '@/shared/ui/glass';
+import { useKeyboardHeight } from '@/shared/ui/keyboard';
+import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
+import { useFocusBorder } from '@/shared/ui/useFocusBorder';
+import { useSafeBottomInset } from '@/hooks/useSafeBottomInset';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Respuesta } from '../models/Encuesta';
 import { ConvocarReunionesResult, ReunionPersonaRequest, useConvocarReuniones } from '../viewmodels/useEncuestas';
@@ -45,9 +53,13 @@ export const ConvocarReunionModal: React.FC<ConvocarReunionModalProps> = ({
   onSuccess,
 }) => {
   const insets = useSafeAreaInsets();
+  const bottomInset = useSafeBottomInset();
+  const keyboardHeight = useKeyboardHeight();
   const { enviar, isPending } = useConvocarReuniones();
 
   const [titulo, setTitulo] = useState('Reunión de equipo');
+  const tituloFocus = useFocusBorder();
+  const notaFocus = useFocusBorder();
   const [nota, setNota] = useState('');
   const [resultado, setResultado] = useState<ConvocarReunionesResult | null>(null);
 
@@ -132,28 +144,52 @@ export const ConvocarReunionModal: React.FC<ConvocarReunionModalProps> = ({
     onClose();
   };
 
-  return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={handleCerrar}>
-      <View style={styles.convocarOverlay}>
-        <View style={[styles.convocarSheet, { paddingBottom: insets.bottom + 16 }]}>
-          <View style={styles.convocarHandle} />
+  useEffect(() => {
+    if (!visible) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      handleCerrar();
+      return true;
+    });
+    return () => sub.remove();
+  }, [visible, handleCerrar]);
 
-          <View style={styles.convocarHeader}>
-            <Text style={styles.convocarTitle}>Solicitud de reunión</Text>
-            <Text style={styles.convocarSubtitle}>
-              {personas.length} persona{personas.length !== 1 ? 's' : ''} · cada una recibe su invitación en el horario que eligió.
-            </Text>
+  if (!visible) return null;
+
+  return (
+    <FullScreenPortal>
+    <View style={localStyles.fullScreen}>
+      <ModalKeyboardView style={{ flex: 1 }}>
+      <View style={localStyles.sheetFull}>
+
+          <View style={[styles.convocarHeader, { paddingTop: insets.top + 12 }]}>
+            <View style={localStyles.headerTopRow}>
+              <AppBackButton onPress={handleCerrar} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.convocarTitle}>Solicitud de reunión</Text>
+                <Text style={styles.convocarSubtitle}>
+                  {personas.length} persona{personas.length !== 1 ? 's' : ''} · cada una recibe su invitación en el horario que eligió.
+                </Text>
+              </View>
+            </View>
           </View>
 
-          <ScrollView style={styles.convocarBody} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 16 }}>
+          <ScrollView
+            style={styles.convocarBody}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingBottom: 16 + keyboardHeight }}
+            keyboardShouldPersistTaps="handled"
+          >
             {resultado ? (
               // Vista de resultados post-envío
               <View style={{ paddingTop: 16 }}>
                 <Text style={styles.resultadosTitulo}>Resultado del envío</Text>
                 {resultado.exitosas > 0 && (
-                  <Text style={styles.exitosasText}>
-                    ✓ {resultado.exitosas} solicitud{resultado.exitosas !== 1 ? 'es' : ''} enviada{resultado.exitosas !== 1 ? 's' : ''} correctamente
-                  </Text>
+                  <View style={styles.exitosasRow}>
+                    <Ionicons name="checkmark-circle" size={16} color={colors.success} />
+                    <Text style={styles.exitosasText}>
+                      {resultado.exitosas} solicitud{resultado.exitosas !== 1 ? 'es' : ''} enviada{resultado.exitosas !== 1 ? 's' : ''} correctamente
+                    </Text>
+                  </View>
                 )}
                 {resultado.fallidas.length > 0 && (
                   <View style={styles.fallidasContainer}>
@@ -176,25 +212,38 @@ export const ConvocarReunionModal: React.FC<ConvocarReunionModalProps> = ({
               <>
                 <Text style={styles.convocarFieldLabel}>Título / motivo *</Text>
                 <TextInput
-                  style={styles.convocarInput}
+                  style={[
+                    styles.convocarInput,
+                    focusBorderStyles.inputNoOutline,
+                    tituloFocus.isFocused && { borderColor: glassColors.link },
+                  ]}
                   value={titulo}
                   onChangeText={setTitulo}
+                  onFocus={tituloFocus.onFocus}
+                  onBlur={tituloFocus.onBlur}
                   placeholder="Título de la reunión"
                   placeholderTextColor={colors.secondaryText}
                 />
 
                 <Text style={styles.convocarFieldLabel}>Nota para cada persona (opcional)</Text>
                 <TextInput
-                  style={[styles.convocarInput, styles.convocarTextArea]}
+                  style={[
+                    styles.convocarInput,
+                    styles.convocarTextArea,
+                    focusBorderStyles.inputNoOutline,
+                    notaFocus.isFocused && { borderColor: glassColors.link },
+                  ]}
                   value={nota}
                   onChangeText={setNota}
+                  onFocus={notaFocus.onFocus}
+                  onBlur={notaFocus.onBlur}
                   placeholder="Mensaje adicional..."
                   placeholderTextColor={colors.secondaryText}
                   multiline
                 />
 
                 <View style={styles.sepNote}>
-                  <Ionicons name="information-circle-outline" size={16} color="#2a4f86" />
+                  <Ionicons name="information-circle-outline" size={16} color={colors.lightTint} />
                   <Text style={styles.sepNoteText}>
                     Se crea una invitación <Text style={{ fontWeight: '700' }}>separada por persona</Text>, agendada en el horario que cada uno votó. Podés editar la hora de fin individualmente.
                   </Text>
@@ -235,32 +284,26 @@ export const ConvocarReunionModal: React.FC<ConvocarReunionModalProps> = ({
             )}
           </ScrollView>
 
-          <View style={styles.convocarFooter}>
+          <View style={[styles.convocarFooter, { paddingBottom: bottomInset }]}>
             <Text style={styles.convocarFooterCount}>
               {resultado
                 ? `${resultado.exitosas + resultado.fallidas.length} procesadas`
                 : `${personas.length} solicitud${personas.length !== 1 ? 'es' : ''}`}
             </Text>
             {resultado ? (
-              <TouchableOpacity style={styles.enviarReunionButton} onPress={handleCerrar}>
-                <Text style={styles.enviarReunionButtonText}>Cerrar</Text>
-              </TouchableOpacity>
+              <GlassButton label="Cerrar" onPress={handleCerrar} style={localStyles.footerButton} />
             ) : (
-              <TouchableOpacity
-                style={[styles.enviarReunionButton, (!titulo.trim() || isPending) && styles.enviarReunionButtonDisabled]}
+              <GlassButton
+                label="Enviar"
                 onPress={handleEnviar}
                 disabled={!titulo.trim() || isPending}
-              >
-                {isPending ? (
-                  <ActivityIndicator color={colors.componentBackground} size="small" />
-                ) : (
-                  <Text style={styles.enviarReunionButtonText}>Enviar</Text>
-                )}
-              </TouchableOpacity>
+                loading={isPending}
+                style={localStyles.footerButton}
+              />
             )}
           </View>
         </View>
-      </View>
+      </ModalKeyboardView>
 
       {pickerStep === 'date' && (
         <DateTimePicker
@@ -281,6 +324,28 @@ export const ConvocarReunionModal: React.FC<ConvocarReunionModalProps> = ({
           onCancel={onPickerCancel}
         />
       )}
-    </Modal>
+    </View>
+    </FullScreenPortal>
   );
 };
+
+const localStyles = StyleSheet.create({
+  fullScreen: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: colors.componentBackground,
+    zIndex: 1000,
+    elevation: 8,
+  },
+  sheetFull: {
+    flex: 1,
+    backgroundColor: colors.componentBackground,
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  footerButton: {
+    paddingVertical: 16,
+  },
+});

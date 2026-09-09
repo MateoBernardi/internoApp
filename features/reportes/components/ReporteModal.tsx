@@ -2,19 +2,22 @@ import { AlertModal, type AlertModalAction } from '@/components/AlertModal';
 import { FilePreview, getExt, useOpenFilePreview } from '@/components/filePreview';
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
-import { useAuth } from '@/features/auth/context/AuthContext';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { generateIdempotencyKey } from '@/shared/idempotency';
+import { AppBackButton } from '@/shared/ui/AppBackButton';
+import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
+import { GlassButton } from '@/shared/ui/GlassButton';
 import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 import { Image } from 'expo-image';
 import type * as ImagePickerTypes from 'expo-image-picker';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
 	ActivityIndicator,
 	Alert,
-	Modal,
+	BackHandler,
 	ScrollView,
 	StyleSheet,
 	Text,
@@ -23,7 +26,10 @@ import {
 	View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeBottomInset } from '@/hooks/useSafeBottomInset';
 import { EstadoReporte, Reporte, ReporteImagen } from '../models/Reporte';
+import { getReporteEstadoPresentation } from '../presentation';
+import { buildImageAssetUpload } from '../utils/imageAsset';
 import { useReporteImagenes, useUnlinkReporteImage, useUpdateReporte, useUploadReporteImage } from '../viewmodels/useReportes';
 
 let ImagePicker: typeof ImagePickerTypes | null = null;
@@ -42,16 +48,29 @@ interface ReporteModalProps {
 
 const colors = Colors['light'];
 
+const TIPO_ACCION_LABELS: Record<string, string> = {
+	ACEPTACION: 'Aceptó el reporte',
+	RECHAZO: 'Respondió (en disputa)',
+	DESESTIMACION: 'Desestimó el reporte',
+	MODIFICACION: 'Modificó el estado',
+	COMENTARIO: 'Comentario',
+};
+
+function formatTipoAccion(tipoAccion: string): string {
+	return TIPO_ACCION_LABELS[tipoAccion] ?? tipoAccion;
+}
+
 export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModalProps) {
 	const { mutate: updateReporte, isPending } = useUpdateReporte();
 	const { hasRole } = useRoleCheck();
-	const { user } = useAuth();
 	const insets = useSafeAreaInsets();
+	const bottomInset = useSafeBottomInset();
 	const { previewFile, openWithUri, closePreview } = useOpenFilePreview();
 
 	// ── Estado: formulario de actualización ──────────────────────────────────
 	const [nuevoEstado, setNuevoEstado] = useState<EstadoReporte | null>(null);
 	const [observacion, setObservacion] = useState('');
+	const [isObservationFocused, setIsObservationFocused] = useState(false);
 	const [alertModal, setAlertModal] = useState<{
 		visible: boolean;
 		title: string;
@@ -68,10 +87,23 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 	// ── Permisos ─────────────────────────────────────────────────────────────
 	const isReporteFinal = reporte.estado === 'ASENTADO' || reporte.estado === 'DESESTIMADO';
 	const isGerencia = hasRole('gerencia');
-	const canModify = !isReporteFinal || isGerencia;
+	// Los reportes positivos nacen ya Asentados: no se editan nunca, ni gerencia.
+	const canModify = !isReporteFinal || (isGerencia && reporte.categoria !== 'POSITIVO');
 	const hasSupervisorRole = hasRole(['gerencia', 'personasRelaciones', 'encargado']);
-	const isCreator = !!(user?.user_context_id && reporte.creador_id && user.user_context_id === reporte.creador_id);
-	const canManageFiles = hasSupervisorRole && isCreator;
+	// Cualquier rol supervisor puede adjuntar/quitar imágenes, no solo quien creó
+	// el reporte (el backend ya restringe estas rutas a supervisorRoles). Una vez
+	// Asentado (o Desestimado) el reporte queda cerrado, no se suman más imágenes.
+	const canManageFiles = hasSupervisorRole && !isReporteFinal;
+	const estadoPresentation = getReporteEstadoPresentation(reporte.estado);
+
+	useEffect(() => {
+		if (!visible) return;
+		const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+			onClose();
+			return true;
+		});
+		return () => sub.remove();
+	}, [visible, onClose]);
 
 	// ── Helpers ───────────────────────────────────────────────────────────────
 	const showModal = useCallback((title: string, message?: string, actions?: AlertModalAction[]) => {
@@ -97,9 +129,7 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 	// Solo imágenes (por decisión); se suben/listan vía el sistema reportesImagenes.
 
 	const uploadAsset = useCallback(async (asset: ImagePickerTypes.ImagePickerAsset) => {
-		const ext = asset.uri.split('.').pop() ?? 'jpg';
-		const name = asset.fileName ?? `imagen_${Date.now()}.${ext}`;
-		const mimeType = asset.mimeType ?? `image/${ext}`;
+		const { name, mimeType } = buildImageAssetUpload(asset);
 		setIsUploadingImage(true);
 		try {
 			await uploadImagen({
@@ -220,7 +250,7 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 	};
 
 	const renderControles = () => {
-		if (isReporteFinal && !isGerencia) return null;
+		if (isReporteFinal && (!isGerencia || reporte.categoria === 'POSITIVO')) return null;
 
 		const isMisReportes = origen === 'mis';
 
@@ -234,7 +264,7 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 
 				<View style={styles.formGroup}>
 					<ThemedText style={styles.label}>Estado</ThemedText>
-					<View style={styles.pickerContainer}>
+					<View style={[glassStyles.fieldGlass, styles.pickerContainer]}>
 						<Picker
 							selectedValue={nuevoEstado || ''}
 							onValueChange={(value: string) => setNuevoEstado(value as EstadoReporte)}
@@ -258,51 +288,61 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 					<ThemedText style={styles.label}>
 						{(isMisReportes && nuevoEstado !== 'DISPUTA') ? 'Observación (opcional)' : 'Observación (obligatoria)'}
 					</ThemedText>
-					<TextInput
-						style={[styles.input, styles.textArea]}
-						placeholder="Escribe aquí tu observación..."
-						placeholderTextColor="#999"
-						value={observacion}
-						onChangeText={setObservacion}
-						multiline
-						numberOfLines={4}
-						textAlignVertical="top"
-					/>
+					<View style={[glassStyles.fieldGlass, styles.input, styles.textArea, isObservationFocused && styles.inputFocused]}>
+						<TextInput
+							style={[styles.observationInput, styles.inputNoOutline]}
+							placeholder="Escribe aquí tu observación..."
+							placeholderTextColor={glassColors.placeholder}
+							value={observacion}
+							onChangeText={setObservacion}
+							multiline
+							numberOfLines={4}
+							textAlignVertical="top"
+							onFocus={() => setIsObservationFocused(true)}
+							onBlur={() => setIsObservationFocused(false)}
+						/>
+					</View>
 				</View>
 
-				<TouchableOpacity
-					style={[styles.confirmBtn, isPending && styles.confirmBtnDisabled]}
-					onPress={handleAccion}
-					disabled={isPending}
-				>
-					{isPending ? (
-						<ActivityIndicator color="#fff" />
-					) : (
-						<ThemedText style={styles.confirmBtnText}>Confirmar Cambios</ThemedText>
-					)}
-				</TouchableOpacity>
 			</View>
 		);
 	};
 
+	if (!visible) return null;
+
 	return (
-		<Modal
-			visible={visible}
-			transparent={true}
-			animationType="slide"
-			onRequestClose={onClose}
-		>
-			<View style={styles.overlay}>
-				<ModalKeyboardView style={styles.modalKeyboardAvoiding}>
-					<View style={[styles.modalContainer, { paddingBottom: insets.bottom }]}>
-						{/* Header */}
-						<View style={styles.modalHeader}>
-							<View style={styles.modalHeaderActions}>
-								<TouchableOpacity onPress={onClose} style={styles.modalIconButton}>
-									<Ionicons name="close" size={24} color="#999" />
-								</TouchableOpacity>
+		<FullScreenPortal>
+		<>
+		<View style={[glassStyles.sheet, styles.fullScreen]}>
+			<ModalKeyboardView style={styles.modalKeyboardAvoiding}>
+				<View style={[glassStyles.sheet, styles.modalContainer, { paddingBottom: bottomInset }]}>
+					{/* Header */}
+					<View style={[glassStyles.sheetHeader, styles.modalHeader, { paddingTop: insets.top + 12 }]}>
+						<AppBackButton onPress={onClose} />
+					</View>
+					<View style={styles.metadataSection}>
+						<ThemedText type="title" style={styles.title}>{reporte.titulo}</ThemedText>
+						<View style={styles.infoGrid}>
+							<View style={styles.infoItem}>
+								<ThemedText style={styles.infoLabel}>Categoría</ThemedText>
+								<ThemedText style={styles.infoValue}>{reporte.categoria}</ThemedText>
+							</View>
+							<View style={styles.infoItem}>
+								<ThemedText style={styles.infoLabel}>Estado</ThemedText>
+								<View style={[styles.badge, { backgroundColor: estadoPresentation.backgroundColor }]}>
+									<ThemedText style={[styles.badgeText, { color: estadoPresentation.color }]}>{estadoPresentation.label}</ThemedText>
+								</View>
+							</View>
+							<View style={styles.infoItem}>
+								<ThemedText style={styles.infoLabel}>Fecha incidente</ThemedText>
+								<ThemedText style={styles.infoValue}>{new Date(reporte.fecha_incidente).toLocaleDateString()}</ThemedText>
+							</View>
+							<View style={styles.infoItem}>
+								<ThemedText style={styles.infoLabel}>Creador</ThemedText>
+								<ThemedText style={styles.infoValue}>{reporte.creador_nombre} {reporte.creador_apellido}</ThemedText>
 							</View>
 						</View>
+					</View>
 
 						<ScrollView
 							style={styles.modalFormContent}
@@ -310,34 +350,38 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 							keyboardShouldPersistTaps="handled"
 							showsVerticalScrollIndicator={false}
 						>
-							{/* Información del Reporte */}
-							<ThemedText type="title" style={styles.title}>{reporte.titulo}</ThemedText>
 
-							<View style={styles.infoGrid}>
-								<View style={styles.infoItem}>
-									<ThemedText style={styles.infoLabel}>Categoría</ThemedText>
-									<ThemedText style={styles.infoValue}>{reporte.categoria}</ThemedText>
-								</View>
-								<View style={styles.infoItem}>
-									<ThemedText style={styles.infoLabel}>Estado</ThemedText>
-									<View style={styles.badge}>
-										<ThemedText style={styles.badgeText}>{reporte.estado}</ThemedText>
-									</View>
-								</View>
-								<View style={styles.infoItem}>
-									<ThemedText style={styles.infoLabel}>Fecha incidente</ThemedText>
-									<ThemedText style={styles.infoValue}>{new Date(reporte.fecha_incidente).toLocaleDateString()}</ThemedText>
-								</View>
-								<View style={styles.infoItem}>
-									<ThemedText style={styles.infoLabel}>Creador</ThemedText>
-									<ThemedText style={styles.infoValue}>{reporte.creador_nombre} {reporte.creador_apellido}</ThemedText>
-								</View>
-							</View>
-
-							<View style={styles.descriptionContainer}>
+							<View style={[glassStyles.card, styles.descriptionContainer]}>
 								<ThemedText style={styles.infoLabel}>Mensaje</ThemedText>
 								<ThemedText style={styles.descriptionText}>{reporte.descripcion}</ThemedText>
 							</View>
+
+							{/* Bitácora: historial de respuestas/cambios de estado */}
+							{!!reporte.bitacora?.length && (
+								<View style={styles.section}>
+									<View style={styles.sectionHeaderRow}>
+										<ThemedText style={styles.sectionLabel}>Respuestas</ThemedText>
+									</View>
+									<View style={styles.bitacoraList}>
+										{reporte.bitacora.map((item) => (
+											<View key={item.id} style={styles.bitacoraItem}>
+												<View style={styles.bitacoraItemHeader}>
+													<ThemedText style={styles.bitacoraAutor}>
+														{item.usuario_nombre} {item.usuario_apellido ?? ''}
+													</ThemedText>
+													<ThemedText style={styles.bitacoraFecha}>
+														{new Date(item.created_at).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+													</ThemedText>
+												</View>
+												<ThemedText style={styles.bitacoraTipo}>{formatTipoAccion(item.tipo_accion)}</ThemedText>
+												{!!item.observacion && (
+													<ThemedText style={styles.bitacoraObservacion}>{item.observacion}</ThemedText>
+												)}
+											</View>
+										))}
+									</View>
+								</View>
+							)}
 
 							{/* Imágenes del reporte */}
 							<View style={styles.section}>
@@ -346,7 +390,7 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 									{canManageFiles && (
 										<View style={styles.imagePickerRow}>
 											<TouchableOpacity
-												style={styles.actionButton}
+												style={[glassStyles.button, styles.actionButton]}
 												onPress={handlePickFromGallery}
 												disabled={isUploadingImage}
 											>
@@ -354,7 +398,7 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 												<Text style={styles.actionButtonText}>Galería</Text>
 											</TouchableOpacity>
 											<TouchableOpacity
-												style={styles.actionButton}
+												style={[glassStyles.button, styles.actionButton]}
 												onPress={handleTakePhoto}
 												disabled={isUploadingImage}
 											>
@@ -403,6 +447,17 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 
 						</ScrollView>
 
+						{canModify && (
+							<View style={[styles.actionBar, { paddingBottom: bottomInset }]}>
+								<GlassButton
+									label="Confirmar Cambios"
+									onPress={handleAccion}
+									disabled={isPending}
+									loading={isPending}
+									style={styles.confirmBtn}
+								/>
+							</View>
+						)}
 						<AlertModal
 							visible={alertModal.visible}
 							title={alertModal.title}
@@ -412,17 +467,19 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 						/>
 					</View>
 				</ModalKeyboardView>
-			</View>
+		</View>
 
-			<FilePreview file={previewFile} onClose={closePreview} />
-		</Modal>
+		<FilePreview file={previewFile} onClose={closePreview} />
+		</>
+		</FullScreenPortal>
 	);
 }
 
 const styles = StyleSheet.create({
-	overlay: {
-		flex: 1,
-		backgroundColor: 'rgba(0,0,0,0.5)',
+	fullScreen: {
+		...StyleSheet.absoluteFill,
+		zIndex: 1000,
+		elevation: 8,
 	},
 	modalKeyboardAvoiding: {
 		flex: 1,
@@ -430,17 +487,12 @@ const styles = StyleSheet.create({
 	},
 	modalContainer: {
 		flex: 1,
-		marginTop: '10%',
-		backgroundColor: '#fff',
-		borderTopLeftRadius: 16,
-		borderTopRightRadius: 16,
-		overflow: 'hidden',
 	},
 	modalHeader: {
 		paddingHorizontal: 16,
 		paddingVertical: 12,
 		flexDirection: 'row',
-		justifyContent: 'flex-end',
+		justifyContent: 'flex-start',
 		alignItems: 'center',
 	},
 	modalHeaderActions: {
@@ -448,26 +500,36 @@ const styles = StyleSheet.create({
 		alignItems: 'center',
 	},
 	modalIconButton: {
-		padding: 4,
+		width: 38,
+		height: 38,
+		borderRadius: 19,
+		padding: 0,
+	},
+	metadataSection: {
+		paddingHorizontal: 20,
+		paddingTop: 18,
+		paddingBottom: 16,
+		maxHeight: 240,
 	},
 	modalFormContent: {
 		flex: 1,
 	},
 	modalFormContentContainer: {
 		padding: 20,
-		paddingBottom: 60,
+		paddingBottom: 24,
 	},
 	title: {
-		fontSize: 24,
+		fontSize: 20,
+		lineHeight: 26,
 		fontWeight: 'bold',
 		color: '#1a1a1a',
-		marginBottom: 20,
+		marginBottom: 12,
 	},
 	infoGrid: {
 		flexDirection: 'row',
 		flexWrap: 'wrap',
 		gap: 16,
-		marginBottom: 20,
+		marginBottom: 0,
 	},
 	infoItem: {
 		width: '45%',
@@ -475,36 +537,30 @@ const styles = StyleSheet.create({
 	infoLabel: {
 		fontSize: 14,
 		fontWeight: '600',
-		color: '#1a1a1a',
+		color: glassColors.text,
 		marginBottom: 8,
 	},
 	infoValue: {
 		fontSize: 15,
-		color: '#111827',
+		color: glassColors.text,
 		fontWeight: '500',
 	},
 	descriptionContainer: {
 		marginBottom: 24,
 		padding: 16,
-		backgroundColor: '#f9fafb',
-		borderRadius: 12,
-		borderWidth: 1,
-		borderColor: '#e5e7eb',
 	},
 	descriptionText: {
 		fontSize: 15,
-		color: '#374151',
+		color: glassColors.text,
 		lineHeight: 22,
 	},
 	badge: {
 		alignSelf: 'flex-start',
-		backgroundColor: colors.lightTint + '15',
 		paddingHorizontal: 10,
 		paddingVertical: 4,
 		borderRadius: 999,
 	},
 	badgeText: {
-		color: colors.lightTint,
 		fontSize: 12,
 		fontWeight: '700',
 	},
@@ -512,7 +568,7 @@ const styles = StyleSheet.create({
 		marginTop: 24,
 		paddingTop: 24,
 		borderTopWidth: 1,
-		borderTopColor: '#f3f4f6',
+		borderTopColor: 'rgba(17,24,28,0.08)',
 		gap: 12,
 	},
 	sectionHeaderRow: {
@@ -523,23 +579,18 @@ const styles = StyleSheet.create({
 	sectionLabel: {
 		fontSize: 16,
 		fontWeight: '700',
-		color: '#111827',
+		color: glassColors.text,
 	},
 	actionButton: {
-		flexDirection: 'row',
-		alignItems: 'center',
 		gap: 4,
 		paddingHorizontal: 10,
 		paddingVertical: 6,
 		borderRadius: 999,
-		borderWidth: 1,
-		borderColor: colors.lightTint,
-		backgroundColor: colors.lightTint + '12',
 	},
 	actionButtonText: {
 		fontSize: 12,
 		fontWeight: '700',
-		color: colors.lightTint,
+		color: glassColors.link,
 	},
 	imagePickerRow: {
 		flexDirection: 'row',
@@ -548,6 +599,39 @@ const styles = StyleSheet.create({
 	emptyText: {
 		fontSize: 13,
 		color: colors.secondaryText,
+	},
+	bitacoraList: {
+		gap: 10,
+	},
+	bitacoraItem: {
+		backgroundColor: 'rgba(17,24,28,0.03)',
+		borderRadius: 10,
+		padding: 12,
+		gap: 4,
+	},
+	bitacoraItemHeader: {
+		flexDirection: 'row',
+		justifyContent: 'space-between',
+		alignItems: 'center',
+	},
+	bitacoraAutor: {
+		fontSize: 13,
+		fontWeight: '700',
+		color: glassColors.text,
+	},
+	bitacoraFecha: {
+		fontSize: 11,
+		color: colors.secondaryText,
+	},
+	bitacoraTipo: {
+		fontSize: 12,
+		fontWeight: '600',
+		color: glassColors.link,
+	},
+	bitacoraObservacion: {
+		fontSize: 14,
+		color: glassColors.text,
+		lineHeight: 20,
 	},
 	imageGrid: {
 		flexDirection: 'row',
@@ -586,54 +670,46 @@ const styles = StyleSheet.create({
 	label: {
 		fontSize: 14,
 		fontWeight: '600',
-		color: '#374151',
+		color: glassColors.text,
 		marginBottom: 8,
 	},
 	input: {
-		backgroundColor: '#f9fafb',
-		borderRadius: 10,
 		paddingHorizontal: 14,
 		paddingVertical: 12,
-		fontSize: 15,
-		color: '#111827',
-		borderWidth: 1,
-		borderColor: '#e5e7eb',
 	},
 	textArea: {
 		height: 100,
 		paddingTop: 12,
 	},
+	observationInput: {
+		flex: 1,
+		fontSize: 15,
+		color: glassColors.text,
+		padding: 0,
+	},
+	inputFocused: {
+		borderColor: glassColors.link,
+	},
+	inputNoOutline: {
+		outlineStyle: 'none',
+		outlineWidth: 0,
+	} as any,
+	actionBar: {
+		borderTopWidth: 1,
+		borderTopColor: 'rgba(17,24,28,0.08)',
+		paddingHorizontal: 20,
+		paddingTop: 12,
+		paddingBottom: 4,
+		backgroundColor: '#ffffff',
+	},
 	pickerContainer: {
-		backgroundColor: '#f9fafb',
-		borderRadius: 10,
-		borderWidth: 1,
-		borderColor: '#e5e7eb',
 		overflow: 'hidden',
 	},
 	picker: {
 		height: 50,
-		color: '#111827',
+		color: glassColors.text,
 	},
 	confirmBtn: {
-		backgroundColor: colors.lightTint,
-		borderRadius: 10,
-		paddingVertical: 14,
-		alignItems: 'center',
-		marginTop: 12,
-		shadowColor: colors.lightTint,
-		shadowOffset: { width: 0, height: 4 },
-		shadowOpacity: 0.2,
-		shadowRadius: 8,
-		elevation: 4,
-	},
-	confirmBtnDisabled: {
-		backgroundColor: '#9ca3af',
-		shadowOpacity: 0,
-		elevation: 0,
-	},
-	confirmBtnText: {
-		color: '#fff',
-		fontSize: 16,
-		fontWeight: '700',
+		alignSelf: 'stretch',
 	},
 });

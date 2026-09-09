@@ -57,9 +57,14 @@ export function mapRangoOcupadoDTOToRangoOcupado(dto: RangoOcupadoDTO): RangoOcu
 export const mapSolicitudInfoDTOToSolicitudEnviada = (dto: SolicitudInfoDTO): SolicitudEnviada => ({
   solicitud_id: dto.solicitud_id,
   titulo: dto.titulo,
-  descripcion: dto.descripcion,
-  fecha_inicio: dto.fecha_inicio ? new Date(dto.fecha_inicio) : null,
-  fecha_fin: dto.fecha_fin ? new Date(dto.fecha_fin) : null,
+  descripcion: dto.descripcion ?? '',
+  ultimo_mensaje: dto.ultimo_mensaje ?? null,
+  ultimo_mensaje_tipo: dto.ultimo_mensaje_tipo,
+  ultimo_mensaje_at: parseBackendDate(dto.ultimo_mensaje_at),
+  ultimo_mensaje_autor_id: dto.ultimo_mensaje_autor_id ?? null,
+  fecha_inicio: parseBackendDate(dto.fecha_inicio),
+  fecha_fin: parseBackendDate(dto.fecha_fin),
+  created_at: parseBackendDate(dto.created_at) ?? new Date(0),
   nombre_creador: dto.nombre_creador,
   apellido_creador: dto.apellido_creador,
   created_by: dto.created_by,
@@ -71,6 +76,7 @@ export const mapSolicitudInfoDTOToSolicitudEnviada = (dto: SolicitudInfoDTO): So
   })),
   tipo_actividad: dto.tipo_actividad,
   estado: dto.estado as EstadoInvitacionDB,
+  seen: dto.seen,
   archivos: dto.archivos ?? [],
   is_host: dto.isHost,
   es_grupo: !!dto.es_grupo,
@@ -89,6 +95,14 @@ export function mapSolicitudBitacoraDTOToBitacora(dto: SolicitudBitacoraDTO): Bi
     usuario_apellido: dto.usuario_apellido ?? '',
     estado: normalizeEstado(dto.estado),
     archivos: (dto.archivos ?? []).map(mapArchivoDTOToArchivo),
+    seen_by: dto.seen_by?.map(v => ({
+      id_usuario: v.id_usuario,
+      nombre: v.nombre,
+      apellido: v.apellido,
+      seen_at: parseBackendDate(v.seen_at) ?? new Date(0),
+    })),
+    reply_to_id: dto.reply_to_id ?? null,
+    reply_to: dto.reply_to ?? null,
   };
 }
 
@@ -149,6 +163,8 @@ export function mapUpdateSolicitudRequestToPayload(
     ...(request.crear_de_todos_modos !== undefined
       ? { crear_de_todos_modos: request.crear_de_todos_modos }
       : {}),
+    ...(request.titulo !== undefined ? { titulo: request.titulo } : {}),
+    ...(request.reply_to_id !== undefined ? { reply_to_id: request.reply_to_id } : {}),
   };
 }
 

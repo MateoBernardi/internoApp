@@ -1,6 +1,13 @@
 import { authSessionService, AuthSessionSnapshot, AuthTokens } from '@/features/auth/services/AuthSessionService';
+import { GoogleSignin } from '@/features/auth/services/googleSignInClient';
+import Constants from 'expo-constants';
 import React, { createContext, useContext, useEffect, useMemo, useSyncExternalStore } from 'react';
 import { ExtendedUserContext } from '../models/User';
+
+const googleWebClientId = Constants.expoConfig?.extra?.GOOGLE_WEB_CLIENT_ID;
+if (googleWebClientId && GoogleSignin) {
+  GoogleSignin.configure({ webClientId: googleWebClientId });
+}
 
 /**
  * Decodifica un JWT y devuelve el payload
@@ -46,6 +53,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   requiresAssociation: boolean;
   signIn: (username: string, password: string) => Promise<void>;
+  signInWithGoogle: (idToken: string) => Promise<void>;
   signOut: () => Promise<void>;
   isLoggingOut: boolean;
   refreshTokens: () => Promise<void>;
@@ -78,6 +86,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         !!snapshot.tokens?.accessToken && !isTokenExpired(snapshot.tokens.accessToken),
       requiresAssociation: snapshot.requiresAssociation,
       signIn: authSessionService.signIn,
+      signInWithGoogle: authSessionService.signInWithGoogle,
       signOut: authSessionService.signOut,
       isLoggingOut: snapshot.isLoggingOut,
       refreshTokens: authSessionService.refreshTokens,

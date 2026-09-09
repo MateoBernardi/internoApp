@@ -41,8 +41,8 @@ export const RespondentesModal: React.FC<RespondentesModalProps> = ({
         <View style={styles.modalContent}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>{title}</Text>
-            <TouchableOpacity onPress={onClose}>
-              <Text style={styles.modalCloseButton}>✕</Text>
+            <TouchableOpacity onPress={onClose} style={styles.modalCloseButton}>
+              <Ionicons name="close" size={20} color={colors.secondaryText} />
             </TouchableOpacity>
           </View>
           <ScrollView style={styles.modalScroll}>
@@ -87,7 +87,7 @@ export const RespondentesModal: React.FC<RespondentesModalProps> = ({
                       </View>
                       {esHorario && respuesta.opcion_id && opcionTextoMap?.get(respuesta.opcion_id) && (
                         <View style={styles.slotBadge}>
-                          <Ionicons name="time-outline" size={11} color="#2a4f86" />
+                          <Ionicons name="time-outline" size={11} color={colors.lightTint} />
                           <Text style={styles.slotBadgeText}>
                             {formatHorarioSlot(opcionTextoMap.get(respuesta.opcion_id)!)}
                           </Text>

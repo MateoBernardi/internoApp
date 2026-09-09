@@ -1,6 +1,8 @@
 import { apiRequest, throwApiError } from "@/shared/apiRequest";
 import { deriveIdempotencyKey, idempotencyHeaders } from "@/shared/idempotency";
 import type { ApiOperationResult, ApiOperationStatus, ApiWarningDetail } from '@/shared/types/apiStatus';
+import { File as ExpoFile } from 'expo-file-system';
+import { Platform } from 'react-native';
 import type { ArchivoDTO } from "../dto/ArchivoDTO";
 import { mapArchivoDTOToArchivo } from "../mappers/archivoMapper";
 import * as archivos from "../models/Archivo";
@@ -147,7 +149,7 @@ const getMimeType = (fileName: string, providedType?: string): string => {
 };
 
 export async function getArchivosUnseenCount(accessToken: string): Promise<number> {
-    const response = await apiRequest({ method: 'GET', endpoint: '/archivos/unseen-count', token: accessToken });
+    const response = await apiRequest({ method: 'GET', endpoint: '/archivos/unseen', token: accessToken });
 
     if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
@@ -293,6 +295,31 @@ export async function getUrlCargaArchivo(accessToken: string, data: archivos.Ped
 
 export async function uploadArchivoR2(uploadUrl: string, fileUri: string, mimeType: string): Promise<void> {
     try {
+        // En native, releer el file:// / content:// URI con fetch().blob() es el
+        // patrón clásico poco confiable de RN (blob mal formado, "Unsupported data
+        // type" en R2): se usa la API nativa de expo-file-system, que lee y sube
+        // el archivo directo sin pasar por un Blob polyfill.
+        if (Platform.OS !== 'web') {
+            const result = await new ExpoFile(fileUri).upload(uploadUrl, {
+                httpMethod: 'PUT',
+                headers: { 'Content-Type': mimeType },
+            });
+
+            if (result.status < 200 || result.status >= 300) {
+                console.error('Error en R2:', { status: result.status, body: result.body });
+                let message = result.body;
+                try {
+                    const errData = JSON.parse(result.body);
+                    message = errData?.message || errData?.error || result.body;
+                } catch {
+                    // No era JSON: se usa el texto tal cual.
+                }
+                throw new Error(message || `Error ${result.status} al subir archivo a R2`);
+            }
+
+            return;
+        }
+
         const archivoBlob = await uriToBlob(fileUri);
 
         const response = await fetch(uploadUrl, {

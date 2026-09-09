@@ -8,10 +8,14 @@ interface Props {
   archivoId: number;
   nombre: string;
   onOpen: (uri: string) => void;
+  /** URL ya resuelta (p. ej. la bitácora de una solicitud la manda firmada). Si
+   *  se pasa, se salta el fetch de useArchivoUrl y se usa directamente. */
+  uri?: string;
 }
 
-export function InlineImageAttachment({ archivoId, nombre, onOpen }: Props) {
-  const { data: uri, isLoading } = useArchivoUrl(archivoId);
+export function InlineImageAttachment({ archivoId, nombre, onOpen, uri: providedUri }: Props) {
+  const { data: fetchedUri, isLoading } = useArchivoUrl(providedUri ? undefined : archivoId);
+  const uri = providedUri ?? fetchedUri;
 
   return (
     <TouchableOpacity

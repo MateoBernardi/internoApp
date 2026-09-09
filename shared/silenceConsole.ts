@@ -1,7 +1,9 @@
 /**
- * En builds de producción silencia la salida de consola para no filtrar
- * cuerpos de respuesta a los logs del dispositivo ni pagar el costo en runtime.
- * En desarrollo (`__DEV__`) la consola funciona normalmente.
+ * En builds de producción silencia la salida de consola no esencial para no
+ * pagar el costo en runtime. `console.error` se deja activo a propósito: es la
+ * única vía de diagnóstico disponible en producción (no hay reporte remoto de
+ * errores configurado) y sin ella fallas como las del escaneo de turno quedan
+ * indebuggeables. En desarrollo (`__DEV__`) la consola funciona normalmente.
  *
  * Importar una sola vez, lo antes posible, desde el layout raíz.
  */
@@ -12,7 +14,6 @@ if (!isDev) {
   console.log = noop;
   console.info = noop;
   console.warn = noop;
-  console.error = noop;
   console.debug = noop;
 }
 

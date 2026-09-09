@@ -1,42 +1,42 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Animated,
   Platform,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
+import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
+import { SearchBar } from '@/components/ui/SearchBar';
+import { useAuth } from '@/features/auth/context/AuthContext';
 import { allRoles } from '@/shared/users/roles';
 import type { UserSummary } from '@/shared/users/User';
 import { useSearchUsers } from '@/shared/users/useUser';
 import { EditarTurnoSheet } from '../components/EditarTurnoSheet';
 import { TurnoCard } from '../components/TurnoCard';
+import { HorariosToast } from '../components/HorariosToast';
 import type { UpdateHorarioPayload } from '../models/HorarioDTO';
 import { mapHorarioDTOToTurno, TURNO_LABEL, type Turno } from '../models/Turno';
-import type { HorariosByDateFilter } from '../services/horariosService';
+import { downloadPlantillaShifts, getPlantillaShiftsUrl, type HorariosByDateFilter } from '../services/horariosService';
 import {
   useHorariosByDate,
+  useMarcarFeriadoDia,
   useSedes,
   useUpdateHorario,
   useUploadShifts,
 } from '../viewmodels/useHorarios';
 
-const NAVY = '#2b1f5c';
-const TURNO_COLOR = '#2f86d6';
-const LINE = '#e8eaed';
-const MUTED = '#7a8087';
-const INK = '#1c2024';
-const CARD = '#f6f7f9';
-const PANEL = '#eef0f2';
-const GREEN_FLASH = '#22c55e';
-const RED_FLASH = '#e2543b';
+import { CARD, FERIADO_COLOR, INK, LINE, MUTED, NAVY, RED_FLASH } from '../theme';
 
 const DAY_NAMES = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
@@ -83,20 +83,21 @@ export function GestionHorarios() {
   const [selDateISO, setSelDateISO] = useState(todayISO);
   const [filter, setFilter] = useState<TurnoFilter>('Todos');
   const [sedeFilter, setSedeFilter] = useState<number | null>(null);
-  const [showSedeMenu, setShowSedeMenu] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUser, setSelectedUser] = useState<UserSummary | null>(null);
   const [rolFilter, setRolFilter] = useState<string | null>(null);
-  const [showRolMenu, setShowRolMenu] = useState(false);
   const [editingTurno, setEditingTurno] = useState<Turno | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [toast, setToast] = useState('');
   const [toastError, setToastError] = useState(false);
   const toastAnim = useRef(new Animated.Value(0)).current;
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { tokens } = useAuth();
+  const [isDownloadingPlantilla, setIsDownloadingPlantilla] = useState(false);
 
-  // El backend solo acepta un filtro por request: prioriza el empleado buscado
-  // sobre el rol si por algún motivo ambos quedaran seteados.
+  // El backend solo acepta un filtro por request: prioriza el empleado buscado,
+  // y si no hay uno, el rol.
   const activeFilter: HorariosByDateFilter | undefined = selectedUser
     ? { key: 'usuario', value: selectedUser.user_context_id }
     : rolFilter
@@ -108,6 +109,7 @@ export function GestionHorarios() {
   const userSearchQuery = useSearchUsers(searchQuery);
   const { mutate: uploadShifts, isPending: isUploading } = useUploadShifts();
   const { mutate: updateShift, isPending: isSaving } = useUpdateHorario();
+  const { mutate: marcarFeriadoDia, isPending: isMarkingFeriado } = useMarcarFeriadoDia();
 
   const sedes = sedesQuery.data ?? [];
   const userResults = userSearchQuery.data ?? [];
@@ -138,6 +140,39 @@ export function GestionHorarios() {
   }, [horariosQuery.data, filter, sedeFilter]);
 
   const totalForDay = horariosQuery.data?.length ?? 0;
+  const diaEsFeriado = totalForDay > 0 && (horariosQuery.data ?? []).every((d) => d.feriado);
+
+  const handleToggleFeriadoDia = useCallback(() => {
+    const nuevoValor = !diaEsFeriado;
+    const dayLabel = formatDayLabel(selDateISO);
+    Alert.alert(
+      nuevoValor ? 'Marcar día como feriado' : 'Quitar feriado del día',
+      nuevoValor
+        ? `Se marcarán como feriado (×2) los ${totalForDay} turno${totalForDay !== 1 ? 's' : ''} del ${dayLabel}.`
+        : `Se quitará la marca de feriado de los ${totalForDay} turno${totalForDay !== 1 ? 's' : ''} del ${dayLabel}.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: nuevoValor ? 'Marcar feriado' : 'Quitar feriado',
+          onPress: () => {
+            marcarFeriadoDia(
+              { fechaISO: selDateISO, feriado: nuevoValor },
+              {
+                onSuccess: (resp) => {
+                  showToast(
+                    resp.affected > 0
+                      ? `${resp.affected} turno${resp.affected !== 1 ? 's' : ''} actualizados`
+                      : 'No hay turnos cargados para este día',
+                  );
+                },
+                onError: () => showToast('Error al actualizar el día. Intenta de nuevo.', true),
+              },
+            );
+          },
+        },
+      ],
+    );
+  }, [diaEsFeriado, totalForDay, selDateISO, marcarFeriadoDia, showToast]);
 
   const openEdit = useCallback((turno: Turno) => {
     setEditingTurno({ ...turno });
@@ -155,12 +190,13 @@ export function GestionHorarios() {
     if (!editingTurno) return;
     const payload: UpdateHorarioPayload = {
       id: editingTurno.id,
-      turno: editingTurno.turno,
+      turno: TURNO_LABEL[editingTurno.turno],
       horario_in: `${editingTurno.fechaISO}T${editingTurno.ingreso}:00`,
       horario_out: `${editingTurno.fechaISO}T${editingTurno.egreso}:00`,
       sede_id_in: editingTurno.sedeIdIngreso,
       sede_id_out: editingTurno.sedeIdEgreso,
       licencia: editingTurno.licencia ? 1 : 0,
+      feriado: editingTurno.feriado ? 1 : 0,
     };
     updateShift(payload, {
       onSuccess: () => {
@@ -176,19 +212,20 @@ export function GestionHorarios() {
   const handlePickFile = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: Platform.OS === 'web' ? 'text/plain' : '*/*',
+        type: Platform.OS === 'web' ? ['text/csv', 'text/plain'] : '*/*',
         copyToCacheDirectory: true,
       });
       if (result.canceled || !result.assets?.[0]) return;
       const { uri, name } = result.assets[0];
       uploadShifts(
-        { uri, name: name ?? 'shifts.txt' },
+        { uri, name: name ?? 'shifts.csv', fechaISO: selDateISO },
         {
           onSuccess: (resp) => {
-            showToast(`${resp.totalInsertados} turno${resp.totalInsertados !== 1 ? 's' : ''} importados`);
+            const omitidosSuffix = resp.totalOmitidos > 0 ? ` · ${resp.totalOmitidos} omitido${resp.totalOmitidos !== 1 ? 's' : ''}` : '';
+            showToast(`${resp.totalInsertados} turno${resp.totalInsertados !== 1 ? 's' : ''} importados${omitidosSuffix}`);
           },
-          onError: () => {
-            showToast('Error al importar el archivo', true);
+          onError: (err) => {
+            showToast(err instanceof Error ? err.message : 'Error al importar el archivo', true);
           },
         },
       );
@@ -197,15 +234,71 @@ export function GestionHorarios() {
     }
   };
 
-  const sedeDropdownLabel =
-    sedeFilter !== null
-      ? (sedes.find((s) => s.id === sedeFilter)?.nombre ?? `Sede ${sedeFilter}`)
-      : 'Todas';
+  const handleShowCsvHelp = useCallback(() => {
+    Alert.alert(
+      'Formato del CSV',
+      'Columnas: user_context_id, nombre_apellido, turno, horario_in, horario_out, sede_in, sede_out.\n\n' +
+        '• La plantilla ya trae, para cada usuario, el turno de este día (o su turno base si el día todavía no tiene uno propio).\n' +
+        '• Editá solo lo que necesites cambiar; el resto de las filas se puede dejar tal cual.\n' +
+        '• Si un usuario no tiene turno ese día ni turno base, sus columnas vienen vacías: completalas para asignarle un turno, o dejalas vacías para que se lo omita.\n' +
+        '• No modifiques la columna user_context_id: es la que identifica al usuario.\n' +
+        '• horario_in y horario_out van en formato HHmm (ej: 0800, 1630).\n' +
+        '• sede_in y sede_out son el ID numérico de la sede.',
+    );
+  }, []);
 
-  const rolDropdownLabel =
-    rolFilter !== null
-      ? (SHIFT_ROLES.find((r) => r.value === rolFilter)?.label ?? rolFilter)
-      : 'Todos';
+  const handleDownloadPlantilla = async () => {
+    if (isDownloadingPlantilla) return;
+    const token = tokens?.accessToken;
+    if (!token) {
+      showToast('No se pudo descargar la plantilla', true);
+      return;
+    }
+    setIsDownloadingPlantilla(true);
+    try {
+      const fileName = `plantilla_turnos_${selDateISO}.csv`;
+
+      if (Platform.OS === 'web') {
+        const blob = await downloadPlantillaShifts(token, selDateISO);
+        const blobUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(blobUrl);
+      } else {
+        const destinationDir = new FileSystem.Directory(FileSystem.Paths.cache, 'Italo-Argentina');
+        const destinationFile = new FileSystem.File(destinationDir, fileName);
+        await destinationDir.create({ idempotent: true, intermediates: true });
+
+        // RN's Blob no implementa .text(); descargamos directo a disco en vez de pasar por blob.
+        await FileSystem.File.downloadFileAsync(getPlantillaShiftsUrl(selDateISO), destinationFile, {
+          idempotent: true,
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'x-app-entorno': 'interno',
+          },
+        });
+
+        const canShare = await Sharing.isAvailableAsync();
+        if (canShare) {
+          await Sharing.shareAsync(destinationFile.uri, {
+            dialogTitle: 'Guardar o compartir plantilla',
+            mimeType: 'text/csv',
+          });
+        } else {
+          Alert.alert('Descarga completada', 'La plantilla se descargó en almacenamiento temporal de la app.');
+        }
+      }
+    } catch (e) {
+      console.error(e);
+      showToast('No se pudo descargar la plantilla', true);
+    } finally {
+      setIsDownloadingPlantilla(false);
+    }
+  };
 
   const selectUser = useCallback((user: UserSummary) => {
     setSelectedUser(user);
@@ -218,14 +311,18 @@ export function GestionHorarios() {
     setSearchQuery('');
   }, []);
 
+  const activeFilterCount =
+    (filter !== 'Todos' ? 1 : 0) + (sedeFilter !== null ? 1 : 0) + (rolFilter !== null ? 1 : 0);
+
+  const clearFilters = useCallback(() => {
+    setFilter('Todos');
+    setSedeFilter(null);
+    setRolFilter(null);
+  }, []);
+
   return (
     <View style={styles.container}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        <Text style={styles.subtitle}>Turnos del día · tocá uno para editarlo</Text>
+      <View style={styles.topSection}>
 
         {/* Day navigator */}
         <View style={styles.dayNav}>
@@ -238,6 +335,11 @@ export function GestionHorarios() {
           >
             <Text style={styles.dayLabel}>{formatDayLabel(selDateISO)}</Text>
             <Ionicons name="calendar-outline" size={16} color={NAVY} />
+            {diaEsFeriado && (
+              <View style={styles.dayFeriadoBadge}>
+                <Ionicons name="star" size={11} color="#ffffff" />
+              </View>
+            )}
           </TouchableOpacity>
           <TouchableOpacity style={styles.navBtn} onPress={() => setSelDateISO((d) => shiftDay(d, 1))}>
             <Ionicons name="chevron-forward" size={22} color={NAVY} />
@@ -245,19 +347,21 @@ export function GestionHorarios() {
         </View>
 
         {showDatePicker && (
-          <DateTimePicker
-            visible={showDatePicker}
-            value={isoToDate(selDateISO)}
-            mode="date"
-            onConfirm={(date) => {
-              setSelDateISO(dateToISO(date));
-              setShowDatePicker(false);
-            }}
-            onCancel={() => setShowDatePicker(false)}
-          />
+          <FullScreenPortal>
+            <DateTimePicker
+              visible={showDatePicker}
+              value={isoToDate(selDateISO)}
+              mode="date"
+              onConfirm={(date) => {
+                setSelDateISO(dateToISO(date));
+                setShowDatePicker(false);
+              }}
+              onCancel={() => setShowDatePicker(false)}
+            />
+          </FullScreenPortal>
         )}
 
-        {/* TXT import card */}
+        {/* CSV import card */}
         <View style={styles.importCard}>
           <View style={styles.importIcon}>
             {isUploading ? (
@@ -267,11 +371,25 @@ export function GestionHorarios() {
             )}
           </View>
           <View style={styles.importText}>
-            <Text style={styles.importTitle}>Importar TXT</Text>
+            <Text style={styles.importTitle}>Importar CSV</Text>
             <Text style={styles.importSub}>
-              {isUploading ? 'Subiendo planilla…' : 'Planilla de turnos'}
+              {isUploading ? 'Subiendo planilla…' : 'Planilla de turnos (.csv)'}
             </Text>
           </View>
+          <TouchableOpacity style={styles.importPlantillaBtn} onPress={handleShowCsvHelp}>
+            <Ionicons name="help-circle-outline" size={20} color={NAVY} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.importPlantillaBtn}
+            onPress={handleDownloadPlantilla}
+            disabled={isDownloadingPlantilla}
+          >
+            {isDownloadingPlantilla ? (
+              <ActivityIndicator size="small" color={NAVY} />
+            ) : (
+              <Ionicons name="download-outline" size={20} color={NAVY} />
+            )}
+          </TouchableOpacity>
           <TouchableOpacity
             style={[styles.importBtn, isUploading && styles.importBtnDisabled]}
             onPress={handlePickFile}
@@ -281,36 +399,39 @@ export function GestionHorarios() {
           </TouchableOpacity>
         </View>
 
+        {/* Feriado toggle for the whole day */}
+        <TouchableOpacity
+          style={[
+            styles.feriadoToggle,
+            diaEsFeriado && styles.feriadoToggleActive,
+            (isMarkingFeriado || totalForDay === 0) && styles.feriadoToggleDisabled,
+          ]}
+          onPress={handleToggleFeriadoDia}
+          disabled={isMarkingFeriado || totalForDay === 0}
+        >
+          {isMarkingFeriado ? (
+            <ActivityIndicator size="small" color={diaEsFeriado ? '#ffffff' : FERIADO_COLOR} />
+          ) : (
+            <Ionicons name={diaEsFeriado ? 'checkmark-circle' : 'star-outline'} size={16} color={diaEsFeriado ? '#ffffff' : FERIADO_COLOR} />
+          )}
+          <Text style={[styles.feriadoToggleText, diaEsFeriado && styles.feriadoToggleTextActive]}>
+            {diaEsFeriado ? 'Día feriado' : 'Marcar día como feriado'}
+          </Text>
+        </TouchableOpacity>
+
         {/* Filters */}
         <View style={styles.filters}>
           {/* Search */}
-          <View style={styles.searchBox}>
-            <Ionicons name="search" size={16} color={MUTED} style={styles.searchIcon} />
-            {selectedUser ? (
-              <Text style={styles.searchSelectedText} numberOfLines={1}>
-                {selectedUser.nombre} {selectedUser.apellido}
-              </Text>
-            ) : (
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Buscar empleado"
-                placeholderTextColor={MUTED}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-              />
-            )}
-            {(selectedUser !== null || searchQuery.length > 0) && (
-              <TouchableOpacity
-                onPress={clearUserSearch}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Ionicons name="close" size={16} color={MUTED} />
-              </TouchableOpacity>
-            )}
-          </View>
+          <SearchBar
+            placeholder="Buscar empleado"
+            value={selectedUser ? `${selectedUser.nombre} ${selectedUser.apellido}` : searchQuery}
+            onChangeText={(value) => { if (!selectedUser) setSearchQuery(value); }}
+            onClear={clearUserSearch}
+            style={styles.searchBar}
+          />
 
           {!selectedUser && searchQuery.trim().length > 1 && (
-            <View style={styles.userResultsBox}>
+            <View style={[glassStyles.modalCard, styles.userResultsBox]}>
               {userSearchQuery.isFetching ? (
                 <ActivityIndicator size="small" color={MUTED} style={styles.userResultsLoading} />
               ) : userResults.length === 0 ? (
@@ -330,100 +451,98 @@ export function GestionHorarios() {
             </View>
           )}
 
-          {/* Turno segmented */}
-          <View style={styles.segRow}>
-            {FILTER_OPTS.map((f) => {
-              const active = filter === f.value;
-              return (
-                <TouchableOpacity
-                  key={f.value}
-                  style={[styles.segBtn, active && styles.segBtnActive]}
-                  onPress={() => setFilter(f.value)}
-                >
-                  <Text style={[styles.segLabel, active && styles.segLabelActive]}>{f.label}</Text>
-                </TouchableOpacity>
-              );
-            })}
+          {/* Filtrar */}
+          <View style={styles.filterBar}>
+            <TouchableOpacity
+              onPress={() => setShowFilters((v) => !v)}
+              style={[styles.filterToggle, activeFilterCount > 0 ? styles.filterToggleActive : styles.filterToggleInactive]}
+            >
+              <Ionicons
+                name="filter-outline"
+                size={20}
+                color={activeFilterCount > 0 ? glassColors.link : glassColors.textMuted}
+              />
+              <Text
+                style={[
+                  styles.filterToggleText,
+                  activeFilterCount > 0 ? styles.filterToggleTextActive : styles.filterToggleTextInactive,
+                ]}
+              >
+                Filtrar
+              </Text>
+              {activeFilterCount > 0 && (
+                <View style={styles.filterBadge}>
+                  <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            {activeFilterCount > 0 && (
+              <TouchableOpacity onPress={clearFilters}>
+                <Text style={styles.clearText}>Limpiar</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
-          {/* Sede dropdown */}
-          <TouchableOpacity
-            style={styles.sedeDropdown}
-            onPress={() => { setShowRolMenu(false); setShowSedeMenu((v) => !v); }}
-          >
-            <Text style={styles.sedeDropdownPrefix}>Sede </Text>
-            <Text style={styles.sedeDropdownValue}>{sedeDropdownLabel}</Text>
-            <Ionicons name={showSedeMenu ? 'chevron-up' : 'chevron-down'} size={15} color={MUTED} />
-          </TouchableOpacity>
+          {showFilters && (
+            <View style={styles.filterPanel}>
+              <View style={styles.filterGroup}>
+                <Text style={styles.filterGroupLabel}>Turno</Text>
+                <View style={styles.chipRow}>
+                  {FILTER_OPTS.map((opt) => (
+                    <FilterChip
+                      key={opt.value}
+                      label={opt.label}
+                      active={filter === opt.value}
+                      onPress={() => setFilter(opt.value)}
+                    />
+                  ))}
+                </View>
+              </View>
 
-          {showSedeMenu && (
-            <View style={styles.sedeMenuBox}>
-              <TouchableOpacity
-                style={[styles.sedeMenuItem, sedeFilter === null && styles.sedeMenuItemActive]}
-                onPress={() => { setSedeFilter(null); setShowSedeMenu(false); }}
-              >
-                <Text style={[styles.sedeMenuItemText, sedeFilter === null && styles.sedeMenuItemTextActive]}>
-                  Todas
-                </Text>
-                {sedeFilter === null && <Ionicons name="checkmark" size={16} color={TURNO_COLOR} />}
-              </TouchableOpacity>
-              {sedes.map((s) => (
-                <TouchableOpacity
-                  key={s.id}
-                  style={[styles.sedeMenuItem, sedeFilter === s.id && styles.sedeMenuItemActive]}
-                  onPress={() => { setSedeFilter(s.id); setShowSedeMenu(false); }}
-                >
-                  <Text style={[styles.sedeMenuItemText, sedeFilter === s.id && styles.sedeMenuItemTextActive]}>
-                    {s.nombre}
-                  </Text>
-                  {sedeFilter === s.id && <Ionicons name="checkmark" size={16} color={TURNO_COLOR} />}
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
+              <View style={styles.filterGroup}>
+                <Text style={styles.filterGroupLabel}>Sede</Text>
+                <View style={styles.chipRow}>
+                  <FilterChip label="Todas" active={sedeFilter === null} onPress={() => setSedeFilter(null)} />
+                  {sedes.map((s) => (
+                    <FilterChip
+                      key={s.id}
+                      label={s.nombre}
+                      active={sedeFilter === s.id}
+                      onPress={() => setSedeFilter(s.id)}
+                    />
+                  ))}
+                </View>
+              </View>
 
-          {/* Rol dropdown */}
-          <TouchableOpacity
-            style={styles.sedeDropdown}
-            onPress={() => { setShowSedeMenu(false); setShowRolMenu((v) => !v); }}
-          >
-            <Text style={styles.sedeDropdownPrefix}>Rol </Text>
-            <Text style={styles.sedeDropdownValue}>{rolDropdownLabel}</Text>
-            <Ionicons name={showRolMenu ? 'chevron-up' : 'chevron-down'} size={15} color={MUTED} />
-          </TouchableOpacity>
-
-          {showRolMenu && (
-            <View style={styles.sedeMenuBox}>
-              <TouchableOpacity
-                style={[styles.sedeMenuItem, rolFilter === null && styles.sedeMenuItemActive]}
-                onPress={() => { setRolFilter(null); setShowRolMenu(false); }}
-              >
-                <Text style={[styles.sedeMenuItemText, rolFilter === null && styles.sedeMenuItemTextActive]}>
-                  Todos
-                </Text>
-                {rolFilter === null && <Ionicons name="checkmark" size={16} color={TURNO_COLOR} />}
-              </TouchableOpacity>
-              {SHIFT_ROLES.map((r) => (
-                <TouchableOpacity
-                  key={r.value}
-                  style={[styles.sedeMenuItem, rolFilter === r.value && styles.sedeMenuItemActive]}
-                  onPress={() => {
-                    setRolFilter(r.value);
-                    setSelectedUser(null); // el backend solo admite un filtro por request
-                    setShowRolMenu(false);
-                  }}
-                >
-                  <Text style={[styles.sedeMenuItemText, rolFilter === r.value && styles.sedeMenuItemTextActive]}>
-                    {r.label}
-                  </Text>
-                  {rolFilter === r.value && <Ionicons name="checkmark" size={16} color={TURNO_COLOR} />}
-                </TouchableOpacity>
-              ))}
+              <View style={styles.filterGroup}>
+                <Text style={styles.filterGroupLabel}>Rol</Text>
+                <View style={styles.chipRow}>
+                  <FilterChip label="Todos" active={rolFilter === null} onPress={() => setRolFilter(null)} />
+                  {SHIFT_ROLES.map((r) => (
+                    <FilterChip
+                      key={r.value}
+                      label={r.label}
+                      active={rolFilter === r.value}
+                      onPress={() => {
+                        setRolFilter(r.value);
+                        setSelectedUser(null); // el backend solo admite un filtro por request
+                      }}
+                    />
+                  ))}
+                </View>
+              </View>
             </View>
           )}
         </View>
 
         {/* List */}
+      </View>
+      <ScrollView
+        style={styles.listScroll}
+        contentContainerStyle={styles.listContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.list}>
           {horariosQuery.isFetching && !horariosQuery.data ? (
             <View style={styles.centerState}>
@@ -498,15 +617,20 @@ export function GestionHorarios() {
       />
 
       {/* Toast */}
-      {toast !== '' && (
-        <Animated.View
-          style={[styles.toast, toastError && styles.toastError, { opacity: toastAnim }]}
-        >
-          <View style={[styles.toastDot, toastError && styles.toastDotError]} />
-          <Text style={styles.toastText}>{toast}</Text>
-        </Animated.View>
-      )}
+      <HorariosToast
+        message={toast}
+        error={toastError}
+        opacity={toastAnim}
+      />
     </View>
+  );
+}
+
+function FilterChip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+  return (
+    <TouchableOpacity onPress={onPress} style={[styles.filterChip, active && styles.filterChipActive]}>
+      <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>{label}</Text>
+    </TouchableOpacity>
   );
 }
 
@@ -514,6 +638,23 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#ffffff',
+  },
+  topSection: {
+    paddingHorizontal: 18,
+    paddingTop: 4,
+    flexShrink: 0,
+  },
+  searchBar: {
+    marginHorizontal: 0,
+    marginVertical: 0,
+  },
+  listScroll: {
+    flex: 1,
+  },
+  listContent: {
+    paddingHorizontal: 18,
+    paddingTop: 8,
+    paddingBottom: 16,
   },
   scrollContent: {
     paddingHorizontal: 18,
@@ -556,6 +697,42 @@ const styles = StyleSheet.create({
     color: NAVY,
     textAlign: 'center',
   },
+  dayFeriadoBadge: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: FERIADO_COLOR,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  feriadoToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(147,51,234,0.35)',
+    backgroundColor: 'rgba(147,51,234,0.08)',
+    marginBottom: 14,
+  },
+  feriadoToggleActive: {
+    backgroundColor: FERIADO_COLOR,
+    borderColor: FERIADO_COLOR,
+  },
+  feriadoToggleDisabled: {
+    opacity: 0.5,
+  },
+  feriadoToggleText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: FERIADO_COLOR,
+  },
+  feriadoToggleTextActive: {
+    color: '#ffffff',
+  },
   importCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -568,10 +745,10 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   importIcon: {
+    ...glassStyles.fieldGlass,
     width: 38,
     height: 38,
     borderRadius: 10,
-    backgroundColor: PANEL,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -586,6 +763,14 @@ const styles = StyleSheet.create({
   importSub: {
     fontSize: 12,
     color: MUTED,
+  },
+  importPlantillaBtn: {
+    ...glassStyles.fieldGlass,
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   importBtn: {
     paddingHorizontal: 16,
@@ -606,43 +791,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     zIndex: 10,
   },
-  searchBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: CARD,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: LINE,
-    paddingHorizontal: 12,
-    height: 42,
-    gap: 8,
-  },
-  searchIcon: {
-    flexShrink: 0,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 15,
-    color: INK,
-    paddingVertical: 0,
-  },
-  searchSelectedText: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: '600',
-    color: INK,
-  },
   userResultsBox: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: LINE,
     maxHeight: 260,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 8,
     overflow: 'hidden',
   },
   userResultsLoading: {
@@ -671,82 +821,95 @@ const styles = StyleSheet.create({
     color: MUTED,
     marginTop: 2,
   },
-  segRow: {
-    flexDirection: 'row',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: LINE,
-    overflow: 'hidden',
-  },
-  segBtn: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: 'center',
-    backgroundColor: CARD,
-  },
-  segBtnActive: {
-    backgroundColor: NAVY,
-  },
-  segLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: MUTED,
-  },
-  segLabelActive: {
-    color: '#ffffff',
-  },
-  sedeDropdown: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: CARD,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: LINE,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-  },
-  sedeDropdownPrefix: {
-    fontSize: 14,
-    color: MUTED,
-    fontWeight: '500',
-  },
-  sedeDropdownValue: {
-    fontSize: 14,
-    color: INK,
-    fontWeight: '600',
-    flex: 1,
-  },
-  sedeMenuBox: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: LINE,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 8,
-    overflow: 'hidden',
-  },
-  sedeMenuItem: {
+  filterBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 13,
-    paddingHorizontal: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: LINE,
   },
-  sedeMenuItemActive: {
-    backgroundColor: '#e7f2fb',
+  filterToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    borderWidth: 1,
   },
-  sedeMenuItemText: {
-    fontSize: 15,
-    color: INK,
-  },
-  sedeMenuItemTextActive: {
-    color: TURNO_COLOR,
+  filterToggleText: {
+    fontSize: 13,
     fontWeight: '600',
+  },
+  filterToggleActive: {
+    borderColor: 'rgba(26,115,232,0.35)',
+    backgroundColor: 'rgba(26,115,232,0.12)',
+  },
+  filterToggleInactive: {
+    borderColor: 'rgba(17,24,28,0.12)',
+    backgroundColor: 'rgba(17,24,28,0.03)',
+  },
+  filterToggleTextActive: {
+    color: glassColors.link,
+  },
+  filterToggleTextInactive: {
+    color: glassColors.textMuted,
+  },
+  filterBadge: {
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 4,
+    backgroundColor: glassColors.link,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  clearText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: glassColors.link,
+  },
+  filterPanel: {
+    marginBottom: 6,
+    padding: 12,
+    gap: 10,
+    ...glassStyles.card,
+  },
+  filterGroup: {
+    gap: 6,
+  },
+  filterGroupLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: MUTED,
+  },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  filterChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(17,24,28,0.12)',
+    backgroundColor: 'rgba(17,24,28,0.03)',
+  },
+  filterChipActive: {
+    borderColor: 'rgba(26,115,232,0.35)',
+    backgroundColor: 'rgba(26,115,232,0.12)',
+  },
+  filterChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: glassColors.textMuted,
+  },
+  filterChipTextActive: {
+    color: glassColors.link,
   },
   list: {
     gap: 0,
@@ -792,40 +955,6 @@ const styles = StyleSheet.create({
   infoBold: {
     fontWeight: '700',
     color: INK,
-  },
-  toast: {
-    position: 'absolute',
-    bottom: 72,
-    alignSelf: 'center',
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1c2024',
-    paddingVertical: 10,
-    paddingHorizontal: 18,
-    borderRadius: 999,
-    gap: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 10,
-  },
-  toastError: {
-    backgroundColor: '#3a1515',
-  },
-  toastDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: GREEN_FLASH,
-  },
-  toastDotError: {
-    backgroundColor: RED_FLASH,
-  },
-  toastText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '600',
   },
   licenciaCard: {
     flexDirection: 'row',

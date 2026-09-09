@@ -1,10 +1,11 @@
 import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
 import { Colors } from '@/constants/theme';
+import { GlassButton } from '@/shared/ui/GlassButton';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-    ActivityIndicator,
     Alert,
     ScrollView,
     StyleSheet,
@@ -16,7 +17,7 @@ import {
 import { useIdempotencyKey } from '@/shared/useIdempotencyKey';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatHorarioSlot } from '../resultados/utils';
-import { Encuesta, Pregunta, Respuesta } from '../models/Encuesta';
+import { Encuesta, Pregunta, Respuesta, TIPO_PREGUNTA_META } from '../models/Encuesta';
 import { useEnviarRespuestasEncuesta } from '../viewmodels/useEncuestas';
 
 interface ResponderEncuestaProps {
@@ -29,7 +30,9 @@ const colors = Colors['light'];
 export const ResponderEncuesta: React.FC<ResponderEncuestaProps> = ({ encuesta, onCancelar }) => {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const esHorario = encuesta.preguntas?.some((p) => p.tipo_pregunta === 'horario') ?? false;
   const [respuestas, setRespuestas] = useState<Map<number, Respuesta>>(new Map());
+  const [focusedPreguntaId, setFocusedPreguntaId] = useState<number | null>(null);
   const { idempotencyKey } = useIdempotencyKey();
   const { mutateAsync: enviarRespuestas, isPending } = useEnviarRespuestasEncuesta();
 
@@ -143,15 +146,7 @@ export const ResponderEncuesta: React.FC<ResponderEncuestaProps> = ({ encuesta, 
             {pregunta.es_obligatoria && <Text style={styles.obligatorio}> *</Text>}
           </Text>
           <Text style={styles.tipoPregunta}>
-            {pregunta.tipo_pregunta === 'rating'
-              ? 'Calificación'
-              : pregunta.tipo_pregunta === 'texto'
-              ? 'Texto'
-              : pregunta.tipo_pregunta === 'multiple_choice'
-              ? 'Opción múltiple'
-              : pregunta.tipo_pregunta === 'horario'
-              ? 'Horario'
-              : 'Sí/No'}
+            {TIPO_PREGUNTA_META[pregunta.tipo_pregunta].label}
           </Text>
         </View>
 
@@ -182,13 +177,20 @@ export const ResponderEncuesta: React.FC<ResponderEncuestaProps> = ({ encuesta, 
 
         {pregunta.tipo_pregunta === 'texto' && (
           <TextInput
-            style={styles.textInput}
+            style={[
+              styles.textInput,
+              styles.inputNoOutline,
+              focusedPreguntaId === preguntaId && styles.inputFocused,
+            ]}
             placeholder="Escribe tu respuesta aqui..."
+            placeholderTextColor={glassColors.placeholder}
             multiline
             numberOfLines={4}
             value={respuestas.get(preguntaId)?.respuesta_texto || ''}
             onChangeText={(texto) => handleTextoChange(preguntaId, texto)}
             editable={!isPending}
+            onFocus={() => setFocusedPreguntaId(preguntaId)}
+            onBlur={() => setFocusedPreguntaId(null)}
           />
         )}
 
@@ -309,10 +311,15 @@ export const ResponderEncuesta: React.FC<ResponderEncuestaProps> = ({ encuesta, 
 
   return (
     <View style={styles.container}>
-      <View style={styles.contentWrapper} pointerEvents={isPending ? 'none' : 'auto'}>
+      <View style={[styles.contentWrapper, { pointerEvents: isPending ? 'none' : 'auto' }]}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>{encuesta.titulo}</Text>
+          <Text style={styles.headerTitle}>{esHorario ? 'Turnero disponible' : encuesta.titulo}</Text>
           {encuesta.descripcion && <Text style={styles.headerDescripcion}>{encuesta.descripcion}</Text>}
+          {esHorario && (
+            <View style={styles.opcionalBadge}>
+              <Text style={styles.opcionalText}>Votar tu turno es opcional</Text>
+            </View>
+          )}
           {encuesta.es_anonima && (
             <View style={styles.anonimaBadge}>
               <Text style={styles.anonimaText}>Esta encuesta es anonima</Text>
@@ -329,17 +336,21 @@ export const ResponderEncuesta: React.FC<ResponderEncuestaProps> = ({ encuesta, 
         </ScrollView>
 
         <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
-          <TouchableOpacity style={styles.cancelarButton} onPress={onCancelar} disabled={isPending}>
-            <Text style={styles.cancelarButtonText}>Cancelar</Text>
-          </TouchableOpacity>
+          <GlassButton
+            label="Cancelar"
+            onPress={onCancelar}
+            disabled={isPending}
+            variant="secondary"
+            style={styles.cancelarButton}
+          />
 
-          <TouchableOpacity
-            style={[styles.enviarButton, isPending && styles.enviarButtonDisabled]}
+          <GlassButton
+            label="Enviar Respuestas"
             onPress={handleEnviar}
             disabled={isPending}
-          >
-            {isPending ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.enviarButtonText}>Enviar Respuestas</Text>}
-          </TouchableOpacity>
+            loading={isPending}
+            style={styles.enviarButton}
+          />
         </View>
       </View>
 
@@ -375,7 +386,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   anonimaBadge: {
-    backgroundColor: colors.componentBackground,
+    backgroundColor: 'rgba(26,115,232,0.08)',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 6,
@@ -386,20 +397,28 @@ const styles = StyleSheet.create({
     color: colors.lightTint,
     fontWeight: '600',
   },
+  opcionalBadge: {
+    backgroundColor: 'rgba(17,24,28,0.03)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+    marginBottom: 6,
+  },
+  opcionalText: {
+    fontSize: 12,
+    color: colors.secondaryText,
+    fontWeight: '600',
+  },
   scrollView: {
     flex: 1,
     padding: 15,
   },
   preguntaCard: {
-    backgroundColor: colors.componentBackground,
+    ...glassStyles.card,
     borderRadius: 12,
     padding: 16,
     marginBottom: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   preguntaHeader: {
     marginBottom: 15,
@@ -432,7 +451,7 @@ const styles = StyleSheet.create({
   },
   ratingButtonSelected: {
     borderColor: colors.lightTint,
-    backgroundColor: colors.componentBackground,
+    backgroundColor: 'rgba(26,115,232,0.08)',
   },
   ratingText: {
     fontSize: 18,
@@ -443,8 +462,7 @@ const styles = StyleSheet.create({
     color: colors.lightTint,
   },
   textInput: {
-    borderWidth: 1,
-    borderColor: colors.background,
+    ...glassStyles.fieldGlass,
     borderRadius: 8,
     padding: 12,
     fontSize: 14,
@@ -452,6 +470,13 @@ const styles = StyleSheet.create({
     minHeight: 100,
     textAlignVertical: 'top',
   },
+  inputFocused: {
+    borderColor: glassColors.link,
+  },
+  inputNoOutline: {
+    outlineStyle: 'none',
+    outlineWidth: 0,
+  } as any,
   opcionesContainer: {
     gap: 10,
   },
@@ -465,7 +490,7 @@ const styles = StyleSheet.create({
   },
   opcionButtonSelected: {
     borderColor: colors.lightTint,
-    backgroundColor: colors.componentBackground,
+    backgroundColor: 'rgba(26,115,232,0.08)',
   },
   radioCircle: {
     width: 20,
@@ -514,7 +539,7 @@ const styles = StyleSheet.create({
   },
   siNoButtonSelected: {
     borderColor: colors.lightTint,
-    backgroundColor: colors.componentBackground,
+    backgroundColor: 'rgba(26,115,232,0.08)',
   },
   siNoText: {
     fontSize: 14,
@@ -541,32 +566,9 @@ const styles = StyleSheet.create({
   },
   cancelarButton: {
     flex: 1,
-    paddingVertical: 15,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.secondaryText,
-    alignItems: 'center',
-  },
-  cancelarButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.secondaryText,
   },
   enviarButton: {
     flex: 2,
-    paddingVertical: 15,
-    borderRadius: 8,
-    backgroundColor: colors.lightTint,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  enviarButtonDisabled: {
-    opacity: 0.7,
-  },
-  enviarButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
   },
 });
 

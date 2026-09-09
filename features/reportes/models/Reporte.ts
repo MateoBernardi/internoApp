@@ -85,6 +85,7 @@ export interface ReporteStats {
     usuario_id: number;
     nombre: string;
     apellido: string;
+    rol?: string;
     negativos: number;
     positivos: number;
     total_positivos: number;

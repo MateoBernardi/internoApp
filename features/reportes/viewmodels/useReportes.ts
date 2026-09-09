@@ -1,4 +1,5 @@
 import { useAuth } from '@/features/auth/context/AuthContext';
+import { BADGES_QUERY_KEY } from '@/shared/badges/useBadges';
 import { IDEMPOTENT_MUTATION_RETRY } from '@/shared/idempotency';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -6,7 +7,6 @@ import {
     createReporte,
     fetchReportes,
     getReporteImagenes,
-    getReportesPendingCount,
     getReporteStats,
     getTopEmployee,
     getUpgradedEmployee,
@@ -32,21 +32,6 @@ function normalizeUsuarioId(usuarioId?: string): string | undefined {
     }
 
     return trimmed;
-}
-
-export function useReportesPendingCount(enabled: boolean = true) {
-    const { tokens } = useAuth();
-
-    return useQuery({
-        queryKey: ['reportes', 'pending-count'],
-        queryFn: async () => {
-            const token = tokens?.accessToken;
-            if (!token) throw new Error('No hay token de acceso');
-            return getReportesPendingCount(token);
-        },
-        enabled: enabled && !!tokens?.accessToken,
-        staleTime: 1000 * 45,
-    });
 }
 
 /**
@@ -94,6 +79,7 @@ export function useCreateReporte() {
         onSuccess: () => {
             // Actualizar el cache agregando el nuevo reporte
             queryClient.invalidateQueries({ queryKey: REPORTES_QUERY_KEY });
+            queryClient.invalidateQueries({ queryKey: BADGES_QUERY_KEY });
         },
         // Reintentos seguros: el mismo X-Idempotency-Key viaja en cada intento.
         ...IDEMPOTENT_MUTATION_RETRY,
@@ -117,6 +103,7 @@ export function useUpdateReporte() {
         onSuccess: (updatedReporte) => {
             // Invalidar las queries para refrescar los datos
             queryClient.invalidateQueries({ queryKey: REPORTES_QUERY_KEY });
+            queryClient.invalidateQueries({ queryKey: BADGES_QUERY_KEY });
         },
     });
 }
@@ -240,6 +227,7 @@ export function useUploadReporteImage() {
         },
         onSuccess: (_data, variables) => {
             queryClient.invalidateQueries({ queryKey: REPORTES_QUERY_KEY });
+            queryClient.invalidateQueries({ queryKey: BADGES_QUERY_KEY });
             queryClient.invalidateQueries({
                 queryKey: REPORTE_IMAGENES_QUERY_KEY(variables.reporteId),
             });
@@ -273,6 +261,7 @@ export function useUnlinkReporteImage() {
         },
         onSuccess: (_data, variables) => {
             queryClient.invalidateQueries({ queryKey: REPORTES_QUERY_KEY });
+            queryClient.invalidateQueries({ queryKey: BADGES_QUERY_KEY });
             queryClient.invalidateQueries({
                 queryKey: REPORTE_IMAGENES_QUERY_KEY(variables.reporteId),
             });

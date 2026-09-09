@@ -3,22 +3,29 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
-import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
+import { useAuthFormLayout } from '@/shared/ui/authLayout';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
+import { GoogleSignin, isGoogleSignInAvailable } from '@/features/auth/services/googleSignInClient';
+import { isGoogleIdentityServicesAvailable, renderGoogleButton } from '@/features/auth/services/googleIdentityServicesWeb';
+import { GoogleLogo } from '@/shared/ui/GoogleLogo';
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useCallback, useMemo, useState } from 'react';
-import { Keyboard, Platform, Pressable, StyleSheet, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Image, Keyboard, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 const colors = Colors['light'];
 
 export const LoginForm: React.FC = () => {
-  const { signIn } = useAuth();
-  const responsiveLayout = useResponsiveLayout();
+  const { signIn, signInWithGoogle } = useAuth();
+  const { maxWidth: webFormMaxWidth, horizontalPadding, logoSize } = useAuthFormLayout();
   const [user, setUser] = useState("");
   const [pass, setPass] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
+  const passRef = useRef<TextInput>(null);
+  const googleButtonContainerRef = useRef<View>(null);
 
   // Validación de formulario
   const isFormValid = useMemo(() => {
@@ -27,13 +34,10 @@ export const LoginForm: React.FC = () => {
     return userTrimmed.length > 0 && passTrimmed.length > 0;
   }, [user, pass]);
 
-  // Colores dinámicos del botón
-  // loading  -> background: lightTint,  icono/texto: componentBackground
-  // válido   -> background: background, icono/texto: lightTint
-  // inválido -> background: background, icono/texto: secondaryText
-  const buttonBackgroundColor = loading ? colors.lightTint : colors.background;
-  const buttonIconColor  = loading ? colors.componentBackground : isFormValid ? colors.lightTint : colors.secondaryText;
-  const buttonTextColor  = loading ? colors.componentBackground : isFormValid ? colors.lightTint : colors.secondaryText;
+  // Colores dinámicos del botón (glass): el fondo se mantiene constante,
+  // el estado se comunica a través del color de icono/texto
+  const buttonIconColor = loading || isFormValid ? glassColors.text : glassColors.disabledText;
+  const buttonTextColor = buttonIconColor;
 
   // Submit handler
   const onSubmit = useCallback(async () => {
@@ -65,6 +69,61 @@ export const LoginForm: React.FC = () => {
     }
   }, [user, pass, signIn, isFormValid]);
 
+  // Sign in con Google (solo nativo: el SDK no soporta web)
+  const onGoogleSignIn = useCallback(async () => {
+    if (!GoogleSignin) {
+      setError("Inicio de sesión con Google no disponible en Expo Go");
+      return;
+    }
+
+    setGoogleLoading(true);
+    setError("");
+
+    try {
+      await GoogleSignin.hasPlayServices();
+      const result = await GoogleSignin.signIn();
+      if (result.type === 'cancelled') {
+        // El usuario cerró el selector de cuentas: no es un error a mostrar
+        return;
+      }
+      const idToken = result.data?.idToken;
+      if (!idToken) {
+        throw new Error("No se pudo obtener el token de Google");
+      }
+      await signInWithGoogle(idToken);
+      // El RootLayout maneja el redirect automáticamente basado en isAuthenticated y requiresAssociation
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Intenta nuevamente");
+    } finally {
+      setGoogleLoading(false);
+    }
+  }, [signInWithGoogle]);
+
+  // Sign in con Google en web vía Google Identity Services (idToken llega por callback del botón oficial)
+  const onGoogleCredential = useCallback(async (idToken: string) => {
+    setGoogleLoading(true);
+    setError("");
+
+    try {
+      await signInWithGoogle(idToken);
+      // El RootLayout maneja el redirect automáticamente basado en isAuthenticated y requiresAssociation
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Intenta nuevamente");
+    } finally {
+      setGoogleLoading(false);
+    }
+  }, [signInWithGoogle]);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !isGoogleIdentityServicesAvailable) return;
+    const node = googleButtonContainerRef.current as unknown as HTMLElement | null;
+    if (!node) return;
+
+    renderGoogleButton(node, onGoogleCredential).catch((err) => {
+      console.error('No se pudo inicializar Google Identity Services:', err);
+    });
+  }, [onGoogleCredential]);
+
   // Cambios de usuario y contraseña
   const handleUserChange = useCallback((text: string) => {
     setUser(text);
@@ -86,35 +145,31 @@ export const LoginForm: React.FC = () => {
     );
   }, [error]);
 
-  const webFormMaxWidth = useMemo(() => {
-    if (Platform.OS !== 'web') return 380;
-    if (responsiveLayout.isDesktopXl) return 640;
-    if (responsiveLayout.isDesktop) return 520;
-    return 380;
-  }, [responsiveLayout.isDesktop, responsiveLayout.isDesktopXl]);
-
-  const formTopPadding = useMemo(() => {
-    if (Platform.OS !== 'web') return 60;
-    if (responsiveLayout.isDesktopXl) return 20;
-    if (responsiveLayout.isDesktop) return 28;
-    return 60;
-  }, [responsiveLayout.isDesktop, responsiveLayout.isDesktopXl]);
-
   return (
-    <ThemedView style={[styles.formSection, { paddingTop: formTopPadding }]}>
-      <ThemedText style={styles.formSubtitle}>Accede a tu cuenta</ThemedText>
-      <ThemedView style={[styles.loginForm, { maxWidth: webFormMaxWidth }]}> 
+    <ThemedView style={[styles.formSection, { paddingHorizontal: horizontalPadding }]}>
+      <Image
+        source={require('@/assets/images/logoItalo.png')}
+        style={[styles.logo, { width: logoSize, height: logoSize }]}
+        resizeMode="contain"
+        accessibilityLabel="Logo Italo"
+      />
+      <ThemedText style={styles.title}>Inicio de Sesión</ThemedText>
+      <View style={[styles.loginForm, { maxWidth: webFormMaxWidth }]}>
         <InputWithIcon
-          icon="👤"
           placeholder="Usuario"
           value={user}
           onChangeText={handleUserChange}
           accessibilityLabel="Campo usuario"
           textContentType="username"
+          autoComplete="username"
           hasError={!!error && !user.trim()}
+          variant="glass"
+          returnKeyType="next"
+          blurOnSubmit={false}
+          onSubmitEditing={() => passRef.current?.focus()}
         />
         <InputWithIcon
-          icon="🔒"
+          ref={passRef}
           placeholder="Contraseña"
           value={pass}
           onChangeText={handlePassChange}
@@ -123,14 +178,14 @@ export const LoginForm: React.FC = () => {
           accessibilityLabel="Campo contraseña"
           returnKeyType="done"
           textContentType="password"
+          autoComplete="password"
           hasError={!!error && !pass.trim()}
+          variant="glass"
+          onSubmitEditing={onSubmit}
         />
         {errorContent}
         <Pressable
-          style={[
-            styles.loginButton,
-            { backgroundColor: buttonBackgroundColor },
-          ]}
+          style={[styles.loginButton, glassStyles.button]}
           onPress={onSubmit}
           disabled={!isFormValid || loading}
           accessibilityRole="button"
@@ -148,6 +203,28 @@ export const LoginForm: React.FC = () => {
           </ThemedText>
         </Pressable>
 
+        {Platform.OS !== 'web' && isGoogleSignInAvailable && (
+          <Pressable
+            style={[styles.loginButton, styles.googleButton]}
+            onPress={onGoogleSignIn}
+            disabled={googleLoading}
+            accessibilityRole="button"
+            accessibilityLabel="Botón continuar con Google"
+            android_ripple={{ color: colors.lightTint }}
+          >
+            <View style={{ marginRight: 8 }}>
+              <GoogleLogo size={20} />
+            </View>
+            <ThemedText style={[styles.loginButtonText, { color: glassColors.text }]}>
+              {googleLoading ? "Ingresando..." : "Continuar con Google"}
+            </ThemedText>
+          </Pressable>
+        )}
+
+        {Platform.OS === 'web' && isGoogleIdentityServicesAvailable && (
+          <View ref={googleButtonContainerRef} style={styles.googleButtonWebContainer} />
+        )}
+
         <View style={styles.linksContainer}>
           <View style={styles.signupContainer}>
             <ThemedText style={styles.signupText}>¿No tenés usuario? </ThemedText>
@@ -162,7 +239,7 @@ export const LoginForm: React.FC = () => {
             </Pressable>
           </View>
         </View>
-      </ThemedView>
+      </View>
     </ThemedView>
   );
 };
@@ -170,28 +247,23 @@ export const LoginForm: React.FC = () => {
 const styles = StyleSheet.create({
   formSection: {
     backgroundColor: 'transparent',
-    flex: 1,
+    width: '100%',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 60,
+    paddingVertical: 40,
   },
-  formSubtitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 12,
+  logo: {
+    marginBottom: 16,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: glassColors.text,
+    marginBottom: 24,
   },
   loginForm: {
-    maxWidth: 380,
-    backgroundColor: colors.componentBackground,
-    borderRadius: 16,
-    padding: 24,
+    width: '100%',
+    maxWidth: 340,
     gap: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 8,
   },
   loginButtonText: {
     fontSize: 16,
@@ -204,12 +276,19 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginTop: 32,
     borderRadius: 18,
+    overflow: 'hidden',
     paddingVertical: 14,
     paddingHorizontal: 32,
-    elevation: 8,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.18,
-    shadowRadius: 16,
+  },
+  googleButton: {
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: glassColors.text,
+    backgroundColor: 'transparent',
+  },
+  googleButtonWebContainer: {
+    marginTop: 12,
+    alignItems: 'center',
   },
   loginCardText: {
     color: colors.componentBackground,
@@ -217,14 +296,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   errorContainer: {
-    backgroundColor: '#fee',
+    backgroundColor: 'rgba(244,67,54,0.08)',
     borderRadius: 8,
     padding: 12,
     borderLeftWidth: 4,
-    borderLeftColor: colors.error,
+    borderLeftColor: glassColors.error,
   },
   errorText: {
-    color: colors.error,
+    color: glassColors.error,
     fontSize: 14,
     fontWeight: '500',
   },
@@ -239,11 +318,11 @@ const styles = StyleSheet.create({
   },
   signupText: {
     fontSize: 14,
-    color: colors.secondaryText,
+    color: glassColors.textMuted,
   },
   signupLink: {
     fontSize: 14,
-    color: colors.tint,
+    color: glassColors.link,
     fontWeight: '600',
     textDecorationLine: 'underline',
   },
@@ -254,7 +333,7 @@ const styles = StyleSheet.create({
   },
   forgotPasswordLink: {
     fontSize: 13,
-    color: colors.tint,
+    color: glassColors.link,
     fontWeight: '500',
     textDecorationLine: 'underline',
   },

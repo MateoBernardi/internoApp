@@ -5,7 +5,6 @@ import {
     ActivityIndicator,
     StyleSheet,
     Text,
-    TextInput,
     TouchableOpacity,
     View,
 } from 'react-native';
@@ -14,7 +13,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 // Componentes UI
 import { ThemedView } from '@/components/themed-view';
 import { CreateButton } from '@/components/ui/CreateButton';
+import { GlassTabSelector } from '@/components/ui/GlassTabSelector';
+import { SearchBar } from '@/components/ui/SearchBar';
 import { Colors } from '@/constants/theme';
+import { boxShadow } from '@/shared/ui/boxShadow';
 
 // Componentes de Dominio
 import { ChatsList } from '../components/ChatsList';
@@ -25,8 +27,7 @@ import { SolicitudesList } from '../components/SolicitudesList';
 
 // Modelos, Hooks y Mappers
 import { SolicitudEnviada } from '../models/Solicitud';
-import { tieneNovedadSinVer } from '../badgeState';
-import { useBuscarSolicitudes, useSolicitudes } from '../viewmodels/useSolicitudes';
+import { useBuscarSolicitudes, useSolicitudes, useSolicitudesUnseen } from '../viewmodels/useSolicitudes';
 
 const colors = Colors['light'];
 
@@ -59,11 +60,10 @@ export default function SolicitudesView({ onRefresh, refreshing }: SolicitudesVi
     debouncedSearch,
     tipoConversacion,
   );
-  // Queries de badge: siempre activas, page 1, para mostrar el dot en la tab inactiva.
-  // Sin type → solicitudes tab badge. Con CHAT → chats tab badge.
-  // Cuando coincide con la display query (mismo key) React Query reutiliza cache → sin llamadas extra.
-  const { data: solBadgeSource } = useSolicitudes(1, 20, !isSearching, undefined);
-  const { data: chatBadgeSource } = useSolicitudes(1, 20, !isSearching, 'CHAT');
+  // Contador real de sin ver por tab, vía el endpoint dedicado (no se limita a
+  // la página cargada como hacía el cómputo cliente-side anterior).
+  const { data: solicitudesUnseenCount = 0 } = useSolicitudesUnseen(true, undefined);
+  const { data: chatsUnseenCount = 0 } = useSolicitudesUnseen(true, 'CHAT');
 
   const solicitudesRaw = isSearching ? (searchResults ?? []) : (data?.data ?? []);
   const solicitudes = useMemo(
@@ -73,24 +73,9 @@ export default function SolicitudesView({ onRefresh, refreshing }: SolicitudesVi
   const totalSolicitudesGlobal = isSearching ? 0 : (data?.total ?? 0);
   const totalPages = isSearching ? 0 : Math.ceil(totalSolicitudesGlobal / 20);
 
-  // Contador de pendientes en la página actual (para el info bar)
-  const { sinVerCount } = useMemo(() => {
-    const count = solicitudes.reduce((acc, sol) => tieneNovedadSinVer(sol) ? acc + 1 : acc, 0);
-    return { sinVerCount: count };
-  }, [solicitudes]);
-
-  // Badges de tabs: cada query alimenta su propia tab.
-  const solicitudesTabBadge = useMemo(() =>
-    (solBadgeSource?.data ?? [])
-      .filter(s => s.tipo_actividad !== 'CHAT')
-      .some(tieneNovedadSinVer),
-    [solBadgeSource],
-  );
-
-  const chatsTabBadge = useMemo(() =>
-    (chatBadgeSource?.data ?? []).some(tieneNovedadSinVer),
-    [chatBadgeSource],
-  );
+  const sinVerCount = solicitudesUnseenCount;
+  const solicitudesTabBadge = solicitudesUnseenCount > 0;
+  const chatsTabBadge = chatsUnseenCount > 0;
 
   // --- HANDLERS ---
   const handleOpenSolicitud = useCallback((solicitud: SolicitudEnviada) => setSelectedSolicitud(solicitud), []);
@@ -127,40 +112,30 @@ export default function SolicitudesView({ onRefresh, refreshing }: SolicitudesVi
 
   return (
     <ThemedView style={styles.container}>
-      {/* BUSCADOR */}
+      {/* SELECTOR DE PESTAÑAS + BUSCADOR */}
       <View style={[styles.searchContainer, { paddingTop: 10 }]}>
-        <View style={styles.searchBar}>
-          <Ionicons name="search" size={18} color="#999" />
-          <TextInput
-            placeholder="Buscar título, descripción o personas..."
+        <GlassTabSelector
+          tabs={[
+            { key: 'solicitudes', label: 'Solicitudes', showBadge: solicitudesTabBadge },
+            { key: 'chats', label: 'Chats', showBadge: chatsTabBadge },
+          ]}
+          activeKey={activeTab}
+          onChange={(key) => handleChangeTab(key as 'solicitudes' | 'chats')}
+        />
+
+        <View style={styles.searchRow}>
+          <SearchBar
             value={search}
             onChangeText={setSearch}
-            style={styles.searchInput}
-            placeholderTextColor="#999"
-            clearButtonMode="while-editing"
+            placeholder="Buscar título, descripción o personas..."
+            onClear={() => setSearch('')}
+            style={styles.searchBarStyle}
           />
-        </View>
 
-        {/* SELECTOR DE PESTAÑAS */}
-        <View style={styles.tabBar}>
-          <TouchableOpacity
-            style={[styles.tabItem, !isChatsTab && styles.tabItemActive]}
-            onPress={() => handleChangeTab('solicitudes')}
-          >
-            <View style={styles.tabLabelRow}>
-              <Text style={[styles.tabText, !isChatsTab && styles.tabTextActive]}>Solicitudes</Text>
-              {solicitudesTabBadge && <View style={styles.tabBadgeDot} />}
-            </View>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tabItem, isChatsTab && styles.tabItemActive]}
-            onPress={() => handleChangeTab('chats')}
-          >
-            <View style={styles.tabLabelRow}>
-              <Text style={[styles.tabText, isChatsTab && styles.tabTextActive]}>Chats</Text>
-              {chatsTabBadge && <View style={styles.tabBadgeDot} />}
-            </View>
-          </TouchableOpacity>
+          <CreateButton
+            onPress={() => setShowCrearSolicitud(true)}
+            accessibilityLabel="Nueva solicitud"
+          />
         </View>
       </View>
 
@@ -172,11 +147,11 @@ export default function SolicitudesView({ onRefresh, refreshing }: SolicitudesVi
               <View style={styles.unseenBadge}>
                 <Ionicons name="alert-circle" size={14} color={colors.tint} />
                 <Text style={styles.unseenText}>
-                  {sinVerCount} {sinVerCount === 1 ? 'sin ver en esta página' : 'sin ver en esta página'}
+                  {sinVerCount} {sinVerCount === 1 ? 'sin ver' : 'sin ver'}
                 </Text>
               </View>
             ) : (
-              <Text style={styles.totalCountText}>Todo al día en esta página</Text>
+              <Text style={styles.totalCountText}>Todo al día</Text>
             )}
           </View>
           {(isFetching || isFetchingSearch) && <ActivityIndicator size="small" color={colors.tint} />}
@@ -231,11 +206,6 @@ export default function SolicitudesView({ onRefresh, refreshing }: SolicitudesVi
         </View>
       )}
 
-      {/* BOTÓN FLOTANTE */}
-      <View style={[styles.floatingButtonContainer, { bottom: insets.bottom + 16, right: 24 }]}>
-        <CreateButton onPress={() => setShowCrearSolicitud(true)} size={56} />
-      </View>
-
       {/* MODALES */}
       {selectedSolicitud && (
         <Solicitud visible solicitud={selectedSolicitud} onClose={handleCloseSolicitud} />
@@ -249,64 +219,22 @@ export default function SolicitudesView({ onRefresh, refreshing }: SolicitudesVi
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
+  container: { flex: 1, backgroundColor: colors.componentBackground },
   searchContainer: {
     paddingHorizontal: 16,
     paddingBottom: 8,
-    backgroundColor: colors.background,
+    backgroundColor: colors.componentBackground,
+    gap: 10,
   },
-  searchBar: {
+  searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f0f2f5',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    height: 44,
     gap: 8,
   },
-  searchInput: { flex: 1, fontSize: 15, color: '#333' },
-  tabBar: {
-    flexDirection: 'row',
-    marginTop: 10,
-    backgroundColor: '#f0f2f5',
-    borderRadius: 12,
-    padding: 4,
-    gap: 4,
-  },
-  tabItem: {
+  searchBarStyle: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 8,
-    borderRadius: 9,
-  },
-  tabItemActive: {
-    backgroundColor: colors.componentBackground,
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 2,
-    shadowOffset: { width: 0, height: 1 },
-  },
-  tabText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#6b7280',
-  },
-  tabTextActive: {
-    color: colors.tint,
-  },
-  tabLabelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  tabBadgeDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-    backgroundColor: colors.error,
-    flexShrink: 0,
+    marginHorizontal: 0,
+    marginVertical: 0,
   },
   headerInfo: {
     flexDirection: 'row',
@@ -335,9 +263,7 @@ const styles = StyleSheet.create({
     padding: 6,
     alignItems: 'center',
     elevation: 4,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    boxShadow: boxShadow({ width: 0, height: 0 }, 0.1, 4),
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.05)',
   },
@@ -364,9 +290,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: 'bold',
     color: colors.text
-  },
-  floatingButtonContainer: {
-    position: 'absolute',
-    zIndex: 10
   },
 });

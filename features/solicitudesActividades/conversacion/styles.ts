@@ -1,4 +1,5 @@
 import { Colors, UI } from '@/constants/theme';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { StyleSheet } from 'react-native';
 
 const colors = Colors['light'];
@@ -9,9 +10,11 @@ const colors = Colors['light'];
  * estilos propios con `const styles = { ...conversacionStyles, ...localStyles }`.
  */
 export const conversacionStyles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+  fullScreen: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: colors.componentBackground,
+    zIndex: 1000,
+    elevation: 10,
   },
   keyboardContainer: {
     flex: 1,
@@ -20,53 +23,56 @@ export const conversacionStyles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.componentBackground,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    overflow: 'hidden',
   },
   modalHeader: {
-    paddingHorizontal: 12,
-    paddingVertical: 5,
+    paddingHorizontal: 13,
+    paddingVertical: 13,
     borderBottomWidth: 1,
     borderBottomColor: colors.background,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
   },
+  // `lineHeight` explícito + `textAlignVertical` (Android) evitan que el
+  // padding de fuente por defecto corra el texto hacia abajo dentro de la
+  // fila — sin esto se ve centrado en iOS pero no en Android.
   modalHeaderTitle: {
     flex: 1,
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 20,
+    lineHeight: 24,
+    fontWeight: '400',
     color: '#1c2024',
-  },
-  modalHeaderSubtitle: {
-    fontSize: 12,
-    color: '#7a8087',
-    marginTop: 1,
+    textAlignVertical: 'center',
+    includeFontPadding: false,
   },
   closeButton: {
-    padding: 6,
-    borderRadius: 16,
-    backgroundColor: '#f3f4f6',
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(26,115,232,0.35)',
+    backgroundColor: 'rgba(26,115,232,0.12)',
   },
-  content: {
-    flex: 1,
-  },
-  contentContainer: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 24,
-    gap: 14,
+  // Botón de "volver" — deliberadamente gris/neutro, no el azul de acento
+  // que usan el resto de los botones de icono del header (buscar, archivos, etc).
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(17,24,28,0.12)',
+    backgroundColor: 'rgba(17,24,28,0.03)',
   },
   contentBlock: {
     gap: 6,
   },
   messagesCard: {
-    backgroundColor: colors.background,
-    borderRadius: 12,
     padding: 14,
-    borderWidth: 1,
-    borderColor: colors.neutralBorder,
+    ...glassStyles.card,
   },
   badgeRow: {
     marginTop: 0,
@@ -78,6 +84,8 @@ export const conversacionStyles = StyleSheet.create({
     marginBottom: 4,
   },
   chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
     alignSelf: 'flex-start',
     paddingHorizontal: 12,
     paddingVertical: 0,
@@ -122,10 +130,6 @@ export const conversacionStyles = StyleSheet.create({
   bitacoraContainer: {
     paddingTop: 10,
   },
-  messagesList: {
-    flexGrow: 1,
-    maxHeight: 320,
-  },
   messagesListContent: {
     paddingTop: 4,
     flexGrow: 1,
@@ -143,42 +147,68 @@ export const conversacionStyles = StyleSheet.create({
   },
   bitacoraCard: {
     width: '90%',
-    backgroundColor: colors.componentBackground,
+    backgroundColor: colors.neutralSurface,
     borderRadius: 10,
     paddingHorizontal: 10,
-    paddingVertical: 8,
+    paddingVertical: 6,
+  },
+  bitacoraCardOwn: {
+    backgroundColor: colors.lightTint,
   },
   bitacoraHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   bitacoraBody: {
-    paddingVertical: 4,
+    paddingVertical: 2,
   },
   bitacoraUser: {
     fontWeight: 'bold',
     color: colors.text,
     fontSize: 13,
   },
+  bitacoraUserOwn: {
+    color: '#ffffff',
+  },
   bitacoraDate: {
     fontSize: 11,
     color: colors.secondaryText,
+  },
+  bitacoraDateOwn: {
+    color: 'rgba(255,255,255,0.85)',
   },
   bitacoraAction: {
     color: colors.lightTint,
     fontSize: 14,
     fontWeight: '500',
   },
+  bitacoraActionOwn: {
+    color: '#ffffff',
+  },
   bitacoraBubble: {
-    marginTop: 6,
-    backgroundColor: colors.background,
-    padding: 8,
-    borderRadius: 8,
+    marginTop: 3,
   },
   bitacoraText: {
     fontSize: 14,
     color: colors.text,
+  },
+  bitacoraTextOwn: {
+    color: '#ffffff',
+  },
+  daySeparator: {
+    alignItems: 'center',
+    marginVertical: 10,
+  },
+  daySeparatorPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: 'rgba(17,24,28,0.06)',
+  },
+  daySeparatorText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: glassColors.textMuted,
   },
   systemMessageContainer: {
     alignItems: 'center',
@@ -266,35 +296,29 @@ export const conversacionStyles = StyleSheet.create({
     borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: 'rgba(17,24,28,0.12)',
+    backgroundColor: 'rgba(17,24,28,0.03)',
   },
   messageActionButtonPrimary: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: colors.lightTint,
+    borderColor: 'rgba(17,24,28,0.12)',
+    backgroundColor: 'rgba(17,24,28,0.03)',
   },
   messageActionButtonDisabled: {
     opacity: 0.5,
   },
   modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    ...glassStyles.modalOverlay,
   },
   modalContent: {
     width: '90%',
     maxWidth: 450,
     maxHeight: '85%',
-    backgroundColor: colors.componentBackground,
-    borderRadius: 16,
     padding: 24,
-    elevation: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    ...glassStyles.modalCard,
   },
   modalActions: {
     flexDirection: 'row',
@@ -302,14 +326,25 @@ export const conversacionStyles = StyleSheet.create({
     marginTop: 24,
   },
   modalBtnCancel: {
-    padding: 10,
-    marginRight: 10,
-  },
-  modalBtnConfirm: {
-    backgroundColor: colors.tint,
     paddingVertical: 10,
     paddingHorizontal: 20,
-    borderRadius: 8,
+    marginRight: 10,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(17,24,28,0.12)',
+    backgroundColor: 'rgba(17,24,28,0.03)',
+  },
+  modalBtnConfirm: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(26,115,232,0.35)',
+    backgroundColor: 'rgba(26,115,232,0.12)',
+  },
+  modalBtnConfirmDanger: {
+    borderColor: 'rgba(244,67,54,0.35)',
+    backgroundColor: 'rgba(244,67,54,0.12)',
   },
   sectionHeaderRow: {
     flexDirection: 'row',
@@ -344,15 +379,6 @@ export const conversacionStyles = StyleSheet.create({
   },
   participantesSection: {
     gap: 8,
-  },
-  selectorCard: {
-    marginTop: 4,
-    marginBottom: 4,
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.neutralBorder,
-    backgroundColor: colors.background,
   },
   participanteAvatar: {
     width: 36,

@@ -3,6 +3,7 @@ import { SearchBar } from '@/components/ui/SearchBar';
 import { Colors } from '@/constants/theme';
 import type { UserSummary } from '@/shared/users/User';
 import { useSearchUsers } from '@/shared/users/useUser';
+import { glassStyles } from '@/shared/ui/glass';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
@@ -21,7 +22,13 @@ export default function CrearReporteEncargado() {
 	const params = useLocalSearchParams<{ comparingWith?: string }>();
 	const [searchQuery, setSearchQuery] = useState('');
 
-	const { data: usuarios, isLoading: isSearching } = useSearchUsers(searchQuery);
+	const { data: searchResults, isLoading: isSearching } = useSearchUsers(searchQuery);
+	// Solo se puede reportar a empleados/encargados (ver reportesServices.createReporte
+	// en el backend); filtramos acá para que ni siquiera aparezcan como opción.
+	const usuarios = useMemo(
+		() => (searchResults ?? []).filter((u) => u.role?.some((r) => r === 'encargado' || r.startsWith('empleado'))),
+		[searchResults],
+	);
 	const isComparingMode = typeof params.comparingWith === 'string' && params.comparingWith.length > 0;
 
 	const comparingUsers = useMemo(() => {
@@ -92,7 +99,7 @@ export default function CrearReporteEncargado() {
 	return (
 		<View style={styles.container}>
 			{isComparingMode && (
-				<View style={styles.compareBanner}>
+				<View style={[glassStyles.fieldGlass, styles.compareBanner]}>
 					<ThemedText style={styles.compareBannerText}>
 						Selecciona un empleado para comparar
 					</ThemedText>
@@ -109,7 +116,7 @@ export default function CrearReporteEncargado() {
 
 				{isSearching && searchQuery.length > 1 && (
 					<View style={styles.loadingContainer}>
-						<ActivityIndicator size="small" color={colors.tint} />
+						<ActivityIndicator size="small" color={colors.lightTint} />
 						<ThemedText style={styles.loadingText}>Buscando...</ThemedText>
 					</View>
 				)}
@@ -157,25 +164,7 @@ const styles = StyleSheet.create({
 		flex: 1,
 		backgroundColor: colors.componentBackground,
 	},
-	header: {
-		flexDirection: 'row',
-		alignItems: 'center',
-		justifyContent: 'space-between',
-		paddingHorizontal: '4%',
-		paddingVertical: '3%',
-	},
-	headerTitle: {
-		fontSize: 18,
-		color: colors.text,
-		fontWeight: '600',
-		flex: 1,
-		textAlign: 'center',
-	},
-	iconButton: {
-		padding: 8,
-	},
 	compareBanner: {
-		backgroundColor: colors.lightTint + '15',
 		paddingVertical: '2.5%',
 		paddingHorizontal: '4%',
 	},

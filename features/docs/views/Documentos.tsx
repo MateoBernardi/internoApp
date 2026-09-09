@@ -1,9 +1,13 @@
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { CreateButton } from '@/components/ui/CreateButton';
+import { GlassTabSelector } from '@/components/ui/GlassTabSelector';
 import { SearchBar } from '@/components/ui/SearchBar';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
+import { GlassButton } from '@/shared/ui/GlassButton';
+import { focusBorderStyles, glassColors, glassStyles } from '@/shared/ui/glass';
+import { useFocusBorder } from '@/shared/ui/useFocusBorder';
 import { confirmAction } from '@/shared/ui/confirmAction';
 import { showGlobalToast } from '@/shared/ui/toast';
 import { useIdempotencyKey } from '@/shared/useIdempotencyKey';
@@ -48,6 +52,7 @@ export default function Documentos() {
   const [currentFolderId, setCurrentFolderId] = useState<number | null>(null);
   const [folderModalVisible, setFolderModalVisible] = useState(false);
   const [folderName, setFolderName] = useState('');
+  const folderNameFocus = useFocusBorder();
   const [folderForOptions, setFolderForOptions] = useState<Carpeta | null>(null);
   const [folderToEdit, setFolderToEdit] = useState<Carpeta | null>(null);
   const [folderEditPartialWarning, setFolderEditPartialWarning] = useState<string | null>(null);
@@ -215,18 +220,18 @@ export default function Documentos() {
               onLongPress={() => openFolderOptions(folder)}
             >
               <View style={styles.folderRowLeft}>
-                <Ionicons name="folder-outline" size={18} color={colors.tint} />
+                <Ionicons name="folder-outline" size={18} color={glassColors.link} />
                 <ThemedText style={styles.folderRowText}>{folder.nombre}</ThemedText>
                 {folder.id !== null && foldersWithUnreadFiles.has(folder.id) && <View style={styles.unreadDot} />}
               </View>
-              <Ionicons name="chevron-forward" size={16} color={colors.secondaryText} />
+              <Ionicons name="chevron-forward" size={16} color={glassColors.textMuted} />
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.folderOptionsButton}
               onPress={() => openFolderOptions(folder)}
               accessibilityLabel={`Opciones de carpeta ${folder.nombre}`}
             >
-              <Ionicons name="ellipsis-vertical" size={16} color={colors.secondaryText} />
+              <Ionicons name="ellipsis-vertical" size={16} color={glassColors.textMuted} />
             </TouchableOpacity>
           </View>
         ))}
@@ -382,70 +387,39 @@ export default function Documentos() {
     );
   };
 
+  const tabs = canSeeMisDocumentos
+    ? [
+        { key: 'empresa', label: 'Empresa' },
+        { key: 'mios', label: 'Mis Documentos' },
+      ]
+    : [{ key: 'empresa', label: 'Empresa' }];
+
   return (
     <ThemedView style={styles.container}>
-      {/* Header con tabs */}
-      <View style={[styles.header, { backgroundColor: colors.componentBackground }]}>
-        <View style={styles.headerContent}>
-          <View style={styles.tabs}>
-            <TouchableOpacity
-              style={[
-                styles.tab,
-                tab === 'empresa' && [
-                  styles.tabActive,
-                  { borderBottomColor: colors.tint },
-                ],
-              ]}
-              onPress={() => setTab('empresa')}
-            >
-              <ThemedText
-                style={[
-                  styles.tabText,
-                  tab === 'empresa' && {
-                    color: colors.tint,
-                    fontWeight: 'bold',
-                  },
-                ]}
-              >
-                Empresa
-              </ThemedText>
-            </TouchableOpacity>
-            {canSeeMisDocumentos && (
-              <TouchableOpacity
-                style={[
-                  styles.tab,
-                  tab === 'mios' && [
-                    styles.tabActive,
-                    { borderBottomColor: colors.tint },
-                  ],
-                ]}
-                onPress={() => setTab('mios')}
-              >
-                <ThemedText
-                  style={[
-                    styles.tabText,
-                    tab === 'mios' && {
-                      color: colors.tint,
-                      fontWeight: 'bold',
-                    },
-                  ]}
-                >
-                  Mis Documentos
-                </ThemedText>
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
-      </View>
-
-      {/* Search Bar */}
+      {/* Selector de pestañas + buscador */}
       <View style={styles.searchContainer}>
-        <SearchBar
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Buscar archivos..."
-          onClear={handleClearSearch}
+        <GlassTabSelector
+          tabs={tabs}
+          activeKey={tab}
+          onChange={(key) => setTab(key as TabType)}
         />
+
+        <View style={styles.searchRow}>
+          <SearchBar
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Buscar archivos..."
+            onClear={handleClearSearch}
+            style={styles.searchBarStyle}
+          />
+
+          {canCreate && (
+            <CreateButton
+              onPress={() => setFabMenuVisible((prev) => !prev)}
+              accessibilityLabel="Crear documento o carpeta"
+            />
+          )}
+        </View>
       </View>
 
       {/* Content - Direct render without extra wrapper */}
@@ -454,13 +428,6 @@ export default function Documentos() {
           ? <MisDocumentos query={query} selectedFolderId={currentFolderId} listHeader={folderHeader} />
           : <DocumentosEmpresa query={query} selectedFolderId={currentFolderId} listHeader={folderHeader} />}
       </View>
-
-      {canCreate && (
-        <CreateButton
-          onPress={() => setFabMenuVisible(true)}
-          style={{ ...styles.fab, bottom: insets.bottom + 8, right: 36 }}
-        />
-      )}
 
       {modalVisible && (
         <CrearDocumento
@@ -474,21 +441,26 @@ export default function Documentos() {
         />
       )}
 
-      {canCreate && fabMenuVisible && (
-        <View style={styles.fabMenuLayer} pointerEvents="box-none">
-          <TouchableOpacity style={styles.fabOverlay} activeOpacity={1} onPress={() => setFabMenuVisible(false)} />
-          <View style={[styles.fabMenu, { bottom: insets.bottom + 76 }]}>
-            <TouchableOpacity style={styles.fabMenuItem} onPress={handleCreateDocument}>
-              <Ionicons name="document-text-outline" size={18} color={colors.icon} />
-              <ThemedText style={styles.fabMenuText}>Crear documento</ThemedText>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.fabMenuItem} onPress={openCreateFolderModal}>
-              <Ionicons name="folder-outline" size={18} color={colors.icon} />
-              <ThemedText style={styles.fabMenuText}>Crear carpeta</ThemedText>
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
+      <DocumentOptionsModal
+        visible={canCreate && fabMenuVisible}
+        title="Crear"
+        fileName=""
+        actions={[
+          {
+            key: 'create-document',
+            label: 'Crear documento',
+            icon: 'document-text-outline',
+            onPress: handleCreateDocument,
+          },
+          {
+            key: 'create-folder',
+            label: 'Crear carpeta',
+            icon: 'folder-outline',
+            onPress: openCreateFolderModal,
+          },
+        ]}
+        onClose={() => setFabMenuVisible(false)}
+      />
 
       <Modal
         visible={folderModalVisible}
@@ -501,25 +473,35 @@ export default function Documentos() {
             keyboardVerticalOffset={insets.top + 12}
             style={styles.modalKavWrapper}
           >
-            <View style={styles.modalCard}>
+            <View style={[styles.modalCard, { paddingBottom: insets.bottom + 20 }]}>
               <ThemedText style={styles.modalTitle}>Crear carpeta</ThemedText>
 
               <ThemedText style={styles.modalLabel}>Nombre</ThemedText>
-              <TextInput
-                style={styles.modalInput}
-                placeholder="Ej: Legales"
-                placeholderTextColor={colors.secondaryText}
-                value={folderName}
-                onChangeText={setFolderName}
-              />
+              <View style={[styles.modalInputWrap, folderNameFocus.isFocused && { borderColor: glassColors.link }]}>
+                <TextInput
+                  style={[styles.modalInput, focusBorderStyles.inputNoOutline]}
+                  placeholder="Ej: Legales"
+                  placeholderTextColor={glassColors.placeholder}
+                  value={folderName}
+                  onChangeText={setFolderName}
+                  onFocus={folderNameFocus.onFocus}
+                  onBlur={folderNameFocus.onBlur}
+                />
+              </View>
 
               <View style={styles.modalActions}>
-                <TouchableOpacity style={styles.modalCancelButton} onPress={() => setFolderModalVisible(false)}>
-                  <ThemedText style={styles.modalCancelText}>Cancelar</ThemedText>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.modalConfirmButton} onPress={submitFolderModal}>
-                  <ThemedText style={styles.modalConfirmText}>Crear</ThemedText>
-                </TouchableOpacity>
+                <GlassButton
+                  variant="secondary"
+                  label="Cancelar"
+                  onPress={() => setFolderModalVisible(false)}
+                  style={styles.modalActionButton}
+                />
+                <GlassButton
+                  variant="primary"
+                  label="Crear"
+                  onPress={submitFolderModal}
+                  style={styles.modalActionButton}
+                />
               </View>
             </View>
           </ModalKeyboardView>
@@ -556,13 +538,16 @@ export default function Documentos() {
         onRequestClose={() => setFolderDeleteConflictMessage(null)}
       >
         <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
+          <View style={[styles.modalCard, { paddingBottom: insets.bottom + 20 }]}>
             <ThemedText style={styles.modalTitle}>No se puede borrar la carpeta</ThemedText>
             <ThemedText style={styles.modalLabel}>{folderDeleteConflictMessage}</ThemedText>
             <View style={styles.modalActions}>
-              <TouchableOpacity style={styles.modalConfirmButton} onPress={() => setFolderDeleteConflictMessage(null)}>
-                <ThemedText style={styles.modalConfirmText}>Entendido</ThemedText>
-              </TouchableOpacity>
+              <GlassButton
+                variant="primary"
+                label="Entendido"
+                onPress={() => setFolderDeleteConflictMessage(null)}
+                style={styles.modalActionButton}
+              />
             </View>
           </View>
         </View>
@@ -576,38 +561,22 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.componentBackground,
   },
-  header: {
-    backgroundColor: colors.componentBackground,
-  },
-  headerContent: {
-    paddingHorizontal: '4%',
-    paddingVertical: '3%',
-  },
-  tabs: {
-    flexDirection: 'row',
-    marginHorizontal: '-4%',
-    paddingHorizontal: '4%',
-  },
-  tab: {
-    flex: 1,
-    paddingHorizontal: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  tabActive: {
-    borderBottomWidth: 2,
-    borderBottomColor: colors.tint,
-  },
-  tabText: {
-    fontSize: 18,
-    fontWeight: '500',
-    paddingBottom: 10
-  },
   searchContainer: {
-    paddingHorizontal: '4%',
-    paddingTop: '2%',
-    paddingBottom: '2%',
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 8,
     backgroundColor: colors.componentBackground,
+    gap: 10,
+  },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  searchBarStyle: {
+    flex: 1,
+    marginHorizontal: 0,
+    marginVertical: 0,
   },
   contentContainer: {
     flex: 1,
@@ -646,10 +615,7 @@ const styles = StyleSheet.create({
     color: colors.secondaryText,
   },
   folderList: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.icon,
-    borderRadius: 10,
-    overflow: 'hidden',
+    gap: 8,
   },
   folderRowItem: {
     minHeight: 44,
@@ -657,8 +623,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.icon,
+    ...glassStyles.card,
   },
   folderRowMain: {
     flex: 1,
@@ -681,30 +646,35 @@ const styles = StyleSheet.create({
     backgroundColor: '#FF3B30',
   },
   folderOptionsButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 8,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: 'rgba(17,24,28,0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(17,24,28,0.1)',
   },
   folderRowText: {
     fontSize: 14,
     fontWeight: '600',
   },
   modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.35)',
-    justifyContent: 'center',
-    paddingHorizontal: '6%',
+    ...glassStyles.modalOverlay,
+    justifyContent: 'flex-end',
+    paddingHorizontal: 0,
   },
   modalKavWrapper: {
     width: '100%',
   },
   modalCard: {
-    backgroundColor: colors.componentBackground,
-    borderRadius: 12,
-    padding: 16,
+    width: '100%',
+    padding: 20,
     gap: 10,
+    ...glassStyles.modalCard,
+    borderRadius: 0,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
   },
   modalTitle: {
     fontSize: 16,
@@ -713,16 +683,16 @@ const styles = StyleSheet.create({
   modalLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: colors.secondaryText,
+    color: glassColors.textMuted,
+  },
+  modalInputWrap: {
+    ...glassStyles.fieldGlass,
   },
   modalInput: {
     minHeight: 42,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.icon,
     paddingHorizontal: 12,
-    color: colors.text,
-    backgroundColor: colors.componentBackground,
+    color: glassColors.text,
+    fontSize: 15,
   },
   modalActions: {
     flexDirection: 'row',
@@ -730,61 +700,8 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 8,
   },
-  modalCancelButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.icon,
-  },
-  modalCancelText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  modalConfirmButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: colors.lightTint,
-  },
-  modalConfirmText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.componentBackground,
-  },
-  fabMenuLayer: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 20,
-  },
-  fabOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.2)',
-  },
-  fabMenu: {
-    position: 'absolute',
-    right: 24,
-    minWidth: 190,
-    backgroundColor: colors.componentBackground,
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.icon,
-    overflow: 'hidden',
-  },
-  fabMenuItem: {
-    minHeight: 46,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.icon,
-  },
-  fabMenuText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  fab: {
-    position: 'absolute',
-    right: 36,
+  modalActionButton: {
+    paddingHorizontal: 18,
+    paddingVertical: 10,
   },
 });

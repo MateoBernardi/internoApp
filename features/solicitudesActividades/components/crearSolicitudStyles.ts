@@ -1,13 +1,16 @@
 import { Colors, UI } from '@/constants/theme';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { StyleSheet } from 'react-native';
 
 const colors = Colors['light'];
 
 /** Estilos del formulario de creación de solicitud/chat. */
 export const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+  fullScreen: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: colors.componentBackground,
+    zIndex: 1000,
+    elevation: 8,
   },
   keyboardContainer: {
     flex: 1,
@@ -15,11 +18,7 @@ export const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    marginTop: '10%',
     backgroundColor: colors.componentBackground,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    overflow: 'hidden',
   },
   modalHeader: {
     paddingHorizontal: 12,
@@ -29,9 +28,23 @@ export const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   closeButton: {
-    padding: 6,
-    borderRadius: 16,
-    backgroundColor: '#f3f4f6',
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // Botón de "volver" — gris/neutro, no el azul de acento del resto de los
+  // botones de icono (ver conversacion/styles.ts:backButton, misma receta).
+  backButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(17,24,28,0.12)',
+    backgroundColor: 'rgba(17,24,28,0.03)',
   },
   fabContainer: {
     position: 'absolute',
@@ -46,16 +59,30 @@ export const styles = StyleSheet.create({
   },
   inputSection: {
     flexDirection: 'row',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.componentBackground,
+    marginHorizontal: 16,
+    marginTop: 12,
+  },
+  inputSectionPill: {
+    borderRadius: 24,
   },
   input: {
     flex: 1,
     fontSize: 16,
     color: colors.text,
     padding: 0,
+  },
+  titleBox: {
+    ...glassStyles.fieldGlass,
+    marginHorizontal: 16,
+    marginTop: 12,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+  },
+  titleInput: {
+    flex: 1,
+    fontSize: 16,
+    color: colors.text,
+    paddingVertical: 12,
   },
   chip: {
     paddingHorizontal: 16,
@@ -85,29 +112,45 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.text,
   },
+  dateFieldGroup: {
+    gap: 8,
+    marginTop: 12,
+  },
+  fieldLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: glassColors.textMuted,
+  },
   dateRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
+    gap: 8,
+    alignItems: 'stretch',
   },
-  dateLabel: {
-    fontSize: 12,
-    color: colors.secondaryText,
-    marginBottom: 4,
+  dateButton: {
+    ...glassStyles.buttonSecondary,
+    flex: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  timeButton: {
+    ...glassStyles.buttonSecondary,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
   dateValue: {
     fontSize: 16,
     color: colors.lightTint,
+    textAlign: 'center',
   },
   timeValue: {
     fontSize: 16,
     color: colors.lightTint,
+    fontWeight: '600',
   },
   errorText: {
     color: colors.error,
     fontSize: 12,
-    marginTop: 8,
+    marginTop: 2,
   },
   messageInput: {
     fontSize: 16,
@@ -116,12 +159,10 @@ export const styles = StyleSheet.create({
     minHeight: 150,
   },
   messageBox: {
+    ...glassStyles.fieldGlass,
     marginHorizontal: 16,
     marginTop: 12,
     borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#e5e7eb',
-    backgroundColor: '#f9fafb',
     overflow: 'hidden',
   },
   messageFooter: {
@@ -130,12 +171,10 @@ export const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   attachmentsList: {
+    ...glassStyles.fieldGlass,
     marginHorizontal: 16,
     marginTop: 8,
     borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#e5e7eb',
-    backgroundColor: '#f9fafb',
     paddingHorizontal: 12,
     paddingVertical: 10,
     gap: 8,
@@ -165,22 +204,12 @@ export const styles = StyleSheet.create({
   uploadButtonContainer: {
     backgroundColor: Colors['light'].componentBackground,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: Colors['light'].icon,
+    borderTopColor: 'rgba(17,24,28,0.08)',
     paddingHorizontal: '4%',
-    paddingTop: 10,
+    paddingTop: 14,
   },
-  uploadButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 8,
-    gap: 8,
-  },
-  uploadButtonText: {
-    color: Colors['light'].lightTint,
-    fontWeight: '600',
-    fontSize: 16,
+  submitButtonPadding: {
+    paddingVertical: 16,
   },
   section: {
     marginTop: 12,

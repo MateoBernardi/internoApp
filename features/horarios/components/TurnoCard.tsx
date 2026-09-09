@@ -1,14 +1,11 @@
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { SedeDTO } from '../models/HorarioDTO';
 import { TURNO_CODE, TURNO_LABEL, type Turno } from '../models/Turno';
+import { ACEPTADO_COLOR, FERIADO_COLOR, TARDE_COLOR, TARDE_SOFT, TURNO_COLOR, TURNO_SOFT } from '../theme';
 
-const TURNO_SOFT = '#e7f2fb';
-const TURNO_COLOR = '#2f86d6';
-const TARDE_SOFT = '#fff8e7';
-const TARDE_COLOR = '#c98a1a';
-const ACEPTADO_COLOR = '#16a34a';
 
 interface TurnoCardProps {
   turno: Turno;
@@ -31,7 +28,7 @@ export const TurnoCard = React.memo(function TurnoCard({ turno, sedes, onPress }
 
   return (
     <TouchableOpacity
-      style={[styles.card, turno.isNew && styles.cardNew]}
+      style={[glassStyles.card, styles.card, turno.isNew && styles.cardNew]}
       onPress={() => onPress(turno)}
       activeOpacity={0.72}
     >
@@ -48,9 +45,21 @@ export const TurnoCard = React.memo(function TurnoCard({ turno, sedes, onPress }
               <Text style={styles.aceptadoText}>Aceptado</Text>
             </View>
           )}
+          {!!turno.marcadoInAt && (
+            <View style={styles.aceptadoPill}>
+              <Ionicons name="qr-code" size={11} color={ACEPTADO_COLOR} />
+              <Text style={styles.aceptadoText}>Escaneado</Text>
+            </View>
+          )}
+          {turno.feriado && (
+            <View style={styles.feriadoPill}>
+              <Ionicons name="star" size={11} color={FERIADO_COLOR} />
+              <Text style={styles.feriadoText}>Feriado ×2</Text>
+            </View>
+          )}
         </View>
         <View style={styles.sedeRow}>
-          <Ionicons name="location-outline" size={12} color="#7a8087" style={styles.pinIcon} />
+          <Ionicons name="location-outline" size={12} color={glassColors.textMuted} style={styles.pinIcon} />
           <Text style={styles.sedeText} numberOfLines={1}>
             {sedeIn}{sedeIn !== sedeOut ? ` → ${sedeOut}` : ''}
           </Text>
@@ -62,7 +71,7 @@ export const TurnoCard = React.memo(function TurnoCard({ turno, sedes, onPress }
         <Text style={styles.turnoLabel}>{TURNO_LABEL[turno.turno]}</Text>
       </View>
 
-      <Ionicons name="chevron-forward" size={17} color="#9aa3ab" />
+      <Ionicons name="chevron-forward" size={17} color={glassColors.textMuted} />
     </TouchableOpacity>
   );
 });
@@ -71,13 +80,9 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 14,
     marginBottom: 9,
-    borderWidth: 1,
-    borderColor: '#e8eaed',
     gap: 10,
   },
   cardNew: {
@@ -98,17 +103,19 @@ const styles = StyleSheet.create({
   },
   mid: {
     flex: 1,
+    minWidth: 0,
     gap: 3,
   },
   nombreRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    minWidth: 0,
     gap: 6,
   },
   nombre: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#1c2024',
+    color: glassColors.text,
     flexShrink: 1,
   },
   aceptadoPill: {
@@ -126,6 +133,21 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#16a34a',
   },
+  feriadoPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    backgroundColor: 'rgba(147,51,234,0.1)',
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    flexShrink: 0,
+  },
+  feriadoText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: FERIADO_COLOR,
+  },
   sedeRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -135,7 +157,7 @@ const styles = StyleSheet.create({
   },
   sedeText: {
     fontSize: 12,
-    color: '#7a8087',
+    color: glassColors.textMuted,
     flex: 1,
   },
   right: {
@@ -145,12 +167,12 @@ const styles = StyleSheet.create({
   horario: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#1c2024',
+    color: glassColors.text,
     fontVariant: ['tabular-nums'],
   },
   turnoLabel: {
     fontSize: 11,
-    color: '#7a8087',
+    color: glassColors.textMuted,
     fontWeight: '500',
   },
 });

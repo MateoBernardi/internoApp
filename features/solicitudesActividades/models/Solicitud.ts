@@ -59,14 +59,20 @@ export interface SolicitudEnviada {
   solicitud_id: number;
   titulo: string;
   descripcion: string;
+  ultimo_mensaje: string | null;
+  ultimo_mensaje_tipo?: 'TEXT' | 'FECHA' | 'IMAGEN' | 'ARCHIVO' | 'APROBACION' | 'RECHAZO';
+  ultimo_mensaje_at?: Date | null;
+  ultimo_mensaje_autor_id?: number | null;
   fecha_inicio: Date | null;
   fecha_fin: Date | null;
+  created_at: Date;
   nombre_creador: string;
   apellido_creador: string;
   created_by: number;
   invitados: SolicitudInvitado[]; // todos los participantes, incluye al creador
   tipo_actividad: string;
   estado: string;
+  seen?: boolean;
   archivos: ArchivoDTO[];
   is_host: boolean;
   es_grupo: boolean;
@@ -98,14 +104,14 @@ export interface SolicitudEnviadaAgrupada {
 }
 
 export type TipoActividad = 'PETICION' | 'REUNION' | 'CHAT';
-export type TipoActividadDB = 'MANDATO' | 'REUNION' | 'CHAT';
+export type TipoActividadDB = 'MANDATO' | 'REUNION' | 'CHAT' | 'SOLICITUD';
 
 export interface CrearSolicitudRequest {
   titulo: string;
   descripcion: string;
   fecha_inicio?: Date | null;
   fecha_fin?: Date | null;
-  tipo_actividad: TipoActividadDB;
+  tipo_actividad?: TipoActividadDB;
   invitados: number[]; // Array de IDs de usuario_entidad
   crear_de_todos_modos?: number;
   archivosIds?: number[]; // Array de IDs de archivos adjuntos (opcional)
@@ -135,11 +141,21 @@ export interface ActualizarEstadoInvitacionRequest {
   observacion?: string | null;
   crear_de_todos_modos?: number;
   archivosIds?: number[];
+  titulo?: string;
+  reply_to_id?: number | null;
 }
 
 export interface ActualizarEstadoInvitacionResponse {
   success: boolean;
   rangosOcupados?: RangoOcupado[];
+}
+
+export interface MarcarSolicitudVistoRequest {
+  solicitud_id: number;
+}
+
+export interface MarcarSolicitudVistoResponse {
+  success: boolean;
 }
 
 export interface UpdateSolicitudRequest {
@@ -150,6 +166,8 @@ export interface UpdateSolicitudRequest {
   observacion?: string | null;
   crear_de_todos_modos?: number;
   archivosIds?: number[];
+  titulo?: string;
+  reply_to_id?: number | null;
 }
 
 export interface UpdateSolicitudResponse {
@@ -159,15 +177,6 @@ export interface UpdateSolicitudResponse {
 }
 
 /* ==================== SOLICITUDES ==================== */
-
-export interface ReenviarSolicitudRequest {
-  solicitudId: number;
-  nuevosInvitadosIds: number[]; // IDs de usuario_entidad
-}
-
-export interface ReenviarSolicitudResponse {
-  success: boolean;
-}
 
 export interface ActualizarInvitadosSolicitudRequest {
   solicitudId: number;
@@ -210,6 +219,21 @@ export interface CancelarSolicitudResponse {
   mensaje?: string;
 }
 
+export interface BitacoraVisto {
+  id_usuario: number;
+  nombre?: string;
+  apellido?: string;
+  seen_at: Date;
+}
+
+export interface BitacoraReplyTo {
+  id: number;
+  usuario_id: number | null;
+  usuario_nombre: string;
+  usuario_apellido: string;
+  observacion: string | null;
+}
+
 export interface BitacoraSolicitud {
   id: number | null;
   solicitud_id?: number;
@@ -228,6 +252,9 @@ export interface BitacoraSolicitud {
   usuario_apellido: string;
   estado: EstadoInvitacionDB;
   archivos?: Archivo[];
+  seen_by?: BitacoraVisto[];
+  reply_to_id?: number | null;
+  reply_to?: BitacoraReplyTo | null;
 }
 
 export interface BitacoraPage {

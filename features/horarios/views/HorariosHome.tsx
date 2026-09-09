@@ -1,5 +1,7 @@
 import { Colors } from '@/constants/theme';
 import { EncuestasScreenHeader } from '@/features/encuestas/components/EncuestasScreenHeader';
+import { AppBackButton } from '@/shared/ui/AppBackButton';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -7,6 +9,7 @@ import { BackHandler, StyleSheet, Text, TouchableOpacity, View } from 'react-nat
 import { GestionHorarios } from './GestionHorarios';
 import { HorasExtras } from './HorasExtras';
 
+import { AMBER } from '../theme';
 const colors = Colors['light'];
 
 type Screen = 'home' | 'turnos' | 'horas';
@@ -29,17 +32,13 @@ export function HorariosHome() {
   // condicional: hay que fijarlo explícitamente en true al volver a 'home'.
   const headerToggle = <Stack.Screen options={{ headerShown: screen === 'home' }} />;
 
-  const backButton = (
-    <TouchableOpacity onPress={goHome} style={{ width: 40, height: 40, justifyContent: 'center' }}>
-      <Ionicons name="chevron-back" size={24} color={colors.lightTint} />
-    </TouchableOpacity>
-  );
+  const backButton = <AppBackButton onPress={goHome} />;
 
   if (screen === 'turnos') {
     return (
       <View style={styles.subScreen}>
         {headerToggle}
-        <EncuestasScreenHeader title="Manejo de turnos" left={backButton} />
+        <EncuestasScreenHeader title="Turnos del día" left={backButton} />
         <GestionHorarios />
       </View>
     );
@@ -49,7 +48,7 @@ export function HorariosHome() {
     return (
       <View style={styles.subScreen}>
         {headerToggle}
-        <EncuestasScreenHeader title="Horas extra" left={backButton} />
+        <EncuestasScreenHeader title="Horas cumplidas" left={backButton} />
         <HorasExtras />
       </View>
     );
@@ -60,29 +59,29 @@ export function HorariosHome() {
       {headerToggle}
 
       <View style={styles.menu}>
-        <TouchableOpacity style={styles.optionCard} onPress={() => setScreen('turnos')} activeOpacity={0.7}>
+        <TouchableOpacity style={[glassStyles.fieldGlass, styles.optionCard]} onPress={() => setScreen('turnos')} activeOpacity={0.75}>
           <View style={styles.cardRow}>
-            <View style={styles.iconContainer}>
+            <View style={[glassStyles.button, styles.iconContainer]}>
               <Ionicons name="cloud-upload-outline" size={26} color={colors.lightTint} />
             </View>
             <View style={styles.cardTextContainer}>
-              <Text style={styles.optionTitle}>Manejo de turnos</Text>
+              <Text style={styles.optionTitle}>Turnos del día</Text>
               <Text style={styles.optionDescription}>Cargar, editar e importar turnos del día</Text>
             </View>
-            <Ionicons name="chevron-forward" size={22} color={colors.lightTint} />
+            <Ionicons name="chevron-forward" size={22} color={glassColors.textMuted} />
           </View>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.optionCard} onPress={() => setScreen('horas')} activeOpacity={0.7}>
+        <TouchableOpacity style={[glassStyles.fieldGlass, styles.optionCard]} onPress={() => setScreen('horas')} activeOpacity={0.75}>
           <View style={styles.cardRow}>
-            <View style={[styles.iconContainer, styles.iconContainerAmber]}>
-              <Ionicons name="cash-outline" size={26} color="#c98a1a" />
+            <View style={[glassStyles.button, styles.iconContainer, styles.iconContainerAmber]}>
+              <Ionicons name="cash-outline" size={26} color={AMBER} />
             </View>
             <View style={styles.cardTextContainer}>
-              <Text style={styles.optionTitle}>Manejo de horas extras</Text>
-              <Text style={styles.optionDescription}>Ver y liquidar horas extra por empleado</Text>
+              <Text style={styles.optionTitle}>Horas cumplidas</Text>
+              <Text style={styles.optionDescription}>Ver las horas cumplidas por empleado</Text>
             </View>
-            <Ionicons name="chevron-forward" size={22} color={colors.lightTint} />
+            <Ionicons name="chevron-forward" size={22} color={glassColors.textMuted} />
           </View>
         </TouchableOpacity>
       </View>
@@ -93,36 +92,17 @@ export function HorariosHome() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.componentBackground,
+    backgroundColor: '#ffffff',
     paddingHorizontal: 18,
     paddingTop: 24,
   },
-  title: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: colors.text,
-    letterSpacing: -0.3,
-  },
-  subtitle: {
-    fontSize: 13,
-    color: colors.secondaryText,
-    marginTop: 4,
-    marginBottom: 20,
-  },
   menu: {
-    gap: 14,
+    gap: 12,
   },
   optionCard: {
-    backgroundColor: colors.componentBackground,
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    borderWidth: 1,
-    borderColor: colors.background,
+    padding: 18,
+    minHeight: 90,
+    borderRadius: 16,
   },
   cardRow: {
     flexDirection: 'row',
@@ -132,20 +112,22 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 12,
-    backgroundColor: colors.lightTint + '15',
+    paddingHorizontal: 0,
+    paddingVertical: 0,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
   },
   iconContainerAmber: {
-    backgroundColor: '#fbf1dd',
+    backgroundColor: 'rgba(201,138,26,0.12)',
+    borderColor: 'rgba(201,138,26,0.35)',
   },
   cardTextContainer: {
     flex: 1,
   },
   optionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 17,
+    fontWeight: '700',
     color: colors.text,
     marginBottom: 4,
   },

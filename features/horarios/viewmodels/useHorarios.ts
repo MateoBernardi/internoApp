@@ -2,9 +2,12 @@ import { useAuth } from '@/features/auth/context/AuthContext';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { UpdateHorarioPayload } from '../models/HorarioDTO';
 import {
+  type FeriadosRangeFilter,
+  getFeriadosByRange,
   getHorariosByDate,
   getSedes,
   type HorariosByDateFilter,
+  marcarFeriadoDia,
   updateHorario,
   uploadShiftsFile,
 } from '../services/horariosService';
@@ -14,6 +17,8 @@ export const horariosQueryKeys = {
   sedes: () => ['horarios', 'sedes'] as const,
   byDate: (diaFecha: string, filter?: HorariosByDateFilter) =>
     ['horarios', 'byDate', diaFecha, filter?.key ?? null, filter?.value ?? null] as const,
+  feriadosByRange: (fechaInicio: string, fechaFin: string, filter: FeriadosRangeFilter) =>
+    ['horarios', 'feriadosByRange', fechaInicio, fechaFin, filter.userContextId ?? null, filter.role ?? null] as const,
 };
 
 export function useSedes() {
@@ -48,15 +53,32 @@ export function useHorariosByDate(diaFecha: string, filter?: HorariosByDateFilte
   });
 }
 
+export function useFeriadosByRange(fechaInicio: string, fechaFin: string, filter: FeriadosRangeFilter = {}) {
+  const { tokens } = useAuth();
+  return useQuery({
+    queryKey: horariosQueryKeys.feriadosByRange(fechaInicio, fechaFin, filter),
+    queryFn: async () => {
+      const token = tokens?.accessToken;
+      if (!token) throw new Error('No access token');
+      return getFeriadosByRange(token, fechaInicio, fechaFin, filter);
+    },
+    staleTime: 0,
+    gcTime: 1000 * 60 * 10,
+    refetchOnMount: 'always',
+    retry: 3,
+    retryDelay: (i) => Math.min(1000 * 2 ** i, 30000),
+  });
+}
+
 export function useUploadShifts() {
   const { tokens } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ uri, name }: { uri: string; name: string }) => {
+    mutationFn: async ({ uri, name, fechaISO }: { uri: string; name: string; fechaISO: string }) => {
       const token = tokens?.accessToken;
       if (!token) throw new Error('No access token');
-      return uploadShiftsFile(token, uri, name);
+      return uploadShiftsFile(token, uri, name, fechaISO);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: horariosQueryKeys.all });
@@ -79,5 +101,21 @@ export function useUpdateHorario() {
     },
     retry: 2,
     retryDelay: (i) => Math.min(1000 * 2 ** i, 8000),
+  });
+}
+
+export function useMarcarFeriadoDia() {
+  const { tokens } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ fechaISO, feriado }: { fechaISO: string; feriado: boolean }) => {
+      const token = tokens?.accessToken;
+      if (!token) throw new Error('No access token');
+      return marcarFeriadoDia(token, fechaISO, feriado);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: horariosQueryKeys.all });
+    },
   });
 }

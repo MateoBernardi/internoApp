@@ -47,13 +47,15 @@ export default function ResponderEncuestaScreen() {
     );
   }
 
+  const esHorario = encuesta.preguntas?.some((p) => p.tipo_pregunta === 'horario') ?? false;
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
       behavior={KEYBOARD_BEHAVIOR}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
     >
-      <Stack.Screen options={{ title: encuesta.titulo }} />
+      <Stack.Screen options={{ title: esHorario ? 'Turnero disponible' : encuesta.titulo }} />
       <ResponderEncuesta
         encuesta={encuesta}
         onCancelar={() => router.back()}

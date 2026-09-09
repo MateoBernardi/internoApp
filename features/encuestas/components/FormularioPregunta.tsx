@@ -1,6 +1,7 @@
 import { ThemedText } from '@/components/themed-text';
 import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
 import { Colors } from '@/constants/theme';
+import { glassColors } from '@/shared/ui/glass';
 import { KEYBOARD_BEHAVIOR } from '@/shared/ui/keyboard';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
@@ -17,7 +18,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatHorarioSlot } from '../resultados/utils';
-import { Pregunta, TipoPregunta } from '../models/Encuesta';
+import { Pregunta, TIPO_PREGUNTA_META, TipoPregunta } from '../models/Encuesta';
 import { styles } from './crearEncuestaStyles';
 
 const colors = Colors['light'];
@@ -56,6 +57,7 @@ export const FormularioPregunta: React.FC<FormularioPreguntaProps> = ({
   ); // ISO datetime strings
   const [pickerStep, setPickerStep] = useState<PickerStep>(null);
   const [pendingDate, setPendingDate] = useState<Date>(new Date());
+  const [focusedField, setFocusedField] = useState<'titulo' | 'nuevaOpcion' | null>(null);
 
   const agregarOpcion = () => {
     if (nuevaOpcion.trim()) {
@@ -133,42 +135,35 @@ export const FormularioPregunta: React.FC<FormularioPreguntaProps> = ({
       <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingBottom: 100 }}>
         <View style={styles.section}>
           <TextInput
-            style={[styles.input, styles.textArea]}
+            style={[styles.input, styles.textArea, styles.inputNoOutline, focusedField === 'titulo' && styles.inputFocused]}
             placeholder="Escribe la pregunta *"
             placeholderTextColor={colors.secondaryText}
             multiline
             numberOfLines={2}
             value={titulo}
             onChangeText={setTitulo}
+            onFocus={() => setFocusedField('titulo')}
+            onBlur={() => setFocusedField(null)}
           />
 
           <ThemedText style={styles.subLabel}>Tipo de pregunta</ThemedText>
           <View style={styles.tiposContainer}>
-            {[
-              { value: 'texto', label: '📝 Texto' },
-              { value: 'rating', label: '⭐ Calificación' },
-              { value: 'multiple_choice', label: '☑️ Opción múltiple' },
-              { value: 'si_no', label: '✓/✗ Sí/No' },
-              { value: 'horario', label: '🕐 Horario' },
-            ].map((tipo) => (
-              <TouchableOpacity
-                key={tipo.value}
-                style={[
-                  styles.tipoButton,
-                  tipoPregunta === tipo.value && styles.tipoButtonSelected,
-                ]}
-                onPress={() => setTipoPregunta(tipo.value as TipoPregunta)}
-              >
-                <Text
-                  style={[
-                    styles.tipoText,
-                    tipoPregunta === tipo.value && styles.tipoTextSelected,
-                  ]}
+            {(Object.keys(TIPO_PREGUNTA_META) as TipoPregunta[]).map((tipo) => {
+              const meta = TIPO_PREGUNTA_META[tipo];
+              const isSelected = tipoPregunta === tipo;
+              return (
+                <TouchableOpacity
+                  key={tipo}
+                  style={[styles.tipoButton, isSelected && styles.tipoButtonSelected]}
+                  onPress={() => setTipoPregunta(tipo)}
                 >
-                  {tipo.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
+                  <Ionicons name={meta.icon} size={16} color={isSelected ? colors.lightTint : colors.secondaryText} />
+                  <Text style={[styles.tipoText, isSelected && styles.tipoTextSelected]}>
+                    {meta.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
 
           {tipoPregunta === 'multiple_choice' && (
@@ -176,15 +171,17 @@ export const FormularioPregunta: React.FC<FormularioPreguntaProps> = ({
               <ThemedText style={styles.subLabel}>Opciones</ThemedText>
               <View style={styles.agregarOpcionContainer}>
                 <TextInput
-                  style={[styles.input, { flex: 1 }]}
+                  style={[styles.input, styles.inputNoOutline, { flex: 1 }, focusedField === 'nuevaOpcion' && styles.inputFocused]}
                   placeholder="Escribe una opción..."
                   placeholderTextColor={colors.secondaryText}
                   value={nuevaOpcion}
                   onChangeText={setNuevaOpcion}
                   onSubmitEditing={agregarOpcion}
+                  onFocus={() => setFocusedField('nuevaOpcion')}
+                  onBlur={() => setFocusedField(null)}
                 />
                 <TouchableOpacity style={styles.addButton} onPress={agregarOpcion}>
-                  <Text style={styles.addButtonText}>+</Text>
+                  <Ionicons name="add" size={22} color={glassColors.link} />
                 </TouchableOpacity>
               </View>
 
@@ -192,7 +189,7 @@ export const FormularioPregunta: React.FC<FormularioPreguntaProps> = ({
                 <View key={index} style={styles.opcionItem}>
                   <Text style={styles.opcionText}>• {opcion}</Text>
                   <TouchableOpacity onPress={() => eliminarOpcion(index)}>
-                    <Text style={styles.eliminarOpcion}>✕</Text>
+                    <Ionicons name="close-circle" size={18} color={colors.error} />
                   </TouchableOpacity>
                 </View>
               ))}
@@ -205,7 +202,7 @@ export const FormularioPregunta: React.FC<FormularioPreguntaProps> = ({
 
               {slots.map((slot, index) => (
                 <View key={index} style={styles.slotItem}>
-                  <Ionicons name="time-outline" size={16} color="#2a4f86" style={{ marginRight: 6 }} />
+                  <Ionicons name="time-outline" size={16} color={glassColors.link} style={{ marginRight: 6 }} />
                   <Text style={styles.slotItemText}>{formatHorarioSlot(slot)}</Text>
                   <TouchableOpacity onPress={() => eliminarSlot(index)}>
                     <Ionicons name="close-circle" size={18} color={colors.error} />
@@ -215,7 +212,7 @@ export const FormularioPregunta: React.FC<FormularioPreguntaProps> = ({
 
               <TouchableOpacity style={styles.agregarSlotButton} onPress={iniciarAgregarSlot}>
                 <Ionicons name="add-circle-outline" size={18} color={colors.lightTint} />
-                <Text style={styles.agregarSlotText}>+ Agregar horario</Text>
+                <Text style={styles.agregarSlotText}>Agregar horario</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -232,7 +229,7 @@ export const FormularioPregunta: React.FC<FormularioPreguntaProps> = ({
         </View>
       </ScrollView>
 
-      <View style={[styles.footerDos, { paddingBottom: insets.bottom + 16 }]}>
+      <View style={[styles.footerDos, { paddingBottom: insets.bottom || 16 }]}>
         <TouchableOpacity style={styles.cancelarButton} onPress={onCancelar}>
           <Text style={styles.cancelarButtonText}>Cancelar</Text>
         </TouchableOpacity>

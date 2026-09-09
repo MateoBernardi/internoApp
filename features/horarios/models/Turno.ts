@@ -1,6 +1,6 @@
-import { normalizeTurno, type HorarioDTO } from './HorarioDTO';
+import { normalizeTurno, type HorarioDTO, type TurnoEnum } from './HorarioDTO';
 
-export const TURNO_LABEL: Record<'MANANA' | 'TARDE', string> = {
+export const TURNO_LABEL: Record<'MANANA' | 'TARDE', TurnoEnum> = {
   MANANA: 'Mañana',
   TARDE: 'Tarde',
 };
@@ -23,14 +23,17 @@ export interface Turno {
   sedeIdIngreso: number;
   sedeIdEgreso: number;
   licencia: boolean;
+  feriado: boolean;
   isNew?: boolean;
   aceptedAt?: string | null;
+  marcadoInAt?: string | null;
+  marcadoOutAt?: string | null;
 }
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
 // Strips timezone suffix and parses as local time (same pattern as AgendaDiaria.tsx)
-function parseLocal(iso: string): Date {
+export function parseLocal(iso: string): Date {
   const stripped = iso.replace(/([+-]\d{2}:?\d{2}|Z)$/, '').replace(' ', 'T');
   return new Date(stripped);
 }
@@ -51,6 +54,9 @@ export function mapHorarioDTOToTurno(dto: HorarioDTO): Turno {
     sedeIdIngreso: dto.sede_id_in,
     sedeIdEgreso: dto.sede_id_out,
     licencia: dto.licencia ?? dto.esta_de_licencia ?? false,
+    feriado: dto.feriado ?? false,
     aceptedAt: dto.acepted_at ?? null,
+    marcadoInAt: dto.marcado_in_at ?? null,
+    marcadoOutAt: dto.marcado_out_at ?? null,
   };
 }

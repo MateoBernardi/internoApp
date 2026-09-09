@@ -1,11 +1,12 @@
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
+import { GlassButton } from '@/shared/ui/GlassButton';
+import { glassStyles } from '@/shared/ui/glass';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import {
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { useGetEncuestas } from '../viewmodels/useEncuestas';
@@ -33,18 +34,22 @@ export function EncuestasPendientes({ enabled = true }: EncuestasPendientesProps
     return null;
   }
 
+  const tieneEncuestaHorario = encuestas.every((encuesta) =>
+    encuesta.preguntas?.every((pregunta) => pregunta.tipo_pregunta === 'horario')
+  );
+
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Encuestas sin Responder</Text>
+      <View style={[styles.header, glassStyles.card]}>
+        <Text style={styles.headerTitle}>
+          {tieneEncuestaHorario ? 'Turnero disponible' : 'Encuestas sin Responder'}
+        </Text>
         <Text style={styles.headerSubtitle}>
           Tienes {encuestas.length} encuesta{encuestas.length !== 1 ? 's' : ''}{' '}
           pendiente{encuestas.length !== 1 ? 's' : ''}
         </Text>
 
-        <TouchableOpacity style={styles.viewButton} onPress={handleVerPendientes} activeOpacity={0.8}>
-          <Text style={styles.viewButtonText}>Ver</Text>
-        </TouchableOpacity>
+        <GlassButton label="Ver" onPress={handleVerPendientes} style={styles.viewButton} />
       </View>
     </View>
   );
@@ -52,6 +57,7 @@ export function EncuestasPendientes({ enabled = true }: EncuestasPendientesProps
 
 const styles = StyleSheet.create({
   container: {
+    marginTop: 16,
     backgroundColor: colors.componentBackground,
   },
   centerContainer: {
@@ -61,10 +67,9 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   header: {
-    backgroundColor: colors.componentBackground,
     padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.background,
+    marginHorizontal: 16,
+    marginBottom: 8,
   },
   headerTitle: {
     fontSize: 24,
@@ -77,18 +82,8 @@ const styles = StyleSheet.create({
     color: colors.secondaryText,
   },
   viewButton: {
-    backgroundColor: colors.lightTint,
     marginTop: 14,
     alignSelf: 'flex-start',
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  viewButtonText: {
-    color: colors.componentBackground,
-    fontSize: 16,
-    fontWeight: '600',
   },
   loadingText: {
     marginTop: 10,

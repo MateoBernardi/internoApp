@@ -11,11 +11,14 @@ import { useIdempotencyKey } from '@/shared/useIdempotencyKey';
 import { UserSummary } from '@/shared/users/User';
 import { adminRoles, allRoles } from '@/shared/users/roles';
 import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
+import { GlassButton } from '@/shared/ui/GlassButton';
+import { focusBorderStyles, glassColors } from '@/shared/ui/glass';
+import { useFocusBorder } from '@/shared/ui/useFocusBorder';
+import { useSafeBottomInset } from '@/hooks/useSafeBottomInset';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Keyboard,
-  Modal,
+  BackHandler,
   Platform,
   ScrollView,
   Switch,
@@ -23,6 +26,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
+import { useKeyboardHeight } from '@/shared/ui/keyboard';
 import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { UserSelector } from '../../../components/UserSelector';
@@ -47,13 +52,15 @@ interface CrearSolicitudProps {
 export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: CrearSolicitudProps) {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
+  const bottomInset = useSafeBottomInset();
+  const tituloFocus = useFocusBorder();
+  const descripcionFocus = useFocusBorder();
 
   const [titulo, setTitulo] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [fechaInicio, setFechaInicio] = useState<Date | null>(null);
   const [fechaFin, setFechaFin] = useState<Date | null>(null);
   const [allDay, setAllDay] = useState(false);
-  const [tipoActividad, setTipoActividad] = useState<'REUNION' | 'MANDATO'>('MANDATO');
   const [includeDates, setIncludeDates] = useState(false);
   const [enviarPorSeparado, setEnviarPorSeparado] = useState(false);
   const [showRoleModal, setShowRoleModal] = useState(false);
@@ -63,7 +70,7 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [datePickerMode, setDatePickerMode] = useState<'date' | 'time'>('date');
   const [activeDateType, setActiveDateType] = useState<'start' | 'end' | null>(null);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const keyboardHeight = useKeyboardHeight();
   const [backendRangosOcupados, setBackendRangosOcupados] = useState<RangoOcupado[]>([]);
   const [pendingPayload, setPendingPayload] = useState<CrearSolicitudRequest | null>(null);
   const isKeyboardOpen = keyboardHeight > 0;
@@ -99,7 +106,6 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
     setFechaInicio(null);
     setFechaFin(null);
     setAllDay(false);
-    setTipoActividad('MANDATO');
     setIncludeDates(false);
     setSelectedUsers([]);
     setSearchQuery('');
@@ -107,8 +113,12 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
     setPendingPayload(null);
     setPickedFiles([]);
     setEnviarPorSeparado(false);
+    // El componente permanece montado entre aperturas (solo se oculta con
+    // `if (!visible) return null`), así que si no cerramos el modal de éxito
+    // acá, la próxima vez que se abra el formulario reaparece de inmediato.
+    closeAlert();
     onClose();
-  }, [onClose, setPickedFiles]);
+  }, [onClose, setPickedFiles, closeAlert]);
 
   const blockDatePickerFromToggle = useCallback(() => {
     ignoreDatePressUntilRef.current = Date.now() + 300;
@@ -170,12 +180,24 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
 
     if (activeDateType === 'start') {
       setFechaInicio(selectedDate);
+      // UX: al elegir el día de inicio, copiamos ese día a fecha_fin para el
+      // caso común (evento de un solo día). Solo se pisa el día, no la hora
+      // de fin ya elegida, y el usuario puede después cambiarlo a cualquier
+      // fecha válida (isDateRangeInvalid sigue validando el rango).
+      if (datePickerMode === 'date') {
+        setFechaFin((prevEnd) => {
+          const base = prevEnd ?? selectedDate;
+          const next = new Date(base);
+          next.setFullYear(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
+          return next;
+        });
+      }
     } else {
       setFechaFin(selectedDate);
     }
     setShowDatePicker(false);
     setActiveDateType(null);
-  }, [activeDateType]);
+  }, [activeDateType, datePickerMode]);
 
   const getPickerValue = useCallback((): Date => {
     if (activeDateType === 'start') return fechaInicio ?? new Date();
@@ -194,25 +216,7 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
     setShowDatePicker(true);
   };
 
-  useEffect(() => {
-    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-
-    const onShow = Keyboard.addListener(showEvent, (event) => {
-      setKeyboardHeight(event.endCoordinates.height);
-    });
-
-    const onHide = Keyboard.addListener(hideEvent, () => {
-      setKeyboardHeight(0);
-    });
-
-    return () => {
-      onShow.remove();
-      onHide.remove();
-    };
-  }, []);
-
-  const hasDates = !fromChatsTab && (tipoActividad === 'REUNION' || includeDates);
+  const hasDates = !fromChatsTab && includeDates;
   const now = ceilToNextMinute(new Date());
   const areDatesMissing = hasDates && (!fechaInicio || !fechaFin);
   const isAllDayCurrentDay = hasDates && allDay && !!fechaInicio && isSameLocalDay(fechaInicio, now);
@@ -235,21 +239,43 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
   // siempre lleva un título obligatorio; la conversación directa, no.
   const esGrupoChat = fromChatsTab && selectedUsers.length > 1 && !enviarPorSeparado;
 
+  // El backend exige título siempre y, para solicitudes (no chat), al menos
+  // uno de descripción / fechas / archivos (`validateSolicitudData`). Para
+  // chats de grupo alcanza con el título (backend `validateChatData`); solo
+  // los chats 1 a 1 exigen mensaje.
+  const hasContenido = descripcion.trim().length > 0 || hasDates || pickedFiles.length > 0;
+
   const isFormValid = useMemo(() => {
     if (fromChatsTab) {
       return (
         selectedUsers.length > 0 &&
-        descripcion.trim().length > 0 &&
-        (!esGrupoChat || titulo.trim().length > 0)
+        (esGrupoChat ? titulo.trim().length > 0 : descripcion.trim().length > 0)
       );
     }
     return (
       titulo.trim().length > 0 &&
-      descripcion.trim().length > 0 &&
       (isConsejo || selectedUsers.length > 0) &&
+      hasContenido &&
       !dateErrorMessage
     );
-  }, [fromChatsTab, esGrupoChat, titulo, descripcion, selectedUsers, dateErrorMessage, isConsejo]);
+  }, [fromChatsTab, esGrupoChat, titulo, descripcion, selectedUsers, dateErrorMessage, isConsejo, hasContenido]);
+
+  const missingFieldsMessages = useMemo(() => {
+    const msgs: string[] = [];
+    if (fromChatsTab) {
+      if (selectedUsers.length === 0) msgs.push('Seleccioná al menos un destinatario.');
+      if (esGrupoChat) {
+        if (titulo.trim().length === 0) msgs.push('Ingresá un título para el grupo.');
+      } else if (descripcion.trim().length === 0) {
+        msgs.push('Escribí un mensaje.');
+      }
+    } else {
+      if (titulo.trim().length === 0) msgs.push('Ingresá un título.');
+      if (!isConsejo && selectedUsers.length === 0) msgs.push('Seleccioná al menos un participante.');
+      if (!hasContenido) msgs.push('Agregá una descripción, fechas o un archivo adjunto.');
+    }
+    return msgs;
+  }, [fromChatsTab, esGrupoChat, titulo, descripcion, selectedUsers, isConsejo, hasContenido]);
 
   const avisosBackend = useMemo(() => {
     const grouped = new Map<string, number>();
@@ -272,11 +298,6 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
       onSuccess: (response: CrearSolicitudResponse) => {
         if (!response.success && (response.rangosOcupados?.length ?? 0) > 0) {
           setBackendRangosOcupados(response.rangosOcupados ?? []);
-          // El backend rechazó por solapamientos. Si el usuario fuerza la
-          // creación (crear_de_todos_modos), es una operación lógica nueva:
-          // renovamos la key para que un backend idempotente no devuelva la
-          // respuesta cacheada de conflicto. El re-render ocurre antes de que el
-          // usuario confirme el modal, así que la nueva key ya estará vigente.
           regenerateIdempotencyKey();
           return;
         }
@@ -347,12 +368,17 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
         archivosIds = validos.map((r) => r.data.id);
 
         if (validos.length === 0) {
-          showModal('Error de archivos', 'No se pudo subir ningún archivo. Se continuará sin adjuntos.');
+          // No creamos la solicitud sin el adjunto que el usuario eligió:
+          // se cancela para que pueda reintentar la subida, en vez de
+          // enviarla silenciosamente sin el archivo.
+          showModal('Error de archivos', 'No se pudo subir el archivo adjunto. Volvé a intentar antes de enviar.');
+          return;
         } else if (fallidos.length > 0) {
-          showModal('Archivos parciales', `Se subieron ${validos.length} de ${pickedFiles.length}`);
+          showModal('Archivos parciales', `Se subieron ${validos.length} de ${pickedFiles.length}. Los demás quedaron sin adjuntar.`);
         }
       } catch {
-        showModal('Error de archivos', 'No se pudieron subir los archivos. Se continuará sin adjuntos.');
+        showModal('Error de archivos', 'No se pudieron subir los archivos. Volvé a intentar antes de enviar.');
+        return;
       } finally {
         setIsUploadingFile(false);
       }
@@ -364,7 +390,7 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
     const payload: CrearSolicitudRequest = {
       titulo: fromChatsTab ? (esGrupoChat ? titulo.trim() : '') : titulo.trim(),
       descripcion: descripcion.trim(),
-      tipo_actividad: fromChatsTab ? 'CHAT' : tipoActividad,
+      tipo_actividad: fromChatsTab ? 'CHAT' : 'SOLICITUD',
       invitados: invitadoIds,
       crear_de_todos_modos: 0,
       es_grupo: esGrupoChat,
@@ -374,7 +400,7 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
     };
 
     ejecutarCreacion(payload);
-  }, [isFormValid, hasDates, fechaInicio, fechaFin, allDay, tipoActividad, selectedUsers, titulo, descripcion, ejecutarCreacion, showModal, pickedFiles, fromChatsTab, esGrupoChat, enviarPorSeparado]);
+  }, [isFormValid, hasDates, fechaInicio, fechaFin, allDay, selectedUsers, titulo, descripcion, ejecutarCreacion, showModal, pickedFiles, fromChatsTab, esGrupoChat, enviarPorSeparado]);
 
   const handleAgregarAdjunto = useCallback(() => {
     showModal('Adjuntar archivo', 'Elegí una opción', [
@@ -397,23 +423,34 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
     ]);
   }, [handleTakePhoto, handleSeleccionarArchivo, showModal]);
 
+  useEffect(() => {
+    if (!visible) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      handleClose();
+      return true;
+    });
+    return () => sub.remove();
+  }, [visible, handleClose]);
+
+  if (!visible) return null;
+
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
-      <View style={styles.overlay}>
-        <ModalKeyboardView style={styles.keyboardContainer}>
-          <View style={[styles.container, { paddingBottom: insets.bottom }]}>
-            {/* Header */}
-            <View style={styles.modalHeader}>
-              <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-                <Ionicons name="chevron-down" size={24} color="#999" />
-              </TouchableOpacity>
-            </View>
+    <FullScreenPortal>
+    <View style={styles.fullScreen}>
+      <ModalKeyboardView style={styles.keyboardContainer}>
+        <View style={styles.container}>
+          {/* Header */}
+          <View style={[styles.modalHeader, { paddingTop: insets.top + 10, alignItems: 'flex-start' }]}>
+            <TouchableOpacity onPress={handleClose} style={styles.backButton}>
+              <Ionicons name="chevron-back" size={24} color={glassColors.textMuted} />
+            </TouchableOpacity>
+          </View>
 
             <ScrollView
               style={styles.content}
               contentContainerStyle={[
                 styles.contentContainer,
-                { paddingBottom: 88 },
+                { paddingBottom: 88 + keyboardHeight },
               ]}
               keyboardShouldPersistTaps={isKeyboardOpen ? 'handled' : 'never'}
               keyboardDismissMode={isKeyboardOpen ? 'none' : (Platform.OS === 'ios' ? 'interactive' : 'on-drag')}
@@ -431,34 +468,10 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
                     isLoadingRoles={false}
                     onSearch={setSearchQuery}
                     onSelectRole={handleRoleSelect}
+                    inputWrapperStyle={styles.inputSectionPill}
                   />
                 </View>
               </View>
-
-              {!fromChatsTab && (
-                <View style={[styles.inputSection, { borderBottomWidth: 0, paddingVertical: 10, alignItems: 'center' }]}>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                    <TouchableOpacity
-                      style={[styles.chip, tipoActividad === 'MANDATO' && { borderColor: colors.lightTint, backgroundColor: 'transparent', borderWidth: 1 }]}
-                      onPress={() => {
-                        setTipoActividad('MANDATO');
-                        handleToggleIncludeDates(false);
-                      }}
-                    >
-                      <ThemedText style={[styles.chipText, tipoActividad === 'MANDATO' ? { color: colors.lightTint, fontWeight: 'bold' } : { color: colors.secondaryText }]}>Actividad</ThemedText>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.chip, tipoActividad === 'REUNION' && { borderColor: colors.lightTint, backgroundColor: 'transparent', borderWidth: 1 }]}
-                      onPress={() => {
-                        setTipoActividad('REUNION');
-                        setIncludeDates(true);
-                      }}
-                    >
-                      <ThemedText style={[styles.chipText, tipoActividad === 'REUNION' ? { color: colors.lightTint, fontWeight: 'bold' } : { color: colors.secondaryText }]}>Reunión</ThemedText>
-                    </TouchableOpacity>
-                  </ScrollView>
-                </View>
-              )}
 
               <View style={styles.dateSection}>
                 {selectedUsers.length > 1 && (
@@ -475,7 +488,7 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
                   </View>
                 )}
 
-                {!fromChatsTab && tipoActividad === 'MANDATO' && (
+                {!fromChatsTab && (
                   <View style={[styles.switchRow, { marginTop: 4 }]}>
                     <Ionicons name="calendar-outline" size={20} color={colors.secondaryText} style={{ marginRight: 8 }} />
                     <ThemedText style={[styles.dateSectionTitle, { color: colors.secondaryText }]}>Incluir fechas</ThemedText>
@@ -489,7 +502,7 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
                   </View>
                 )}
 
-                {!fromChatsTab && (tipoActividad === 'REUNION' || includeDates) && (
+                {!fromChatsTab && includeDates && (
                   <View style={styles.switchRow}>
                     <Ionicons name="time-outline" size={20} color={colors.lightTint} style={{ marginRight: 8 }} />
                     <ThemedText style={styles.dateSectionTitle}>Todo el día</ThemedText>
@@ -503,36 +516,34 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
                   </View>
                 )}
 
-                {!fromChatsTab && (tipoActividad === 'REUNION' || includeDates) && (
+                {!fromChatsTab && includeDates && (
                   <>
-                    <View style={styles.dateRow}>
-                      <View style={{ flex: 1 }}>
-                        <TouchableOpacity onPress={() => showDatepicker('start', 'date')} activeOpacity={0.7}>
-                          <ThemedText style={styles.dateLabel}>Fecha de inicio</ThemedText>
+                    <View style={styles.dateFieldGroup}>
+                      <ThemedText style={styles.fieldLabel}>Fecha de inicio</ThemedText>
+                      <View style={styles.dateRow}>
+                        <TouchableOpacity onPress={() => showDatepicker('start', 'date')} activeOpacity={0.7} style={styles.dateButton}>
                           <ThemedText style={styles.dateValue}>{fechaInicio ? formatDateDDMMYYYY(fechaInicio) : 'Día'}</ThemedText>
                         </TouchableOpacity>
+                        {!allDay && (
+                          <TouchableOpacity onPress={() => showDatepicker('start', 'time')} activeOpacity={0.7} style={styles.timeButton}>
+                            <ThemedText style={[styles.dateValue, styles.timeValue]}>{fechaInicio ? formatTimeHHMM(fechaInicio) : 'Hora'}</ThemedText>
+                          </TouchableOpacity>
+                        )}
                       </View>
-                      {!allDay && (
-                        <TouchableOpacity onPress={() => showDatepicker('start', 'time')} activeOpacity={0.7}>
-                          <ThemedText style={styles.dateLabel}></ThemedText>
-                          <ThemedText style={styles.timeValue}>{fechaInicio ? formatTimeHHMM(fechaInicio) : 'Hora'}</ThemedText>
-                        </TouchableOpacity>
-                      )}
                     </View>
 
-                    <View style={styles.dateRow}>
-                      <View style={{ flex: 1 }}>
-                        <TouchableOpacity onPress={() => showDatepicker('end', 'date')} activeOpacity={0.7}>
-                          <ThemedText style={styles.dateLabel}>Fecha de cierre</ThemedText>
+                    <View style={styles.dateFieldGroup}>
+                      <ThemedText style={styles.fieldLabel}>Fecha de cierre</ThemedText>
+                      <View style={styles.dateRow}>
+                        <TouchableOpacity onPress={() => showDatepicker('end', 'date')} activeOpacity={0.7} style={styles.dateButton}>
                           <ThemedText style={styles.dateValue}>{fechaFin ? formatDateDDMMYYYY(fechaFin) : 'Día'}</ThemedText>
                         </TouchableOpacity>
+                        {!allDay && (
+                          <TouchableOpacity onPress={() => showDatepicker('end', 'time')} activeOpacity={0.7} style={styles.timeButton}>
+                            <ThemedText style={[styles.dateValue, styles.timeValue]}>{fechaFin ? formatTimeHHMM(fechaFin) : 'Hora'}</ThemedText>
+                          </TouchableOpacity>
+                        )}
                       </View>
-                      {!allDay && (
-                        <TouchableOpacity onPress={() => showDatepicker('end', 'time')} activeOpacity={0.7}>
-                          <ThemedText style={styles.dateLabel}></ThemedText>
-                          <ThemedText style={styles.timeValue}>{fechaFin ? formatTimeHHMM(fechaFin) : 'Hora'}</ThemedText>
-                        </TouchableOpacity>
-                      )}
                     </View>
 
                     {dateErrorMessage && <ThemedText style={styles.errorText}>{dateErrorMessage}</ThemedText>}
@@ -541,25 +552,29 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
               </View>
 
               {(!fromChatsTab || esGrupoChat) && (
-                <View style={styles.inputSection}>
+                <View style={[styles.titleBox, tituloFocus.isFocused && focusBorderStyles.inputBorderFocused]}>
                   <TextInput
-                    style={styles.input}
+                    style={[styles.titleInput, focusBorderStyles.inputNoOutline]}
                     placeholder={fromChatsTab ? 'Nombre del grupo' : 'Asunto'}
                     placeholderTextColor={colors.secondaryText}
                     value={titulo}
                     onChangeText={setTitulo}
+                    onFocus={tituloFocus.onFocus}
+                    onBlur={tituloFocus.onBlur}
                     maxLength={100}
                   />
                 </View>
               )}
 
-              <View style={styles.messageBox}>
+              <View style={[styles.messageBox, descripcionFocus.isFocused && focusBorderStyles.inputBorderFocused]}>
                 <TextInput
-                  style={styles.messageInput}
-                  placeholder={fromChatsTab ? 'Escribí el primer mensaje' : 'Escribí un mensaje descriptivo para el/los usuario/s'}
+                  style={[styles.messageInput, focusBorderStyles.inputNoOutline]}
+                  placeholder={fromChatsTab ? 'Escribí el primer mensaje' : 'Escribí un mensaje descriptivo para el/los usuario/s (opcional)'}
                   placeholderTextColor={colors.secondaryText}
                   value={descripcion}
                   onChangeText={setDescripcion}
+                  onFocus={descripcionFocus.onFocus}
+                  onBlur={descripcionFocus.onBlur}
                   multiline
                   textAlignVertical="top"
                 />
@@ -569,7 +584,7 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
                     style={styles.closeButton}
                     activeOpacity={0.7}
                   >
-                    <Ionicons name="add-outline" size={24} color={Colors.light.tint} />
+                    <Ionicons name="attach" size={24} color={glassColors.link} />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -595,7 +610,14 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
               )}
             </ScrollView>
 
-            <View style={[styles.uploadButtonContainer]}>
+            <View style={[styles.uploadButtonContainer, { paddingBottom: isKeyboardOpen ? 0 : bottomInset }]}>
+              {!isFormValid && missingFieldsMessages.length > 0 && (
+                <View>
+                  {missingFieldsMessages.map((msg) => (
+                    <ThemedText key={msg} style={styles.errorText}>{msg}</ThemedText>
+                  ))}
+                </View>
+              )}
               {(() => {
                 // `isPending` permanece true durante TODOS los reintentos de
                 // TanStack Query, por lo que el botón no se desbloquea mientras
@@ -604,17 +626,15 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
                 const isBusy = isPending || isUploadingFile;
                 const isDisabled = isBusy || !isFormValid;
                 return (
-                  <TouchableOpacity
+                  <GlassButton
+                    label={isBusy ? 'Enviando…' : 'Enviar'}
                     onPress={handleCrearSolicitud}
                     disabled={isDisabled}
-                    accessibilityState={{ disabled: isDisabled, busy: isBusy }}
-                    style={[styles.uploadButton, { opacity: isDisabled ? 0.5 : 1 }]}
-                  >
-                    <Ionicons name="cloud-upload" size={20} color={isFormValid ? Colors['light'].lightTint : Colors['light'].icon} />
-                    <ThemedText style={styles.uploadButtonText}>
-                      {isBusy ? 'Enviando…' : 'Enviar'}
-                    </ThemedText>
-                  </TouchableOpacity>
+                    loading={isBusy}
+                    icon={(color) => <Ionicons name="cloud-upload" size={20} color={color} style={{ marginRight: 8 }} />}
+                    accessibilityLabel="Enviar solicitud"
+                    style={styles.submitButtonPadding}
+                  />
                 );
               })()}
             </View>
@@ -665,8 +685,8 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
           onSelectAll={handleSelectAllRoleUsers}
           onDeselectAll={handleDeselectAllRoleUsers}
         />
-      </View>
-    </Modal>
+    </View>
+    </FullScreenPortal>
   );
 }
 

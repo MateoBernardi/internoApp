@@ -34,7 +34,7 @@ export function WebDesktopShell({ children }: { children: React.ReactNode }) {
       <View
         style={[
           styles.appColumn,
-          isSmallScreen && { marginTop: '8%' },
+          isSmallScreen && { marginTop: 16 },
         ]}
       >
         {children}

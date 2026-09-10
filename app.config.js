@@ -6,10 +6,30 @@ const { resolve } = require("path");
 
 // EAS no carga los archivos .env durante `eas update` (a diferencia de `expo start`),
 // por lo que las variables quedaban undefined y se publicaban bundles sin API_BASE_URL.
-// Los cargamos explícitamente acá. dotenv no pisa variables ya definidas, así que las
-// inyectadas por EAS Build / `--environment` siguen teniendo prioridad.
-loadDotenv({ path: resolve(__dirname, ".env.local"), quiet: true });
-loadDotenv({ path: resolve(__dirname, ".env"), quiet: true });
+// Los cargamos explícitamente acá.
+//
+// El propio Expo CLI ya carga `.env.local` con prioridad sobre `.env` en TODOS los
+// modos, incluido `production` (ver @expo/env: getEnvFiles), y ni Expo ni dotenv
+// pisan una variable que ya esté definida (p. ej. quedó exportada en la terminal).
+// Eso es lo que queremos para `expo start` (`.env.local` = override local, como IP
+// de LAN para probar en el celular), pero es peligroso para un build/export real:
+// si `.env.local` quedó con un valor de desarrollo, o la shell tiene una variable
+// vieja exportada, un build "de producción" puede terminar apuntando a un backend
+// local sin que nadie lo note (nos pasó con API_BASE_URL apuntando a una IP de LAN).
+//
+// Por eso en un build real (NODE_ENV=production, que `expo export`/`eas build`
+// siempre setean) ignoramos `.env.local` por completo y forzamos (`override`) que
+// `.env` gane sobre cualquier valor ya presente en el proceso.
+const isProductionBuild = process.env.NODE_ENV === "production";
+
+if (!isProductionBuild) {
+  loadDotenv({ path: resolve(__dirname, ".env.local"), quiet: true });
+}
+loadDotenv({
+  path: resolve(__dirname, ".env"),
+  quiet: true,
+  override: isProductionBuild,
+});
 
 /**
  * @param {string} name
@@ -86,7 +106,7 @@ if (process.env.GOOGLE_IOS_URL_SCHEME) {
 module.exports = ({ config }) => ({
   name: "Italo Argentina",
   slug: "internoApp",
-  version: "2.0.0",
+  version: "2.0.1",
   orientation: "portrait",
   icon: "./assets/images/icon-1024.png",
   scheme: "internoapp",

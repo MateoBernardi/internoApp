@@ -49,6 +49,10 @@ export async function prefetchCoreRealtimeData(
     { name: 'novedades', run: () => queryClient.prefetchQuery({ queryKey: NOVEDADES_KEYS.all, queryFn: () => novedadesApi.fetchNovedades(context.accessToken) }) },
     { name: 'horariosHoy', run: () => queryClient.prefetchQuery({ queryKey: horariosUserQueryKeys.hoy(today), queryFn: () => getMisHorarios(context.accessToken, today, today) }) },
     { name: 'solicitudesUnseen', run: () => queryClient.prefetchQuery({ queryKey: solicitudesQueryKeys.unseen(), queryFn: () => getSolicitudesUnseen(context.accessToken), staleTime: 1000 * 45 }) },
+    // El badge de la tab 'Mensajes' suma este conteo (sólo no-chat) con el de
+    // chats, así que ambos hay que prefetchearlos para que el tab bar no dispare
+    // su propio fetch al montar (ver app/(tabs)/_layout.tsx).
+    { name: 'chatsUnseen', run: () => queryClient.prefetchQuery({ queryKey: solicitudesQueryKeys.unseen('CHAT'), queryFn: () => getSolicitudesUnseen(context.accessToken, 'CHAT'), staleTime: 1000 * 45 }) },
     { name: 'archivosUnseenCount', run: () => queryClient.prefetchQuery({ queryKey: ARCHIVOS_KEYS.unseenCount(), queryFn: () => getArchivosUnseenCount(context.accessToken), staleTime: 1000 * 45 }) },
     // Contadores mine/managed de reportes y licencias, ya resueltos por rol en el backend.
     { name: 'badgesPrefetch', run: () => queryClient.prefetchQuery({ queryKey: BADGES_QUERY_KEY, queryFn: () => fetchPrefetchBadges(context.accessToken), staleTime: 1000 * 45 }) },

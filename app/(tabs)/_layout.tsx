@@ -91,9 +91,17 @@ export default function TabLayout() {
   const currentTab = useMemo(() => (segments[1] as string) || 'index', [segments]);
 
   // Contador de solicitudes ('Mensajes') sin ver → badge rojo en la tab.
-  const { data: unseenSolicitudes = 0 } = useSolicitudesUnseen(
+  // `undefined` como tipo trae sólo no-chat (mismo criterio que la sub-tab
+  // "Solicitudes" en Solicitudes.tsx), así que hay que sumarle el conteo de
+  // chats por separado para que el badge de la tab cubra ambas sub-tabs.
+  const { data: unseenSolicitudesNoChat = 0 } = useSolicitudesUnseen(
     hasSolicitudesTab && hasSessionContext
   );
+  const { data: unseenChats = 0 } = useSolicitudesUnseen(
+    hasSolicitudesTab && hasSessionContext,
+    'CHAT'
+  );
+  const unseenSolicitudes = unseenSolicitudesNoChat + unseenChats;
   const hasMensajesBadge = unseenSolicitudes > 0;
   const mensajesBadgeLabel = unseenSolicitudes > 99 ? '99+' : String(unseenSolicitudes);
 

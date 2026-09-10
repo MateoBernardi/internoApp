@@ -156,8 +156,11 @@ export async function getArchivosUnseenCount(accessToken: string): Promise<numbe
         throw new Error(errData.message || errData.error || response.statusText);
     }
 
+    // El backend puede responder el conteo como número o como string (COUNT(*)
+    // de Postgres viene como string) — normalizamos a number.
     const data = await response.json();
-    return typeof data?.unseenCount === 'number' ? data.unseenCount : 0;
+    const parsed = Number(data?.unseenCount);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
 }
 
 export async function fetchArchivos(accessToken: string): Promise<archivos.Archivo[]> {

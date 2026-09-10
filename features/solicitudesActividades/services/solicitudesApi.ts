@@ -56,18 +56,6 @@ export async function cancelarSolicitud(accessToken: string, data: solicitudes.C
     }
 }
 
-export async function reenviarSolicitud(accessToken: string, data: solicitudes.ReenviarSolicitudRequest, idempotencyKey?: string): Promise<solicitudes.ReenviarSolicitudResponse> {
-    const response = await apiRequest({ method: 'POST', endpoint: `/solicitudes-actividades/solicitudes/reenviar`, token: accessToken, body: data, headers: idempotencyHeaders(idempotencyKey) });
-
-    if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Error en reenviarSolicitud:', response.status, errorText);
-        throwApiError(errorText, response);
-    }
-
-    return await response.json();
-}
-
 export async function getSolicitudBitacora(
     accessToken: string,
     solicitudId: number,
@@ -84,6 +72,31 @@ export async function getSolicitudBitacora(
         const errorText = await response.text();
         console.error('Error en getSolicitudBitacora:', response.status, errorText);
         throwApiError(errorText, response);
+    }
+
+    const result: { data?: SolicitudBitacoraDTO[]; nextCursor?: number | null } = await response.json();
+    return {
+        data: (result.data ?? []).map(mapSolicitudBitacoraDTOToBitacora),
+        nextCursor: result.nextCursor ?? null,
+    };
+}
+
+export async function buscarBitacora(
+    accessToken: string,
+    params: { solicitudId: number; q: string; limit?: number; cursor?: number },
+): Promise<solicitudes.BitacoraPage> {
+    const urlParams = new URLSearchParams();
+    urlParams.set('solicitud_id', String(params.solicitudId));
+    urlParams.set('q', params.q);
+    urlParams.set('limit', String(params.limit ?? 50));
+    if (params.cursor != null) urlParams.set('cursor', String(params.cursor));
+    const endpoint = `/solicitudes-actividades/solicitudes/bitacora/buscar?${urlParams.toString()}`;
+    const response = await apiRequest({ method: 'GET', endpoint, token: accessToken });
+
+    if (!response.ok) {
+        const errorMsg = await extractErrorText(response);
+        console.error('Error en buscarBitacora:', response.status, errorMsg);
+        throw new Error(errorMsg);
     }
 
     const result: { data?: SolicitudBitacoraDTO[]; nextCursor?: number | null } = await response.json();
@@ -115,10 +128,14 @@ export async function getChatArchivos(accessToken: string, solicitudId: number):
  * Endpoint liviano pensado para prefetch / badge de "Mensajes".
  * GET /solicitudes-actividades/solicitudes/unseen
  */
-export async function getSolicitudesUnseen(accessToken: string): Promise<number> {
+export async function getSolicitudesUnseen(
+    accessToken: string,
+    tipoConversacion?: 'CHAT',
+): Promise<number> {
+    const typeParam = tipoConversacion ? `?type=${tipoConversacion}` : '';
     const response = await apiRequest({
         method: 'GET',
-        endpoint: '/solicitudes-actividades/solicitudes/unseen',
+        endpoint: `/solicitudes-actividades/solicitudes/unseen${typeParam}`,
         token: accessToken,
     });
 
@@ -149,6 +166,18 @@ export async function actualizarEstadoInvitacion(accessToken: string, data: soli
 
     const result: UpdateSolicitudResult = await response.json();
     return mapUpdateSolicitudResultToResponse(result);
+}
+
+export async function marcarSolicitudVisto(accessToken: string, data: solicitudes.MarcarSolicitudVistoRequest): Promise<solicitudes.MarcarSolicitudVistoResponse> {
+    const response = await apiRequest({ method: 'POST', endpoint: `/solicitudes-actividades/solicitudes/${data.solicitud_id}/visto`, token: accessToken });
+
+    if (!response.ok) {
+        const errorMsg = await extractErrorText(response);
+        console.error('Error en marcarSolicitudVisto:', response.status, errorMsg);
+        throw new Error(errorMsg);
+    }
+
+    return await response.json();
 }
 
 export async function actualizarInvitadosSolicitud(

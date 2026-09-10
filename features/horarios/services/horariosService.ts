@@ -1,6 +1,17 @@
 import { apiRequest, throwApiError } from '@/shared/apiRequest';
+import { idempotencyHeaders } from '@/shared/idempotency';
 import Constants from 'expo-constants';
-import type { HorarioDTO, SedeDTO, UpdateHorarioPayload, UploadShiftsResponse } from '../models/HorarioDTO';
+import { Platform } from 'react-native';
+import type {
+  HorarioDTO,
+  HorarioUsuarioDTO,
+  KioskSecretDTO,
+  ScanPayload,
+  ScanResultDTO,
+  SedeDTO,
+  UpdateHorarioPayload,
+  UploadShiftsResponse,
+} from '../models/HorarioDTO';
 
 const API_BASE_URL: string = Constants.expoConfig?.extra?.API_BASE_URL ?? '';
 
@@ -21,10 +32,11 @@ export async function getSedes(token: string): Promise<SedeDTO[]> {
 }
 
 // El backend solo soporta UN filtro por request, como string "clave:valor"
-// (ver buildFilterCondition en horariosRepo.ts): turno, sede, usuario o rol_nombre.
+// (ver buildFilterCondition en horariosRepo.ts): turno, sede, usuario, rol_nombre o feriado.
 export type HorariosByDateFilter =
   | { key: 'usuario'; value: number }
-  | { key: 'rol_nombre'; value: string };
+  | { key: 'rol_nombre'; value: string }
+  | { key: 'feriado'; value: 1 };
 
 export async function getHorariosByDate(
   token: string,
@@ -44,15 +56,52 @@ export async function getHorariosByDate(
   return res.json();
 }
 
+/** Filtro opcional por empleado y/o rol, combinables entre sí (a diferencia de HorariosByDateFilter). */
+export interface FeriadosRangeFilter {
+  userContextId?: number;
+  role?: string;
+}
+
+/** Turnos marcados como feriado dentro de un rango de fechas ("YYYY-MM-DD"), para todos los usuarios. */
+export async function getFeriadosByRange(
+  token: string,
+  fechaInicio: string,
+  fechaFin: string,
+  filter: FeriadosRangeFilter = {},
+): Promise<HorarioDTO[]> {
+  const params = new URLSearchParams({ fechaInicio, fechaFin });
+  if (filter.userContextId != null) params.set('user_context_id', String(filter.userContextId));
+  if (filter.role) params.set('role', filter.role);
+
+  const res = await apiRequest({
+    method: 'GET',
+    endpoint: `/horarios/feriados?${params.toString()}`,
+    token,
+  });
+  if (!res.ok) throwApiError(await extractError(res), res);
+  return res.json();
+}
+
+/** Sube la planilla de turnos de un día puntual (POST /horarios/plantilla-dia?fecha=). */
 export async function uploadShiftsFile(
   token: string,
   fileUri: string,
   fileName: string,
+  fechaISO: string, // "YYYY-MM-DD"
 ): Promise<UploadShiftsResponse> {
   const form = new FormData();
-  form.append('file', { uri: fileUri, name: fileName, type: 'text/plain' } as any);
 
-  const res = await fetch(`${API_BASE_URL}/horarios/upload-shifts`, {
+  if (Platform.OS === 'web') {
+    // En web, FormData.append no acepta un objeto {uri, name, type} como en
+    // React Native: hay que convertir el uri (blob:/data:) a un Blob real.
+    const fileResponse = await fetch(fileUri);
+    const blob = await fileResponse.blob();
+    form.append('file', blob, fileName);
+  } else {
+    form.append('file', { uri: fileUri, name: fileName, type: 'text/csv' } as any);
+  }
+
+  const res = await fetch(`${API_BASE_URL}/horarios/plantilla-dia?fecha=${fechaISO}`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
@@ -68,6 +117,22 @@ export async function uploadShiftsFile(
   return res.json();
 }
 
+/** Descarga la plantilla CSV de un día puntual (GET /horarios/plantilla-dia?fecha=). */
+export async function downloadPlantillaShifts(token: string, fechaISO: string): Promise<Blob> {
+  const res = await apiRequest({
+    method: 'GET',
+    endpoint: `/horarios/plantilla-dia?fecha=${fechaISO}`,
+    token,
+  });
+  if (!res.ok) throwApiError(await extractError(res), res);
+  return res.blob();
+}
+
+/** URL absoluta de la plantilla de un día, para descargas nativas via FileSystem.File.downloadFileAsync. */
+export function getPlantillaShiftsUrl(fechaISO: string): string {
+  return `${API_BASE_URL}/horarios/plantilla-dia?fecha=${fechaISO}`;
+}
+
 export async function updateHorario(
   token: string,
   payload: UpdateHorarioPayload,
@@ -79,4 +144,83 @@ export async function updateHorario(
     body: payload,
   });
   if (!res.ok) throwApiError(await extractError(res), res);
+}
+
+/** Marca (o desmarca) como feriado todos los turnos de un día calendario de una vez. */
+export async function marcarFeriadoDia(
+  token: string,
+  fechaISO: string, // "YYYY-MM-DD"
+  feriado: boolean,
+): Promise<{ message: string; affected: number }> {
+  const res = await apiRequest({
+    method: 'PATCH',
+    endpoint: '/horarios/dia/feriado',
+    token,
+    body: { fecha: fechaISO, feriado },
+  });
+  if (!res.ok) throwApiError(await extractError(res), res);
+  return res.json();
+}
+
+/** Turnos propios del usuario autenticado en un rango de fechas ("YYYY-MM-DD"). */
+export async function getMisHorarios(
+  token: string,
+  fechaInicio: string,
+  fechaFin: string,
+): Promise<HorarioUsuarioDTO[]> {
+  const params = new URLSearchParams({ fechaInicio, fechaFin });
+  const res = await apiRequest({
+    method: 'GET',
+    endpoint: `/horarios/user?${params.toString()}`,
+    token,
+  });
+  if (!res.ok) throwApiError(await extractError(res), res);
+  return res.json();
+}
+
+/** Secreto QR rotativo de una sede (solo cuentas `kiosco`). */
+export async function getKioskSecret(token: string, sedeId: number): Promise<KioskSecretDTO> {
+  const res = await apiRequest({
+    method: 'GET',
+    endpoint: `/horarios/kiosk-secret?sedeId=${sedeId}`,
+    token,
+  });
+  if (!res.ok) throwApiError(await extractError(res), res);
+  return res.json();
+}
+
+/**
+ * Envía un escaneo de entrada/salida. `idempotencyKey` viaja en
+ * `X-Idempotency-Key` para que reintentos de red no dupliquen el marcado.
+ * Lanza un Error con el mensaje del backend en respuestas no-2xx. Ojo: un
+ * escaneo rechazado (QR/geofence inválido, turno ya completo) responde 200
+ * con `{ success: false, message }`, no un status de error — el caller debe
+ * revisar `success`, no solo si la promesa resolvió.
+ */
+export async function enviarScan(
+  token: string,
+  payload: ScanPayload,
+  idempotencyKey: string,
+): Promise<ScanResultDTO> {
+  const res = await apiRequest({
+    method: 'PUT',
+    endpoint: '/horarios/scan',
+    token,
+    body: payload,
+    headers: idempotencyHeaders(idempotencyKey),
+  });
+  if (!res.ok) {
+    const errText = await extractError(res);
+    console.error('[enviarScan] scan failed', {
+      status: res.status,
+      statusText: res.statusText,
+      body: errText,
+      idempotencyKey,
+      fecha: payload.fecha,
+      turno: payload.turno,
+      time: payload.time,
+    });
+    throwApiError(errText, res);
+  }
+  return res.json();
 }

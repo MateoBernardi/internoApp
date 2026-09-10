@@ -1,46 +1,59 @@
 import { useEffect, useRef } from 'react';
 import type { SolicitudEnviada, SolicitudInvitado } from '../../models/Solicitud';
-import type { useActualizarEstadoInvitacion } from '../../viewmodels/useSolicitudes';
+import type { useMarcarSolicitudVisto } from '../../viewmodels/useSolicitudes';
+import { tieneNovedadSinVer } from '../../badgeState';
 
-type ActualizarEstadoMutate = ReturnType<typeof useActualizarEstadoInvitacion>['mutate'];
+type MarcarVistoMutate = ReturnType<typeof useMarcarSolicitudVisto>['mutate'];
 
 interface UseMarcarVistoParams {
   solicitud: SolicitudEnviada;
   solicitudId: number;
-  isHost: boolean;
   invitadosSinCreador: SolicitudInvitado[];
-  actualizarEstado: ActualizarEstadoMutate;
+  marcarVisto: MarcarVistoMutate;
+  /**
+   * Id de la entrada de bitácora más reciente ya cargada (o null si todavía
+   * no hay ninguna). Señal en vivo, independiente del prop `solicitud`.
+   */
+  latestBitacoraId?: number | null;
 }
 
 /**
- * Marca automáticamente la solicitud como "vista" (SEEN) cuando corresponde,
- * usando una key para no reenviar el mismo estado. Compartido por `Solicitud`
- * y `ConversacionChat`.
+ * Marca automáticamente la solicitud como vista cuando corresponde, usando
+ * una key para no reenviar el mismo acuse. Compartido por `Solicitud` y
+ * `ConversacionChat`. Usa la misma fuente de verdad que los badges
+ * (`tieneNovedadSinVer`), así el creador también manda el acuse de lectura.
+ *
+ * El prop `solicitud` puede quedar congelado mientras la pantalla sigue
+ * montada (`Solicitudes.tsx` guarda un snapshot al abrir el chat/solicitud y
+ * no lo resincroniza). Si llega una entrada de bitácora nueva por push
+ * mientras la pantalla está abierta, `solicitud.seen`/`estado` no cambian
+ * aunque haya algo nuevo para acusar — por eso además re-disparamos el acuse
+ * cada vez que cambia `latestBitacoraId`, que sí es una señal en vivo.
  */
 export function useMarcarVisto({
-  solicitud, solicitudId, isHost, invitadosSinCreador, actualizarEstado,
+  solicitud, solicitudId, invitadosSinCreador, marcarVisto, latestBitacoraId = null,
 }: UseMarcarVistoParams) {
   const seenAutoMarkKeyRef = useRef<string | null>(null);
+  const lastMarkedBitacoraIdRef = useRef<number | null | undefined>(undefined);
 
   useEffect(() => {
     if (!solicitud) return;
 
-    // Para el host usamos su propio estado (solicitud_invitado del creador).
-    // Antes se chequeaban los estados de los invitados, pero el backend no los
-    // actualiza al marcar SEEN → la condición seguía siendo true en cada apertura.
-    const shouldMarkSeen = isHost
-      ? solicitud.estado === 'MODIFIED'
-      : ['SENT', 'MODIFIED_BY_HOST', 'ACCEPTED_BY_HOST'].includes(solicitud.estado);
+    const huboBitacoraNueva = latestBitacoraId !== null && latestBitacoraId !== lastMarkedBitacoraIdRef.current;
 
-    if (!shouldMarkSeen) { seenAutoMarkKeyRef.current = null; return; }
+    if (!tieneNovedadSinVer(solicitud) && !huboBitacoraNueva) {
+      seenAutoMarkKeyRef.current = null;
+      return;
+    }
 
-    const key = `${solicitudId}:${solicitud.estado}`;
+    const key = `${solicitudId}:${solicitud.seen}:${solicitud.estado}:${latestBitacoraId ?? 'none'}`;
     if (seenAutoMarkKeyRef.current === key) return;
     seenAutoMarkKeyRef.current = key;
+    lastMarkedBitacoraIdRef.current = latestBitacoraId;
 
-    actualizarEstado(
-      { solicitud_id: solicitudId, estado: 'SEEN' },
+    marcarVisto(
+      { solicitud_id: solicitudId },
       { onError: () => { seenAutoMarkKeyRef.current = null; } },
     );
-  }, [solicitud, solicitudId, isHost, invitadosSinCreador, actualizarEstado]);
+  }, [solicitud, solicitudId, invitadosSinCreador, marcarVisto, latestBitacoraId]);
 }

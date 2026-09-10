@@ -3,6 +3,10 @@ import { UserSelector } from '@/components/UserSelector';
 import { Colors } from '@/constants/theme';
 import { RoleUserSelectionModal } from '@/features/solicitudesActividades/components/RoleUserSelectionModal';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
+import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
+import { GlassButton } from '@/shared/ui/GlassButton';
+import { focusBorderStyles, glassColors, glassStyles } from '@/shared/ui/glass';
+import { useFocusBorder } from '@/shared/ui/useFocusBorder';
 import { showGlobalToast } from '@/shared/ui/toast';
 import { adminRoles, allRoles } from '@/shared/users/roles';
 import { UserSummary } from '@/shared/users/User';
@@ -12,7 +16,6 @@ import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Modal,
   ScrollView,
   StyleSheet,
   TextInput,
@@ -55,6 +58,8 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
 
   const [nombreBase, setNombreBase] = useState(splitName(archivo.nombre).base);
   const [descripcion, setDescripcion] = useState(archivo.titulo ?? '');
+  const nombreFocus = useFocusBorder();
+  const descripcionFocus = useFocusBorder();
 
   const [searchQuery, setSearchQuery] = useState('');
   const { data: searchResults, isLoading: isSearchingUsers } = useSearchUsers(searchQuery);
@@ -395,20 +400,18 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
     }
   }, [nombreBase, descripcion, archivo.nombre, archivo.titulo, usuariosCompartidos, onClose, resetForm]);
 
+  if (!visible) return null;
+
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent={true}
-      onRequestClose={handleCancel}
-    >
-      <View style={styles.overlay}>
+    <FullScreenPortal>
+      <View style={styles.fullScreen}>
         <View style={styles.modalContainer}>
           {/* Header con safe-area top */}
-          <View style={styles.header}>
-            <TouchableOpacity onPress={handleCancel} style={styles.iconButton}>
-              <Ionicons name="close" size={24} color={colors.icon} />
+          <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+            <TouchableOpacity onPress={handleCancel} style={styles.backButton}>
+              <Ionicons name="chevron-back" size={24} color={glassColors.textMuted} />
             </TouchableOpacity>
+            <ThemedText style={styles.headerTitle} numberOfLines={1}>Editar archivo</ThemedText>
           </View>
 
           {/* KAV solo envuelve el scroll */}
@@ -428,11 +431,19 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
                 <ThemedText style={styles.label}>Título del archivo</ThemedText>
                 <View style={styles.nameRow}>
                   <TextInput
-                    style={[styles.input, styles.nameInput, { color: colors.text }]}
+                    style={[
+                      styles.input,
+                      styles.nameInput,
+                      { color: colors.text },
+                      focusBorderStyles.inputNoOutline,
+                      nombreFocus.isFocused && { borderColor: glassColors.link },
+                    ]}
                     placeholder="Título"
                     placeholderTextColor={colors.secondaryText}
                     value={nombreBase}
                     onChangeText={setNombreBase}
+                    onFocus={nombreFocus.onFocus}
+                    onBlur={nombreFocus.onBlur}
                     maxLength={100}
                   />
                   {fileExt !== '' ? (
@@ -447,11 +458,19 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
                   Descripción <ThemedText style={styles.labelOptional}>(opcional)</ThemedText>
                 </ThemedText>
                 <TextInput
-                  style={[styles.input, styles.inputMultiline, { color: colors.text }]}
+                  style={[
+                    styles.input,
+                    styles.inputMultiline,
+                    { color: colors.text },
+                    focusBorderStyles.inputNoOutline,
+                    descripcionFocus.isFocused && { borderColor: glassColors.link },
+                  ]}
                   placeholder="Agregá una descripción del archivo..."
                   placeholderTextColor={colors.secondaryText}
                   value={descripcion}
                   onChangeText={setDescripcion}
+                  onFocus={descripcionFocus.onFocus}
+                  onBlur={descripcionFocus.onBlur}
                   maxLength={500}
                   multiline
                   numberOfLines={3}
@@ -641,42 +660,34 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
 
           {/* Botón fijo fuera del KAV — con safe-area bottom */}
           <View style={[styles.updateButtonContainer, { paddingBottom: insets.bottom || BUTTON_MARGIN }]}>
-            <TouchableOpacity
-              style={[styles.updateButton, { backgroundColor: !isFormValid || isUpdating ? colors.icon : colors.lightTint }]}
+            <GlassButton
+              variant="primary"
+              label={didPartialSuccess ? 'Cerrar' : 'Actualizar archivo'}
               onPress={handleActualizarArchivo}
-              disabled={!isFormValid || isUpdating}
-            >
-              {isUpdating ? (
-                <ActivityIndicator size="small" color={colors.componentBackground} />
-              ) : (
-                <>
-                  <Ionicons name="checkmark" size={20} color={colors.componentBackground} />
-                  <ThemedText style={styles.updateButtonText}>
-                    {didPartialSuccess ? 'Cerrar' : 'Actualizar Archivo'}
-                  </ThemedText>
-                </>
-              )}
-            </TouchableOpacity>
+              disabled={!isFormValid}
+              loading={isUpdating}
+              icon={(color) => <Ionicons name="checkmark" size={20} color={color} />}
+              style={styles.updateButton}
+            />
           </View>
         </View>
       </View>
-    </Modal>
+    </FullScreenPortal>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)' // Sombra de fondo
+  fullScreen: {
+    ...StyleSheet.absoluteFill,
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#ffffff',
+    zIndex: 1000,
+    elevation: 8,
   },
   modalContainer: {
-    // Quita el flex: 1, o usa un alto fijo/porcentaje
     flex: 1,
-    marginTop: '10%', // Empuja el modal hacia abajo
-    backgroundColor: Colors['light'].componentBackground,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    overflow: 'hidden',
+    backgroundColor: '#ffffff',
   },
   modalKeyboardAvoiding: {
     flex: 1,
@@ -684,17 +695,25 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomColor: Colors['light'].icon,
+    paddingBottom: 12,
     flexDirection: 'row',
-    justifyContent: 'flex-end',
     alignItems: 'center',
+    gap: 12,
   },
-  iconButton: {
-    padding: 6,
-    borderRadius: 16,
-    backgroundColor: '#f3f4f6',
-    marginLeft: 8,
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(17,24,28,0.12)',
+    backgroundColor: 'rgba(17,24,28,0.03)',
+  },
+  headerTitle: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: '700',
   },
   content: {
     flex: 1,
@@ -730,12 +749,10 @@ const styles = StyleSheet.create({
     color: colors.secondaryText,
   },
   input: {
-    backgroundColor: colors.componentBackground,
-    borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: colors.icon,
+    color: glassColors.text,
+    ...glassStyles.fieldGlass,
   },
   inputMultiline: {
     minHeight: 80,
@@ -765,9 +782,9 @@ const styles = StyleSheet.create({
   },
   rolesDropdown: {
     marginTop: 8,
-    borderRadius: 8,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: colors.icon,
+    borderColor: 'rgba(17,24,28,0.12)',
     overflow: 'hidden',
   },
   roleOption: {
@@ -776,17 +793,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: colors.icon,
+    borderBottomColor: 'rgba(17,24,28,0.08)',
   },
   collapsibleButton: {
     minHeight: 44,
-    borderWidth: 1,
-    borderColor: colors.icon,
-    borderRadius: 8,
     paddingHorizontal: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    ...glassStyles.fieldGlass,
   },
   collapsibleTitle: {
     fontSize: 14,
@@ -795,14 +810,14 @@ const styles = StyleSheet.create({
   permisosPanel: {
     marginTop: 10,
     borderWidth: 1,
-    borderColor: colors.icon,
-    borderRadius: 8,
+    borderColor: 'rgba(17,24,28,0.1)',
+    borderRadius: 10,
     padding: 10,
     gap: 12,
   },
   sectionDivider: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.icon,
+    backgroundColor: 'rgba(17,24,28,0.12)',
   },
   permisosStateRow: {
     flexDirection: 'row',
@@ -836,8 +851,9 @@ const styles = StyleSheet.create({
   editableChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.icon,
+    borderWidth: 1,
+    borderColor: 'rgba(17,24,28,0.12)',
+    backgroundColor: 'rgba(17,24,28,0.03)',
     borderRadius: 999,
     paddingLeft: 10,
     paddingRight: 6,
@@ -855,23 +871,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   updateButtonContainer: {
-    backgroundColor: colors.componentBackground,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.icon,
+    backgroundColor: '#ffffff',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(17,24,28,0.08)',
     paddingHorizontal: '4%',
     paddingTop: 12,
   },
   updateButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 8,
-    gap: 8,
-  },
-  updateButtonText: {
-    color: colors.componentBackground,
-    fontWeight: '600',
-    fontSize: 16,
+    width: '100%',
   },
 });

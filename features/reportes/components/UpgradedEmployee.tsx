@@ -1,5 +1,6 @@
 
 import { ThemedText } from '@/components/themed-text';
+import { glassStyles } from '@/shared/ui/glass';
 import { Colors } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
@@ -17,7 +18,7 @@ export function UpgradedEmployee() {
 
 	// Tomar el primero como el top mejorado
 	const empleado = data;
-	
+
 	if (!empleado) {
 		return null;
 	}
@@ -25,67 +26,60 @@ export function UpgradedEmployee() {
 	const iniciales = `${empleado.nombre?.[0] ?? ''}${empleado.apellido?.[0] ?? ''}`.toUpperCase();
 
 	return (
-		<View style={styles.card}>
+		<View style={[glassStyles.card, styles.card]}>
 			<View style={styles.iconCircle}>
 				<ThemedText style={styles.iconText}>{iniciales}</ThemedText>
 			</View>
-			<ThemedText type="subtitle" style={styles.title} numberOfLines={2}>
-				Más mejoras en los últimos 3 meses
-			</ThemedText>
+			<View style={styles.textColumn}>
+				<ThemedText style={styles.title} numberOfLines={1}>
+					Más mejoras en los últimos 3 meses
+				</ThemedText>
+				<ThemedText style={styles.name} numberOfLines={1}>{empleado.nombre} {empleado.apellido}</ThemedText>
+			</View>
 			<View style={styles.upRow}>
-				<Ionicons name="arrow-up" size={22} color={colors.lightTint} style={{ marginRight: 4 }} />
+				<Ionicons name="arrow-up" size={18} color={colors.lightTint} />
 				<ThemedText style={styles.upCount}>{empleado.positivos_recientes}</ThemedText>
 			</View>
-			<ThemedText style={styles.name} numberOfLines={2}>{empleado.nombre} {empleado.apellido}</ThemedText>
 		</View>
 	);
 }
 
 const styles = StyleSheet.create({
 	card: {
-		width: 140,
-		minHeight: 180,
-		backgroundColor: colors.componentBackground,
-		borderRadius: 20,
-		borderWidth: 3,
-		borderColor: '#9C27B0',
+		flexDirection: 'row',
 		alignItems: 'center',
-		justifyContent: 'center',
-		paddingHorizontal: 10,
+		paddingHorizontal: 16,
 		paddingVertical: 14,
-		shadowColor: '#000',
-		shadowOffset: { width: 0, height: 2 },
-		shadowOpacity: 0.12,
-		shadowRadius: 8,
-		elevation: 4,
-		margin: 12,
-		alignSelf: 'center',
+		gap: 14,
 	},
 	iconCircle: {
-		width: 56,
-		height: 56,
-		borderRadius: 28,
-		backgroundColor: '#9C27B0', 
+		width: 52,
+		height: 52,
+		borderRadius: 26,
+		backgroundColor: '#9C27B0',
 		alignItems: 'center',
 		justifyContent: 'center',
-		marginBottom: 10,
+		flexShrink: 0,
 	},
 	iconText: {
 		color: colors.componentBackground,
-		fontSize: 28,
+		fontSize: 20,
 		fontWeight: 'bold',
+	},
+	textColumn: {
+		flex: 1,
+		gap: 2,
 	},
 	title: {
 		fontSize: 12,
 		fontWeight: '600',
 		color: colors.text,
-		marginBottom: 2,
-		textAlign: 'center',
 	},
 	upRow: {
 		flexDirection: 'row',
 		alignItems: 'center',
-		marginBottom: 2,
+		gap: 4,
+		flexShrink: 0,
 	},
 	upCount: {
 		fontSize: 22,
@@ -94,10 +88,8 @@ const styles = StyleSheet.create({
 	},
 	name: {
 		fontSize: 13,
-		color: colors.text,
-		marginTop: 4,
+		color: colors.secondaryText,
 		fontWeight: '500',
-		textAlign: 'center',
 	},
 	centerContainer: {
 		alignItems: 'center',

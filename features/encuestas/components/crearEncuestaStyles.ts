@@ -1,10 +1,17 @@
 import { Colors } from '@/constants/theme';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { StyleSheet } from 'react-native';
 
 const colors = Colors['light'];
 
 /** Estilos compartidos por `CrearEncuesta` y `FormularioPregunta`. */
 export const styles = StyleSheet.create({
+  fullScreen: {
+    ...StyleSheet.absoluteFill,
+    zIndex: 1000,
+    elevation: 8,
+    backgroundColor: colors.componentBackground,
+  },
   container: {
     flex: 1,
     backgroundColor: colors.componentBackground,
@@ -25,13 +32,12 @@ export const styles = StyleSheet.create({
     flex: 1,
   },
   section: {
-    backgroundColor: colors.componentBackground,
+    ...glassStyles.card,
     padding: 16,
     marginHorizontal: 16,
-    marginBottom: 12,
+    marginBottom: 20,
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.background,
+    gap: 12,
   },
   sectionTitle: {
     fontSize: 16,
@@ -52,29 +58,33 @@ export const styles = StyleSheet.create({
     marginBottom: 12,
   },
   input: {
-    borderWidth: 1,
-    borderColor: colors.background,
+    ...glassStyles.fieldGlass,
     borderRadius: 8,
     padding: 12,
     fontSize: 14,
     color: colors.text,
-    backgroundColor: colors.componentBackground,
   },
+  inputFocused: {
+    borderColor: glassColors.link,
+  },
+  inputNoOutline: {
+    outlineStyle: 'none',
+    outlineWidth: 0,
+  } as any,
   textArea: {
     minHeight: 80,
     textAlignVertical: 'top',
   },
   dateButton: {
-    borderWidth: 1,
-    borderColor: colors.background,
-    borderRadius: 8,
-    padding: 12,
-    backgroundColor: colors.componentBackground,
+    ...glassStyles.buttonSecondary,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     marginTop: 8,
   },
   dateButtonText: {
     fontSize: 14,
-    color: colors.text,
+    color: colors.lightTint,
+    textAlign: 'center',
   },
   switchContainer: {
     flexDirection: 'row',
@@ -89,13 +99,16 @@ export const styles = StyleSheet.create({
     color: colors.text,
   },
   agregarPreguntaButton: {
-    backgroundColor: colors.lightTint,
+    ...glassStyles.button,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 6,
   },
   agregarPreguntaText: {
-    color: colors.componentBackground,
+    color: glassColors.link,
     fontSize: 13,
     fontWeight: '600',
   },
@@ -113,12 +126,10 @@ export const styles = StyleSheet.create({
     color: colors.secondaryText,
   },
   preguntaCard: {
-    backgroundColor: colors.componentBackground,
+    ...glassStyles.card,
     borderRadius: 8,
     padding: 12,
     marginBottom: 8,
-    borderWidth: 1,
-    borderColor: colors.background,
   },
   preguntaCardHeader: {
     flexDirection: 'row',
@@ -149,7 +160,7 @@ export const styles = StyleSheet.create({
   obligatoriaTag: {
     fontSize: 10,
     color: colors.error,
-    backgroundColor: colors.error + '12',
+    backgroundColor: 'rgba(244,67,54,0.08)',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
@@ -181,15 +192,18 @@ export const styles = StyleSheet.create({
     gap: 8,
   },
   tipoButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
     padding: 12,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: colors.background,
-    alignItems: 'center',
   },
   tipoButtonSelected: {
     borderColor: colors.lightTint,
-    backgroundColor: colors.lightTint + '12',
+    backgroundColor: 'rgba(26,115,232,0.08)',
   },
   tipoText: {
     fontSize: 14,
@@ -208,21 +222,14 @@ export const styles = StyleSheet.create({
     marginBottom: 8,
   },
   addButton: {
-    backgroundColor: colors.lightTint,
+    ...glassStyles.button,
     width: 44,
     height: 44,
     borderRadius: 8,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  addButtonText: {
-    color: colors.componentBackground,
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  eliminarOpcion: {
-    fontSize: 16,
-    color: colors.error,
   },
   footerDos: {
     flexDirection: 'row',
@@ -233,32 +240,31 @@ export const styles = StyleSheet.create({
     gap: 12,
   },
   cancelarButton: {
+    ...glassStyles.buttonSecondary,
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.secondaryText,
+    paddingVertical: 16,
+    borderRadius: 18,
     alignItems: 'center',
   },
   cancelarButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.secondaryText,
+    color: glassColors.textMuted,
   },
   guardarButton: {
+    ...glassStyles.button,
     flex: 2,
-    paddingVertical: 12,
-    borderRadius: 8,
-    backgroundColor: colors.lightTint,
+    paddingVertical: 16,
+    borderRadius: 18,
     alignItems: 'center',
   },
   guardarButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.componentBackground,
+    color: glassColors.link,
   },
   crearButtonDisabled: {
-    backgroundColor: colors.secondaryText,
+    opacity: 0.6,
   },
 
   // ── Tipo horario en FormularioPregunta ───────────────────────────────────
@@ -266,9 +272,9 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#e9f1fd',
+    backgroundColor: 'rgba(26,115,232,0.08)',
     borderWidth: 1,
-    borderColor: '#cfe0f9',
+    borderColor: 'rgba(26,115,232,0.25)',
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -277,7 +283,7 @@ export const styles = StyleSheet.create({
   slotItemText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#2a4f86',
+    color: glassColors.link,
     flex: 1,
   },
   agregarSlotButton: {
@@ -311,7 +317,7 @@ export const styles = StyleSheet.create({
   },
   audOptionRowSelected: {
     borderColor: colors.lightTint,
-    backgroundColor: '#e9f1fd',
+    backgroundColor: 'rgba(26,115,232,0.08)',
   },
   radioDot: {
     width: 22,
@@ -365,6 +371,6 @@ export const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.secondaryText,
     textAlign: 'center',
-    marginTop: 8,
+    marginTop: 18,
   },
 });

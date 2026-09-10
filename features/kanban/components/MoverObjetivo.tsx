@@ -3,12 +3,14 @@
 // ============================================
 
 import { ThemedText } from '@/components/themed-text';
-import { Colors } from '@/constants/theme';
+import { GlassButton } from '@/shared/ui/GlassButton';
+import { focusBorderStyles, glassColors, glassStyles } from '@/shared/ui/glass';
+import { useFocusBorder } from '@/shared/ui/useFocusBorder';
+import { useSafeBottomInset } from '@/hooks/useSafeBottomInset';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
     Alert,
-    Keyboard,
     Modal,
     Platform,
     ScrollView,
@@ -18,6 +20,7 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
+import { useKeyboardHeight } from '@/shared/ui/keyboard';
 import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ESTADOS, Objetivo } from "../models/Objetivo";
@@ -60,9 +63,11 @@ export function MoveModal({
     resetDraftSignal = 0,
 }: MoveModalProps) {
     const insets = useSafeAreaInsets();
+    const bottomInset = useSafeBottomInset();
+    const observacionFocus = useFocusBorder();
     const [nuevoEstado, setNuevoEstado] = useState('');
     const [observacion, setObservacion] = useState('');
-    const [keyboardHeight, setKeyboardHeight] = useState(0);
+    const keyboardHeight = useKeyboardHeight();
     const isKeyboardOpen = keyboardHeight > 0;
 
     const syncMoveDraft = (partial: Partial<MoveDraft>) => {
@@ -73,20 +78,6 @@ export function MoveModal({
             ...partial,
         });
     };
-
-    useEffect(() => {
-        const onShow = Keyboard.addListener('keyboardDidShow', (event) => {
-            setKeyboardHeight(event.endCoordinates.height);
-        });
-        const onHide = Keyboard.addListener('keyboardDidHide', () => {
-            setKeyboardHeight(0);
-        });
-
-        return () => {
-            onShow.remove();
-            onHide.remove();
-        };
-    }, []);
 
     useEffect(() => {
         if (!visible) return;
@@ -133,15 +124,14 @@ export function MoveModal({
             transparent={true}
             onRequestClose={handleClose}
         >
-            <View style={styles.overlay}>
+            <View style={[glassStyles.modalOverlay, styles.overlay]}>
                 <ModalKeyboardView style={styles.modalKeyboardAvoiding}>
-                    <View style={[styles.modalContainer, { paddingBottom: insets.bottom }]}>
-                        <View style={styles.modalHeader}>
-                            <View style={styles.modalHeaderActions}>
-                                <TouchableOpacity onPress={handleClose} style={styles.modalIconButton} disabled={isLoading}>
-                                    <Ionicons name="chevron-down" size={24} color="#999" />
-                                </TouchableOpacity>
-                            </View>
+                    <View style={[glassStyles.sheet, styles.modalContainer]}>
+                        <View style={[styles.modalHeader, glassStyles.sheetHeader]}>
+                            <ThemedText style={styles.modalTitle}>Mover objetivo</ThemedText>
+                            <TouchableOpacity onPress={handleClose} style={styles.modalIconButton} disabled={isLoading}>
+                                <Ionicons name="chevron-down" size={24} color={glassColors.textMuted} />
+                            </TouchableOpacity>
                         </View>
 
                         <ScrollView
@@ -156,6 +146,13 @@ export function MoveModal({
                             showsVerticalScrollIndicator={false}
                         >
                             <View style={styles.formGroup}>
+                                <View style={[glassStyles.card, styles.objetivoInfo]}>
+                                    <Text style={styles.infoTitle}>{objetivo.titulo}</Text>
+                                    <Text style={styles.infoEstado}>
+                                        Estado actual: <Text style={styles.infoEstadoStrong}>{objetivo.estado}</Text>
+                                    </Text>
+                                </View>
+
                                 <Text style={styles.label}>Mover a</Text>
                                 <View style={styles.estadoButtons}>
                                     {ESTADOS.filter((e) => e !== objetivo.estado).map((est) => (
@@ -187,31 +184,38 @@ export function MoveModal({
                             <View style={styles.formGroup}>
                                 <Text style={styles.label}>Observación (opcional)</Text>
                                 <TextInput
-                                    style={[styles.input, styles.textArea]}
+                                    style={[
+                                        glassStyles.fieldGlass,
+                                        styles.input,
+                                        styles.textArea,
+                                        focusBorderStyles.inputNoOutline,
+                                        observacionFocus.isFocused && { borderColor: glassColors.link },
+                                    ]}
                                     placeholder="Añade una nota sobre este cambio"
                                     value={observacion}
                                     onChangeText={(value) => {
                                         setObservacion(value);
                                         syncMoveDraft({ observacion: value });
                                     }}
+                                    onFocus={observacionFocus.onFocus}
+                                    onBlur={observacionFocus.onBlur}
                                     editable={!isLoading}
                                     multiline
                                     numberOfLines={3}
-                                    placeholderTextColor="#999"
+                                    placeholderTextColor={glassColors.placeholder}
                                     textAlignVertical="top"
                                 />
                             </View>
                         </ScrollView>
 
-                        <View style={[styles.uploadButtonContainer]}>
-                            <TouchableOpacity
+                        <View style={[styles.uploadButtonContainer, { paddingBottom: bottomInset }]}>
+                            <GlassButton
+                                label="Mover objetivo"
                                 onPress={handleMove}
-                                style={[styles.uploadButton, { backgroundColor: isLoading ? '#d1d5db' : Colors['light'].componentBackground }]}
-                            >
-                                <Ionicons name="cloud-upload" size={20} color={Colors['light'].lightTint} />
-                                <ThemedText style={styles.uploadButtonText}>{'Mover'}</ThemedText>
-
-                            </TouchableOpacity>
+                                loading={isLoading}
+                                icon={(color) => <Ionicons name="swap-horizontal-outline" size={20} color={color} />}
+                                style={styles.uploadButton}
+                            />
                         </View>
                     </View>
                 </ModalKeyboardView>
@@ -227,12 +231,13 @@ const styles = StyleSheet.create({
     // ============================================
     overlay: {
         flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.5)' // Sombra de fondo
     },
     modalContainer: {
         flex: 1,
         marginTop: '10%', // Empuja el modal hacia abajo
-        backgroundColor: Colors['light'].componentBackground,
+        backgroundColor: '#ffffff',
+        borderWidth: 1,
+        borderColor: 'rgba(17,24,28,0.08)',
         borderTopLeftRadius: 16,
         borderTopRightRadius: 16,
         overflow: 'hidden',
@@ -244,36 +249,20 @@ const styles = StyleSheet.create({
     modalHeader: {
         paddingHorizontal: 16,
         paddingVertical: 12,
-        borderBottomColor: Colors['light'].icon,
         flexDirection: 'row',
-        justifyContent: 'flex-end',
+        justifyContent: 'space-between',
         alignItems: 'center',
     },
     modalTitle: {
         fontSize: 18,
         fontWeight: '700',
-        color: '#1a1a1a',
-    },
-    modalHeaderActions: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginLeft: 12,
+        color: glassColors.text,
     },
     modalIconButton: {
         padding: 6,
         borderRadius: 16,
-        backgroundColor: '#f3f4f6',
+        backgroundColor: 'rgba(17,24,28,0.06)',
         marginLeft: 8,
-    },
-    closeButton: {
-        fontSize: 24,
-        fontWeight: '600',
-        color: '#999',
-        width: 30,
-    },
-    modalContent: {
-        flex: 1,
-        padding: 16,
     },
     modalFormContent: {
         flex: 1,
@@ -281,56 +270,41 @@ const styles = StyleSheet.create({
     modalFormContentContainer: {
         padding: 16,
     },
-    modalFooter: {
-        flexDirection: 'row',
-        paddingHorizontal: 16,
-        paddingVertical: '10%',
-        paddingBottom: '20%',
-        borderTopWidth: 1,
-        borderTopColor: '#e0e0e0',
-        gap: 12,
-    },
     uploadButtonContainer: {
-        backgroundColor: Colors['light'].componentBackground,
         borderTopWidth: StyleSheet.hairlineWidth,
-        borderTopColor: Colors['light'].icon,
+        borderTopColor: 'rgba(17,24,28,0.08)',
         paddingHorizontal: '4%',
-        paddingTop: 10,
+        paddingTop: 14,
     },
     uploadButton: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: 14,
+        paddingVertical: 16,
         borderRadius: 8,
         gap: 8,
-    },
-    uploadButtonText: {
-        color: Colors['light'].lightTint,
-        fontWeight: '600',
-        fontSize: 16,
     },
     // ============================================
     // Forms
     // ============================================
     formGroup: {
-        marginBottom: 20,
+        marginBottom: 28,
     },
     label: {
         fontSize: 14,
         fontWeight: '600',
-        color: '#1a1a1a',
-        marginBottom: 8,
+        color: glassColors.text,
+        marginBottom: 10,
     },
     input: {
-        backgroundColor: '#f5f5f5',
+        backgroundColor: 'rgba(17,24,28,0.03)',
         borderRadius: 8,
         paddingHorizontal: 12,
         paddingVertical: 10,
         fontSize: 14,
-        color: '#1a1a1a',
+        color: glassColors.text,
         borderWidth: 1,
-        borderColor: '#e0e0e0',
+        borderColor: 'rgba(17,24,28,0.12)',
     },
     textArea: {
         height: 100,
@@ -339,7 +313,7 @@ const styles = StyleSheet.create({
     estadoButtons: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        gap: 8,
+        gap: 12,
     },
     estadoButton: {
         flex: 1,
@@ -347,41 +321,44 @@ const styles = StyleSheet.create({
         paddingVertical: 10,
         paddingHorizontal: 12,
         borderRadius: 6,
-        backgroundColor: '#f5f5f5',
+        backgroundColor: 'rgba(17,24,28,0.03)',
         borderWidth: 1,
-        borderColor: '#ddd',
+        borderColor: 'rgba(17,24,28,0.12)',
         alignItems: 'center',
     },
     estadoButtonActive: {
-        backgroundColor: '#007AFF',
-        borderColor: '#007AFF',
+        backgroundColor: 'rgba(26,115,232,0.18)',
+        borderColor: 'rgba(26,115,232,0.5)',
     },
     estadoButtonText: {
         fontSize: 12,
         fontWeight: '600',
-        color: '#666',
+        color: glassColors.textMuted,
     },
     estadoButtonTextActive: {
-        color: '#fff',
+        color: glassColors.link,
     },
     // ============================================
     // Objetivo Info
     // ============================================
     objetivoInfo: {
-        backgroundColor: '#f5f5f5',
-        borderRadius: 8,
         padding: 12,
+        marginBottom: 16,
         borderLeftWidth: 3,
-        borderLeftColor: '#007AFF',
+        borderLeftColor: glassColors.link,
     },
     infoTitle: {
         fontSize: 14,
         fontWeight: '700',
-        color: '#1a1a1a',
+        color: glassColors.text,
         marginBottom: 4,
     },
     infoEstado: {
         fontSize: 12,
-        color: '#666',
+        color: glassColors.textMuted,
+    },
+    infoEstadoStrong: {
+        color: glassColors.text,
+        fontWeight: '800',
     },
 });

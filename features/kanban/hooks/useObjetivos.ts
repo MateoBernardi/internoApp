@@ -10,10 +10,11 @@ import {
     editObjetivo,
     fetchObjetivos,
     invitadosObjetivo,
+    marcarObjetivoVisto,
     updateObjetivo
 } from '../services/kanbanApi';
 
-const OBJETIVOS_QUERY_KEY = ['objetivos'];
+export const OBJETIVOS_QUERY_KEY = ['objetivos'];
 
 /**
  * Hook para obtener todos los objetivos del kanban
@@ -51,10 +52,14 @@ export function useCreateObjetivo(idempotencyKey?: string) {
             return createObjetivo(token, data, idempotencyKey);
         },
         onSuccess: (newObjetivo) => {
-            // Actualizar el cache agregando el nuevo objetivo
+            // Actualización optimista: agregar el nuevo objetivo de inmediato
             queryClient.setQueryData(OBJETIVOS_QUERY_KEY, (old: Objetivo[] | undefined) => {
                 return old ? [...old, newObjetivo] : [newObjetivo];
             });
+            // Refetch: la respuesta de creación puede no traer los invitados
+            // hidratados con nombre/apellido (a diferencia del GET /kanban),
+            // así que invalidamos para reconciliar con datos completos.
+            queryClient.invalidateQueries({ queryKey: OBJETIVOS_QUERY_KEY });
             queryClient.invalidateQueries({
                 queryKey: solicitudesQueryKeys.all,
             });
@@ -235,6 +240,29 @@ export function useDeleteObjetivo() {
             // Eliminar del cache
             queryClient.setQueryData(OBJETIVOS_QUERY_KEY, (old: Objetivo[] | undefined) => {
                 return old ? old.filter((obj) => obj.id !== deletedId) : undefined;
+            });
+        },
+    });
+}
+
+/**
+ * Hook para marcar un objetivo como visto por el usuario actual
+ */
+export function useMarcarObjetivoVisto() {
+    const queryClient = useQueryClient();
+    const { tokens } = useAuth();
+
+    return useMutation({
+        mutationFn: async (id: number) => {
+            const token = tokens?.accessToken;
+            if (!token) {
+                throw new Error('No hay token de acceso');
+            }
+            return marcarObjetivoVisto(token, id);
+        },
+        onSuccess: (_, id) => {
+            queryClient.setQueryData(OBJETIVOS_QUERY_KEY, (old: Objetivo[] | undefined) => {
+                return old?.map((obj) => (obj.id === id ? { ...obj, seen: true } : obj));
             });
         },
     });

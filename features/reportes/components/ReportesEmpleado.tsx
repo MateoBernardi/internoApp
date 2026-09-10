@@ -1,39 +1,32 @@
+import { OwnFlatList } from '@/components/FlatList';
 import { ThemedText } from '@/components/themed-text';
 import { CreateButton } from '@/components/ui/CreateButton';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { Colors } from '@/constants/theme';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
 import React, { useCallback, useState } from 'react';
+import { glassStyles } from '@/shared/ui/glass';
 import {
-	ScrollView,
 	StyleSheet,
 	TouchableOpacity,
 	View
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { EstadoReporte, Reporte } from '../models/Reporte';
+import { Reporte } from '../models/Reporte';
+import { getReporteEstadoPresentation } from '../presentation';
 import { useReportes } from '../viewmodels/useReportes';
 import CrearReporte from '../views/CrearReporte';
 import { ReporteModal } from './ReporteModal';
 
-const estadoMapping: Record<EstadoReporte, string> = {
-	'PENDIENTE': 'Pendiente',
-	'DISPUTA': 'En disputa',
-	'ASENTADO': 'Asentado',
-	'DESESTIMADO': 'Desestimado',
-};
 
 interface ReportesEmpleadoProps {
 	userId: string;
 	userNombre?: string;
 	userApellido?: string;
-	fabBehavior?: 'container' | 'viewport';
 }
 
 const colors = Colors['light'];
 
-export function ReportesEmpleado({ userId, userNombre = '', userApellido = '', fabBehavior = 'container' }: ReportesEmpleadoProps) {
-	const insets = useSafeAreaInsets();
+export function ReportesEmpleado({ userId, userNombre = '', userApellido = '' }: ReportesEmpleadoProps) {
 	const { hasRole } = useRoleCheck();
 	const { data: reportes, isLoading, error } = useReportes(userId);
 	const canCreateReporte = hasRole(['gerencia', 'personasRelaciones', 'encargado']);
@@ -60,40 +53,17 @@ export function ReportesEmpleado({ userId, userNombre = '', userApellido = '', f
 		setCreateModalVisible(false);
 	}, []);
 
-	const Separator = useCallback(() => (
-		<View
-			style={{
-				height: StyleSheet.hairlineWidth,
-				backgroundColor: colors.secondaryText,
-				marginHorizontal: '4%',
-			}}
-		/>
-	), []);
 
-	const renderCreateButton = useCallback(() => {
+	const renderHeader = useCallback(() => {
 		if (!canCreateReporte) return null;
 
-		if (fabBehavior === 'viewport') {
-			return (
-				<View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-					<View style={[styles.viewportFabContainer, { bottom: insets.bottom + 16, right: 36 }]}>
-						<CreateButton
-							onPress={handleCrearReporte}
-							accessibilityLabel="Crear nuevo reporte"
-						/>
-					</View>
-				</View>
-			);
-		}
-
 		return (
-			<CreateButton
-				onPress={handleCrearReporte}
-				style={{ ...styles.createButton, bottom: insets.bottom + 16, right: 36 }}
-				accessibilityLabel="Crear nuevo reporte"
-			/>
+			<View style={styles.header}>
+				<ThemedText style={styles.createLegend}>Generar nuevo reporte</ThemedText>
+				<CreateButton onPress={handleCrearReporte} accessibilityLabel="Nuevo reporte" />
+			</View>
 		);
-	}, [canCreateReporte, fabBehavior, handleCrearReporte, insets.bottom]);
+	}, [canCreateReporte, handleCrearReporte]);
 
 	if (isLoading) {
 		return (
@@ -104,7 +74,7 @@ export function ReportesEmpleado({ userId, userNombre = '', userApellido = '', f
 	if (error) {
 		return (
 			<View style={styles.centerContainer}>
-
+				<ThemedText style={styles.errorText}>No se pudieron cargar los reportes.</ThemedText>
 			</View>
 		);
 	}
@@ -112,6 +82,7 @@ export function ReportesEmpleado({ userId, userNombre = '', userApellido = '', f
 	if (!reportes || reportes.length === 0) {
 		return (
 			<View style={styles.container}>
+				{renderHeader()}
 				<View style={styles.centerContainer}>
 					<ThemedText type="subtitle">No hay reportes para este usuario</ThemedText>
 				</View>
@@ -124,29 +95,26 @@ export function ReportesEmpleado({ userId, userNombre = '', userApellido = '', f
 						user_apellido={userApellido}
 					/>
 				)}
-				{renderCreateButton()}
 			</View>
 		);
 	}
 
 	return (
 		<View style={styles.container}>
-			<ScrollView
-				style={styles.listScroll}
+			{renderHeader()}
+			<OwnFlatList
+				data={reportes}
+				renderItem={({ item }) => (
+					<MiReporteItem
+						reporte={item}
+						onPress={() => handleOpenReporte(item)}
+					/>
+				)}
+				keyExtractor={(item) => item.id.toString()}
+				showSeparators={false}
 				contentContainerStyle={styles.listContent}
 				showsVerticalScrollIndicator={false}
-			>
-				{reportes.map((item, index) => (
-					<React.Fragment key={item.id.toString()}>
-						{index > 0 && <Separator />}
-						<MiReporteItem
-							reporte={item}
-							estadoUI={estadoMapping[item.estado] || item.estado}
-							onPress={() => handleOpenReporte(item)}
-						/>
-					</React.Fragment>
-				))}
-			</ScrollView>
+			/>
 			{selectedReporte && (
 				<ReporteModal
 					visible={modalVisible}
@@ -164,40 +132,22 @@ export function ReportesEmpleado({ userId, userNombre = '', userApellido = '', f
 					user_apellido={userApellido}
 				/>
 			)}
-			{renderCreateButton()}
 		</View>
 	);
 }
 
 interface MiReporteItemProps {
 	reporte: Reporte;
-	estadoUI: string;
 	onPress: () => void;
 }
 
-function MiReporteItem({ reporte, estadoUI, onPress }: MiReporteItemProps) {
-	const getEstadoColor = (estado: string): string => {
-		switch (estado) {
-			case 'Pendiente':
-				return '#FF9800';
-			case 'En disputa':
-				return '#F44336';
-			case 'Asentado':
-				return '#4CAF50';
-			case 'Desestimado':
-				return '#9C27B0';
-			default:
-				return colors.icon;
-		}
-	};
+function MiReporteItem({ reporte, onPress }: MiReporteItemProps) {
+	const estado = getReporteEstadoPresentation(reporte.estado);
 
 	return (
 		<TouchableOpacity
 			onPress={onPress}
-			style={[
-				styles.itemContainer,
-				{ backgroundColor: colors.componentBackground },
-			]}
+			style={[glassStyles.card, styles.itemContainer]}
 		>
 			<View style={styles.itemContent}>
 				{/* Nombre y apellido del creador */}
@@ -210,9 +160,9 @@ function MiReporteItem({ reporte, estadoUI, onPress }: MiReporteItemProps) {
 				<View style={styles.footerContainer}>
 					<View style={[
 						styles.estadoBadge,
-						{ backgroundColor: getEstadoColor(estadoUI) + '20' },
+						{ backgroundColor: estado.backgroundColor },
 					]}>
-						<ThemedText style={[styles.estadoText, { color: getEstadoColor(estadoUI) }]}>{estadoUI}</ThemedText>
+						<ThemedText style={[styles.estadoText, { color: estado.color }]}>{estado.label}</ThemedText>
 					</View>
 					<ThemedText style={[styles.dateText, { color: colors.text }]}>Creado: {new Date(reporte.created_at).toLocaleDateString()}</ThemedText>
 				</View>
@@ -241,19 +191,27 @@ const styles = StyleSheet.create({
 	errorText: {
 		marginBottom: 8,
 	},
-	createButton: {
-		position: 'absolute',
-		right: 36,
+	header: {
+		flexDirection: 'row',
+		justifyContent: 'space-between',
+		alignItems: 'center',
+		gap: 10,
+		paddingHorizontal: '4%',
+		paddingVertical: 10,
+		backgroundColor: colors.componentBackground,
+		borderBottomWidth: 1,
+		borderBottomColor: colors.background,
 	},
-	viewportFabContainer: {
-		position: 'absolute',
-		zIndex: 1000,
-		elevation: 10,
+	createLegend: {
+		fontSize: 14,
+		fontWeight: '700',
+		color: colors.text,
 	},
 	itemContainer: {
-		paddingHorizontal: '4%',
-		paddingVertical: '2%',
-		backgroundColor: colors.componentBackground,
+		marginHorizontal: '4%',
+		marginVertical: 4,
+		paddingHorizontal: '3%',
+		paddingVertical: '3%',
 	},
 	itemContent: {
 		flexDirection: 'column',

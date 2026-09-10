@@ -2,7 +2,9 @@ import { useAuth } from '@/features/auth/context/AuthContext';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   createObjetivoHoras,
+  deleteObjetivoHoras,
   getHorasExtra,
+  getHorasSemanalesVsObjetivo,
   getMovimientos,
   getObjetivosHoras,
   liquidarHorasExtra,
@@ -22,6 +24,8 @@ export const horasExtraQueryKeys = {
   movimientos: (userContextId: number, mes: string) =>
     ['horasExtra', 'movimientos', userContextId, mes] as const,
   objetivos: ['horasExtra', 'objetivos'] as const,
+  semanales: (fechaInicio: string, fechaFin: string, filter: HorasExtraFilter) =>
+    ['horasExtra', 'semanales', fechaInicio, fechaFin, filter.userContextId ?? null, filter.role ?? null] as const,
 };
 
 export function useHorasExtra(filter: HorasExtraFilter) {
@@ -61,6 +65,27 @@ export function useMovimientos(userContextId: number | undefined, mes: string, e
     gcTime: 1000 * 60 * 10,
     retry: 2,
     retryDelay: (i) => Math.min(1000 * 2 ** i, 15000),
+  });
+}
+
+/**
+ * Horas trabajadas vs. objetivo semanal por usuario, para una semana dada
+ * (GET /horarios/objetivos/semanal). Sólo incluye usuarios con objetivo cargado.
+ */
+export function useHorasSemanalesVsObjetivo(fechaInicio: string, fechaFin: string, filter: HorasExtraFilter = {}) {
+  const { tokens } = useAuth();
+  return useQuery({
+    queryKey: horasExtraQueryKeys.semanales(fechaInicio, fechaFin, filter),
+    queryFn: async () => {
+      const token = tokens?.accessToken;
+      if (!token) throw new Error('No access token');
+      return getHorasSemanalesVsObjetivo(token, fechaInicio, fechaFin, filter);
+    },
+    staleTime: 0,
+    gcTime: 1000 * 60 * 10,
+    refetchOnMount: 'always',
+    retry: 3,
+    retryDelay: (i) => Math.min(1000 * 2 ** i, 30000),
   });
 }
 
@@ -115,6 +140,30 @@ export function useUpsertObjetivoHoras() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: horasExtraQueryKeys.objetivos });
+      queryClient.invalidateQueries({ queryKey: ['horasExtra', 'semanales'] });
+    },
+    retry: 0,
+  });
+}
+
+/**
+ * Elimina el objetivo semanal de un usuario. Igual que el upsert, no se
+ * reintenta (un reintento tras un éxito daría 404) y sólo invalida la query
+ * de objetivos.
+ */
+export function useDeleteObjetivoHoras() {
+  const { tokens } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (userContextId: number) => {
+      const token = tokens?.accessToken;
+      if (!token) throw new Error('No access token');
+      return deleteObjetivoHoras(token, userContextId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: horasExtraQueryKeys.objetivos });
+      queryClient.invalidateQueries({ queryKey: ['horasExtra', 'semanales'] });
     },
     retry: 0,
   });

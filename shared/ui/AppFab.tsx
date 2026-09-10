@@ -1,4 +1,5 @@
 import { Colors, UI } from '@/constants/theme';
+import { boxShadow } from '@/shared/ui/boxShadow';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { ActivityIndicator, StyleSheet, TouchableOpacity, ViewStyle } from 'react-native';
@@ -60,9 +61,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     elevation: UI.shadow.elevation,
-    shadowColor: UI.shadow.color,
-    shadowOffset: UI.shadow.offset,
-    shadowOpacity: UI.shadow.opacity,
-    shadowRadius: UI.shadow.radius,
+    boxShadow: boxShadow(UI.shadow.offset, UI.shadow.opacity, UI.shadow.radius, UI.shadow.color),
   },
 });

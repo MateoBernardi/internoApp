@@ -1,5 +1,8 @@
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
+import { boxShadow } from '@/shared/ui/boxShadow';
+import { focusBorderStyles, glassColors } from '@/shared/ui/glass';
+import { useFocusBorder } from '@/shared/ui/useFocusBorder';
 import { UserSummary } from '@/shared/users/User';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
@@ -8,11 +11,13 @@ import {
   Modal,
   Platform,
   ScrollView,
+  StyleProp,
   StyleSheet, TextInput, TouchableOpacity,
   TouchableWithoutFeedback,
   UIManager,
   useWindowDimensions,
   View,
+  ViewStyle,
 } from 'react-native';
 
 if (Platform.OS === 'android') {
@@ -33,6 +38,7 @@ interface UserSelectorProps {
   showSelectedChips?: boolean;
   onSearch: (query: string) => void;
   onSelectRole: (role: string) => void;
+  inputWrapperStyle?: StyleProp<ViewStyle>;
 }
 
 const colors = Colors['light'];
@@ -49,10 +55,12 @@ export function UserSelector({
   isLoadingRoles = false,
   showSelectedChips = true,
   onSearch,
-  onSelectRole
+  onSelectRole,
+  inputWrapperStyle,
 }: UserSelectorProps) {
   const { width } = useWindowDimensions();
   const [searchQuery, setSearchQuery] = useState('');
+  const searchFocus = useFocusBorder();
 
   // States for Modals/Popups
   const [isRolesVisible, setIsRolesVisible] = useState(false);
@@ -100,16 +108,18 @@ export function UserSelector({
     <View style={styles.container}>
       {/* Input Row */}
       <View style={styles.topRow}>
-        <View style={styles.inputWrapper}>
+        <View style={[styles.inputWrapper, searchFocus.isFocused && { borderColor: glassColors.link }, inputWrapperStyle]}>
           <TextInput
-            style={[styles.input, { color: colors.text }]}
+            style={[styles.input, { color: colors.text }, focusBorderStyles.inputNoOutline]}
             placeholder="Buscar usuario..."
             placeholderTextColor={colors.secondaryText}
             value={searchQuery}
             onChangeText={handleSearch}
             onFocus={() => {
               if (searchQuery.length > 0) setShowResults(true);
+              searchFocus.onFocus();
             }}
+            onBlur={searchFocus.onBlur}
             autoCapitalize="none"
           />
         </View>
@@ -263,6 +273,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginRight: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(17,24,28,0.12)',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
   label: {
     fontSize: 16,
@@ -273,7 +288,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     padding: 0,
-    height: 30, // Increased height for easier touch
+    height: 40, // Increased height for easier touch
   },
   rolesButton: {
     flexDirection: 'row',
@@ -334,10 +349,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     maxHeight: 320,
     elevation: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
+    boxShadow: boxShadow({ width: 0, height: 2 }, 0.15, 4),
     width: '100%',
     overflow: 'hidden',
   },

@@ -1,18 +1,21 @@
+import { AlertModal } from '@/components/AlertModal';
 import { ThemedText } from '@/components/themed-text';
 import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
 import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
 import { Colors } from '@/constants/theme';
 import { ArchivoUso } from '@/features/docs/models/Archivo';
 import { useUploadArchivo } from '@/features/docs/viewmodels/useArchivos';
+import { useAlertModal } from '@/features/solicitudesActividades/conversacion/hooks/useAlertModal';
+import { conversacionStyles } from '@/features/solicitudesActividades/conversacion/styles';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import type * as ImagePickerTypes from 'expo-image-picker';
 import { useRouter } from 'expo-router';
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
-    Modal,
+    BackHandler,
     ScrollView,
     StyleSheet,
     Switch,
@@ -21,6 +24,12 @@ import {
     View,
 } from 'react-native';
 import { generateIdempotencyKey } from '@/shared/idempotency';
+import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
+import { GlassButton } from '@/shared/ui/GlassButton';
+import { focusBorderStyles, glassColors, glassStyles } from '@/shared/ui/glass';
+import { useKeyboardHeight } from '@/shared/ui/keyboard';
+import { useFocusBorder } from '@/shared/ui/useFocusBorder';
+import { useSafeBottomInset } from '@/hooks/useSafeBottomInset';
 import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CreateSolicitudDTO } from '../models/SolicitudLicencia';
@@ -69,6 +78,8 @@ interface CrearSolicitudesLicenciasProps {
 export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps) {
     const router = useRouter();
     const insets = useSafeAreaInsets();
+    const bottomInset = useSafeBottomInset();
+    const keyboardHeight = useKeyboardHeight();
     const modalVisible = props?.visible ?? true;
     const handleClose = props?.onClose ?? (() => router.back());
 
@@ -90,6 +101,7 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
     const [cantidadMode, setCantidadMode] = useState<CantidadMode>('dias');
 
     const [observacion, setObservacion] = useState('');
+    const observacionFocus = useFocusBorder();
     const [archivoAdjunto, setArchivoAdjunto] = useState<{ name: string; uri: string; type: string; size?: number } | null>(null);
     const [isUploadingFile, setIsUploadingFile] = useState(false);
     const isSubmittingRef = useRef(false);
@@ -101,6 +113,7 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
     const { mutate: crearSolicitud, isPending } = useCreateSolicitudLicencia();
     const { mutate: adjuntarArchivoMutation, isPending: isAdjuntando } = useAdjuntarArchivo();
     const { mutateAsync: uploadArchivo } = useUploadArchivo();
+    const { alertModal, showModal, closeAlert, onModalDismiss } = useAlertModal();
 
     // --- Derivados ---
     const selectedTipo = useMemo(() =>
@@ -210,19 +223,19 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
                 size: asset.size,
             });
         } catch {
-            Alert.alert('Error', 'No se pudo seleccionar el archivo.');
+            showModal('Error', 'No se pudo seleccionar el archivo.');
         }
-    }, []);
+    }, [showModal]);
 
     // --- Tomar Foto (cámara) ---
     const handleTomarFoto = useCallback(async () => {
         if (!ImagePicker) {
-            Alert.alert('No disponible', 'La cámara no está disponible en este dispositivo.');
+            showModal('No disponible', 'La cámara no está disponible en este dispositivo.');
             return;
         }
         const { status } = await ImagePicker.requestCameraPermissionsAsync();
         if (status !== 'granted') {
-            Alert.alert('Permiso denegado', 'Se necesita acceso a la cámara para tomar fotos.');
+            showModal('Permiso denegado', 'Se necesita acceso a la cámara para tomar fotos.');
             return;
         }
         const result = await ImagePicker.launchCameraAsync({ mediaTypes: 'images', quality: 0.8 });
@@ -236,7 +249,7 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
                 size: asset.fileSize,
             });
         }
-    }, []);
+    }, [showModal]);
 
     // --- Menú de adjunto (cámara / archivo), igual que en Chats ---
     const handleAgregarAdjunto = useCallback(() => {
@@ -252,7 +265,7 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
         if (isPending || isSubmittingRef.current) return;
         if (!tipoLicenciaId) return;
         if (!fechaInicio) {
-            Alert.alert('La fecha de inicio es requerida.');
+            showModal('La fecha de inicio es requerida.');
             return;
         }
 
@@ -297,11 +310,11 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
                         const archivosSubidos = archivoSubido?.exitosos;
                         if (!archivosSubidos || archivosSubidos.length === 0) {
                             setIsUploadingFile(false);
-                            Alert.alert(
+                            showModal(
                                 'Solicitud creada',
-                                'La solicitud fue creada pero no se pudo obtener el archivo para adjuntarlo.'
+                                'La solicitud fue creada pero no se pudo obtener el archivo para adjuntarlo.',
+                                [{ key: 'ok', label: 'Aceptar', onPress: handleClose, variant: 'primary' }]
                             );
-                            handleClose();
                             return;
                         }
                         adjuntarArchivoMutation(
@@ -309,68 +322,88 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
                             {
                                 onSuccess: () => {
                                     setIsUploadingFile(false);
-                                    Alert.alert('Éxito', 'Solicitud enviada con archivo adjunto.');
-                                    handleClose();
+                                    showModal('Éxito', 'Solicitud enviada con archivo adjunto.', [
+                                        { key: 'ok', label: 'Aceptar', onPress: handleClose, variant: 'primary' },
+                                    ]);
                                 },
                                 onError: () => {
                                     setIsUploadingFile(false);
-                                    Alert.alert('Solicitud creada', 'La solicitud fue creada pero no se pudo adjuntar el archivo. Podés adjuntarlo desde el detalle.');
-                                    handleClose();
+                                    showModal('Solicitud creada', 'La solicitud fue creada pero no se pudo adjuntar el archivo. Podés adjuntarlo desde el detalle.', [
+                                        { key: 'ok', label: 'Aceptar', onPress: handleClose, variant: 'primary' },
+                                    ]);
                                 },
                             }
                         );
                     } catch {
                         setIsUploadingFile(false);
-                        Alert.alert('Solicitud creada', 'La solicitud fue creada pero no se pudo subir el archivo. Podés adjuntarlo desde el detalle.');
-                        handleClose();
+                        showModal('Solicitud creada', 'La solicitud fue creada pero no se pudo subir el archivo. Podés adjuntarlo desde el detalle.', [
+                            { key: 'ok', label: 'Aceptar', onPress: handleClose, variant: 'primary' },
+                        ]);
                     }
                 } else {
-                    Alert.alert('Éxito', 'Solicitud enviada correctamente.');
-                    handleClose();
+                    showModal('Éxito', 'Solicitud enviada correctamente.', [
+                        { key: 'ok', label: 'Aceptar', onPress: handleClose, variant: 'primary' },
+                    ]);
                 }
             },
             onError: (err: any) => {
                 isSubmittingRef.current = false;
-                Alert.alert('Error', err?.message || 'Intenta nuevamente');
+                showModal('Error', err?.message || 'Intenta nuevamente');
             },
         });
-    }, [isPending, crearSolicitud, tipoLicenciaId, fechaInicio, effectiveMode, cantidadDias, horas, observacion, archivoAdjunto, uploadArchivo, adjuntarArchivoMutation, handleClose]);
+    }, [isPending, crearSolicitud, tipoLicenciaId, fechaInicio, effectiveMode, cantidadDias, horas, observacion, archivoAdjunto, uploadArchivo, adjuntarArchivoMutation, handleClose, showModal]);
 
     const handleCrearSolicitud = useCallback(() => {
         if (!isFormValid || isPending) return;
         if (selectedTipo?.requiere_adjunto && !archivoAdjunto) {
-            Alert.alert(
+            showModal(
                 'Adjunto Requerido',
                 'Esta solicitud requiere documentación. Si continuás sin adjuntarla, quedará en estado "Pendiente Documentación".',
                 [
-                    { text: 'Cancelar', style: 'cancel' },
-                    { text: 'Crear sin adjunto', style: 'destructive', onPress: procederCrearSolicitud },
+                    { key: 'cancel', label: 'Cancelar', onPress: () => { } },
+                    { key: 'confirm', label: 'Crear sin adjunto', onPress: procederCrearSolicitud, variant: 'destructive' },
                 ]
             );
         } else {
             procederCrearSolicitud();
         }
-    }, [isFormValid, isPending, selectedTipo, archivoAdjunto, procederCrearSolicitud]);
+    }, [isFormValid, isPending, selectedTipo, archivoAdjunto, procederCrearSolicitud, showModal]);
 
     const isSubmitting = isPending || isUploadingFile || isAdjuntando;
 
+    useEffect(() => {
+        if (!modalVisible) return;
+        const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+            handleClose();
+            return true;
+        });
+        return () => sub.remove();
+    }, [modalVisible, handleClose]);
+
+    if (!modalVisible) return null;
+
     // ==================== RENDER ====================
     return (
-        <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={handleClose}>
-            <View style={styles.overlay}>
+        <FullScreenPortal>
+        <View style={styles.fullScreen}>
                 <ModalKeyboardView style={styles.keyboardContainer}>
-                    <View style={[styles.container, { paddingBottom: insets.bottom }]}>
-                        <View style={[styles.modalHeader, { paddingTop: insets.top + 10 }]}>
-                            <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-                                <Ionicons name="close" size={24} color="#999" />
+                    <View style={styles.container}>
+                        <View style={[conversacionStyles.modalHeader, { paddingTop: insets.top + 10, alignItems: 'flex-start' }]}>
+                            <TouchableOpacity onPress={handleClose} style={conversacionStyles.backButton}>
+                                <Ionicons name="chevron-back" size={24} color={glassColors.textMuted} />
                             </TouchableOpacity>
                         </View>
-                        <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: 120 }}>
+                        <ScrollView
+                            style={styles.content}
+                            contentContainerStyle={{ paddingBottom: 120 + keyboardHeight }}
+                            keyboardShouldPersistTaps="handled"
+                            keyboardDismissMode="on-drag"
+                            showsVerticalScrollIndicator={false}
+                        >
 
                             {/* ── Tipo de Licencia ── */}
                             <View style={styles.sectionCard}>
                                 <TouchableOpacity onPress={() => setShowTipoLicenciaModal(!showTipoLicenciaModal)} style={styles.selectInput}>
-                                    <Ionicons name="ribbon-outline" size={20} color={colors.icon} />
                                     <ThemedText style={[styles.selectText, !tipoLicenciaId && { color: colors.icon }]}>
                                         {selectedTipo?.nombre || 'Seleccionar tipo de licencia'}
                                     </ThemedText>
@@ -398,7 +431,6 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
                                                     style={[styles.dropdownItem, tipoLicenciaId === tipo.id && styles.activeItem]}
                                                 >
                                                     <ThemedText style={tipoLicenciaId === tipo.id ? styles.activeItemText : {}}>{tipo.nombre}</ThemedText>
-                                                    {tipo.requiere_saldo && <Ionicons name="pie-chart" size={14} color={colors.lightTint} />}
                                                 </TouchableOpacity>
                                             ))
                                         )}
@@ -409,33 +441,32 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
                             {/* ── Fecha de Inicio ── */}
                             <View style={styles.sectionCard}>
                                 <View style={styles.rowInfo}>
-                                    <Ionicons name="calendar-outline" size={20} color={colors.lightTint} />
                                     <ThemedText style={styles.sectionLabel}>Fecha de Inicio</ThemedText>
                                 </View>
 
-                                <TouchableOpacity onPress={() => {
-                                    setShowTimePicker(false);
-                                    setShowDatePicker(true);
-                                }} style={styles.datePickerRow}>
-                                    <ThemedText style={styles.dateLabel}>Día</ThemedText>
-                                    <ThemedText style={styles.dateValue}>
-                                        {fechaInicio
-                                            ? fechaInicio.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })
-                                            : 'Seleccionar fecha'}
-                                    </ThemedText>
-                                </TouchableOpacity>
+                                <View style={styles.dateRow}>
+                                    <TouchableOpacity onPress={() => {
+                                        setShowTimePicker(false);
+                                        setShowDatePicker(true);
+                                    }} style={styles.dateButton}>
+                                        <ThemedText style={styles.dateValue}>
+                                            {fechaInicio
+                                                ? fechaInicio.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })
+                                                : 'Seleccionar fecha'}
+                                        </ThemedText>
+                                    </TouchableOpacity>
 
-                                <TouchableOpacity onPress={() => {
-                                    setShowDatePicker(false);
-                                    setShowTimePicker(true);
-                                }} style={styles.datePickerRow}>
-                                    <ThemedText style={styles.dateLabel}>Hora</ThemedText>
-                                    <ThemedText style={styles.dateValue}>
-                                        {fechaInicio
-                                            ? fechaInicio.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
-                                            : 'Seleccionar hora'}
-                                    </ThemedText>
-                                </TouchableOpacity>
+                                    <TouchableOpacity onPress={() => {
+                                        setShowDatePicker(false);
+                                        setShowTimePicker(true);
+                                    }} style={styles.timeButton}>
+                                        <ThemedText style={[styles.dateValue, styles.timeValue]}>
+                                            {fechaInicio
+                                                ? fechaInicio.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
+                                                : 'Seleccionar hora'}
+                                        </ThemedText>
+                                    </TouchableOpacity>
+                                </View>
 
                                 {dateErrorMessage && (
                                     <ThemedText style={styles.errorTextInline}>{dateErrorMessage}</ThemedText>
@@ -446,7 +477,6 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
                             {tipoLicenciaId && (
                                 <View style={styles.sectionCard}>
                                     <View style={styles.rowInfo}>
-                                        <Ionicons name="timer-outline" size={20} color={colors.lightTint} />
                                         <ThemedText style={styles.sectionLabel}>Cantidad</ThemedText>
                                     </View>
 
@@ -561,8 +591,7 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
                             {/* ── Saldo ── */}
                             {selectedTipo?.requiere_saldo && (
                                 <View style={[styles.sectionCard, styles.saldoCard, saldoDisponible < cantidadDias && styles.saldoError]}>
-                                    <Ionicons name="information-circle" size={20} color={saldoDisponible < cantidadDias ? colors.error : colors.lightTint} />
-                                    <View style={{ flex: 1, marginLeft: 12 }}>
+                                    <View style={{ flex: 1 }}>
                                         <ThemedText style={styles.saldoTitle}>Saldo Disponible</ThemedText>
                                         <ThemedText style={styles.saldoSubtitle}>
                                             {isLoadingSaldos ? '...' : `${saldoDisponible} días restantes`}
@@ -577,8 +606,7 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
                             {/* ── Saldo Franco Compensatorio (informativo) ── */}
                             {esFranco && (
                                 <View style={[styles.sectionCard, styles.saldoCard]}>
-                                    <Ionicons name="information-circle" size={20} color={colors.lightTint} />
-                                    <View style={{ flex: 1, marginLeft: 12 }}>
+                                    <View style={{ flex: 1 }}>
                                         <ThemedText style={styles.saldoTitle}>Saldo de Franco Compensatorio</ThemedText>
                                         <ThemedText style={styles.saldoSubtitle}>
                                             {isLoadingSaldos ? '...' : `${franco ?? 0} horas disponibles`}
@@ -591,16 +619,17 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
                             )}
 
                             {/* ── Observación ── */}
-                            <View style={styles.sectionCard}>
+                            <View style={[styles.sectionCard, observacionFocus.isFocused && { borderColor: glassColors.link }]}>
                                 <View style={styles.obsContainer}>
-                                    <Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.icon} style={{ marginTop: 4 }} />
                                     <TextInput
                                         placeholder="Añadir una nota u observación..."
                                         placeholderTextColor={colors.secondaryText}
                                         value={observacion}
                                         onChangeText={setObservacion}
+                                        onFocus={observacionFocus.onFocus}
+                                        onBlur={observacionFocus.onBlur}
                                         multiline
-                                        style={styles.textInput}
+                                        style={[styles.textInput, focusBorderStyles.inputNoOutline]}
                                     />
                                 </View>
                             </View>
@@ -609,11 +638,6 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
                             {selectedTipo?.requiere_adjunto && (
                                 <View style={[styles.sectionCard, !archivoAdjunto && styles.adjuntoRequerido]}>
                                     <View style={styles.rowInfo}>
-                                        <Ionicons
-                                            name="document-attach-outline"
-                                            size={20}
-                                            color={!archivoAdjunto ? colors.lightTint : colors.icon}
-                                        />
                                         <ThemedText style={[styles.sectionLabel, !archivoAdjunto && { color: colors.lightTint }]}>
                                             {!archivoAdjunto ? 'Adjunto Requerido' : 'Adjunto'}
                                         </ThemedText>
@@ -635,8 +659,7 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
                                         </TouchableOpacity>
                                     ) : (
                                         <View style={styles.adjuntoSeleccionado}>
-                                            <Ionicons name="document" size={24} color={colors.lightTint} />
-                                            <View style={{ flex: 1, marginLeft: 12 }}>
+                                            <View style={{ flex: 1 }}>
                                                 <ThemedText style={styles.adjuntoNombre} numberOfLines={1}>{archivoAdjunto.name}</ThemedText>
                                                 {archivoAdjunto.size && (
                                                     <ThemedText style={{ fontSize: 12, color: colors.secondaryText }}>
@@ -654,16 +677,15 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
 
                         </ScrollView>
 
-                        {/* FAB */}
-                        <View style={[styles.uploadButtonContainer]}>
-                            <TouchableOpacity
+                        <View style={[styles.uploadButtonContainer, { paddingBottom: bottomInset }]}>
+                            <GlassButton
+                                label="Crear"
                                 onPress={handleCrearSolicitud}
-                                style={[styles.uploadButton, { backgroundColor: Colors['light'].componentBackground }]}
-                            >
-                                <Ionicons name="cloud-upload" size={20} color={Colors['light'].lightTint} />
-                                <ThemedText style={styles.uploadButtonText}>{'Crear'}</ThemedText>
-
-                            </TouchableOpacity>
+                                loading={isPending}
+                                disabled={!isFormValid}
+                                icon={(color) => <Ionicons name="cloud-upload" size={20} color={color} />}
+                                style={styles.uploadButton}
+                            />
                         </View>
 
                         {showDatePicker && (
@@ -695,61 +717,53 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
                     </View>
                 </ModalKeyboardView>
                 <OperacionPendienteModal visible={isPending} />
-            </View>
-        </Modal>
+                <AlertModal {...alertModal} onClose={closeAlert} onDismiss={onModalDismiss} />
+        </View>
+        </FullScreenPortal>
     );
 }
 
 const styles = StyleSheet.create({
-    overlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.5)',
+    fullScreen: {
+        ...StyleSheet.absoluteFill,
+        backgroundColor: colors.componentBackground,
+        zIndex: 1000,
+        elevation: 8,
     },
     keyboardContainer: {
         flex: 1,
-        justifyContent: 'flex-end',
     },
     container: {
         flex: 1,
-        marginTop: '10%',
         backgroundColor: colors.componentBackground,
-        borderTopLeftRadius: 16,
-        borderTopRightRadius: 16,
-        overflow: 'hidden',
-    },
-    modalHeader: {
-        paddingHorizontal: 12,
-        paddingVertical: 10,
-        borderBottomWidth: 1,
-        borderBottomColor: colors.background,
-        alignItems: 'flex-end',
-    },
-    closeButton: {
-        padding: 6,
-        borderRadius: 16,
-        backgroundColor: '#f3f4f6',
     },
     content: { flex: 1 },
     sectionCard: {
-        backgroundColor: colors.componentBackground,
         marginHorizontal: 16,
         marginTop: 16,
-        borderRadius: 12,
         padding: 16,
-        borderWidth: 1,
-        borderColor: colors.background,
+        ...glassStyles.card,
     },
     rowInfo: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-    sectionLabel: { marginLeft: 8, fontSize: 14, color: colors.lightTint, fontWeight: '600' },
-    datePickerRow: {
+    sectionLabel: { fontSize: 14, color: colors.lightTint, fontWeight: '600' },
+    dateRow: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
-        paddingVertical: 12,
-        borderBottomWidth: StyleSheet.hairlineWidth,
-        borderBottomColor: colors.background,
+        gap: 8,
+        alignItems: 'stretch',
     },
-    dateLabel: { fontSize: 15, color: colors.lightTint },
-    dateValue: { fontSize: 15, color: colors.text, fontWeight: '500' },
+    dateButton: {
+        ...glassStyles.buttonSecondary,
+        flex: 1,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+    },
+    timeButton: {
+        ...glassStyles.buttonSecondary,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+    },
+    dateValue: { fontSize: 15, color: colors.lightTint, fontWeight: '500', textAlign: 'center' },
+    timeValue: { fontWeight: '600' },
     errorTextInline: { color: colors.error, fontSize: 12, marginTop: 8 },
     summaryContainer: { marginTop: 12, alignItems: 'flex-end' },
     summaryText: { fontSize: 14, color: colors.secondaryText },
@@ -757,27 +771,24 @@ const styles = StyleSheet.create({
     modeToggleContainer: {
         flexDirection: 'row',
         marginBottom: 16,
-        borderRadius: 8,
         overflow: 'hidden',
-        borderWidth: 1,
-        borderColor: colors.background,
+        ...glassStyles.fieldGlass,
     },
     modeToggleBtn: {
         flex: 1,
         paddingVertical: 10,
         alignItems: 'center',
-        backgroundColor: colors.componentBackground,
     },
     modeToggleBtnActive: {
-        backgroundColor: colors.lightTint,
+        backgroundColor: 'rgba(26,115,232,0.12)',
     },
     modeToggleText: {
         fontSize: 14,
         fontWeight: '600',
-        color: colors.secondaryText,
+        color: glassColors.textMuted,
     },
     modeToggleTextActive: {
-        color: colors.componentBackground,
+        color: glassColors.link,
     },
     // Stepper
     stepperSection: {
@@ -793,7 +804,7 @@ const styles = StyleSheet.create({
         width: 44,
         height: 44,
         borderRadius: 22,
-        borderWidth: 1.5,
+        borderWidth: 1,
         borderColor: colors.lightTint,
         justifyContent: 'center',
         alignItems: 'center',
@@ -825,7 +836,7 @@ const styles = StyleSheet.create({
         marginTop: 16,
         paddingTop: 12,
         borderTopWidth: StyleSheet.hairlineWidth,
-        borderTopColor: colors.background,
+        borderTopColor: 'rgba(17,24,28,0.08)',
     },
     halfDayLabel: {
         fontSize: 14,
@@ -833,14 +844,14 @@ const styles = StyleSheet.create({
     },
     // Tipo de licencia
     selectInput: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4 },
-    selectText: { flex: 1, marginLeft: 12, fontSize: 16 },
-    dropdownList: { marginTop: 12, borderTopWidth: 1, borderTopColor: colors.background },
+    selectText: { flex: 1, fontSize: 16 },
+    dropdownList: { marginTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(17,24,28,0.12)' },
     dropdownItem: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         paddingVertical: 14,
         borderBottomWidth: StyleSheet.hairlineWidth,
-        borderBottomColor: colors.background,
+        borderBottomColor: 'rgba(17,24,28,0.08)',
     },
     activeItem: {
         backgroundColor: colors.componentBackground,
@@ -850,7 +861,11 @@ const styles = StyleSheet.create({
     activeItemText: { color: colors.lightTint, fontWeight: '600' },
     // Saldo
     saldoCard: { flexDirection: 'row', alignItems: 'center' },
-    saldoError: {},
+    saldoError: {
+        backgroundColor: 'rgba(244,67,54,0.08)',
+        borderColor: 'rgba(244,67,54,0.35)',
+        borderWidth: 1,
+    },
     saldoTitle: { fontSize: 14, fontWeight: '600', color: colors.text },
     saldoSubtitle: { fontSize: 13, color: colors.secondaryText },
     warningText: { fontSize: 12, color: colors.lightTint, marginTop: 4, fontWeight: '500' },
@@ -859,7 +874,6 @@ const styles = StyleSheet.create({
     obsContainer: { flexDirection: 'row', alignItems: 'flex-start' },
     textInput: {
         flex: 1,
-        marginLeft: 12,
         fontSize: 16,
         minHeight: 80,
         textAlignVertical: 'top',
@@ -867,17 +881,17 @@ const styles = StyleSheet.create({
     },
     // Adjuntos
     adjuntoRequerido: {
-        borderColor: colors.lightTint,
-        borderWidth: 2,
-        backgroundColor: colors.lightTint + '08',
+        borderColor: 'rgba(26,115,232,0.35)',
+        borderWidth: 1,
+        backgroundColor: 'rgba(26,115,232,0.12)',
     },
     adjuntoButton: {
         marginTop: 8,
         paddingVertical: 20,
         paddingHorizontal: 16,
         borderStyle: 'dashed',
-        borderWidth: 2,
-        borderColor: colors.lightTint,
+        borderWidth: 1,
+        borderColor: 'rgba(26,115,232,0.35)',
         borderRadius: 8,
         alignItems: 'center',
         justifyContent: 'center',
@@ -892,41 +906,16 @@ const styles = StyleSheet.create({
         borderRadius: 8,
     },
     adjuntoNombre: { fontSize: 14, fontWeight: '500', color: colors.text },
-    // FAB
-    fab: {
-        position: 'absolute',
-        right: 24,
-        width: 64,
-        height: 64,
-        borderRadius: 32,
-        backgroundColor: colors.lightTint,
-        justifyContent: 'center',
-        alignItems: 'center',
-        elevation: 6,
-        shadowColor: '#000',
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
-    },
-    fabDisabled: { backgroundColor: colors.background },
     errorText: { color: colors.error, padding: 10, textAlign: 'center' },
     uploadButtonContainer: {
         backgroundColor: Colors['light'].componentBackground,
         borderTopWidth: StyleSheet.hairlineWidth,
-        borderTopColor: Colors['light'].icon,
+        borderTopColor: 'rgba(17,24,28,0.08)',
         paddingHorizontal: '4%',
-        paddingTop: 10,
+        paddingTop: 14,
     },
     uploadButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 14,
-        borderRadius: 8,
-        gap: 8,
-    },
-    uploadButtonText: {
-        color: Colors['light'].lightTint,
-        fontWeight: '600',
-        fontSize: 16,
+        alignSelf: 'stretch',
+        paddingVertical: 16,
     },
 });

@@ -28,6 +28,7 @@ import {
 } from "react-native";
 
 import { KEYBOARD_BEHAVIOR } from '@/shared/ui/keyboard';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 const colors = Colors["light"];
 
 type Step = "cuit" | "select-cuenta" | "verify" | "success";
@@ -248,19 +249,24 @@ export default function AsociarCuenta() {
     return <ScreenSkeleton rows={4} />;
   }
 
+  const isSelectionStep = step === "select-cuenta";
+  const StepContainer = (isSelectionStep ? View : ScrollView) as React.ComponentType<any>;
+  const stepContainerProps = isSelectionStep
+    ? {}
+    : {
+        contentContainerStyle: styles.scrollContent,
+        keyboardShouldPersistTaps: "handled",
+        showsVerticalScrollIndicator: false,
+      };
+
   return (
     <KeyboardAvoidingView
       style={styles.keyboardAvoid}
       behavior={KEYBOARD_BEHAVIOR}
       keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
     >
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        <ThemedView style={styles.formSection}>
+      <StepContainer style={styles.scrollView} {...stepContainerProps}>
+        <ThemedView style={[styles.formSection, isSelectionStep && styles.selectionScreen]}>
           {/* Header */}
           <View style={styles.headerContainer}>
             <ThemedText style={styles.title}>Asociar Cuenta</ThemedText>
@@ -274,9 +280,9 @@ export default function AsociarCuenta() {
 
           {/* Step: CUIT Input */}
           {step === "cuit" && (
-            <ThemedView style={styles.formContainer}>
+            <ThemedView style={[glassStyles.card, styles.formContainer]}>
               <InputWithIcon
-                icon="�"
+                variant="glass"
                 placeholder="CUIT (ej: 20-12345678-1)"
                 value={cuit}
                 onChangeText={(value) => {
@@ -305,17 +311,18 @@ export default function AsociarCuenta() {
               <Pressable
                 style={[
                   styles.button,
+                  glassStyles.button,
                   (!cuit || cuit.length === 0) && styles.buttonDisabled,
                 ]}
                 onPress={handleSearchCuit}
                 disabled={isSearching || cuit.length === 0}
               >
-                <Feather name="search" size={18} color={colors.componentBackground} style={{ marginRight: 8 }} />
+                <Feather name="search" size={18} color={glassColors.text} style={{ marginRight: 8 }} />
                 <ThemedText style={styles.buttonText}>Buscar Cuentas</ThemedText>
               </Pressable>
 
               <Pressable
-                style={styles.buttonDanger}
+                style={[glassStyles.buttonDanger, styles.buttonDanger]}
                 onPress={async () => {
                   await signOut();
                   // No llamamos a router.replace — el RootNavigator redirige automáticamente
@@ -329,7 +336,7 @@ export default function AsociarCuenta() {
 
           {/* Step: Select Cuenta */}
           {step === "select-cuenta" && (
-            <ThemedView style={styles.formContainer}>
+            <ThemedView style={[glassStyles.card, styles.formContainer, styles.selectionCard]}>
               <View style={styles.sectionHeader}>
                 <Feather name="users" size={18} color={colors.lightTint} style={{ marginRight: 8 }} />
                 <ThemedText style={styles.sectionTitle}>Cuentas Disponibles</ThemedText>
@@ -339,10 +346,12 @@ export default function AsociarCuenta() {
                 <FlatList
                   data={obtenerCuentasQuery.data.cuentas}
                   keyExtractor={(item) => item.id.toString()}
-                  scrollEnabled={false}
+                  style={styles.cuentasList}
+                  contentContainerStyle={styles.cuentasListContent}
                   renderItem={({ item }) => (
                     <Pressable
                       style={[
+                        glassStyles.card,
                         styles.cuentaCard,
                         selectedCuenta?.id === item.id && styles.selectedCard,
                       ]}
@@ -387,16 +396,17 @@ export default function AsociarCuenta() {
                 <Pressable
                   style={[
                     styles.button,
+                    glassStyles.button,
                     (!selectedCuenta || requestVerificationMutation.isPending) && styles.buttonDisabled,
                   ]}
                   onPress={handleRequestToken}
                   disabled={!selectedCuenta || requestVerificationMutation.isPending}
                 >
                   {requestVerificationMutation.isPending ? (
-                    <ActivityIndicator color={colors.componentBackground} size="small" />
+                    <ActivityIndicator color={glassColors.text} size="small" />
                   ) : (
                     <>
-                      <Feather name="send" size={18} color={colors.componentBackground} style={{ marginRight: 8 }} />
+                      <Feather name="send" size={18} color={glassColors.text} style={{ marginRight: 8 }} />
                       <ThemedText style={styles.buttonText}>Enviar Código</ThemedText>
                     </>
                   )}
@@ -404,7 +414,7 @@ export default function AsociarCuenta() {
               )}
 
               <Pressable
-                style={styles.buttonSecondary}
+                style={[glassStyles.buttonSecondary, styles.buttonSecondary]}
                 onPress={() => {
                   setStep("cuit");
                   setCuit("");
@@ -431,8 +441,8 @@ export default function AsociarCuenta() {
 
           {/* Step: Verification */}
           {step === "verify" && (
-            <ThemedView style={styles.formContainer}>
-              <View style={styles.timerContainer}>
+            <ThemedView style={[glassStyles.card, styles.formContainer]}>
+              <View style={[glassStyles.fieldGlass, styles.timerContainer]}>
                 <ThemedText style={[styles.timerText, { color: getTimerColor() }]}>
                   {formatTime(timeRemaining)}
                 </ThemedText>
@@ -449,7 +459,7 @@ export default function AsociarCuenta() {
               </ThemedText>
 
               <InputWithIcon
-                icon="🔐"
+                variant="glass"
                 placeholder="Código de 6 dígitos"
                 value={verificationToken}
                 onChangeText={setVerificationToken}
@@ -461,22 +471,23 @@ export default function AsociarCuenta() {
                 style={[
                   styles.button,
                   (!verificationToken || verifyAndAssociateMutation.isPending) && styles.buttonDisabled,
+                  glassStyles.button,
                 ]}
                 onPress={handleVerifyAndAssociate}
                 disabled={!verificationToken || verifyAndAssociateMutation.isPending}
               >
                 {verifyAndAssociateMutation.isPending ? (
-                  <ActivityIndicator color={colors.componentBackground} size="small" />
+                  <ActivityIndicator color={glassColors.text} size="small" />
                 ) : (
                   <>
-                    <Feather name="check" size={18} color={colors.componentBackground} style={{ marginRight: 8 }} />
+                    <Feather name="check" size={18} color={glassColors.text} style={{ marginRight: 8 }} />
                     <ThemedText style={styles.buttonText}>Verificar y Asociar</ThemedText>
                   </>
                 )}
               </Pressable>
 
               <Pressable
-                style={styles.buttonSecondary}
+                style={[glassStyles.buttonSecondary, styles.buttonSecondary]}
                 onPress={() => {
                   setStep("select-cuenta");
                   setVerificationToken("");
@@ -502,7 +513,7 @@ export default function AsociarCuenta() {
 
           {/* Step: Success */}
           {step === "success" && (
-            <ThemedView style={styles.formContainer}>
+            <ThemedView style={[glassStyles.card, styles.formContainer]}>
               <View style={styles.successContainer}>
                 <View style={styles.successIconContainer}>
                   <Feather name="check-circle" size={64} color={colors.success} />
@@ -517,7 +528,7 @@ export default function AsociarCuenta() {
             </ThemedView>
           )}
         </ThemedView>
-      </ScrollView>
+      </StepContainer>
     </KeyboardAvoidingView>
   );
 }
@@ -543,6 +554,21 @@ const styles = StyleSheet.create({
     marginBottom: 32,
     alignItems: "center",
   },
+  selectionScreen: {
+    paddingVertical: "5%",
+    minHeight: 0,
+  },
+  selectionCard: {
+    flex: 1,
+    minHeight: 0,
+  },
+  cuentasList: {
+    flex: 1,
+    minHeight: 0,
+  },
+  cuentasListContent: {
+    paddingBottom: 4,
+  },
   title: {
     fontSize: 28,
     fontWeight: "700",
@@ -556,15 +582,8 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   formContainer: {
-    backgroundColor: colors.componentBackground,
-    borderRadius: 16,
     padding: 24,
     gap: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 8,
   },
   sectionHeader: {
     flexDirection: "row",
@@ -577,57 +596,27 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   button: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.lightTint,
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 24,
     minHeight: 48,
-    elevation: 4,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
   },
   buttonDisabled: {
-    backgroundColor: colors.secondaryText,
     opacity: 0.5,
   },
   buttonText: {
-    color: colors.componentBackground,
+    color: glassColors.text,
     fontSize: 14,
     fontWeight: "600",
     letterSpacing: 0.3,
   },
   buttonSecondary: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.background,
-    borderColor: colors.tint,
-    borderWidth: 1.5,
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 24,
     minHeight: 48,
   },
   buttonTextSecondary: {
-    color: colors.tint,
+    color: glassColors.text,
     fontSize: 14,
     fontWeight: "600",
     letterSpacing: 0.3,
   },
   buttonDanger: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.background,
-    borderColor: colors.error,
-    borderWidth: 1.5,
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 24,
     minHeight: 48,
   },
   buttonDangerText: {
@@ -637,12 +626,8 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   cuentaCard: {
-    borderWidth: 1,
-    borderColor: "#e0e3e7",
-    borderRadius: 12,
     padding: 16,
     marginBottom: 12,
-    backgroundColor: colors.background,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -650,7 +635,7 @@ const styles = StyleSheet.create({
   selectedCard: {
     borderColor: colors.lightTint,
     borderWidth: 2,
-    backgroundColor: "#e8f0fe",
+    backgroundColor: "rgba(26,115,232,0.08)",
   },
   cuentaContent: {
     flex: 1,
@@ -667,8 +652,6 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   timerContainer: {
-    backgroundColor: colors.background,
-    borderRadius: 12,
     padding: 20,
     alignItems: "center",
   },

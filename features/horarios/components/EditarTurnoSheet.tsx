@@ -1,7 +1,7 @@
 import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
-import { Colors } from '@/constants/theme';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -14,16 +14,10 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeBottomInset } from '@/hooks/useSafeBottomInset';
 import type { SedeDTO } from '../models/HorarioDTO';
+import { INK, LINE, MUTED, NAVY, TURNO_ACTIVE, TURNO_SOFT } from '../theme';
 import type { Turno } from '../models/Turno';
-
-const colors = Colors['light'];
-const NAVY = '#2b1f5c';
-const TURNO_ACTIVE = '#2f86d6';
-const TURNO_ACTIVE_SOFT = '#e7f2fb';
-const LINE = '#e8eaed';
-const MUTED = '#7a8087';
-const INK = '#1c2024';
 
 interface EditarTurnoSheetProps {
   visible: boolean;
@@ -40,23 +34,29 @@ function SedeSelect({
   value,
   sedes,
   onChange,
+  disabled,
 }: {
   value: number;
   sedes: SedeDTO[];
   onChange: (id: number) => void;
+  disabled?: boolean;
 }) {
   const [open, setOpen] = React.useState(false);
   const selectedName = sedes.find((s) => s.id === value)?.nombre ?? `Sede ${value}`;
 
   return (
     <>
-      <TouchableOpacity style={styles.sedeBtn} onPress={() => setOpen(true)}>
+      <TouchableOpacity
+        style={[glassStyles.fieldGlass, styles.sedeBtn, disabled && styles.fieldDisabled]}
+        onPress={() => setOpen(true)}
+        disabled={disabled}
+      >
         <Text style={styles.sedeBtnText}>{selectedName}</Text>
         <Ionicons name="chevron-down" size={16} color={MUTED} />
       </TouchableOpacity>
       <Modal transparent visible={open} animationType="fade" onRequestClose={() => setOpen(false)}>
-        <TouchableOpacity style={styles.sedeOverlay} activeOpacity={1} onPress={() => setOpen(false)}>
-          <View style={styles.sedeMenu}>
+        <TouchableOpacity style={[glassStyles.modalOverlay, styles.sedeOverlay]} activeOpacity={1} onPress={() => setOpen(false)}>
+          <View style={[glassStyles.modalCard, styles.sedeMenu]}>
             {sedes.map((s) => (
               <TouchableOpacity
                 key={s.id}
@@ -86,6 +86,8 @@ export function EditarTurnoSheet({
   onSave,
 }: EditarTurnoSheetProps) {
   const insets = useSafeAreaInsets();
+  const bottomInset = useSafeBottomInset();
+  const [focusedField, setFocusedField] = useState<'ingreso' | 'egreso' | null>(null);
 
   // Ref sincrónico: persiste el último draft no-nulo para que el contenido
   // sea visible desde el primer render al abrir, y durante la animación de cierre.
@@ -97,6 +99,13 @@ export function EditarTurnoSheet({
   const lastDraftRef = useRef<Turno | null>(null);
   if (draft !== null) lastDraftRef.current = draft;
   const displayDraft = lastDraftRef.current;
+  // Cada lado del turno se bloquea por separado: si el empleado ya salió, el
+  // encargado sigue pudiendo corregir la salida mientras el turno está en curso.
+  const entradaBloqueada = Boolean(displayDraft?.marcadoInAt);
+  const salidaBloqueada = Boolean(displayDraft?.marcadoOutAt);
+  // Una vez que hubo algún escaneo, marcar "de licencia" retroactivamente no
+  // tiene sentido: el empleado ya fichó ese turno.
+  const licenciaBloqueada = entradaBloqueada || salidaBloqueada;
 
   return (
     <Modal
@@ -106,9 +115,9 @@ export function EditarTurnoSheet({
       onRequestClose={onClose}
       statusBarTranslucent={Platform.OS === 'android'}
     >
-      <View style={styles.overlay}>
+      <View style={[glassStyles.modalOverlay, styles.overlay]}>
         <ModalKeyboardView style={styles.kavWrapper}>
-          <View style={[styles.container, { paddingBottom: insets.bottom }]}>
+          <View style={[glassStyles.modalCard, styles.container, { paddingBottom: bottomInset }]}>
             <ScrollView
               contentContainerStyle={styles.scrollContent}
               keyboardShouldPersistTaps="handled"
@@ -124,6 +133,19 @@ export function EditarTurnoSheet({
 
               {displayDraft && (
                 <>
+                  {licenciaBloqueada && (
+                    <View style={styles.escaneadoBanner}>
+                      <Ionicons name="lock-closed" size={14} color={MUTED} />
+                      <Text style={styles.escaneadoBannerText}>
+                        {entradaBloqueada && salidaBloqueada
+                          ? 'Turno ya escaneado — el horario y la licencia no se pueden modificar'
+                          : entradaBloqueada
+                          ? 'Entrada ya escaneada — el ingreso y la licencia no se pueden modificar'
+                          : 'Salida ya escaneada — el egreso y la licencia no se pueden modificar'}
+                      </Text>
+                    </View>
+                  )}
+
                   <View style={styles.field}>
                     <Text style={styles.fieldLabel}>NOMBRE</Text>
                     <Text style={styles.fieldReadOnly}>{displayDraft.nombre}</Text>
@@ -137,27 +159,37 @@ export function EditarTurnoSheet({
                   <View style={styles.row2}>
                     <View style={[styles.field, { flex: 1 }]}>
                       <Text style={styles.fieldLabel}>INGRESO</Text>
-                      <TextInput
-                        style={styles.fieldInput}
-                        value={displayDraft.ingreso}
-                        onChangeText={(v) => onField('ingreso', formatTime(v))}
-                        placeholder="--:--"
-                        placeholderTextColor={MUTED}
-                        keyboardType="numeric"
-                        maxLength={5}
-                      />
+                      <View style={[glassStyles.fieldGlass, styles.timeInputContainer, focusedField === 'ingreso' && styles.inputFocused, entradaBloqueada && styles.fieldDisabled]}>
+                        <TextInput
+                          style={[styles.fieldInput, styles.inputNoOutline]}
+                          value={displayDraft.ingreso}
+                          onChangeText={(v) => onField('ingreso', formatTime(v))}
+                          placeholder="--:--"
+                          placeholderTextColor={MUTED}
+                          keyboardType="numeric"
+                          maxLength={5}
+                          editable={!entradaBloqueada}
+                          onFocus={() => setFocusedField('ingreso')}
+                          onBlur={() => setFocusedField(null)}
+                        />
+                      </View>
                     </View>
                     <View style={[styles.field, { flex: 1 }]}>
                       <Text style={styles.fieldLabel}>EGRESO</Text>
-                      <TextInput
-                        style={styles.fieldInput}
-                        value={displayDraft.egreso}
-                        onChangeText={(v) => onField('egreso', formatTime(v))}
-                        placeholder="--:--"
-                        placeholderTextColor={MUTED}
-                        keyboardType="numeric"
-                        maxLength={5}
-                      />
+                      <View style={[glassStyles.fieldGlass, styles.timeInputContainer, focusedField === 'egreso' && styles.inputFocused, salidaBloqueada && styles.fieldDisabled]}>
+                        <TextInput
+                          style={[styles.fieldInput, styles.inputNoOutline]}
+                          value={displayDraft.egreso}
+                          onChangeText={(v) => onField('egreso', formatTime(v))}
+                          placeholder="--:--"
+                          placeholderTextColor={MUTED}
+                          keyboardType="numeric"
+                          maxLength={5}
+                          editable={!salidaBloqueada}
+                          onFocus={() => setFocusedField('egreso')}
+                          onBlur={() => setFocusedField(null)}
+                        />
+                      </View>
                     </View>
                   </View>
 
@@ -167,6 +199,7 @@ export function EditarTurnoSheet({
                       value={displayDraft.sedeIdIngreso}
                       sedes={sedes}
                       onChange={(id) => onField('sedeIdIngreso', id)}
+                      disabled={entradaBloqueada}
                     />
                   </View>
 
@@ -176,15 +209,17 @@ export function EditarTurnoSheet({
                       value={displayDraft.sedeIdEgreso}
                       sedes={sedes}
                       onChange={(id) => onField('sedeIdEgreso', id)}
+                      disabled={salidaBloqueada}
                     />
                   </View>
 
                   <View style={styles.field}>
                     <Text style={styles.fieldLabel}>LICENCIA</Text>
-                    <View style={styles.licenciaRow}>
+                    <View style={[styles.licenciaRow, licenciaBloqueada && styles.fieldDisabled]}>
                       <TouchableOpacity
                         style={[styles.licenciaBtn, !displayDraft.licencia && styles.licenciaBtnActive]}
                         onPress={() => onField('licencia', false)}
+                        disabled={licenciaBloqueada}
                       >
                         <Text style={[styles.licenciaBtnText, !displayDraft.licencia && styles.licenciaBtnTextActive]}>
                           No
@@ -193,8 +228,31 @@ export function EditarTurnoSheet({
                       <TouchableOpacity
                         style={[styles.licenciaBtn, displayDraft.licencia && styles.licenciaBtnActive]}
                         onPress={() => onField('licencia', true)}
+                        disabled={licenciaBloqueada}
                       >
                         <Text style={[styles.licenciaBtnText, displayDraft.licencia && styles.licenciaBtnTextActive]}>
+                          Sí
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  <View style={styles.field}>
+                    <Text style={styles.fieldLabel}>FERIADO</Text>
+                    <View style={styles.licenciaRow}>
+                      <TouchableOpacity
+                        style={[styles.licenciaBtn, !displayDraft.feriado && styles.licenciaBtnActive]}
+                        onPress={() => onField('feriado', false)}
+                      >
+                        <Text style={[styles.licenciaBtnText, !displayDraft.feriado && styles.licenciaBtnTextActive]}>
+                          No
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.licenciaBtn, displayDraft.feriado && styles.licenciaBtnActive]}
+                        onPress={() => onField('feriado', true)}
+                      >
+                        <Text style={[styles.licenciaBtnText, displayDraft.feriado && styles.licenciaBtnTextActive]}>
                           Sí
                         </Text>
                       </TouchableOpacity>
@@ -204,7 +262,7 @@ export function EditarTurnoSheet({
               )}
             </ScrollView>
 
-            <View style={styles.footer}>
+            <View style={[styles.footer, { paddingBottom: bottomInset }]}>
               <TouchableOpacity
                 style={[styles.btnSave, isSaving && styles.btnSaveDisabled]}
                 onPress={onSave}
@@ -227,7 +285,6 @@ export function EditarTurnoSheet({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
   },
   kavWrapper: {
     flex: 1,
@@ -236,7 +293,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     marginTop: '15%',
-    backgroundColor: colors.componentBackground,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     overflow: 'hidden',
@@ -264,7 +320,7 @@ const styles = StyleSheet.create({
   closeBtn: {
     padding: 6,
     borderRadius: 16,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: 'rgba(17,24,28,0.03)',
   },
   field: {
     gap: 6,
@@ -281,15 +337,18 @@ const styles = StyleSheet.create({
     color: INK,
     paddingVertical: 4,
   },
+  timeInputContainer: {
+    width: '100%',
+  },
+  inputFocused: {
+    borderColor: glassColors.link,
+  },
   fieldInput: {
-    borderWidth: 1,
-    borderColor: LINE,
-    borderRadius: 11,
+    flex: 1,
     paddingHorizontal: 14,
     paddingVertical: 11,
     fontSize: 15,
     color: INK,
-    backgroundColor: '#f6f7f9',
   },
   row2: {
     flexDirection: 'row',
@@ -306,7 +365,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     paddingVertical: 11,
-    backgroundColor: '#f6f7f9',
+    backgroundColor: TURNO_SOFT,
   },
   licenciaBtnActive: {
     backgroundColor: NAVY,
@@ -323,12 +382,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderWidth: 1,
-    borderColor: LINE,
-    borderRadius: 11,
     paddingHorizontal: 14,
     paddingVertical: 11,
-    backgroundColor: '#f6f7f9',
   },
   sedeBtnText: {
     fontSize: 15,
@@ -339,20 +394,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.35)',
     padding: 24,
   },
   sedeMenu: {
-    backgroundColor: '#ffffff',
-    borderRadius: 14,
     paddingVertical: 8,
     width: '100%',
     maxWidth: 340,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 10,
   },
   sedeOption: {
     flexDirection: 'row',
@@ -364,7 +411,7 @@ const styles = StyleSheet.create({
     borderBottomColor: LINE,
   },
   sedeOptionActive: {
-    backgroundColor: TURNO_ACTIVE_SOFT,
+    backgroundColor: TURNO_SOFT,
   },
   sedeOptionText: {
     fontSize: 16,
@@ -395,4 +442,25 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
   },
+  escaneadoBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    backgroundColor: 'rgba(17,24,28,0.04)',
+  },
+  escaneadoBannerText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: MUTED,
+  },
+  fieldDisabled: {
+    opacity: 0.55,
+  },
+  inputNoOutline: {
+    outlineStyle: 'none',
+    outlineWidth: 0,
+  } as any,
 });

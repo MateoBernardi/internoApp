@@ -1,10 +1,11 @@
 import { ThemedText } from '@/components/themed-text';
 import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
 import { Colors, UI } from '@/constants/theme';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  Modal,
+  BackHandler,
   Platform,
   ScrollView,
   StyleSheet,
@@ -13,8 +14,11 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
+import { useKeyboardHeight } from '@/shared/ui/keyboard';
 import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeBottomInset } from '@/hooks/useSafeBottomInset';
 import type { NewActivityState } from '../agenda/dateUtils';
 
 const colors = Colors['light'];
@@ -73,63 +77,72 @@ export function CrearActividadModal({
   onDateCancel,
 }: CrearActividadModalProps) {
   const insets = useSafeAreaInsets();
+  const bottomInset = useSafeBottomInset();
+  const [focusedField, setFocusedField] = useState<'titulo' | 'descripcion' | null>(null);
+  const keyboardHeight = useKeyboardHeight();
+  const isFormValid = newActivity.title.trim().length > 0 && !activityDateErrorMessage;
+
+  useEffect(() => {
+    if (!visible) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      onMinimize();
+      return true;
+    });
+    return () => sub.remove();
+  }, [visible, onMinimize]);
+
+  if (!visible) return null;
+
   return (
-    <Modal
-      visible={visible}
-      transparent={true}
-      animationType="slide"
-      onRequestClose={onMinimize}
-    >
-      <View style={styles.overlay}>
-        <ModalKeyboardView style={styles.modalKavWrapper}>
-          <View style={[styles.modalContainer, { paddingBottom: insets.bottom }]}>
+    <FullScreenPortal>
+    <View style={styles.fullScreen}>
+      <ModalKeyboardView style={styles.modalKavWrapper}>
+          <View style={styles.modalContainer}>
+            <View style={[styles.modalHeader, { paddingTop: insets.top + 12 }]}>
+              <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                <Ionicons name="chevron-back" size={24} color={glassColors.textMuted} />
+              </TouchableOpacity>
+              <View style={styles.modalHeaderActions}>
+                <TouchableOpacity onPress={onMinimize} style={styles.closeButton}>
+                  <Ionicons name="chevron-down" size={24} color={glassColors.textMuted} />
+                </TouchableOpacity>
+              </View>
+            </View>
+
             <ScrollView
-              contentContainerStyle={styles.modalScrollContent}
+              style={styles.modalScroll}
+              contentContainerStyle={[styles.modalScrollContent, { paddingBottom: 24 + keyboardHeight }]}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
             >
-              <View style={styles.modalHeader}>
-                <View style={styles.modalHeaderActions}>
-                  <TouchableOpacity onPress={onMinimize} style={styles.closeButton}>
-                    <Ionicons name="chevron-down" size={24} color={colors.secondaryText} />
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                    <Ionicons name="close" size={22} color={colors.secondaryText} />
-                  </TouchableOpacity>
-                </View>
-              </View>
-
               {activityDateErrorMessage && (
                 <Text style={styles.errorTextInline}>{activityDateErrorMessage}</Text>
               )}
 
               {/* Fecha */}
               <View style={styles.dateSection}>
-                <TouchableOpacity onPress={onStartDate} style={styles.dateRow}>
-                  <Ionicons name="calendar" size={20} color={colors.lightTint} />
-                  <View style={{ marginLeft: 12 }}>
-                    <Text style={styles.dateLabel}>Fecha inicio</Text>
-                    <Text style={styles.dateValue}>
-                      {new Date(newActivity.date + 'T00:00:00').toLocaleDateString(
-                        'es-ES',
-                        { weekday: 'short', day: '2-digit', month: 'short' }
-                      )}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
+                <View style={styles.dateFieldGroup}>
+                  <Text style={styles.dateFieldLabel}>Fecha inicio</Text>
+                  <View style={styles.dateRow}>
+                    <TouchableOpacity onPress={onStartDate} style={styles.dateButton}>
+                      <Text style={styles.dateValue}>
+                        {new Date(newActivity.date + 'T00:00:00').toLocaleDateString(
+                          'es-ES',
+                          { weekday: 'short', day: '2-digit', month: 'short' }
+                        )}
+                      </Text>
+                    </TouchableOpacity>
 
-                <TouchableOpacity onPress={onStartTime} style={styles.dateRow}>
-                  <Ionicons name="time" size={20} color={colors.lightTint} />
-                  <View style={{ marginLeft: 12 }}>
-                    <Text style={styles.dateLabel}>Hora inicio</Text>
-                    <Text style={styles.dateValue}>
-                      {newActivity.startTime.toLocaleTimeString('es-ES', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </Text>
+                    <TouchableOpacity onPress={onStartTime} style={styles.timeButton}>
+                      <Text style={[styles.dateValue, styles.timeValue]}>
+                        {newActivity.startTime.toLocaleTimeString('es-ES', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </Text>
+                    </TouchableOpacity>
                   </View>
-                </TouchableOpacity>
+                </View>
 
                 <TouchableOpacity style={styles.endDateCollapsible} onPress={onToggleEndDateFields}>
                   <Text style={styles.endDateCollapsibleText}>Agregar fecha de fin</Text>
@@ -137,33 +150,28 @@ export function CrearActividadModal({
                 </TouchableOpacity>
 
                 {showEndDateFields && (
-                  <>
-                    <TouchableOpacity onPress={onEndDate} style={styles.dateRow}>
-                      <Ionicons name="calendar" size={20} color={colors.lightTint} />
-                      <View style={{ marginLeft: 12 }}>
-                        <Text style={styles.dateLabel}>Fecha fin</Text>
+                  <View style={styles.dateFieldGroup}>
+                    <Text style={styles.dateFieldLabel}>Fecha fin</Text>
+                    <View style={styles.dateRow}>
+                      <TouchableOpacity onPress={onEndDate} style={styles.dateButton}>
                         <Text style={styles.dateValue}>
                           {new Date(newActivity.endDate + 'T00:00:00').toLocaleDateString(
                             'es-ES',
                             { weekday: 'short', day: '2-digit', month: 'short' }
                           )}
                         </Text>
-                      </View>
-                    </TouchableOpacity>
+                      </TouchableOpacity>
 
-                    <TouchableOpacity onPress={onEndTime} style={styles.dateRow}>
-                      <Ionicons name="time" size={20} color={colors.lightTint} />
-                      <View style={{ marginLeft: 12 }}>
-                        <Text style={styles.dateLabel}>Hora fin</Text>
-                        <Text style={styles.dateValue}>
+                      <TouchableOpacity onPress={onEndTime} style={styles.timeButton}>
+                        <Text style={[styles.dateValue, styles.timeValue]}>
                           {newActivity.endTime.toLocaleTimeString('es-ES', {
                             hour: '2-digit',
                             minute: '2-digit',
                           })}
                         </Text>
-                      </View>
-                    </TouchableOpacity>
-                  </>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
                 )}
               </View>
 
@@ -171,11 +179,13 @@ export function CrearActividadModal({
               <View style={styles.fieldContainer}>
                 <Text style={styles.fieldLabel}>Título</Text>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, styles.inputNoOutline, focusedField === 'titulo' && styles.inputFocused]}
                   placeholder="Título"
                   value={newActivity.title}
                   onChangeText={onChangeTitle}
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={glassColors.placeholder}
+                  onFocus={() => setFocusedField('titulo')}
+                  onBlur={() => setFocusedField(null)}
                 />
               </View>
 
@@ -183,23 +193,26 @@ export function CrearActividadModal({
               <View style={styles.fieldContainer}>
                 <Text style={styles.fieldLabel}>Descripción</Text>
                 <TextInput
-                  style={[styles.input, styles.descriptionInput]}
+                  style={[styles.input, styles.descriptionInput, styles.inputNoOutline, focusedField === 'descripcion' && styles.inputFocused]}
                   placeholder="Descripción (opcional)"
                   value={newActivity.description}
                   onChangeText={onChangeDescription}
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={glassColors.placeholder}
                   multiline
                   numberOfLines={4}
+                  onFocus={() => setFocusedField('descripcion')}
+                  onBlur={() => setFocusedField(null)}
                 />
               </View>
             </ScrollView>
 
-            <View style={styles.uploadButtonContainer}>
+            <View style={[styles.uploadButtonContainer, { paddingBottom: bottomInset }]}>
               <TouchableOpacity
                 onPress={onSubmit}
-                style={[styles.uploadButton, { backgroundColor: isLoading ? '#d1d5db' : colors.componentBackground }]}
+                disabled={isLoading || !isFormValid}
+                style={[styles.uploadButton, (isLoading || !isFormValid) && styles.uploadButtonDisabled]}
               >
-                <Ionicons name="cloud-upload" size={20} color={colors.lightTint} />
+                <Ionicons name="cloud-upload" size={20} color={glassColors.link} />
                 <ThemedText style={styles.uploadButtonText}>Crear</ThemedText>
               </TouchableOpacity>
             </View>
@@ -217,16 +230,18 @@ export function CrearActividadModal({
               onCancel={onDateCancel}
             />
           )}
-        </ModalKeyboardView>
-      </View>
-    </Modal>
+      </ModalKeyboardView>
+    </View>
+    </FullScreenPortal>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+  fullScreen: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: colors.componentBackground,
+    zIndex: 1000,
+    elevation: 8,
   },
   modalKavWrapper: {
     flex: 1,
@@ -234,11 +249,10 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     flex: 1,
-    marginTop: '10%',
     backgroundColor: colors.componentBackground,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    overflow: 'hidden',
+  },
+  modalScroll: {
+    flex: 1,
   },
   modalScrollContent: {
     paddingHorizontal: 20,
@@ -249,20 +263,25 @@ const styles = StyleSheet.create({
   modalHeader: {
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderBottomColor: colors.icon,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(17,24,28,0.08)',
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
     alignItems: 'center',
   },
   modalHeaderActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginLeft: 12,
   },
   closeButton: {
-    padding: 6,
-    borderRadius: 16,
-    backgroundColor: '#f3f4f6',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(17,24,28,0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(17,24,28,0.12)',
     marginLeft: 8,
   },
   errorTextInline: {
@@ -272,25 +291,43 @@ const styles = StyleSheet.create({
   },
   dateSection: {
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: 'rgba(17,24,28,0.08)',
     paddingBottom: 12,
+    marginBottom: 20,
+  },
+  dateFieldGroup: {
+    gap: 6,
     marginBottom: 12,
+  },
+  dateFieldLabel: {
+    fontSize: 12,
+    color: glassColors.textMuted,
+    fontWeight: '500',
   },
   dateRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
+    gap: 8,
+    alignItems: 'stretch',
   },
-  dateLabel: {
-    fontSize: 12,
-    color: '#5f6368',
-    fontWeight: '500',
+  dateButton: {
+    ...glassStyles.buttonSecondary,
+    flex: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  timeButton: {
+    ...glassStyles.buttonSecondary,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
   dateValue: {
     fontSize: 15,
     color: colors.lightTint,
     fontWeight: '600',
-    marginTop: 2,
+    textAlign: 'center',
+  },
+  timeValue: {
+    fontWeight: '600',
   },
   endDateCollapsible: {
     marginTop: UI.spacing.sm,
@@ -299,7 +336,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.neutralBorder,
+    borderTopColor: 'rgba(17,24,28,0.08)',
   },
   endDateCollapsibleText: {
     color: colors.secondaryText,
@@ -307,24 +344,29 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   fieldContainer: {
-    marginBottom: 16,
+    marginBottom: 22,
   },
   fieldLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#374151',
+    color: glassColors.text,
     marginBottom: 6,
   },
   input: {
-    borderWidth: 1,
-    borderColor: '#d1d5db',
+    ...glassStyles.fieldGlass,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 15,
-    color: '#111827',
-    backgroundColor: '#ffffff',
+    color: glassColors.text,
   },
+  inputFocused: {
+    borderColor: glassColors.link,
+  },
+  inputNoOutline: {
+    outlineStyle: 'none',
+    outlineWidth: 0,
+  } as any,
   descriptionInput: {
     minHeight: 80,
     textAlignVertical: 'top',
@@ -333,20 +375,24 @@ const styles = StyleSheet.create({
   uploadButtonContainer: {
     backgroundColor: colors.componentBackground,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.icon,
+    borderTopColor: 'rgba(17,24,28,0.08)',
     paddingHorizontal: '4%',
-    paddingTop: 10,
+    paddingTop: 14,
   },
   uploadButton: {
+    ...glassStyles.button,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 8,
+    paddingVertical: 16,
+    borderRadius: 26,
     gap: 8,
   },
+  uploadButtonDisabled: {
+    opacity: 0.6,
+  },
   uploadButtonText: {
-    color: colors.lightTint,
+    color: glassColors.link,
     fontWeight: '600',
     fontSize: 16,
   },

@@ -1,10 +1,12 @@
 import { ThemedText } from '@/components/themed-text';
+import { GlassTabSelector } from '@/components/ui/GlassTabSelector';
 import { Colors } from '@/constants/theme';
 import { ReportesEmpleado } from '@/features/reportes/components/ReportesEmpleado';
 import { FrancosPorEmpleado } from '@/features/solicitudesLicencias/components/FrancosPorEmpleado';
 import { PermisosPorEmpleado } from '@/features/solicitudesLicencias/components/PermisosPorEmpleado';
 import { VacacionesPorEmpleado } from '@/features/solicitudesLicencias/components/VacacionesPorEmpleado';
 import { Ionicons } from '@expo/vector-icons';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
@@ -83,7 +85,6 @@ export function DetalleEmpleado() {
 						userId={usuario.id.toString()}
 						userNombre={usuario.nombre}
 						userApellido={usuario.apellido}
-						fabBehavior={usuarios.length === 1 ? 'viewport' : 'container'}
 					/>
 				);
 			case 'permisos':
@@ -99,7 +100,7 @@ export function DetalleEmpleado() {
 
 	if (usuarios.length === 0) {
 		return (
-			<View style={[styles.container, { backgroundColor: colors.background }]}>
+			<View style={styles.container}>
 				<View style={styles.emptyContainer}>
 					<Ionicons name="people-outline" size={64} color={colors.icon} />
 					<ThemedText style={styles.emptyText}>No hay usuarios seleccionados</ThemedText>
@@ -108,17 +109,12 @@ export function DetalleEmpleado() {
 		);
 	}
 
-	const shouldUseStaticRoot = usuarios.length === 1 && activeTab === 'reportes';
+	const shouldUseStaticRoot = usuarios.length === 1;
 
 	const pageContent = (
 		<>
 			{/* Sección de búsqueda y usuarios seleccionados */}
-			<View style={[styles.selectionSection, { backgroundColor: colors.componentBackground, borderBottomColor: colors.background }]}>
-				<View style={styles.selectionHeader}>
-					<ThemedText type="subtitle" style={styles.sectionTitle}>
-						Detalle de Empleado{usuarios.length > 1 ? 's' : ''}
-					</ThemedText>
-				</View>
+			<View style={styles.selectionSection}>
 
 				{/* Usuarios seleccionados */}
 				<ScrollView
@@ -129,15 +125,9 @@ export function DetalleEmpleado() {
 					{usuarios.map((u: any) => (
 						<View 
 							key={u.id} 
-							style={[
-								styles.userBadge, 
-								{ 
-									backgroundColor: colors.tint + '15',
-									borderColor: colors.tint
-								}
-							]}
+							style={[glassStyles.fieldGlass, styles.userBadge]}
 						>
-							<View style={[styles.userAvatar, { backgroundColor: colors.tint }]}> 
+							<View style={styles.userAvatar}>
 								<ThemedText style={styles.userInitials}>
 									{u.nombre?.[0]}{u.apellido?.[0]}
 								</ThemedText>
@@ -161,11 +151,11 @@ export function DetalleEmpleado() {
 
 					{usuarios.length < 3 && (
 						<TouchableOpacity
-							style={[styles.addUserButton, { borderColor: colors.tint }]}
+							style={styles.addUserButton}
 							onPress={handleComparar}
 						>
-							<Ionicons name="add-circle-outline" size={20} color={colors.tint} />
-							<ThemedText style={[styles.addUserText, { color: colors.tint }]}>
+							<Ionicons name="add-circle-outline" size={20} color={glassColors.link} />
+							<ThemedText style={styles.addUserText}>
 								Comparar
 							</ThemedText>
 						</TouchableOpacity>
@@ -174,38 +164,12 @@ export function DetalleEmpleado() {
 			</View>
 
 			{/* Tabs */}
-			<View style={[styles.tabsSection, { backgroundColor: colors.componentBackground, borderBottomColor: colors.background }]}>
-				<ScrollView
-					horizontal
-					showsHorizontalScrollIndicator={false}
-					contentContainerStyle={styles.tabsContent}
-				>
-					{TABS.map(tab => (
-						<TouchableOpacity
-							key={tab.key}
-							style={[
-								styles.tab,
-								activeTab === tab.key && [
-									styles.tabActive,
-									{ borderBottomColor: colors.tint }
-								]
-							]}
-							onPress={() => setActiveTab(tab.key)}
-						>
-							<ThemedText
-								style={[
-									styles.tabText,
-									activeTab === tab.key && {
-										color: colors.tint,
-										fontWeight: '700'
-									}
-								]}
-							>
-								{tab.label}
-							</ThemedText>
-						</TouchableOpacity>
-					))}
-				</ScrollView>
+			<View style={styles.tabsSection}>
+				<GlassTabSelector
+					tabs={TABS}
+					activeKey={activeTab}
+					onChange={(key) => setActiveTab(key as TabType)}
+				/>
 			</View>
 
 			{/* Contenido */}
@@ -221,16 +185,9 @@ export function DetalleEmpleado() {
 							{usuarios.map((u: any) => (
 								<View
 									key={u.id}
-									style={{
-										width: 320,
-										backgroundColor: colors.componentBackground,
-										borderRadius: 12,
-										overflow: 'hidden',
-										borderWidth: 1,
-										borderColor: '#E0E0E0',
-									}}
+									style={[glassStyles.card, styles.comparisonCard]}
 								>
-									<View style={{ paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.08)', backgroundColor: colors.tint + '10' }}>
+									<View style={styles.comparisonHeader}>
 										<ThemedText type="defaultSemiBold">
 											{u.nombre} {u.apellido}
 										</ThemedText>
@@ -249,7 +206,7 @@ export function DetalleEmpleado() {
 
 	if (shouldUseStaticRoot) {
 		return (
-			<View style={[styles.container, { backgroundColor: colors.background }]}>
+			<View style={styles.container}>
 				{pageContent}
 			</View>
 		);
@@ -257,14 +214,14 @@ export function DetalleEmpleado() {
 
 	return (
 		<ScrollView
-			style={[styles.container, { backgroundColor: colors.background }]}
+			style={styles.container}
 			contentContainerStyle={{ flexGrow: 1 }}
 			refreshControl={
 				<RefreshControl
 					refreshing={isRefreshing}
 					onRefresh={handleRefresh}
-					colors={[colors.tint]}
-					tintColor={colors.tint}
+					colors={[glassColors.link]}
+					tintColor={glassColors.link}
 				/>
 			}
 		>
@@ -276,7 +233,7 @@ export function DetalleEmpleado() {
 const styles = StyleSheet.create({
 	container: {
 		flex: 1,
-		backgroundColor: colors.componentBackground
+		backgroundColor: '#ffffff',
 	},
 	emptyContainer: {
 		flex: 1,
@@ -290,29 +247,11 @@ const styles = StyleSheet.create({
 		marginBottom: 32,
 		textAlign: 'center',
 	},
-	backButton: {
-		paddingHorizontal: 32,
-		paddingVertical: 12,
-		borderRadius: 8,
-		alignSelf: 'center',
-	},
-	backButtonText: {
-		color: 'white',
-		fontWeight: '600',
-		fontSize: 15,
-	},
 	selectionSection: {
 		paddingHorizontal: 12,
 		paddingVertical: 12,
 		borderBottomWidth: 1,
-	},
-	selectionHeader: {
-		marginBottom: 12,
-		paddingHorizontal: 4,
-	},
-	sectionTitle: {
-		fontSize: 18,
-		fontWeight: '600',
+		borderBottomColor: 'rgba(17,24,28,0.08)',
 	},
 	usersScroll: {
 		gap: 8,
@@ -327,6 +266,7 @@ const styles = StyleSheet.create({
 		paddingVertical: 8,
 		gap: 8,
 		borderWidth: 1,
+		borderColor: 'rgba(26,115,232,0.35)',
 		minHeight: 40,
 	},
 	userAvatar: {
@@ -335,9 +275,10 @@ const styles = StyleSheet.create({
 		borderRadius: 16,
 		justifyContent: 'center',
 		alignItems: 'center',
+		backgroundColor: 'rgba(26,115,232,0.12)',
 	},
 	userInitials: {
-		color: 'white',
+		color: glassColors.link,
 		fontSize: 12,
 		fontWeight: 'bold',
 	},
@@ -361,31 +302,29 @@ const styles = StyleSheet.create({
 		gap: 6,
 		borderWidth: 2,
 		borderStyle: 'dashed',
+		borderColor: glassColors.link,
 		minHeight: 40,
 	},
 	addUserText: {
 		fontSize: 13,
 		fontWeight: '600',
+		color: glassColors.link,
 	},
 	tabsSection: {
-		borderBottomWidth: 1,
-	},
-	tabsContent: {
 		paddingHorizontal: 12,
-		paddingVertical: 0,
+		paddingVertical: 10,
+		backgroundColor: 'transparent',
 	},
-	tab: {
-		paddingHorizontal: 16,
-		paddingVertical: 12,
-		borderBottomWidth: 2,
-		borderBottomColor: 'transparent',
+	comparisonCard: {
+		width: 320,
+		overflow: 'hidden',
 	},
-	tabActive: {
-		borderBottomWidth: 2,
-	},
-	tabText: {
-		fontSize: 14,
-		fontWeight: '500',
+	comparisonHeader: {
+		paddingHorizontal: 12,
+		paddingVertical: 10,
+		borderBottomWidth: 1,
+		borderBottomColor: 'rgba(17,24,28,0.08)',
+		backgroundColor: 'rgba(26,115,232,0.08)',
 	},
 	contentContainer: {
 		flex: 1,

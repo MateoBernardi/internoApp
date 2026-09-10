@@ -8,7 +8,11 @@ export function mapArchivoDTOToArchivo(dto: ArchivoDTO): Archivo {
   return {
     id: dto.id,
     nombre: dto.nombre,
-    url: dto.ruta_r2,
+    // `url` real (firmada) cuando el endpoint ya la resuelve (p. ej. la
+    // bitácora de una solicitud); si no, cae a la clave de R2 como antes —
+    // sigue sin ser una URL usable directamente, pero preserva el comportamiento
+    // previo para los listados que resuelven la firma bajo demanda.
+    url: dto.url ?? dto.ruta_r2,
     tamaño: dto.tamaño,
     titulo: dto.titulo,
     tipo: dto.tipo,

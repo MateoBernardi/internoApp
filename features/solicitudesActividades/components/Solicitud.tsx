@@ -1,6 +1,5 @@
 import { AlertModal } from '@/components/AlertModal';
-import { FileAttachment, FilePreview, InlineImageAttachment, getExt, isImageFile, useOpenFilePreview } from '@/components/filePreview';
-import type { FileItem } from '@/components/filePreview';
+import { FilePreview, useOpenFilePreview } from '@/components/filePreview';
 import { ThemedText } from '@/components/themed-text';
 import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
 import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
@@ -9,13 +8,18 @@ import { useAuth } from '@/features/auth/context/AuthContext';
 import { useValidacionFechas } from '@/features/solicitudesActividades/viewmodels/useValidacionFechas';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { generateIdempotencyKey } from '@/shared/idempotency';
+import { GlassButton } from '@/shared/ui/GlassButton';
+import { focusBorderStyles, glassColors } from '@/shared/ui/glass';
+import { useFocusBorder } from '@/shared/ui/useFocusBorder';
+import { useSafeBottomInset } from '@/hooks/useSafeBottomInset';
 import { adminRoles, allRoles } from '@/shared/users/roles';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  BackHandler,
   Keyboard,
   Modal,
   Platform,
@@ -27,24 +31,28 @@ import {
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
+import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
 import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
+import { useKeyboardVisible } from '@/shared/ui/keyboard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { UserSelector } from '../../../components/UserSelector';
 import { useCreateObjetivo } from '../../kanban/hooks/useObjetivos';
 import type { CreateObjetivo, Invitado } from '../../kanban/models/Objetivo';
-import { MESSAGE_STATES, formatDateDDMMYYYY, formatTimeHHMM } from '../conversacion/constants';
+import { MESSAGE_STATES, formatDateDDMMYYYY, formatDayLabel, formatTimeHHMM, isSameCalendarDay } from '../conversacion/constants';
+import { buildArchivoFileItem } from '../conversacion/fileHelpers';
 import { useAdjuntos } from '../conversacion/hooks/useAdjuntos';
 import { useAlertModal } from '../conversacion/hooks/useAlertModal';
-import { useCompartirSelection } from '../conversacion/hooks/useCompartirSelection';
 import { useMarcarVisto } from '../conversacion/hooks/useMarcarVisto';
+import { useMessageJump } from '../conversacion/hooks/useMessageJump';
 import { useMessagesScroll } from '../conversacion/hooks/useMessagesScroll';
 import { useParticipantesManager } from '../conversacion/hooks/useParticipantesManager';
 import { conversacionStyles } from '../conversacion/styles';
 import {
+  BitacoraSolicitud,
   EstadoInvitacionDB,
   RangoOcupado,
-  ReenviarSolicitudRequest,
   SolicitudEnviada,
+  SolicitudInvitado,
   UpdateSolicitudResponse,
   estadoInvitacionMapping,
 } from '../models/Solicitud';
@@ -52,9 +60,10 @@ import { useCrearActividad } from '../viewmodels/useActividades';
 import {
   useActualizarEstadoInvitacion,
   useActualizarInvitadosSolicitud,
-  useReenviarSolicitud,
+  useMarcarSolicitudVisto,
   useSolicitudBitacora,
 } from '../viewmodels/useSolicitudes';
+import { MessageBubble } from './MessageBubble';
 import { ParticipantesBlock } from './ParticipantesBlock';
 import { RoleUserSelectionModal } from './RoleUserSelectionModal';
 import { ValidacionFechasModal } from './ValidacionFechasModal';
@@ -66,12 +75,6 @@ function ceilToNextMinute(date: Date): Date {
   if (d.getSeconds() > 0 || d.getMilliseconds() > 0) d.setMinutes(d.getMinutes() + 1);
   d.setSeconds(0, 0);
   return d;
-}
-
-function formatTipoActividad(tipo?: string): string {
-  if (tipo === 'MANDATO') return 'Actividad';
-  if (tipo === 'REUNION') return 'Reunión';
-  return tipo ?? 'Solicitud';
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -87,6 +90,8 @@ interface SolicitudProps {
 export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const bottomInset = useSafeBottomInset();
+  const composerFocus = useFocusBorder();
   const { user } = useAuth();
   const { hasRole } = useRoleCheck();
 
@@ -117,24 +122,18 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
       actualizarEstadoRaw({ ...variables, idempotencyKey: generateIdempotencyKey() }, options),
     [actualizarEstadoRaw],
   );
-  // Instancia dedicada solo para el auto-mark "SEEN" de useMarcarVisto: su
+  // Instancia dedicada solo para el auto-mark de useMarcarVisto: su
   // isPending se mantiene fuera de isMutating a propósito. Si contribuyera a
   // isMutating, dispararía OperacionPendienteModal mientras el <Modal
   // animationType="slide"> exterior todavía está en su transición de
   // apertura al montar — en iOS eso puede colgar la app.
-  const { mutate: marcarVistoEstadoRaw } = useActualizarEstadoInvitacion();
-  const marcarVistoEstado = useCallback<typeof marcarVistoEstadoRaw>(
-    (variables, options) =>
-      marcarVistoEstadoRaw({ ...variables, idempotencyKey: generateIdempotencyKey() }, options),
-    [marcarVistoEstadoRaw],
-  );
-  const { mutate: reenviarSolicitud, isPending: isSharing } = useReenviarSolicitud();
+  const { mutate: marcarVisto } = useMarcarSolicitudVisto();
   const { mutate: crearActividad, isPending: isCreatingActividad } = useCrearActividad();
   const { mutateAsync: crearObjetivo, isPending: isCreatingObjetivo } = useCreateObjetivo();
   const { mutate: actualizarInvitados } = useActualizarInvitadosSolicitud();
   const validacion = useValidacionFechas();
 
-  const isMutating = isUpdatingEstado || isSharing
+  const isMutating = isUpdatingEstado
     || isCreatingActividad || isCreatingObjetivo;
 
   // ─── Rol / permisos ───────────────────────────────────────────────────────
@@ -146,11 +145,11 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
   const [showAcceptModal, setShowAcceptModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showAddToAgendaModal, setShowAddToAgendaModal] = useState(false);
-  const [showFullBitacora, setShowFullBitacora] = useState(false);
   const [acceptObservation, setAcceptObservation] = useState('');
   const [rejectObservation, setRejectObservation] = useState('');
   const [messageDraft, setMessageDraft] = useState('');
   const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const [replyTarget, setReplyTarget] = useState<BitacoraSolicitud | null>(null);
   const [isModifyMode, setIsModifyMode] = useState(false);
   const { alertModal, showModal, closeAlert, onModalDismiss } = useAlertModal();
   const {
@@ -179,16 +178,14 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
     show: boolean; mode: 'date' | 'time'; target: 'start' | 'end';
   }>({ show: false, mode: 'date', target: 'start' });
 
-  const {
-    showShareModal, setShowShareModal,
-    setSearchQuery,
-    selectedUsersToShare, setSelectedUsersToShare,
-    activeRole, setActiveRole,
-    showRoleModal, setShowRoleModal,
-    searchResults, isLoadingUsers,
-    roleUsersData,
-    handleToggleUserShare, handleSelectAllRoleUsers, handleDeselectAllRoleUsers,
-  } = useCompartirSelection();
+  // Selección de destinatarios (a quién se les crea la actividad/objetivo)
+  const [selectedActivityParticipantIds, setSelectedActivityParticipantIds] = useState<number[]>([]);
+  const [showObjetivoParticipantesModal, setShowObjetivoParticipantesModal] = useState(false);
+
+  const toggleActivityParticipant = useCallback((id: number) => {
+    setSelectedActivityParticipantIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  }, []);
 
   const {
     participantesSelectedUsers,
@@ -205,24 +202,49 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
     handleSelectAllParticipantes, handleDeselectAllParticipantes,
   } = useParticipantesManager({ solicitud, solicitudId, actualizarInvitados });
 
-  const { messagesScrollRef, handleMessagesScroll, handleMessagesContentSizeChange } = useMessagesScroll({
+  const participanteNameById = useMemo(
+    () => new Map(displayParticipantes.map(p => [p.user_id, getParticipanteDisplayName(p)])),
+    [displayParticipantes, getParticipanteDisplayName],
+  );
+  const resolveParticipantName = useCallback(
+    (uid: number) => participanteNameById.get(uid) ?? '',
+    [participanteNameById],
+  );
+
+  const { messagesScrollRef, handleMessagesScroll, handleMessagesContentSizeChange, isNearBottomRef } = useMessagesScroll({
     hasNextPage, isFetchingNextPage, fetchNextPage,
   });
 
-  const contentScrollRef = useRef<ScrollView>(null);
+  const keyboardVisible = useKeyboardVisible();
 
   useEffect(() => {
-    if (Platform.OS !== 'android') return;
-    const sub = Keyboard.addListener('keyboardDidHide', () => {
-      // rAF lets KeyboardAvoidingView remove its padding and the layout settle
-      // before we scroll, so scrollToEnd resolves against the full viewport and
-      // re-clamps the stale offset.
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const onShow = Keyboard.addListener(showEvent, () => {
+      if (!isNearBottomRef.current) return;
       requestAnimationFrame(() => {
-        contentScrollRef.current?.scrollToEnd({ animated: false });
+        messagesScrollRef.current?.scrollToEnd({ animated: false });
       });
     });
-    return () => sub.remove();
-  }, []);
+
+    // Android only: rAF lets KeyboardAvoidingView remove its padding and the
+    // layout settle before we scroll, so scrollToEnd resolves against the
+    // full viewport and re-clamps the stale offset. Only if the user was
+    // already at the bottom — otherwise a scrolled-up read position is
+    // preserved instead of being yanked back down.
+    const onHide = Platform.OS === 'android'
+      ? Keyboard.addListener('keyboardDidHide', () => {
+        if (!isNearBottomRef.current) return;
+        requestAnimationFrame(() => {
+          messagesScrollRef.current?.scrollToEnd({ animated: false });
+        });
+      })
+      : null;
+
+    return () => {
+      onShow.remove();
+      onHide?.remove();
+    };
+  }, [messagesScrollRef, isNearBottomRef]);
 
   // ─── Derivados del prop solicitud ─────────────────────────────────────────
 
@@ -238,14 +260,29 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
     return [...new Set(ids)];
   }, [solicitud.invitados, user]);
 
-  const participantesAceptados = useMemo(() => {
-    const ids: number[] = [];
-    if (solicitud.created_by) ids.push(solicitud.created_by);
-    invitadosSinCreador
-      .filter(inv => inv.estado === 'ACCEPTED')
-      .forEach(inv => ids.push(inv.user_id));
+  // Solo invitados que ya aceptaron (más el creador) pueden recibir una
+  // actividad/objetivo creado desde esta solicitud — a quien no aceptó no se
+  // le crea nada, ver `ParticipantesCheckList` y los handlers de creación.
+  const aceptadosParticipantesIds = useMemo(() => {
+    const ids = solicitud.invitados
+      .filter(inv => inv.user_id === solicitud.created_by || inv.estado === 'ACCEPTED')
+      .map(inv => inv.user_id);
+    if (user?.user_context_id && !ids.includes(user.user_context_id)) ids.push(user.user_context_id);
     return [...new Set(ids)];
-  }, [solicitud.created_by, invitadosSinCreador]);
+  }, [solicitud.invitados, solicitud.created_by, user]);
+
+  const noAceptadosParticipantesIds = useMemo(
+    () => new Set(todosParticipantesIds.filter(id => !aceptadosParticipantesIds.includes(id))),
+    [todosParticipantesIds, aceptadosParticipantesIds],
+  );
+
+  const otherParticipantIdsByAuthor = useMemo(() => {
+    const map = new Map<number, number[]>();
+    todosParticipantesIds.forEach(authorId => {
+      map.set(authorId, todosParticipantesIds.filter(id => id !== authorId));
+    });
+    return map;
+  }, [todosParticipantesIds]);
 
   const todosArchivos = useMemo(() => {
     const archivosBase = solicitud.archivos ?? [];
@@ -262,33 +299,43 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
   const hasDates = !!(solicitud.fecha_inicio && solicitud.fecha_fin);
   const isExpiredState = efectivoEstado === 'EXPIRED';
   const esActividadCreada = efectivoEstado === 'ACTIVIDAD_CREADA';
-  const isFinalState = ['ACTIVIDAD_CREADA', 'EXPIRED', 'ACCEPTED', 'REJECTED'].includes(efectivoEstado);
+  const isFinalState = efectivoEstado === 'ACTIVIDAD_CREADA';
   const isAceptarModificacionesFlow = isHost && efectivoEstado === 'MODIFIED';
-  // El invitado no puede aceptar mientras la solicitud está en estado "Modificado" (propuso un cambio).
-  const aceptarDeshabilitado = !isHost && efectivoEstado === 'MODIFIED';
-  const puedeCompartir = isHost && !isExpiredState && !esActividadCreada;
+  // Ninguna de las dos partes puede aceptar mientras la solicitud está en el
+  // estado que su propio último mensaje/propuesta generó: el invitado no
+  // puede aceptar su propia propuesta ("Modificado"), y el creador no puede
+  // autoaceptar su propio mensaje/propuesta ("Modificado por creador") — debe
+  // esperar la respuesta del invitado.
+  const aceptarDeshabilitado =
+    (!isHost && efectivoEstado === 'MODIFIED') ||
+    (isHost && efectivoEstado === 'MODIFIED_BY_HOST');
 
-  const puedeAgregarAAgenda = useMemo(() => {
-    if (esActividadCreada) return false;
-    if (solicitud.tipo_actividad === 'REUNION') {
-      const algunAceptado = invitadosSinCreador.some(inv => inv.estado === 'ACCEPTED');
-      return isHost && algunAceptado;
+  // Reglas de creación:
+  // - 2 participantes (creador + 1 invitado): ambos pueden crear una vez que el invitado
+  //   acepta, salvo que sea REUNION/SOLICITUD con fecha — ahí solo el creador (ver abajo).
+  // - Más de 2: solo el creador, habilitado apenas algún invitado aceptó.
+  const totalParticipantes = solicitud.invitados.length; // incluye al creador
+  const esCreacionElegible = solicitud.tipo_actividad !== 'CHAT' && !esActividadCreada;
+  const invitadoUnico = totalParticipantes === 2 ? invitadosSinCreador[0] : undefined;
+  const algunInvitadoAceptado = invitadosSinCreador.some(inv => inv.estado === 'ACCEPTED');
+
+  const requiereCreadorParaCrear = solicitud.tipo_actividad !== 'MANDATO' && hasDates;
+
+  const puedeCrearActividad = useMemo(() => {
+    if (!esCreacionElegible) return false;
+    if (totalParticipantes === 2) {
+      if (invitadoUnico?.estado !== 'ACCEPTED') return false;
+      return requiereCreadorParaCrear ? isHost : true;
     }
-    if (solicitud.tipo_actividad === 'MANDATO') return !isHost && efectivoEstado === 'ACCEPTED';
-    return !isHost && efectivoEstado === 'ACCEPTED';
-  }, [solicitud.tipo_actividad, isHost, esActividadCreada, invitadosSinCreador, efectivoEstado]);
+    return isHost && algunInvitadoAceptado;
+  }, [esCreacionElegible, totalParticipantes, invitadoUnico, isHost, algunInvitadoAceptado, requiereCreadorParaCrear]);
 
-  const puedeMandatoSinFechas = useMemo(() =>
-    solicitud.tipo_actividad === 'MANDATO'
-    && efectivoEstado === 'ACCEPTED'
-    && !hasDates,
-    [solicitud.tipo_actividad, efectivoEstado, hasDates],
-  );
+  const puedeCrearObjetivo = puedeCrearActividad && !hasDates;
 
-  const mostrarBotonAgendaVerde = puedeAgregarAAgenda || puedeMandatoSinFechas;
+  const mostrarBotonAgendaVerde = puedeCrearActividad;
 
-  const isAcceptedWithAgenda = efectivoEstado === 'ACCEPTED' && puedeAgregarAAgenda;
-  const composerFinalState = isFinalState && !isAcceptedWithAgenda && !puedeMandatoSinFechas;
+  const isAcceptedWithAgenda = efectivoEstado === 'ACCEPTED' && puedeCrearActividad;
+  const composerFinalState = isFinalState && !isAcceptedWithAgenda && !puedeCrearObjetivo;
 
   // ─── Avisos backend ───────────────────────────────────────────────────────
 
@@ -306,21 +353,39 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
 
   // ─── Mensajes / bitácora ──────────────────────────────────────────────────
 
-  const bitacoraVisible = useMemo(() => {
-    if (!bitacora) return [];
-    if (showFullBitacora) return bitacora;
-    return bitacora.filter(b => MESSAGE_STATES.includes(b.estado));
-  }, [bitacora, showFullBitacora]);
+  const bitacoraVisible = useMemo(
+    () => (bitacora ?? []).filter(b => MESSAGE_STATES.includes(b.estado)),
+    [bitacora],
+  );
+
+  // Si ya hubo alguna propuesta de fecha en la bitácora, `solicitud.fecha_inicio`/
+  // `fecha_fin` reflejan la propuesta MÁS RECIENTE (se sobrescriben en cada
+  // modificación) — no la fecha original de la solicitud. Usarlas como fallback
+  // en el mensaje sintético de "descripción" duplicaría esa fecha en el primer
+  // mensaje en vez de mostrarla solo en el mensaje que realmente la propuso.
+  // Se usa `bitacoraVisible` (no `bitacora` crudo) porque la entrada 'SENT' de
+  // creación también trae `fecha_inicio_nueva`/`fecha_fin_nueva` (la fecha
+  // original) pero nunca se renderiza como mensaje propio: si se la incluyera
+  // acá, `hasAnyFechaPropuesta` daría true desde el primer render y la fecha
+  // jamás se mostraría en el mensaje sintético de descripción.
+  const hasAnyFechaPropuesta = useMemo(
+    () => bitacoraVisible.some(b => b.fecha_inicio_nueva && b.fecha_fin_nueva),
+    [bitacoraVisible],
+  );
 
   const mensajes = useMemo(() => {
     const descripcion = solicitud.descripcion?.trim();
     const createdAt = solicitud.fecha_inicio
       ? new Date(solicitud.fecha_inicio).toISOString()
-      : new Date().toISOString();
+      : solicitud.created_at.toISOString();
+    // La entrada 'SENT' real (creación) trae su propio acuse de lectura;
+    // la reusamos para que el mensaje original también muestre el tilde.
+    const entradaInicial = (bitacora ?? []).find(b => b.estado === 'SENT');
 
     const base = (descripcion || (solicitud.fecha_inicio && solicitud.fecha_fin)) && !hasNextPage
       ? [{
         id: 'descripcion',
+        real_id: entradaInicial?.id,
         usuario_id: solicitud.created_by ?? null,
         usuario_nombre: solicitud.nombre_creador ?? '',
         usuario_apellido: solicitud.apellido_creador ?? '',
@@ -329,7 +394,8 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
         estado: 'MESSAGE' as const,
         fecha_inicio_nueva: null,
         fecha_fin_nueva: null,
-        archivos: solicitud.archivos ?? [],
+        archivos: entradaInicial?.archivos ?? solicitud.archivos ?? [],
+        seen_by: entradaInicial?.seen_by,
       }, ...bitacoraVisible]
       : bitacoraVisible;
 
@@ -338,7 +404,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
       id: 'system-actividad-creada', usuario_id: null,
       usuario_nombre: 'Sistema', usuario_apellido: '',
       created_at: new Date().toISOString(),
-      observacion: '✅ Actividad creada y agregada a la agenda.',
+      observacion: '✅ Actividad creada.',
       estado: 'SYSTEM', fecha_inicio_nueva: null, fecha_fin_nueva: null,
       archivos: [], isSystem: true,
     });
@@ -352,7 +418,26 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
     });
 
     return [...base, ...sistema];
-  }, [bitacoraVisible, solicitud, esActividadCreada, isExpiredState, hasNextPage]);
+  }, [bitacora, bitacoraVisible, solicitud, esActividadCreada, isExpiredState, hasNextPage]);
+
+  const { registerLayout, jumpTo } = useMessageJump(mensajes, messagesScrollRef, {
+    hasNextPage, isFetchingNextPage, fetchNextPage,
+  });
+
+  // La propuesta de fecha vigente es la del mensaje más reciente que trae
+  // fecha_inicio_nueva/fecha_fin_nueva — solo se muestra mientras el estado
+  // efectivo siga "MODIFIED" (todavía no fue aceptada ni rechazada).
+  const isPendingModificacion = efectivoEstado === 'MODIFIED' || efectivoEstado === 'MODIFIED_BY_HOST';
+  const latestProposedDate = useMemo(() => {
+    if (!isPendingModificacion) return null;
+    for (let i = mensajes.length - 1; i >= 0; i--) {
+      const item = mensajes[i] as any;
+      if (item.fecha_inicio_nueva && item.fecha_fin_nueva) {
+        return { inicio: item.fecha_inicio_nueva, fin: item.fecha_fin_nueva };
+      }
+    }
+    return null;
+  }, [mensajes, isPendingModificacion]);
 
   // ─── Modificar fechas ─────────────────────────────────────────────────────
 
@@ -405,7 +490,15 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
 
   // ─── Marcar como visto ────────────────────────────────────────────────────
 
-  useMarcarVisto({ solicitud, solicitudId, isHost, invitadosSinCreador, actualizarEstado: marcarVistoEstado });
+  const latestBitacoraId = useMemo(() => {
+    if (bitacora.length === 0) return null;
+    return bitacora.reduce<number | null>(
+      (max, b) => (typeof b.id === 'number' && (max === null || b.id > max) ? b.id : max),
+      null,
+    );
+  }, [bitacora]);
+
+  useMarcarVisto({ solicitud, solicitudId, invitadosSinCreador, marcarVisto, latestBitacoraId });
 
   // ─── Handlers aceptar / rechazar ─────────────────────────────────────────
 
@@ -424,15 +517,21 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
       setAgendaFechaInicio(new Date(solicitud.fecha_inicio));
       setAgendaFechaFin(new Date(solicitud.fecha_fin));
     }
+    setSelectedActivityParticipantIds(aceptadosParticipantesIds);
     setShowAddToAgendaModal(true);
-  }, [solicitud]);
+  }, [solicitud, aceptadosParticipantesIds]);
 
-  const buildObjetivoInvitadosTodos = useCallback((): Invitado[] =>
-    todosParticipantesIds.map(uid => ({
+  const openCrearObjetivoModal = useCallback(() => {
+    setSelectedActivityParticipantIds(aceptadosParticipantesIds);
+    setShowObjetivoParticipantesModal(true);
+  }, [aceptadosParticipantesIds]);
+
+  const buildObjetivoInvitadosSeleccionados = useCallback((): Invitado[] =>
+    selectedActivityParticipantIds.map(uid => ({
       user_id: uid,
       rol: uid === user?.user_context_id ? 'ASSIGNEE' : 'VISUALIZER',
     })),
-    [todosParticipantesIds, user],
+    [selectedActivityParticipantIds, user],
   );
 
   const handleCrearObjetivoDesdeSolicitud = useCallback(async () => {
@@ -442,17 +541,24 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
       descripcion: solicitud.descripcion ?? '',
       estado: 'PENDIENTE',
       solicitud_id: solicitudId,
-      invitados: buildObjetivoInvitadosTodos(),
+      invitados: buildObjetivoInvitadosSeleccionados(),
       ...(archivosExistentesIds.length > 0 ? { archivosIds: archivosExistentesIds } : {}),
     };
     try {
       await crearObjetivo(payload);
       setLocalEstado('ACTIVIDAD_CREADA');
-      showModal('Éxito', 'Objetivo creado');
+      setShowObjetivoParticipantesModal(false);
+      const excluidos = [...noAceptadosParticipantesIds].map(resolveParticipantName).filter(Boolean);
+      showModal(
+        'Éxito',
+        excluidos.length > 0
+          ? `Objetivo creado. No se incluyó a: ${excluidos.join(', ')} (no aceptaron la solicitud).`
+          : 'Objetivo creado',
+      );
     } catch (e) {
       showModal('Error', e instanceof Error ? e.message : 'Intenta nuevamente');
     }
-  }, [solicitud, solicitudId, todosArchivos, buildObjetivoInvitadosTodos, crearObjetivo, showModal]);
+  }, [solicitud, solicitudId, todosArchivos, buildObjetivoInvitadosSeleccionados, crearObjetivo, showModal, noAceptadosParticipantesIds, resolveParticipantName]);
 
   const handleOpenAsPreview = useCallback((archivo: any) => openFile(archivo), [openFile]);
 
@@ -464,31 +570,36 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
           closeAcceptModal();
           setLocalEstado('ACCEPTED');
           setMessageDraft('');
-          if (!isHost && solicitud.tipo_actividad === 'REUNION') {
+          // Este flujo solo corre para el invitado que acepta (el creador no
+          // "acepta" su propia solicitud), por eso alcanza con chequear que
+          // la solicitud sea 1 a 1: con más participantes, solo el creador
+          // podrá crear la actividad más adelante desde el banner verde.
+          const puedeCrearAhora = solicitud.tipo_actividad !== 'CHAT' && totalParticipantes === 2;
+          if (!puedeCrearAhora) {
             showModal('Éxito', 'Solicitud aceptada');
             return;
           }
           if (hasDates) {
+            if (requiereCreadorParaCrear) {
+              showModal('Éxito', 'Solicitud aceptada');
+              return;
+            }
             showModal('Solicitud aceptada', '¿Querés crear la actividad ahora?', [
               { key: 'create', label: 'Crear actividad', onPress: openCrearActividadModal },
               { key: 'later', label: 'Ahora no', onPress: () => { } },
             ]);
             return;
           }
-          if (solicitud.tipo_actividad === 'MANDATO') {
-            showModal('Solicitud aceptada', '¿Querés crear una actividad u objetivo?', [
-              { key: 'activity', label: 'Crear actividad', onPress: openCrearActividadModal },
-              { key: 'objetivo', label: 'Crear objetivo', onPress: handleCrearObjetivoDesdeSolicitud },
-              { key: 'later', label: 'Ahora no', onPress: () => { } },
-            ]);
-            return;
-          }
-          showModal('Éxito', 'Solicitud aceptada');
+          showModal('Solicitud aceptada', '¿Querés crear una actividad u objetivo?', [
+            { key: 'activity', label: 'Crear actividad', onPress: openCrearActividadModal },
+            { key: 'objetivo', label: 'Crear objetivo', onPress: openCrearObjetivoModal },
+            { key: 'later', label: 'Ahora no', onPress: () => { } },
+          ]);
         },
         onError: e => Alert.alert('Error', e instanceof Error ? e.message : 'Intenta nuevamente'),
       },
     );
-  }, [solicitudId, actualizarEstado, acceptObservation, closeAcceptModal, solicitud, isHost, hasDates, showModal, openCrearActividadModal, handleCrearObjetivoDesdeSolicitud]);
+  }, [solicitudId, actualizarEstado, acceptObservation, closeAcceptModal, solicitud, totalParticipantes, hasDates, requiereCreadorParaCrear, showModal, openCrearActividadModal, openCrearObjetivoModal]);
 
   const confirmAceptarModificaciones = useCallback(() => {
     actualizarEstado(
@@ -504,11 +615,11 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
     actualizarEstado(
       { solicitud_id: solicitudId, estado: 'REJECTED', observacion: rejectObservation.trim() || null },
       {
-        onSuccess: () => { closeRejectModal(); Alert.alert('Éxito', 'Solicitud rechazada'); router.back(); },
+        onSuccess: () => { closeRejectModal(); Alert.alert('Éxito', 'Solicitud rechazada'); handleClose(); },
         onError: e => Alert.alert('Error', e instanceof Error ? e.message : 'Intenta nuevamente'),
       },
     );
-  }, [solicitudId, actualizarEstado, rejectObservation, closeRejectModal, router]);
+  }, [solicitudId, actualizarEstado, rejectObservation, closeRejectModal, handleClose]);
 
   // ─── Modificar ────────────────────────────────────────────────────────────
 
@@ -594,13 +705,14 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
         estado: isHost ? 'MODIFIED_BY_HOST' : 'MODIFIED',
         observacion: trimmed || null,
         ...(archivosIds.length > 0 ? { archivosIds } : {}),
+        reply_to_id: replyTarget?.id ?? null,
       },
       {
-        onSuccess: () => { setMessageDraft(''); setPickedFiles([]); setIsSendingMessage(false); },
+        onSuccess: () => { setMessageDraft(''); setPickedFiles([]); setReplyTarget(null); setIsSendingMessage(false); },
         onError: e => { setIsSendingMessage(false); Alert.alert('Error', e instanceof Error ? e.message : 'Intenta nuevamente'); },
       },
     );
-  }, [canSendMessage, canSubmitModificar, isModifyMode, confirmModificar, uploadPickedFiles, messageDraft, actualizarEstado, solicitudId, isHost, setPickedFiles]);
+  }, [canSendMessage, canSubmitModificar, isModifyMode, confirmModificar, uploadPickedFiles, messageDraft, actualizarEstado, solicitudId, isHost, setPickedFiles, replyTarget]);
 
   // ─── Agenda ───────────────────────────────────────────────────────────────
 
@@ -618,7 +730,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
   }, [agendaFechaInicio, agendaFechaFin, agendaNow]);
 
   const ejecutarAgregarAAgenda = useCallback(() => {
-    const esReunion = solicitud.tipo_actividad === 'REUNION';
+    const esGrupal = selectedActivityParticipantIds.length > 1;
     crearActividad(
       {
         titulo: solicitud.titulo,
@@ -626,7 +738,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
         fecha_inicio: agendaFechaInicio,
         fecha_fin: agendaFechaFin,
         solicitud_id: solicitudId,
-        ...(esReunion ? { participantes: participantesAceptados } : {}),
+        participantes: selectedActivityParticipantIds,
       },
       {
         onError: e => Alert.alert('Error', e instanceof Error ? e.message : 'Intenta nuevamente'),
@@ -638,88 +750,69 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
           setBackendActividadRangos([]);
           setLocalEstado('ACTIVIDAD_CREADA');
           setShowAddToAgendaModal(false);
-          Alert.alert('Éxito', esReunion
-            ? 'Actividad agregada a la agenda de todos los participantes'
-            : 'Actividad agregada a tu agenda');
+          const excluidos = [...noAceptadosParticipantesIds].map(resolveParticipantName).filter(Boolean);
+          const baseMsg = esGrupal
+            ? 'Actividad agregada a la agenda de los participantes seleccionados'
+            : 'Actividad agregada a tu agenda';
+          Alert.alert('Éxito', excluidos.length > 0
+            ? `${baseMsg}. No se incluyó a: ${excluidos.join(', ')} (no aceptaron la solicitud).`
+            : baseMsg);
         },
       },
     );
-  }, [agendaFechaInicio, agendaFechaFin, solicitud, solicitudId, crearActividad, participantesAceptados]);
+  }, [agendaFechaInicio, agendaFechaFin, solicitud, solicitudId, crearActividad, selectedActivityParticipantIds, noAceptadosParticipantesIds, resolveParticipantName]);
 
   const confirmAgregarAAgenda = useCallback(() => {
-    if (agendaDateErrorMessage) return;
-    const esReunion = solicitud.tipo_actividad === 'REUNION';
-    const participantes = esReunion
-      ? [...participantesAceptados]
-      : (user?.user_context_id ? [user.user_context_id] : []);
+    if (agendaDateErrorMessage || selectedActivityParticipantIds.length === 0) return;
     validacion.validate(
       {
         fechaInicio: agendaFechaInicio, fechaFin: agendaFechaFin,
-        participantes,
+        participantes: selectedActivityParticipantIds,
         tipo_actividad: solicitud.tipo_actividad as 'REUNION' | 'MANDATO',
         actividadIdExcluir: null,
       },
       () => ejecutarAgregarAAgenda(),
     );
-  }, [agendaDateErrorMessage, solicitud, user, validacion, ejecutarAgregarAAgenda, participantesAceptados, agendaFechaInicio, agendaFechaFin]);
-
-  // ─── Compartir ────────────────────────────────────────────────────────────
-
-  const ejecutarCompartir = useCallback(() => {
-    const payload: ReenviarSolicitudRequest = {
-      solicitudId,
-      nuevosInvitadosIds: selectedUsersToShare.map(u => u.user_context_id),
-    };
-    reenviarSolicitud(payload, {
-      onSuccess: () => { setShowShareModal(false); Alert.alert('Éxito', 'Solicitud reenviada'); },
-      onError: e => Alert.alert('Error', e instanceof Error ? e.message : 'Intenta nuevamente'),
-    });
-  }, [solicitudId, selectedUsersToShare, reenviarSolicitud, setShowShareModal]);
-
-  const confirmCompartir = useCallback(() => {
-    if (selectedUsersToShare.length === 0) { Alert.alert('Error', 'Selecciona al menos un usuario'); return; }
-    if (hasDates) {
-      validacion.validate(
-        {
-          fechaInicio: solicitud.fecha_inicio!,
-          fechaFin: solicitud.fecha_fin!,
-          participantes: selectedUsersToShare.map(u => u.user_context_id),
-          tipo_actividad: solicitud.tipo_actividad as 'REUNION' | 'MANDATO',
-          solicitudIdExcluir: solicitudId,
-        },
-        () => ejecutarCompartir(),
-      );
-    } else {
-      ejecutarCompartir();
-    }
-  }, [selectedUsersToShare, hasDates, solicitud, solicitudId, validacion, ejecutarCompartir]);
+  }, [agendaDateErrorMessage, solicitud, validacion, ejecutarAgregarAAgenda, selectedActivityParticipantIds, agendaFechaInicio, agendaFechaFin]);
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
-  return (
-    <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={handleClose}>
-      <View style={styles.overlay}>
-        <ModalKeyboardView style={styles.keyboardContainer}>
-          <View style={styles.container}>
+  useEffect(() => {
+    if (!modalVisible) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      handleClose();
+      return true;
+    });
+    return () => sub.remove();
+  }, [modalVisible, handleClose]);
 
-            {/* Header */}
-            {/* paddingTop con el inset superior: el marginTop '10%' del container
-               resuelve contra el ancho (~39px) y queda por debajo del status bar/notch
-               de iOS, comiéndose el touch del botón de cerrar. */}
-            <View style={[styles.modalHeader, { paddingTop: insets.top + 5 }]}>
-              <Text style={styles.modalHeaderTitle} numberOfLines={1}>{solicitud.titulo}</Text>
-              <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-                <Ionicons name="chevron-down" size={24} color="#999" />
+  if (!modalVisible) return null;
+
+  return (
+    <FullScreenPortal>
+    <View style={styles.fullScreen}>
+      <ModalKeyboardView style={styles.keyboardContainer}>
+        <View style={[styles.container, { paddingBottom: keyboardVisible ? 0 : bottomInset }]}>
+
+          {/* Header */}
+          {/* paddingTop con el inset superior: el marginTop '10%' del container antiguo
+             resolvía contra el ancho (~39px) y quedaba por debajo del status bar/notch
+             de iOS; ahora es full screen, pero el inset sigue siendo necesario para no
+             comerse el touch del botón de cerrar bajo el status bar/notch. */}
+          <View style={[styles.modalHeader, { paddingTop: insets.top + 5 }]}>
+              <TouchableOpacity onPress={handleClose} style={styles.backButton}>
+                <Ionicons name="chevron-back" size={24} color={glassColors.textMuted} />
               </TouchableOpacity>
+              <Text style={styles.modalHeaderTitle} numberOfLines={1}>{solicitud.titulo}</Text>
             </View>
 
-            <ScrollView
-              ref={contentScrollRef}
-              style={styles.content}
-              contentContainerStyle={[styles.contentContainer, { paddingBottom: insets.bottom + 24 }]}
-              showsVerticalScrollIndicator={false}
-              nestedScrollEnabled
-            >
+            <View style={styles.contentBody}>
+              <ScrollView
+                style={styles.topSection}
+                contentContainerStyle={styles.topSectionContent}
+                showsVerticalScrollIndicator={false}
+                nestedScrollEnabled
+              >
               {/* Participantes */}
               <ParticipantesBlock
                 participantes={displayParticipantes.map(inv => ({
@@ -731,32 +824,19 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                 canManage={isHost}
                 extraContent={
                   isHost && showParticipantesSelector ? (
-                    <View style={styles.selectorCard}>
-                      <UserSelector
-                        selectedUsers={participantesSelectedUsers}
-                        onSelectUsers={handleSelectParticipantes}
-                        users={participantesSearchResults ?? []}
-                        roles={rolesForSelector}
-                        isLoadingUsers={isSearchingParticipantes || isLoadingParticipantesRole}
-                        onSearch={setParticipantesSearchQuery}
-                        onSelectRole={role => { setParticipantesActiveRole(role); setShowParticipantesRoleModal(true); }}
-                        showSelectedChips={false}
-                      />
-                    </View>
+                    <UserSelector
+                      selectedUsers={participantesSelectedUsers}
+                      onSelectUsers={handleSelectParticipantes}
+                      users={participantesSearchResults ?? []}
+                      roles={rolesForSelector}
+                      isLoadingUsers={isSearchingParticipantes || isLoadingParticipantesRole}
+                      onSearch={setParticipantesSearchQuery}
+                      onSelectRole={role => { setParticipantesActiveRole(role); setShowParticipantesRoleModal(true); }}
+                      showSelectedChips={false}
+                    />
                   ) : null
                 }
               />
-
-              {/* Título */}
-              <View style={styles.contentBlock}>
-                <View style={styles.badgeRow}>
-                  <View style={styles.chip}>
-                    <ThemedText style={styles.chipText}>
-                      {formatTipoActividad(solicitud.tipo_actividad)}
-                    </ThemedText>
-                  </View>
-                </View>
-              </View>
 
               {/* Banner expirada */}
               {isExpiredState && (
@@ -776,51 +856,53 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                   <View style={{ flex: 1 }}>
                     <ThemedText style={styles.agendaVerdeTitulo}>Solicitud aceptada</ThemedText>
                     <View style={styles.agendaVerdeActions}>
-                      {puedeAgregarAAgenda && (
-                        <TouchableOpacity style={styles.agendaVerdeBtn} onPress={() => {
-                          if (solicitud.fecha_inicio && solicitud.fecha_fin) {
-                            setAgendaFechaInicio(new Date(solicitud.fecha_inicio));
-                            setAgendaFechaFin(new Date(solicitud.fecha_fin));
-                          }
-                          setShowAddToAgendaModal(true);
-                        }} disabled={isCreatingActividad}>
-                          <Ionicons name="calendar" size={16} color="#fff" />
-                          <ThemedText style={styles.agendaVerdeBtnText}>Agregar a agenda</ThemedText>
-                        </TouchableOpacity>
+                      {puedeCrearActividad && (
+                        <GlassButton
+                          variant="success"
+                          label="Agregar a agenda"
+                          onPress={openCrearActividadModal}
+                          disabled={isCreatingActividad}
+                          icon={(color) => <Ionicons name="calendar" size={16} color={color} />}
+                          style={styles.agendaVerdeBtn}
+                          textStyle={styles.agendaVerdeBtnText}
+                        />
                       )}
-                      {puedeMandatoSinFechas && (
-                        <TouchableOpacity
-                          style={[styles.agendaVerdeBtn, styles.agendaVerdeBtnSecondary]}
-                          onPress={handleCrearObjetivoDesdeSolicitud}
+                      {puedeCrearObjetivo && (
+                        <GlassButton
+                          variant="secondary"
+                          label="Crear objetivo"
+                          onPress={openCrearObjetivoModal}
                           disabled={isCreatingObjetivo}
-                        >
-                          <Ionicons name="flag" size={16} color={colors.success} />
-                          <ThemedText style={[styles.agendaVerdeBtnText, { color: colors.success }]}>
-                            Crear objetivo
-                          </ThemedText>
-                        </TouchableOpacity>
+                          icon={() => <Ionicons name="flag" size={16} color={glassColors.success} />}
+                          style={styles.agendaVerdeBtn}
+                          textStyle={[styles.agendaVerdeBtnText, { color: glassColors.success }]}
+                        />
                       )}
                     </View>
                   </View>
                 </View>
               )}
+              </ScrollView>
 
-              {/* Mensajes */}
-              <View style={styles.messagesCard}>
+              {/* Mensajes: usa todo el espacio restante debajo de participantes/banners */}
+              <View style={[styles.messagesCard, styles.messagesCardFlex]}>
                 <View style={styles.sectionHeaderRow}>
                   <ThemedText style={styles.label}>Mensajes</ThemedText>
-                  <TouchableOpacity onPress={() => setShowFullBitacora(p => !p)}>
-                    <Text style={styles.sectionActionText}>
-                      {showFullBitacora ? 'Ocultar información completa' : 'Mostrar información completa'}
-                    </Text>
-                  </TouchableOpacity>
                 </View>
 
-                <View style={styles.bitacoraContainer}>
+                <View style={[styles.bitacoraContainer, styles.bitacoraFlex]}>
+                  {latestProposedDate && (
+                    <View style={styles.proposedDateBanner}>
+                      <Ionicons name="time-outline" size={16} color={colors.warning} style={{ marginRight: 8 }} />
+                      <ThemedText style={styles.proposedDateText}>
+                        Fecha propuesta: {formatDateDDMMYYYY(new Date(latestProposedDate.inicio))} {formatTimeHHMM(new Date(latestProposedDate.inicio))} {'→'} {formatDateDDMMYYYY(new Date(latestProposedDate.fin))} {formatTimeHHMM(new Date(latestProposedDate.fin))}
+                      </ThemedText>
+                    </View>
+                  )}
                   {hasDates && hasNextPage && (
                     <View style={styles.pinnedDatesBar}>
                       <ThemedText style={styles.pinnedDatesText}>
-                        Fechas: {formatDateDDMMYYYY(new Date(solicitud.fecha_inicio!))} {formatTimeHHMM(new Date(solicitud.fecha_inicio!))} {'→'} {formatDateDDMMYYYY(new Date(solicitud.fecha_fin!))} {formatTimeHHMM(new Date(solicitud.fecha_fin!))}
+                        Fechas: {formatDateDDMMYYYY(new Date(solicitud.fecha_inicio!))} {formatTimeHHMM(new Date(solicitud.fecha_inicio!))} {'-'} {formatDateDDMMYYYY(new Date(solicitud.fecha_fin!))} {formatTimeHHMM(new Date(solicitud.fecha_fin!))}
                       </ThemedText>
                     </View>
                   )}
@@ -829,7 +911,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                   ) : mensajes.length > 0 ? (
                     <ScrollView
                       ref={messagesScrollRef}
-                      style={styles.messagesList}
+                      style={styles.messagesListFlex}
                       contentContainerStyle={styles.messagesListContent}
                       showsVerticalScrollIndicator={false}
                       nestedScrollEnabled
@@ -842,96 +924,87 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                           <ActivityIndicator size="small" color={colors.lightTint} />
                         </View>
                       )}
-                      {mensajes.map((b: any) => {
+                      {mensajes.map((b: any, index: number) => {
                         const isOwn = b.usuario_id !== null && b.usuario_id === user?.user_context_id;
                         const isDescripcion = b.id === 'descripcion';
                         const isSystem = b.isSystem === true;
                         const estadoKey = b.estado in estadoInvitacionMapping ? b.estado as EstadoInvitacionDB : null;
                         const hideTitle = isDescripcion || isSystem || (
-                          MESSAGE_STATES.includes(b.estado) && b.estado !== 'ACCEPTED' && b.estado !== 'ACCEPTED_BY_HOST'
+                          MESSAGE_STATES.includes(b.estado) && !['ACCEPTED', 'ACCEPTED_BY_HOST', 'REJECTED'].includes(b.estado)
                         );
-                        const fechaInicioMsg = b.fecha_inicio_nueva ?? (isDescripcion ? solicitud.fecha_inicio : null);
-                        const fechaFinMsg = b.fecha_fin_nueva ?? (isDescripcion ? solicitud.fecha_fin : null);
+                        const fechaInicioMsg = b.fecha_inicio_nueva ?? (isDescripcion && !hasAnyFechaPropuesta ? solicitud.fecha_inicio : null);
+                        const fechaFinMsg = b.fecha_fin_nueva ?? (isDescripcion && !hasAnyFechaPropuesta ? solicitud.fecha_fin : null);
                         const archivos = Array.isArray(b.archivos) ? b.archivos : [];
+                        const replyTo = b.reply_to ? {
+                          id: String(b.reply_to.id ?? b.reply_to_id),
+                          usuarioNombre: b.reply_to.usuario_nombre,
+                          usuarioApellido: b.reply_to.usuario_apellido,
+                          observacion: b.reply_to.observacion,
+                        } : null;
 
-                        if (isSystem) return (
-                          <View key={String(b.id)} style={styles.systemMessageContainer}>
-                            <View style={styles.systemMessageBubble}>
-                              <ThemedText style={styles.systemMessageText}>{b.observacion}</ThemedText>
+                        const currentDate = new Date(b.created_at);
+                        const previousDate = index > 0 ? new Date(mensajes[index - 1].created_at) : null;
+                        const showDaySeparator = !previousDate || !isSameCalendarDay(currentDate, previousDate);
+                        const daySeparator = showDaySeparator && (
+                          <View key={`day-${String(b.id)}`} style={styles.daySeparator}>
+                            <View style={styles.daySeparatorPill}>
+                              <Text style={styles.daySeparatorText}>{formatDayLabel(currentDate)}</Text>
                             </View>
                           </View>
+                        );
+
+                        if (isSystem) return (
+                          <React.Fragment key={String(b.id)}>
+                            {daySeparator}
+                            <View style={styles.systemMessageContainer}>
+                              <View style={styles.systemMessageBubble}>
+                                <ThemedText style={styles.systemMessageText}>{b.observacion}</ThemedText>
+                              </View>
+                            </View>
+                          </React.Fragment>
                         );
 
                         return (
-                          <View key={String(b.id)} style={[styles.bitacoraItem, isOwn ? styles.bitacoraItemOwn : styles.bitacoraItemOther]}>
-                            <View style={styles.bitacoraCard}>
-                              <View style={styles.bitacoraHeader}>
-                                <ThemedText style={styles.bitacoraUser}>{b.usuario_nombre} {b.usuario_apellido}</ThemedText>
-                                <ThemedText style={styles.bitacoraDate}>
-                                  {formatDateDDMMYYYY(new Date(b.created_at))} {formatTimeHHMM(new Date(b.created_at))}
-                                </ThemedText>
-                              </View>
-                              <View style={styles.bitacoraBody}>
-                                {!hideTitle && estadoKey && (
-                                  <ThemedText style={styles.bitacoraAction}>
-                                    {estadoInvitacionMapping[estadoKey]}
-                                  </ThemedText>
-                                )}
-                                {b.observacion && (
-                                  <View style={styles.bitacoraBubble}>
-                                    <ThemedText style={styles.bitacoraText}>{b.observacion}</ThemedText>
-                                  </View>
-                                )}
-                                {archivos.length > 0 && (
-                                  <View style={styles.messageAttachments}>
-                                    {archivos.map((a: any) => (
-                                      // En web no usamos el preview inline de imágenes (abre la
-                                      // página de Cloudflare): las mostramos como adjunto de archivo.
-                                      isImageFile(a.tipo, a.nombre, rutaR2(a)) && Platform.OS !== 'web' ? (
-                                        <InlineImageAttachment
-                                          key={`archivo-${a.id}`}
-                                          archivoId={a.id}
-                                          nombre={typeof a.nombre === 'string' ? a.nombre : 'Imagen'}
-                                          onOpen={(uri) => openWithUri(buildSolicitudFileItem({ ...a, _resolvedUri: uri }))}
-                                        />
-                                      ) : (
-                                        <FileAttachment
-                                          key={`archivo-${a.id}`}
-                                          file={buildSolicitudFileItem(a)}
-                                          onOpen={() => handleOpenAsPreview(a)}
-                                        />
-                                      )
-                                    ))}
-                                  </View>
-                                )}
-                                {fechaInicioMsg && fechaFinMsg && (
-                                  <View style={styles.changeBubble}>
-                                    <ThemedText style={styles.changeText}>
-                                      {b.fecha_inicio_nueva ? 'Propuso cambio:' : 'Fechas:'}
-                                    </ThemedText>
-                                    <ThemedText style={styles.changeText}>
-                                      Inicio: {formatDateDDMMYYYY(new Date(fechaInicioMsg))} {formatTimeHHMM(new Date(fechaInicioMsg))}
-                                    </ThemedText>
-                                    <ThemedText style={styles.changeText}>
-                                      Fin: {formatDateDDMMYYYY(new Date(fechaFinMsg))} {formatTimeHHMM(new Date(fechaFinMsg))}
-                                    </ThemedText>
-                                  </View>
-                                )}
-                              </View>
-                            </View>
-                          </View>
+                          <React.Fragment key={String(b.id)}>
+                            {daySeparator}
+                            <MessageBubble
+                              id={String(b.id)}
+                              usuarioNombre={b.usuario_nombre}
+                              usuarioApellido={b.usuario_apellido}
+                              createdAt={b.created_at}
+                              observacion={b.observacion}
+                              isOwn={isOwn}
+                              hideTitle={hideTitle}
+                              estadoKey={estadoKey}
+                              archivos={archivos}
+                              fechaInicioMsg={fechaInicioMsg}
+                              fechaFinMsg={fechaFinMsg}
+                              esPropuesta={!!b.fecha_inicio_nueva}
+                              onOpenArchivo={handleOpenAsPreview}
+                              onOpenImage={(archivo, uri) => openWithUri(buildArchivoFileItem({ ...archivo, _resolvedUri: uri }))}
+                              seenBy={b.seen_by}
+                              otherParticipantIds={otherParticipantIdsByAuthor.get(b.usuario_id) ?? []}
+                              resolveParticipantName={resolveParticipantName}
+                              onLayout={(y) => registerLayout(String(b.id), y)}
+                              replyTo={replyTo}
+                              onReply={isDescripcion
+                                ? (b.real_id ? () => setReplyTarget({ ...b, id: b.real_id }) : undefined)
+                                : () => setReplyTarget(b)}
+                              onReplyPress={replyTo ? () => jumpTo(replyTo.id) : undefined}
+                            />
+                          </React.Fragment>
                         );
                       })}
                     </ScrollView>
                   ) : (
                     <ThemedText style={{ color: colors.secondaryText, textAlign: 'center', marginTop: 20 }}>
-                      {showFullBitacora ? 'No hay actividad reciente' : 'No hay cambios relevantes'}
+                      No hay cambios relevantes
                     </ThemedText>
                   )}
                 </View>
 
                 {/* Composer */}
-                <View style={styles.messageComposer}>
+                <View style={[styles.messageComposer, composerFocus.isFocused && { borderColor: glassColors.link }]}>
                   {isModifyMode && (
                     <View style={styles.inlineDateSection}>
                       <View style={styles.inlineDateRow}>
@@ -969,12 +1042,30 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                     </View>
                   )}
 
+                  {replyTarget && (
+                    <View style={styles.replyBanner}>
+                      <View style={styles.replyBannerContent}>
+                        <ThemedText style={styles.replyBannerName}>
+                          {replyTarget.usuario_nombre} {replyTarget.usuario_apellido}
+                        </ThemedText>
+                        <ThemedText style={styles.replyBannerText} numberOfLines={1}>
+                          {replyTarget.observacion || '...'}
+                        </ThemedText>
+                      </View>
+                      <TouchableOpacity onPress={() => setReplyTarget(null)} style={styles.replyBannerClose}>
+                        <Ionicons name="close" size={16} color={colors.secondaryText} />
+                      </TouchableOpacity>
+                    </View>
+                  )}
+
                   <TextInput
-                    style={styles.messageComposerInput}
+                    style={[styles.messageComposerInput, focusBorderStyles.inputNoOutline]}
                     placeholder={isModifyMode ? 'Observación (opcional)' : 'Escribir mensaje'}
                     placeholderTextColor={colors.secondaryText}
                     value={messageDraft}
                     onChangeText={setMessageDraft}
+                    onFocus={composerFocus.onFocus}
+                    onBlur={composerFocus.onBlur}
                     multiline
                     textAlignVertical="top"
                   />
@@ -1001,26 +1092,14 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                             style={[styles.messageActionButton, isModifyMode && styles.messageActionButtonActive]}
                             onPress={() => isModifyMode ? resetModifyDraft() : setIsModifyMode(true)}
                           >
-                            <Ionicons name="calendar-outline" size={20} color={isModifyMode ? colors.background : colors.lightTint} />
+                            <Ionicons name="calendar-outline" size={20} color={colors.lightTint} />
                           </TouchableOpacity>
                         )}
 
                         {/* Adjuntar */}
                         <TouchableOpacity style={styles.messageActionButton} onPress={handleAgregarAdjunto}>
-                          <Ionicons name="add-outline" size={20} color={colors.lightTint} />
+                          <Ionicons name="attach" size={20} color={colors.lightTint} />
                         </TouchableOpacity>
-
-                        {/* Compartir (solo host) */}
-                        {puedeCompartir && (
-                          <TouchableOpacity style={styles.messageActionButton} onPress={() => {
-                            setSelectedUsersToShare([]);
-                            setSearchQuery('');
-                            setActiveRole('');
-                            setShowShareModal(true);
-                          }}>
-                            <Ionicons name="person-add-outline" size={20} color={colors.lightTint} />
-                          </TouchableOpacity>
-                        )}
 
                         {/* Rechazar */}
                         {!isFinalState && (
@@ -1052,15 +1131,15 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                           disabled={!canSubmitComposer || isSendingMessage}
                         >
                           {isSendingMessage
-                            ? <ActivityIndicator size="small" color={colors.background} />
-                            : <Ionicons name="send" size={20} color={colors.background} />}
+                            ? <ActivityIndicator size="small" color={colors.lightTint} />
+                            : <Ionicons name="send" size={20} color={colors.lightTint} />}
                         </TouchableOpacity>
                       </>
                     )}
                   </View>
                 </View>
               </View>
-            </ScrollView>
+            </View>
 
             {/* Date picker inline */}
             {showDatePicker.show && (
@@ -1109,7 +1188,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                         )}
                         <View style={styles.modalActions}>
                           <TouchableOpacity onPress={closeAcceptModal} style={styles.modalBtnCancel}>
-                            <ThemedText style={{ color: colors.error }}>Cancelar</ThemedText>
+                            <ThemedText style={{ color: glassColors.textMuted }}>Cancelar</ThemedText>
                           </TouchableOpacity>
                           <TouchableOpacity
                             onPress={isAceptarModificacionesFlow ? confirmAceptarModificaciones : confirmAceptar}
@@ -1117,8 +1196,8 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                             disabled={isUpdatingEstado}
                           >
                             {isUpdatingEstado
-                              ? <ActivityIndicator color={colors.background} />
-                              : <ThemedText style={{ color: colors.background }}>Aceptar</ThemedText>}
+                              ? <ActivityIndicator color={glassColors.text} />
+                              : <ThemedText style={{ color: glassColors.text }}>Aceptar</ThemedText>}
                           </TouchableOpacity>
                         </View>
                       </View>
@@ -1147,50 +1226,16 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                         )}
                         <View style={styles.modalActions}>
                           <TouchableOpacity onPress={closeRejectModal} style={styles.modalBtnCancel}>
-                            <ThemedText style={{ color: colors.error }}>Cancelar</ThemedText>
+                            <ThemedText style={{ color: glassColors.textMuted }}>Cancelar</ThemedText>
                           </TouchableOpacity>
                           <TouchableOpacity
                             onPress={confirmRechazar}
-                            style={[styles.modalBtnConfirm, { backgroundColor: colors.error }]}
+                            style={[styles.modalBtnConfirm, styles.modalBtnConfirmDanger]}
                             disabled={isUpdatingEstado}
                           >
                             {isUpdatingEstado
-                              ? <ActivityIndicator color={colors.background} />
-                              : <ThemedText style={{ color: colors.background }}>Rechazar</ThemedText>}
-                          </TouchableOpacity>
-                        </View>
-                      </View>
-                    </TouchableWithoutFeedback>
-                  </View>
-                </TouchableWithoutFeedback>
-              </ModalKeyboardView>
-            </Modal>
-
-            {/* Modal Compartir */}
-            <Modal visible={showShareModal} transparent animationType="fade" onRequestClose={() => setShowShareModal(false)}>
-              <ModalKeyboardView style={{ flex: 1 }}>
-                <TouchableWithoutFeedback onPress={() => setShowShareModal(false)}>
-                  <View style={styles.modalOverlay}>
-                    <TouchableWithoutFeedback onPress={e => e.stopPropagation()}>
-                      <View style={styles.modalContent}>
-                        <ThemedText type="subtitle" style={{ marginBottom: 16 }}>Compartir Solicitud</ThemedText>
-                        <UserSelector
-                          selectedUsers={selectedUsersToShare}
-                          onSelectUsers={setSelectedUsersToShare}
-                          users={searchResults ?? []}
-                          onSearch={setSearchQuery}
-                          isLoadingUsers={isLoadingUsers}
-                          roles={rolesForSelector}
-                          onSelectRole={role => { setActiveRole(role); setShowRoleModal(true); }}
-                        />
-                        <View style={styles.modalActions}>
-                          <TouchableOpacity onPress={() => setShowShareModal(false)} style={styles.modalBtnCancel}>
-                            <ThemedText style={{ color: colors.error }}>Cancelar</ThemedText>
-                          </TouchableOpacity>
-                          <TouchableOpacity onPress={confirmCompartir} style={styles.modalBtnConfirm}>
-                            {isSharing
-                              ? <ActivityIndicator color={colors.background} />
-                              : <ThemedText style={{ color: colors.background }}>Compartir</ThemedText>}
+                              ? <ActivityIndicator color={glassColors.text} />
+                              : <ThemedText style={{ color: glassColors.text }}>Rechazar</ThemedText>}
                           </TouchableOpacity>
                         </View>
                       </View>
@@ -1201,17 +1246,6 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
             </Modal>
 
             {/* Modal Selección por Rol */}
-            <RoleUserSelectionModal
-              visible={showRoleModal}
-              onClose={() => { setShowRoleModal(false); setActiveRole(''); }}
-              roleName={activeRole}
-              roleUsers={roleUsersData ?? []}
-              selectedUsers={selectedUsersToShare}
-              onToggleUser={handleToggleUserShare}
-              onSelectAll={handleSelectAllRoleUsers}
-              onDeselectAll={handleDeselectAllRoleUsers}
-            />
-
             <RoleUserSelectionModal
               visible={showParticipantesRoleModal}
               onClose={() => { setShowParticipantesRoleModal(false); setParticipantesActiveRole(''); }}
@@ -1259,18 +1293,26 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                             {agendaDateErrorMessage}
                           </ThemedText>
                         )}
+                        <ThemedText style={styles.label}>¿Quién verá esta actividad?</ThemedText>
+                        <ParticipantesCheckList
+                          invitados={displayParticipantes}
+                          selectedIds={selectedActivityParticipantIds}
+                          disabledIds={noAceptadosParticipantesIds}
+                          onToggle={toggleActivityParticipant}
+                          getLabel={getParticipanteDisplayName}
+                        />
                         <View style={styles.modalActions}>
                           <TouchableOpacity onPress={() => setShowAddToAgendaModal(false)} style={styles.modalBtnCancel}>
-                            <ThemedText style={{ color: colors.error }}>Cancelar</ThemedText>
+                            <ThemedText style={{ color: glassColors.textMuted }}>Cancelar</ThemedText>
                           </TouchableOpacity>
                           <TouchableOpacity
                             onPress={confirmAgregarAAgenda}
-                            style={[styles.modalBtnConfirm, { opacity: agendaDateErrorMessage ? 0.5 : 1 }]}
-                            disabled={isCreatingActividad || !!agendaDateErrorMessage}
+                            style={[styles.modalBtnConfirm, { opacity: (agendaDateErrorMessage || selectedActivityParticipantIds.length === 0) ? 0.5 : 1 }]}
+                            disabled={isCreatingActividad || !!agendaDateErrorMessage || selectedActivityParticipantIds.length === 0}
                           >
                             {isCreatingActividad
-                              ? <ActivityIndicator color={colors.background} />
-                              : <ThemedText style={{ color: colors.background }}>Agregar</ThemedText>}
+                              ? <ActivityIndicator color={glassColors.text} />
+                              : <ThemedText style={{ color: glassColors.text }}>Agregar</ThemedText>}
                           </TouchableOpacity>
                         </View>
                       </View>
@@ -1296,6 +1338,43 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                     onCancel={() => setShowAgendaDatePicker(p => ({ ...p, show: false }))}
                   />
                 )}
+              </ModalKeyboardView>
+            </Modal>
+
+            {/* Modal Crear Objetivo: selección de destinatarios */}
+            <Modal visible={showObjetivoParticipantesModal} transparent animationType="fade" onRequestClose={() => setShowObjetivoParticipantesModal(false)}>
+              <ModalKeyboardView style={{ flex: 1 }}>
+                <TouchableWithoutFeedback onPress={() => setShowObjetivoParticipantesModal(false)}>
+                  <View style={styles.modalOverlay}>
+                    <TouchableWithoutFeedback onPress={e => e.stopPropagation()}>
+                      <View style={styles.modalContent}>
+                        <ThemedText type="subtitle" style={{ marginBottom: 8 }}>Crear objetivo</ThemedText>
+                        <ThemedText style={styles.label}>¿Quién verá este objetivo?</ThemedText>
+                        <ParticipantesCheckList
+                          invitados={displayParticipantes}
+                          selectedIds={selectedActivityParticipantIds}
+                          disabledIds={noAceptadosParticipantesIds}
+                          onToggle={toggleActivityParticipant}
+                          getLabel={getParticipanteDisplayName}
+                        />
+                        <View style={styles.modalActions}>
+                          <TouchableOpacity onPress={() => setShowObjetivoParticipantesModal(false)} style={styles.modalBtnCancel}>
+                            <ThemedText style={{ color: glassColors.textMuted }}>Cancelar</ThemedText>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            onPress={handleCrearObjetivoDesdeSolicitud}
+                            style={[styles.modalBtnConfirm, { opacity: selectedActivityParticipantIds.length === 0 ? 0.5 : 1 }]}
+                            disabled={isCreatingObjetivo || selectedActivityParticipantIds.length === 0}
+                          >
+                            {isCreatingObjetivo
+                              ? <ActivityIndicator color={glassColors.text} />
+                              : <ThemedText style={{ color: glassColors.text }}>Crear</ThemedText>}
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    </TouchableWithoutFeedback>
+                  </View>
+                </TouchableWithoutFeedback>
               </ModalKeyboardView>
             </Modal>
 
@@ -1336,44 +1415,112 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
             />
 
             <OperacionPendienteModal visible={isMutating} />
-          </View>
-        </ModalKeyboardView>
-      </View>
+        </View>
+      </ModalKeyboardView>
 
       <FilePreview file={previewFile} onClose={closePreview} />
-    </Modal>
+    </View>
+    </FullScreenPortal>
   );
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── ParticipantesCheckList ─────────────────────────────────────────────────
 
-function formatSolicitudBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-// Stored R2 object key; recovers the real extension when the display name was
-// renamed or stripped. Raw DTOs expose it as `ruta_r2`, mapped models as `url`.
-const rutaR2 = (a: any): unknown => a?.ruta_r2 ?? a?.url;
-
-function buildSolicitudFileItem(archivo: any): FileItem {
-  const tipo: string = typeof archivo.tipo === 'string' ? archivo.tipo : '';
-  const nombre: string = typeof archivo.nombre === 'string' ? archivo.nombre : 'Archivo';
-  const ruta = rutaR2(archivo);
-  return {
-    id: String(archivo.id),
-    kind: isImageFile(tipo, nombre, ruta) ? 'image' : 'file',
-    name: nombre,
-    ext: getExt(tipo, nombre, ruta),
-    size: archivo.tamaño ? formatSolicitudBytes(archivo.tamaño) : undefined,
-    uri: typeof archivo._resolvedUri === 'string' ? archivo._resolvedUri : '',
-  };
+function ParticipantesCheckList({ invitados, selectedIds, disabledIds, onToggle, getLabel }: {
+  invitados: SolicitudInvitado[];
+  selectedIds: number[];
+  /** Invitados que todavía no aceptaron: no se pueden tildar. */
+  disabledIds?: Set<number>;
+  onToggle: (id: number) => void;
+  getLabel: (inv: SolicitudInvitado) => string;
+}) {
+  return (
+    <ScrollView style={localStyles.checkList} nestedScrollEnabled showsVerticalScrollIndicator>
+      {invitados.map(inv => {
+        const checked = selectedIds.includes(inv.user_id);
+        const disabled = disabledIds?.has(inv.user_id) ?? false;
+        return (
+          <TouchableOpacity
+            key={inv.user_id}
+            style={localStyles.checkRow}
+            onPress={() => { if (!disabled) onToggle(inv.user_id); }}
+            disabled={disabled}
+          >
+            <Ionicons
+              name={checked ? 'checkbox' : 'square-outline'}
+              size={20}
+              color={disabled ? colors.secondaryText : (checked ? colors.tint : colors.secondaryText)}
+            />
+            <ThemedText style={[localStyles.checkRowText, disabled && localStyles.checkRowTextDisabled]}>
+              {getLabel(inv)}
+            </ThemedText>
+            {disabled && (
+              <ThemedText style={localStyles.checkRowHint}>no aceptó</ThemedText>
+            )}
+          </TouchableOpacity>
+        );
+      })}
+    </ScrollView>
+  );
 }
 
 // ─── localStyles ───────────────────────────────────────────────────────────────
 
 const localStyles = StyleSheet.create({
+  replyBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    marginHorizontal: 12,
+    marginTop: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.lightTint,
+  },
+  replyBannerContent: {
+    flex: 1,
+    marginRight: 8,
+  },
+  replyBannerName: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.lightTint,
+  },
+  replyBannerText: {
+    fontSize: 13,
+    color: colors.secondaryText,
+  },
+  replyBannerClose: {
+    padding: 4,
+  },
+  // Sin scroll de pantalla completa: participantes/chip/banners quedan en un
+  // bloque acotado arriba, y la tarjeta de mensajes ocupa el resto del alto
+  // disponible con su propio scroll interno (mismo patrón que ConversacionChat).
+  contentBody: {
+    flex: 1,
+    paddingHorizontal: 16,
+  },
+  topSection: {
+    flexGrow: 0,
+    maxHeight: '42%',
+  },
+  topSectionContent: {
+    paddingTop: 8,
+    paddingBottom: 8,
+    gap: 14,
+  },
+  bitacoraFlex: {
+    flex: 1,
+  },
+  messagesCardFlex: {
+    flex: 1,
+  },
+  messagesListFlex: {
+    flex: 1,
+  },
   agendaVerdeBanner: {
     borderRadius: 10,
     borderWidth: 1,
@@ -1396,33 +1543,30 @@ const localStyles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   agendaVerdeBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: 6,
-    backgroundColor: colors.success,
     paddingHorizontal: 12,
     paddingVertical: 7,
-    borderRadius: 8,
-  },
-  agendaVerdeBtnSecondary: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: colors.success,
   },
   agendaVerdeBtnText: {
-    color: '#fff',
     fontSize: 13,
     fontWeight: '600',
   },
-  changeBubble: {
-    marginTop: 6,
-    backgroundColor: colors.background,
-    padding: 8,
+  proposedDateBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
     borderRadius: 8,
+    backgroundColor: colors.warning + '12',
+    borderWidth: 1,
+    borderColor: colors.warning + '40',
   },
-  changeText: {
-    fontSize: 13,
-    color: colors.text,
+  proposedDateText: {
+    flex: 1,
+    fontSize: 12,
+    color: colors.warning,
+    fontWeight: '700',
   },
   pinnedDatesBar: {
     marginBottom: 8,
@@ -1461,7 +1605,9 @@ const localStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: 'rgba(17,24,28,0.12)',
+    backgroundColor: 'rgba(17,24,28,0.03)',
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 5,
@@ -1480,7 +1626,8 @@ const localStyles = StyleSheet.create({
     marginTop: 2,
   },
   messageActionButtonActive: {
-    backgroundColor: colors.lightTint,
+    borderColor: 'rgba(26,115,232,0.35)',
+    backgroundColor: 'rgba(26,115,232,0.12)',
   },
   modalInputLabel: {
     fontSize: 12,
@@ -1505,10 +1652,35 @@ const localStyles = StyleSheet.create({
   },
   dateBtn: {
     padding: 10,
-    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: 'rgba(17,24,28,0.12)',
+    backgroundColor: 'rgba(17,24,28,0.03)',
     borderRadius: 8,
     flex: 0.48,
     alignItems: 'center',
+  },
+  checkList: {
+    maxHeight: 160,
+    marginBottom: 12,
+  },
+  checkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 8,
+  },
+  checkRowText: {
+    fontSize: 14,
+    color: colors.text,
+  },
+  checkRowTextDisabled: {
+    color: colors.secondaryText,
+  },
+  checkRowHint: {
+    fontSize: 12,
+    color: colors.secondaryText,
+    fontStyle: 'italic',
+    marginLeft: 'auto',
   },
 });
 

@@ -1,22 +1,11 @@
 import { apiRequest, throwApiError } from '@/shared/apiRequest';
 import { IDEMPOTENCY_HEADER, idempotencyHeaders } from '@/shared/idempotency';
 import Constants from 'expo-constants';
+import * as FileSystem from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
 import * as reporte from '../models/Reporte';
 
 const API_BASE_URL = Constants.expoConfig?.extra?.API_BASE_URL;
-
-export async function getReportesPendingCount(accessToken: string): Promise<number> {
-    const response = await apiRequest({ method: 'GET', endpoint: '/reportes/pending', token: accessToken });
-
-    if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.message || errData.error || response.statusText);
-    }
-
-    const data = await response.json();
-    return typeof data?.pendingReportes === 'number' ? data.pendingReportes : 0;
-}
 
 export async function createReporte (accessToken: string, payload: reporte.CreateReportePayload, idempotencyKey?: string): Promise<reporte.Reporte> {
     const response = await apiRequest({  method: 'POST', endpoint: '/reportes', token: accessToken, body: payload, headers: idempotencyHeaders(idempotencyKey)});
@@ -65,8 +54,8 @@ export async function updateReporte (accessToken: string, payload: reporte.Updat
     const response = await apiRequest({ method: 'PUT', endpoint: `/reportes/${id}`, token: accessToken, body: payload});
 
     if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.message || errData.error || response.statusText);
+        const errorText = await response.text();
+        throwApiError(errorText, response);
     }
 
     const data: reporte.Reporte = await response.json();
@@ -82,8 +71,8 @@ export async function getReporteStats (accessToken: string): Promise<reporte.Rep
         });
                 
         if (!response.ok) {
-            const errData = await response.json().catch(() => ({}));
-            throw new Error(errData.message || errData.error || response.statusText);
+            const errorText = await response.text();
+            throwApiError(errorText, response);
         }
 
         const rawData: any[] = await response.json();
@@ -93,6 +82,7 @@ export async function getReporteStats (accessToken: string): Promise<reporte.Rep
             usuario_id: item.user_context_id || item.usuario_id,
             nombre: item.nombre,
             apellido: item.apellido,
+            rol: item.rol_nombre ?? item.rol,
             negativos: item.negativos_puros ?? item.negativos ?? 0,
             positivos: item.positivos_puros ?? item.positivos ?? 0,
             total_positivos: item.total_positivos ?? 0,
@@ -112,8 +102,8 @@ export async function getTopEmployee (accessToken: string): Promise<reporte.TopP
 
     if (!response.ok) {
         console.error('Error fetching top employee:', { status: response.status, statusText: response.statusText });
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.message || errData.error || response.statusText);
+        const errorText = await response.text();
+        throwApiError(errorText, response);
     }
 
     const data: reporte.TopPositiveUser = await response.json();
@@ -125,8 +115,8 @@ export async function getUpgradedEmployee (accessToken: string): Promise<reporte
 
     if (!response.ok) {
         console.error('Error fetching upgraded employee:', { status: response.status, statusText: response.statusText });
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.message || errData.error || response.statusText);
+        const errorText = await response.text();
+        throwApiError(errorText, response);
     }
 
     const data: reporte.MostImprovedUser = await response.json();
@@ -150,8 +140,8 @@ export async function getReporteImagenes (
     });
 
     if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.message || errData.error || response.statusText);
+        const errorText = await response.text();
+        throwApiError(errorText, response);
     }
 
     return response.json();
@@ -175,40 +165,55 @@ export async function uploadReporteImage (
     orden: number,
     idempotencyKey?: string,
 ): Promise<reporte.UploadReporteImageResponse> {
-    const formData = new FormData();
+    const endpoint = `${API_BASE_URL}/reportesImagenes/upload`;
+    const headers = {
+        Authorization: `Bearer ${accessToken}`,
+        'x-app-entorno': 'interno',
+        ...(idempotencyKey ? { [IDEMPOTENCY_HEADER]: idempotencyKey } : {}),
+    };
 
-    // El campo `file` se arma distinto según la plataforma:
-    // - Web: el patrón { uri, name, type } NO es un archivo real (se serializa
-    //   como "[object Object]" y el backend recibe vacío). Hay que materializar
-    //   el contenido en un Blob real antes de adjuntarlo.
-    // - Native: React Native sí acepta el objeto { uri, name, type } para
-    //   representar archivos locales (file://, content://, ph://).
-    if (Platform.OS === 'web') {
-        const fileResponse = await fetch(fileUri);
-        if (!fileResponse.ok) {
-            throw new Error(`No se pudo leer la imagen seleccionada (HTTP ${fileResponse.status})`);
+    if (Platform.OS !== 'web') {
+        const uploadResult = await FileSystem.uploadAsync(endpoint, fileUri, {
+            httpMethod: 'POST',
+            uploadType: FileSystem.FileSystemUploadType.MULTIPART,
+            fieldName: 'file',
+            mimeType,
+            parameters: {
+                reporteId: String(reporteId),
+                description,
+                orden: String(orden),
+            },
+            headers,
+        });
+
+        if (uploadResult.status < 200 || uploadResult.status >= 300) {
+            throwApiError(
+                uploadResult.body,
+                new Response(uploadResult.body, { status: uploadResult.status }),
+            );
         }
-        const blob = await fileResponse.blob();
-        if (blob.size === 0) {
-            throw new Error('La imagen seleccionada está vacía o ya no está disponible.');
-        }
-        formData.append('file', blob, fileName);
-    } else {
-        formData.append('file', { uri: fileUri, name: fileName, type: mimeType } as any);
+
+        return JSON.parse(uploadResult.body);
     }
 
+    const fileResponse = await fetch(fileUri);
+    if (!fileResponse.ok) {
+        throw new Error(`No se pudo leer la imagen seleccionada (HTTP ${fileResponse.status})`);
+    }
+    const blob = await fileResponse.blob();
+    if (blob.size === 0) {
+        throw new Error('La imagen seleccionada está vacía o ya no está disponible.');
+    }
+
+    const formData = new FormData();
+    formData.append('file', blob, fileName);
     formData.append('reporteId', String(reporteId));
     formData.append('description', description);
     formData.append('orden', String(orden));
 
-    const response = await fetch(`${API_BASE_URL}/reportesImagenes/upload`, {
+    const response = await fetch(endpoint, {
         method: 'POST',
-        headers: {
-            Authorization: `Bearer ${accessToken}`,
-            'x-app-entorno': 'interno',
-            ...(idempotencyKey ? { [IDEMPOTENCY_HEADER]: idempotencyKey } : {}),
-            // NO establecer Content-Type — fetch lo agrega automáticamente con el boundary correcto
-        },
+        headers,
         body: formData,
     });
 
@@ -260,8 +265,8 @@ export async function archivoReporte(
     });
 
     if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.message || errData.error || response.statusText);
+        const errorText = await response.text();
+        throwApiError(errorText, response);
     }
 }
 
@@ -283,8 +288,8 @@ export async function updateReporteImageOrder (
     });
 
     if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.message || errData.error || response.statusText);
+        const errorText = await response.text();
+        throwApiError(errorText, response);
     }
 
     return response.json();

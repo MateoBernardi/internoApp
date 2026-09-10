@@ -1,3 +1,5 @@
+import type { Ionicons } from '@expo/vector-icons';
+
 // Tipos para opciones de preguntas
 export interface Opcion {
   id: number;
@@ -9,6 +11,17 @@ export interface Opcion {
 
 // Tipo de pregunta según el backend
 export type TipoPregunta = 'rating' | 'texto' | 'multiple_choice' | 'si_no' | 'horario';
+
+// Icono + etiqueta por tipo de pregunta, usado por el selector de tipo, las
+// badges de resultados y las vistas previas — una sola fuente en vez de
+// listas de emojis duplicadas en cada pantalla.
+export const TIPO_PREGUNTA_META: Record<TipoPregunta, { icon: keyof typeof Ionicons.glyphMap; label: string }> = {
+  texto: { icon: 'document-text-outline', label: 'Texto' },
+  rating: { icon: 'star-outline', label: 'Calificación' },
+  multiple_choice: { icon: 'list-outline', label: 'Opción múltiple' },
+  si_no: { icon: 'checkmark-circle-outline', label: 'Sí/No' },
+  horario: { icon: 'time-outline', label: 'Horario' },
+};
 
 // Pregunta de encuesta
 export interface Pregunta {

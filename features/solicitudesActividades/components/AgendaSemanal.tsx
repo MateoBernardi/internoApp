@@ -1,6 +1,8 @@
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { AGENDA_COLORS } from '../agenda/agendaColors';
 import type { Activity } from '../models/activityTypes';
 
 interface AgendaSemanalProps {
@@ -62,7 +64,7 @@ export const AgendaSemanal: React.FC<AgendaSemanalProps> = ({
         );
 
         return (
-          <View style={[styles.dayCard, day.isToday && styles.dayCardToday, turno && styles.dayCardTurno]}>
+          <View style={[glassStyles.card, styles.dayCard, day.isToday && styles.dayCardToday, turno && styles.dayCardTurno]}>
             <TouchableOpacity style={styles.dayHeader} onPress={() => onPressDay?.(day.dateStr)}>
               <Text style={[styles.dayLabel, day.isToday && styles.dayLabelToday]}>
                 {day.dayLabel}
@@ -82,7 +84,7 @@ export const AgendaSemanal: React.FC<AgendaSemanalProps> = ({
                   onPress={() => onPressActivity?.(turno)}
                   style={styles.turnoChip}
                 >
-                  <Ionicons name="time-outline" size={13} color="#2f86d6" />
+                  <Ionicons name="time-outline" size={13} color={AGENDA_COLORS.turno} />
                   <Text style={styles.turnoChipText}>
                     <Text style={styles.turnoChipHora}>{turno.time}–{
                       turno.fecha_fin
@@ -95,7 +97,7 @@ export const AgendaSemanal: React.FC<AgendaSemanalProps> = ({
                 </TouchableOpacity>
               ) : licencia ? (
                 <View style={styles.licenciaChip}>
-                  <Ionicons name="document-text-outline" size={13} color="#7b5ce0" />
+                  <Ionicons name="document-text-outline" size={13} color={AGENDA_COLORS.licencia} />
                   <Text style={styles.licenciaChipText}>Licencia · {licencia.title}</Text>
                 </View>
               ) : (
@@ -116,12 +118,12 @@ export const AgendaSemanal: React.FC<AgendaSemanalProps> = ({
                   >
                     <View style={[
                       styles.activityCard,
-                      esReunionVacia && { borderColor: '#EF4444', borderWidth: 1 },
+                      esReunionVacia && { borderColor: glassColors.error, borderWidth: 1 },
                     ]}>
                       <View style={styles.activityDot} />
                       <View style={styles.contentColumn}>
                         <Text
-                          style={[styles.titleText, esReunionVacia && { color: '#EF4444' }]}
+                          style={[styles.titleText, esReunionVacia && { color: glassColors.error }]}
                           numberOfLines={2}
                         >
                           {activity.time ? `${activity.time} · ` : ''}{activity.title}
@@ -135,7 +137,7 @@ export const AgendaSemanal: React.FC<AgendaSemanalProps> = ({
                         }}
                         style={styles.deleteButton}
                       >
-                        <Ionicons name="close-circle" size={20} color="#EF4444" />
+                        <Ionicons name="close-circle" size={20} color={glassColors.error} />
                       </TouchableOpacity>
                     </View>
                   </TouchableOpacity>
@@ -161,29 +163,28 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   dayCard: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 8,
     borderLeftWidth: 4,
-    borderLeftColor: '#dadce0',
+    borderLeftColor: 'rgba(17,24,28,0.12)',
     paddingHorizontal: 12,
     paddingVertical: 12,
     marginHorizontal: 8,
     marginBottom: 8,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e0e0e0',
   },
   dayCardToday: {
-    backgroundColor: '#f1f3f4',
-    borderLeftColor: '#1a73e8',
+    backgroundColor: 'rgba(26,115,232,0.06)',
+    borderLeftColor: glassColors.link,
   },
   dayCardTurno: {
-    borderLeftColor: '#2f86d6',
+    borderLeftColor: AGENDA_COLORS.turno,
   },
   turnoChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: '#e7f2fb',
+    backgroundColor: 'rgba(47,134,214,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(47,134,214,0.35)',
     borderRadius: 999,
     paddingVertical: 5,
     paddingHorizontal: 10,
@@ -192,7 +193,7 @@ const styles = StyleSheet.create({
   },
   turnoChipText: {
     fontSize: 12,
-    color: '#2f86d6',
+    color: AGENDA_COLORS.turno,
     fontWeight: '500',
   },
   turnoChipHora: {
@@ -203,7 +204,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: '#efeafb',
+    backgroundColor: 'rgba(123,92,224,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(123,92,224,0.35)',
     borderRadius: 999,
     paddingVertical: 5,
     paddingHorizontal: 10,
@@ -212,12 +215,12 @@ const styles = StyleSheet.create({
   },
   licenciaChipText: {
     fontSize: 12,
-    color: '#7b5ce0',
+    color: AGENDA_COLORS.licencia,
     fontWeight: '500',
   },
   sinTurnoText: {
     fontSize: 12,
-    color: '#9aa3ab',
+    color: glassColors.placeholder,
     fontStyle: 'italic',
     marginBottom: 4,
   },
@@ -225,61 +228,52 @@ const styles = StyleSheet.create({
     width: 7,
     height: 7,
     borderRadius: 4,
-    backgroundColor: '#1f9d57',
+    backgroundColor: AGENDA_COLORS.actividad,
     marginRight: 8,
     flexShrink: 0,
     marginTop: 3,
   },
   dayHeader: {
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: 'rgba(17,24,28,0.08)',
     paddingBottom: 8,
     marginBottom: 8,
   },
   dayLabel: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#202124',
+    color: glassColors.text,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   dayLabelToday: {
-    color: '#1a73e8',
+    color: glassColors.link,
   },
   dayDate: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#5f6368',
+    color: glassColors.textMuted,
     marginTop: 4,
   },
   dayDateToday: {
-    color: '#1a73e8',
+    color: glassColors.link,
   },
   activitiesContainer: {
     gap: 6,
   },
   emptyText: {
     fontSize: 12,
-    color: '#9AA0A6',
+    color: glassColors.placeholder,
     fontStyle: 'italic',
     paddingVertical: 4,
   },
   activityCard: {
     flexDirection: 'row',
-    backgroundColor: '#f9f9f9',
+    backgroundColor: 'rgba(17,24,28,0.03)',
     borderRadius: 6,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#dadce0',
+    borderColor: 'rgba(17,24,28,0.08)',
     padding: 10,
-  },
-  timeColumn: {
-    marginRight: 8,
-    minWidth: 40,
-  },
-  timeText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#202124',
   },
   contentColumn: {
     flex: 1,
@@ -287,7 +281,7 @@ const styles = StyleSheet.create({
   titleText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#202124',
+    color: glassColors.text,
   },
   deleteButton: {
     paddingLeft: 8,

@@ -2,6 +2,8 @@ import { ThemedText } from '@/components/themed-text';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
+import { boxShadow } from '@/shared/ui/boxShadow';
+import { glassColors } from '@/shared/ui/glass';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useMemo } from 'react';
 import {
@@ -13,6 +15,7 @@ import {
 } from 'react-native';
 import { SolicitudEnviada } from '../models/Solicitud';
 import { tieneNovedadSinVer } from '../badgeState';
+import { buildUltimoMensajePreview, formatListTimestamp } from '../conversacion/constants';
 
 const colors = Colors['light'];
 
@@ -83,16 +86,15 @@ export function ChatsList({ chats, onRefresh, refreshing, isLoading, onOpenChat,
                 />
             }
         >
-            {chatsDeduplicados.map((item, index) => (
-                <React.Fragment key={item.solicitud_id.toString()}>
-                    {index > 0 && <View style={styles.separator} />}
-                    <ChatItem
-                        chat={item}
-                        displayName={getChatDisplayName(item, currentUserId)}
-                        hasBadge={tieneNovedadSinVer(item)}
-                        onPress={() => onOpenChat(item)}
-                    />
-                </React.Fragment>
+            {chatsDeduplicados.map((item) => (
+                <ChatItem
+                    key={item.solicitud_id.toString()}
+                    chat={item}
+                    displayName={getChatDisplayName(item, currentUserId)}
+                    hasBadge={tieneNovedadSinVer(item)}
+                    currentUserId={currentUserId}
+                    onPress={() => onOpenChat(item)}
+                />
             ))}
         </ScrollView>
     );
@@ -102,23 +104,45 @@ interface ChatItemProps {
     chat: SolicitudEnviada;
     displayName: string;
     hasBadge: boolean;
+    currentUserId?: number;
     onPress: () => void;
 }
 
-function ChatItem({ chat, displayName, hasBadge, onPress }: ChatItemProps) {
+function ChatItem({ chat, displayName, hasBadge, currentUserId, onPress }: ChatItemProps) {
     const inicial = displayName.charAt(0).toUpperCase();
+    const preview = buildUltimoMensajePreview(chat, currentUserId);
+
+    // Flecha enviado/recibido: solo si el backend informó quién mandó la
+    // última entrada. Sin ese dato no se muestra (degrada al preview simple).
+    const sentByMe = chat.ultimo_mensaje_autor_id != null && currentUserId != null
+        ? chat.ultimo_mensaje_autor_id === currentUserId
+        : null;
+    const timeLabel = chat.ultimo_mensaje_at ? formatListTimestamp(new Date(chat.ultimo_mensaje_at)) : null;
 
     return (
-        <TouchableOpacity onPress={onPress} style={styles.itemContainer}>
+        <TouchableOpacity
+            onPress={onPress}
+            style={[styles.itemContainer, { backgroundColor: hasBadge ? '#ffffff' : 'rgba(255,255,255,0.6)' }]}
+        >
             <View style={styles.avatar}>
                 <ThemedText style={styles.avatarText}>{inicial}</ThemedText>
             </View>
             <View style={styles.itemContent}>
                 <View style={styles.itemHeader}>
-                    <ThemedText type="defaultSemiBold" numberOfLines={1} style={styles.itemTitle}>
+                    <ThemedText
+                        type="defaultSemiBold"
+                        numberOfLines={1}
+                        style={[styles.itemTitle, hasBadge && styles.tituloUnseen]}
+                    >
                         {displayName}
                     </ThemedText>
+                    {!!timeLabel && (
+                        <ThemedText style={[styles.dateText, { color: colors.secondaryText }]}>
+                            {timeLabel}
+                        </ThemedText>
+                    )}
                     {hasBadge && <View style={styles.stateDot} />}
+                    <Ionicons name="chevron-forward" size={18} color={colors.secondaryText} />
                 </View>
                 {chat.invitados.length > 2 && (
                     <ThemedText
@@ -132,8 +156,27 @@ function ChatItem({ chat, displayName, hasBadge, onPress }: ChatItemProps) {
                         {chat.invitados.length > 3 ? `, ${chat.invitados.length - 3}+` : ''}
                     </ThemedText>
                 )}
+                {!!preview && (
+                    <View style={styles.previewRow}>
+                        {sentByMe !== null && (
+                            <Ionicons
+                                name={sentByMe ? 'arrow-up-outline' : 'arrow-down-outline'}
+                                size={12}
+                                color={colors.secondaryText}
+                            />
+                        )}
+                        {preview.icon && (
+                            <Ionicons name={preview.icon as any} size={13} color={colors.secondaryText} />
+                        )}
+                        <ThemedText
+                            style={[styles.preview, hasBadge ? styles.previewUnseen : { color: colors.secondaryText }]}
+                            numberOfLines={1}
+                        >
+                            {preview.text}
+                        </ThemedText>
+                    </View>
+                )}
             </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.secondaryText} />
         </TouchableOpacity>
     );
 }
@@ -146,12 +189,6 @@ const styles = StyleSheet.create({
         paddingHorizontal: '4%',
         paddingVertical: 100,
     },
-    separator: {
-        height: StyleSheet.hairlineWidth,
-        backgroundColor: colors.secondaryText,
-        marginHorizontal: '4%',
-        opacity: 0.3,
-    },
     itemContainer: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -161,23 +198,35 @@ const styles = StyleSheet.create({
         paddingHorizontal: '3%',
         paddingVertical: '3%',
         borderRadius: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(17,24,28,0.08)',
+        boxShadow: boxShadow({ width: 0, height: 2 }, 0.08, 6, '#101828'),
     },
     avatar: {
         width: 44,
         height: 44,
         borderRadius: 22,
-        backgroundColor: colors.lightTint + '22',
+        backgroundColor: 'rgba(26,115,232,0.12)',
+        borderWidth: 1,
+        borderColor: 'rgba(26,115,232,0.35)',
         alignItems: 'center',
         justifyContent: 'center',
     },
     avatarText: {
         fontSize: 18,
         fontWeight: '700',
-        color: colors.lightTint,
+        color: glassColors.link,
     },
     itemContent: {
         flex: 1,
         flexDirection: 'column',
+    },
+    tituloUnseen: {
+        color: '#000000',
+    },
+    previewUnseen: {
+        color: '#000000',
+        fontWeight: '600',
     },
     itemHeader: {
         flexDirection: 'row',
@@ -199,9 +248,15 @@ const styles = StyleSheet.create({
         marginTop: 4,
         fontSize: 12,
     },
+    previewRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        marginTop: 2,
+    },
     preview: {
         fontSize: 13,
-        marginTop: 2,
+        flexShrink: 1,
     },
     dateText: {
         fontSize: 12,

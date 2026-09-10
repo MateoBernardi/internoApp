@@ -1,4 +1,5 @@
 import { Colors } from '@/constants/theme';
+import { glassStyles } from '@/shared/ui/glass';
 import { Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
@@ -67,12 +68,12 @@ export const Encuestas: React.FC = () => {
       {headerToggle}
       <View style={styles.content}>
         <TouchableOpacity
-          style={styles.optionCard}
+          style={[glassStyles.fieldGlass, styles.optionCard]}
           onPress={() => setOpcionSeleccionada('crear')}
-          activeOpacity={0.7}
+          activeOpacity={0.75}
         >
           <View style={styles.cardRow}>
-            <View style={styles.iconContainer}>
+            <View style={[glassStyles.button, styles.iconContainer]}>
               <Ionicons name="create-outline" size={28} color={colors.lightTint} />
             </View>
             <View style={styles.cardTextContainer}>
@@ -88,12 +89,12 @@ export const Encuestas: React.FC = () => {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.optionCard}
+          style={[glassStyles.fieldGlass, styles.optionCard]}
           onPress={() => setOpcionSeleccionada('resultados')}
-          activeOpacity={0.7}
+          activeOpacity={0.75}
         >
           <View style={styles.cardRow}>
-            <View style={styles.iconContainer}>
+            <View style={[glassStyles.button, styles.iconContainer]}>
               <Ionicons name="bar-chart-outline" size={28} color={colors.lightTint} />
             </View>
             <View style={styles.cardTextContainer}>
@@ -124,16 +125,9 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   optionCard: {
-    backgroundColor: colors.componentBackground,
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    borderWidth: 1,
-    borderColor: colors.background,
+    minHeight: 90,
   },
   cardRow: {
     flexDirection: 'row',
@@ -143,7 +137,8 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 12,
-    backgroundColor: colors.lightTint + '15',
+    paddingHorizontal: 0,
+    paddingVertical: 0,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,

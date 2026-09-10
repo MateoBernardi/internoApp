@@ -3,6 +3,7 @@
 # dependencies
 node_modules/
 google-services.json
+GoogleService-Info.plist
 ios/Pods/
 android/.gradle/
 android/app/build/

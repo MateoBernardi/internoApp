@@ -1,6 +1,9 @@
+import { GlassTabSelector } from '@/components/ui/GlassTabSelector';
 import { UserSelector } from '@/components/UserSelector';
 import { Colors } from '@/constants/theme';
+import { ParticipantesBlock } from '@/features/solicitudesActividades/components/ParticipantesBlock';
 import { RoleUserSelectionModal } from '@/features/solicitudesActividades/components/RoleUserSelectionModal';
+import { GlassButton } from '@/shared/ui/GlassButton';
 import { UserSummary } from '@/shared/users/User';
 import { allRoles } from '@/shared/users/roles';
 import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
@@ -8,7 +11,6 @@ import { ParticipanteResumen } from '../models/Encuesta';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Modal,
   ScrollView,
@@ -128,71 +130,58 @@ export const GestionParticipantesModal: React.FC<GestionParticipantesModalProps>
         <View style={[styles.convocarSheet, { paddingBottom: insets.bottom + 8 }]}>
             <View style={styles.convocarHeader}>
             <Text style={styles.convocarTitle}>Gestionar participantes</Text>
-            <TouchableOpacity onPress={handleClose} style={{ position: 'absolute', right: 20, top: 10, padding: 6, borderRadius: 16, backgroundColor: '#f3f4f6' }}>
+            <TouchableOpacity onPress={handleClose} style={{ position: 'absolute', right: 20, top: 10, padding: 6, borderRadius: 16, backgroundColor: 'rgba(17,24,28,0.03)' }}>
               <Ionicons name="chevron-down" size={22} color={colors.secondaryText} />
             </TouchableOpacity>
           </View>
 
           {/* Tabs */}
           <View style={styles.tabBar}>
-            <TouchableOpacity
-              style={[styles.tabButton, tab === 'agregar' && styles.tabButtonActive]}
-              onPress={() => setTab('agregar')}
-            >
-              <Text style={[styles.tabButtonText, tab === 'agregar' && styles.tabButtonTextActive]}>
-                Agregar
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.tabButton, tab === 'quitar' && styles.tabButtonActive]}
-              onPress={() => setTab('quitar')}
-            >
-              <Text style={[styles.tabButtonText, tab === 'quitar' && styles.tabButtonTextActive]}>
-                Quitar ({participantesActuales.length})
-              </Text>
-            </TouchableOpacity>
+            <GlassTabSelector
+              tabs={[
+                { key: 'agregar', label: 'Agregar' },
+                { key: 'quitar', label: `Quitar (${participantesActuales.length})` },
+              ]}
+              activeKey={tab}
+              onChange={(key) => setTab(key as Tab)}
+            />
           </View>
 
           {/* Tab Agregar */}
           {tab === 'agregar' && (
             <>
               <ScrollView
-                style={{ paddingHorizontal: 20, marginTop: 12 }}
+                style={{ flex: 1, paddingHorizontal: 20, marginTop: 12 }}
                 contentContainerStyle={{ paddingBottom: 12 }}
                 keyboardShouldPersistTaps="handled"
                 showsVerticalScrollIndicator={false}
               >
-                <UserSelector
-                  selectedUsers={usersToAdd}
-                  onSelectUsers={setUsersToAdd}
-                  users={searchResults ?? []}
-                  roles={allRoles}
-                  isLoadingUsers={isLoadingUsers}
-                  isLoadingRoles={false}
-                  onSearch={setSearchQuery}
-                  onSelectRole={(role) => { setActiveRole(role); setShowRoleModal(true); }}
+                {/* Mismo patrón que "Añadir participantes" en Kanban: lista +
+                    buscador conviven dentro de una única tarjeta con borde y
+                    espaciado propio, en vez de flotar sueltos. */}
+                <ParticipantesBlock
+                  participantes={
+                    participantesActuales.length > 0
+                      ? participantesActuales.map((p) => ({
+                          id: p.user_context_id,
+                          nombre: `${p.nombre} ${p.apellido}`,
+                        }))
+                      : [{ id: -1, nombre: 'Todos los empleados' }]
+                  }
+                  initialExpanded
+                  extraContent={
+                    <UserSelector
+                      selectedUsers={usersToAdd}
+                      onSelectUsers={setUsersToAdd}
+                      users={searchResults ?? []}
+                      roles={allRoles}
+                      isLoadingUsers={isLoadingUsers}
+                      isLoadingRoles={false}
+                      onSearch={setSearchQuery}
+                      onSelectRole={(role) => { setActiveRole(role); setShowRoleModal(true); }}
+                    />
+                  }
                 />
-
-                <View style={styles.invitadosSection}>
-                  <Text style={styles.invitadosSectionTitle}>
-                    Invitados{participantesActuales.length > 0 ? ` (${participantesActuales.length})` : ''}
-                  </Text>
-                  {participantesActuales.length === 0 ? (
-                    <View style={styles.invitadoRow}>
-                      <Ionicons name="people-outline" size={18} color={colors.secondaryText} />
-                      <Text style={styles.invitadoNombre}>Todos los empleados</Text>
-                    </View>
-                  ) : (
-                    participantesActuales.map((p) => (
-                      <View key={p.user_context_id} style={styles.invitadoRow}>
-                        <Ionicons name="person-circle-outline" size={20} color={colors.secondaryText} />
-                        <Text style={styles.invitadoNombre}>
-                          {p.nombre} {p.apellido}
-                        </Text>
-                      </View>
-                    ))
-                  )}
-                </View>
               </ScrollView>
 
               <View style={styles.gestionFooter}>
@@ -201,21 +190,13 @@ export const GestionParticipantesModal: React.FC<GestionParticipantesModalProps>
                     ? `${usersToAdd.length} seleccionado${usersToAdd.length > 1 ? 's' : ''}`
                     : 'Ninguno seleccionado'}
                 </Text>
-                <TouchableOpacity
-                  style={[
-                    styles.gestionActionButton,
-                    styles.gestionAddButton,
-                    (usersToAdd.length === 0 || isPending) && styles.gestionButtonDisabled,
-                  ]}
+                <GlassButton
+                  variant="success"
+                  label="Agregar"
                   onPress={handleAgregar}
                   disabled={usersToAdd.length === 0 || isPending}
-                >
-                  {isPending ? (
-                    <ActivityIndicator color={colors.componentBackground} size="small" />
-                  ) : (
-                    <Text style={styles.gestionButtonText}>Agregar</Text>
-                  )}
-                </TouchableOpacity>
+                  loading={isPending}
+                />
               </View>
             </>
           )}
@@ -231,7 +212,7 @@ export const GestionParticipantesModal: React.FC<GestionParticipantesModalProps>
                   </Text>
                 </View>
               ) : (
-                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 8 }}>
+                <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 8 }}>
                   {participantesActuales.map((p) => {
                     const isSelected = selectedToRemove.has(p.user_context_id);
                     return (
@@ -261,21 +242,13 @@ export const GestionParticipantesModal: React.FC<GestionParticipantesModalProps>
                     ? `${selectedToRemove.size} seleccionado${selectedToRemove.size > 1 ? 's' : ''}`
                     : 'Ninguno seleccionado'}
                 </Text>
-                <TouchableOpacity
-                  style={[
-                    styles.gestionActionButton,
-                    styles.gestionRemoveButton,
-                    (selectedToRemove.size === 0 || isPending) && styles.gestionButtonDisabled,
-                  ]}
+                <GlassButton
+                  variant="danger"
+                  label="Quitar"
                   onPress={handleQuitar}
                   disabled={selectedToRemove.size === 0 || isPending}
-                >
-                  {isPending ? (
-                    <ActivityIndicator color={colors.componentBackground} size="small" />
-                  ) : (
-                    <Text style={styles.gestionButtonText}>Quitar</Text>
-                  )}
-                </TouchableOpacity>
+                  loading={isPending}
+                />
               </View>
             </>
           )}

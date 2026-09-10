@@ -124,3 +124,15 @@ export async function deleteObjetivo(
         throw new Error(errData.message || errData.error || response.statusText);
     }
 }
+
+export async function marcarObjetivoVisto(
+    accessToken: string,
+    objetivoId: number
+): Promise<void> {
+    const response = await apiRequest({ method: 'POST', endpoint: `/kanban/${objetivoId}/visto`, token: accessToken });
+
+    if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.message || errData.error || response.statusText);
+    }
+}

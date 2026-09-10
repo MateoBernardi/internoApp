@@ -2,18 +2,6 @@ import { apiRequest } from '../../../shared/apiRequest';
 import { idempotencyHeaders } from '@/shared/idempotency';
 import * as solicitudLicencia from '../models/SolicitudLicencia';
 
-export const getLicenciasUnseenCount = async (accessToken: string): Promise<number> => {
-    const response = await apiRequest({ method: 'GET', endpoint: '/licencias/solicitudes/unseen', token: accessToken });
-
-    if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        throw new Error(error.message || error.error || response.statusText);
-    }
-
-    const data = await response.json();
-    return typeof data?.unseenCount === 'number' ? data.unseenCount : 0;
-};
-
 export const getTiposLicencia = async (accessToken: string): Promise<solicitudLicencia.TipoLicencia[]> => {
     const response = await apiRequest({ method: 'GET', endpoint: '/licencias/tipos', token: accessToken });
 
@@ -74,7 +62,9 @@ export const getSaldosLicencia = async (accessToken: string): Promise<solicitudL
         const francosVal = typeof raw.francos === 'object'
             ? Number(raw.francos.horas_disponibles ?? 0) - Number(raw.francos.horas_consumidas ?? 0)
             : Number(raw.francos);
-        francos = Number.isFinite(francosVal) ? francosVal : null;
+        // El saldo neto de franco nunca debe mostrarse negativo (aunque haya
+        // quedado así por filas legadas anteriores al guard de aprobación).
+        francos = Number.isFinite(francosVal) ? Math.max(0, francosVal) : null;
     }
 
     return { ausencias, francos };

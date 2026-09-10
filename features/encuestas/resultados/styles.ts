@@ -1,4 +1,5 @@
 import { Colors } from '@/constants/theme';
+import { glassStyles } from '@/shared/ui/glass';
 import { StyleSheet } from 'react-native';
 
 const colors = Colors['light'];
@@ -18,41 +19,10 @@ export const styles = StyleSheet.create({
     padding: 20,
     gap: 12,
   },
-  resultadosButton: {
-    minWidth: 80,
-    height: 40,
-    justifyContent: 'center',
-  },
-  resultadosButtonText: {
-    fontSize: 14,
-    color: colors.lightTint,
-    fontWeight: '600',
-  },
   subHeader: {
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 4,
-  },
-  detailHeaderContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.background,
-  },
-  detailTitleContainer: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 4,
-  },
-  detailHeaderTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-    textAlign: 'center',
   },
   descriptionContainer: {
     paddingHorizontal: 16,
@@ -71,15 +41,6 @@ export const styles = StyleSheet.create({
   },
   retryButton: {
     marginTop: 16,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    backgroundColor: colors.lightTint,
-    borderRadius: 8,
-  },
-  retryButtonText: {
-    color: colors.componentBackground,
-    fontSize: 14,
-    fontWeight: '600',
   },
   cardHeaderRow: {
     flexDirection: 'row',
@@ -128,15 +89,10 @@ export const styles = StyleSheet.create({
     paddingBottom: 50,
   },
   encuestaCard: {
-    backgroundColor: colors.componentBackground,
+    ...glassStyles.card,
     borderRadius: 12,
     padding: 16,
     marginBottom: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   encuestaTitulo: {
     fontSize: 16,
@@ -177,28 +133,21 @@ export const styles = StyleSheet.create({
   },
   verDetalleButton: {
     flexDirection: 'row',
-    backgroundColor: colors.lightTint,
-    paddingVertical: 10,
-    borderRadius: 8,
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
+    justifyContent: 'flex-end',
+    gap: 4,
+    marginTop: 8,
   },
   verDetalleText: {
-    color: colors.componentBackground,
-    fontSize: 14,
+    color: colors.lightTint,
+    fontSize: 13,
     fontWeight: '600',
   },
   preguntaResultadoCard: {
-    backgroundColor: colors.componentBackground,
+    ...glassStyles.card,
     borderRadius: 12,
     padding: 16,
     marginBottom: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   preguntaHeader: {
     flexDirection: 'row',
@@ -212,12 +161,19 @@ export const styles = StyleSheet.create({
     color: colors.lightTint,
   },
   tipoPreguntaBadge: {
-    fontSize: 12,
-    color: colors.secondaryText,
-    backgroundColor: colors.componentBackground,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(17,24,28,0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(17,24,28,0.12)',
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 4,
+    borderRadius: 999,
+  },
+  tipoPreguntaBadgeText: {
+    fontSize: 12,
+    color: colors.secondaryText,
   },
   preguntaTitulo: {
     fontSize: 16,
@@ -360,11 +316,16 @@ export const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
   },
+  siNoLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 8,
+  },
   siNoLabel: {
     fontSize: 14,
     fontWeight: '600',
     color: colors.secondaryText,
-    marginBottom: 8,
   },
   siNoValor: {
     fontSize: 18,
@@ -398,9 +359,9 @@ export const styles = StyleSheet.create({
     fontWeight: '600',
   },
   modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    ...glassStyles.modalOverlay,
     justifyContent: 'flex-end',
+    alignItems: 'stretch',
   },
   modalContent: {
     backgroundColor: colors.componentBackground,
@@ -424,8 +385,14 @@ export const styles = StyleSheet.create({
     color: colors.text,
   },
   modalCloseButton: {
-    fontSize: 24,
-    color: colors.secondaryText,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(17,24,28,0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(17,24,28,0.12)',
   },
   modalScroll: {
     paddingHorizontal: 20,
@@ -463,12 +430,14 @@ export const styles = StyleSheet.create({
   },
   enProgresoCartel: {
     flexDirection: 'row',
-    backgroundColor: colors.warning,
+    backgroundColor: 'rgba(245,166,35,0.08)',
     paddingVertical: 10,
     paddingHorizontal: 16,
     marginHorizontal: 16,
     marginTop: 12,
     borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.warning,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
@@ -476,7 +445,7 @@ export const styles = StyleSheet.create({
   enProgresoText: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.componentBackground,
+    color: colors.warning,
   },
   errorSubtext: {
     fontSize: 14,
@@ -510,7 +479,7 @@ export const styles = StyleSheet.create({
     borderRadius: 8,
   },
   votanteRowSelected: {
-    backgroundColor: '#e9f1fd',
+    backgroundColor: 'rgba(26,115,232,0.08)',
   },
   votanteRowConvocado: {
     backgroundColor: colors.background,
@@ -552,9 +521,9 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#e9f1fd',
+    backgroundColor: 'rgba(26,115,232,0.08)',
     borderWidth: 1,
-    borderColor: '#cfe0f9',
+    borderColor: 'rgba(26,115,232,0.25)',
     borderRadius: 999,
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -562,7 +531,7 @@ export const styles = StyleSheet.create({
   slotBadgeText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#2a4f86',
+    color: colors.lightTint,
   },
   verTodosButton: {
     flexDirection: 'row',
@@ -586,36 +555,18 @@ export const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: colors.lightTint,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
+    backgroundColor: colors.componentBackground,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(17,24,28,0.08)',
     paddingVertical: 14,
     paddingHorizontal: 20,
-  },
-  reunionBarText: {
-    color: colors.componentBackground,
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  reunionBarBadge: {
-    backgroundColor: 'rgba(255,255,255,0.25)',
-    borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
-  reunionBarBadgeText: {
-    color: colors.componentBackground,
-    fontSize: 13,
-    fontWeight: '700',
   },
 
   // ── ConvocarReunionModal ──────────────────────────────────────────────────
   convocarOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    ...glassStyles.modalOverlay,
     justifyContent: 'flex-end',
+    alignItems: 'stretch',
   },
   convocarSheet: {
     backgroundColor: colors.componentBackground,
@@ -634,7 +585,7 @@ export const styles = StyleSheet.create({
     marginBottom: 4,
   },
   convocarHeader: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: colors.background,
@@ -660,13 +611,11 @@ export const styles = StyleSheet.create({
     marginBottom: 6,
   },
   convocarInput: {
-    borderWidth: 1,
-    borderColor: colors.background,
+    ...glassStyles.fieldGlass,
     borderRadius: 12,
     padding: 14,
     fontSize: 15,
     color: colors.text,
-    backgroundColor: colors.componentBackground,
   },
   convocarTextArea: {
     minHeight: 72,
@@ -676,16 +625,16 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 8,
-    backgroundColor: '#e9f1fd',
+    backgroundColor: 'rgba(26,115,232,0.08)',
     borderWidth: 1,
-    borderColor: '#cfe0f9',
+    borderColor: 'rgba(26,115,232,0.25)',
     borderRadius: 10,
     padding: 12,
     marginTop: 16,
   },
   sepNoteText: {
     fontSize: 12,
-    color: '#2a4f86',
+    color: colors.lightTint,
     flex: 1,
     lineHeight: 17,
   },
@@ -721,13 +670,10 @@ export const styles = StyleSheet.create({
     flex: 1,
   },
   fechaFinButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    ...glassStyles.buttonSecondary,
     gap: 4,
-    backgroundColor: colors.background,
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
   },
   fechaFinText: {
     fontSize: 12,
@@ -749,20 +695,6 @@ export const styles = StyleSheet.create({
     color: colors.secondaryText,
     fontWeight: '600',
   },
-  enviarReunionButton: {
-    backgroundColor: colors.lightTint,
-    borderRadius: 12,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-  },
-  enviarReunionButtonDisabled: {
-    opacity: 0.5,
-  },
-  enviarReunionButtonText: {
-    color: colors.componentBackground,
-    fontSize: 15,
-    fontWeight: '700',
-  },
   fallidasContainer: {
     marginTop: 12,
     gap: 6,
@@ -771,7 +703,7 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 8,
-    backgroundColor: '#fff3f3',
+    backgroundColor: 'rgba(244,67,54,0.06)',
     borderRadius: 8,
     padding: 10,
   },
@@ -791,36 +723,23 @@ export const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: 8,
   },
+  exitosasRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
   exitosasText: {
     fontSize: 14,
     color: colors.success,
     fontWeight: '600',
-    marginBottom: 4,
   },
 
   // ── GestionParticipantesModal ─────────────────────────────────────────────
   tabBar: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.background,
     marginHorizontal: 20,
-  },
-  tabButton: {
-    flex: 1,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  tabButtonActive: {
-    borderBottomWidth: 2,
-    borderBottomColor: colors.lightTint,
-  },
-  tabButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.secondaryText,
-  },
-  tabButtonTextActive: {
-    color: colors.lightTint,
+    marginTop: 4,
+    marginBottom: 8,
   },
   participanteRow: {
     flexDirection: 'row',
@@ -847,29 +766,6 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  invitadosSection: {
-    marginTop: 20,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: colors.background,
-  },
-  invitadosSectionTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 10,
-  },
-  invitadoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 7,
-  },
-  invitadoNombre: {
-    fontSize: 14,
-    color: colors.text,
-    flex: 1,
-  },
   gestionFooter: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -883,27 +779,5 @@ export const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.secondaryText,
     fontWeight: '600',
-  },
-  gestionActionButton: {
-    borderRadius: 12,
-    paddingHorizontal: 20,
-    paddingVertical: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 100,
-  },
-  gestionAddButton: {
-    backgroundColor: colors.lightTint,
-  },
-  gestionRemoveButton: {
-    backgroundColor: colors.error,
-  },
-  gestionButtonDisabled: {
-    opacity: 0.45,
-  },
-  gestionButtonText: {
-    color: colors.componentBackground,
-    fontSize: 14,
-    fontWeight: '700',
   },
 });

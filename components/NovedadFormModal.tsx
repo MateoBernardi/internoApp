@@ -1,10 +1,10 @@
-import { Colors } from '@/constants/theme';
 import type { Novedad } from '@/features/novedades/models/Novedades';
+import { focusBorderStyles, glassColors, glassStyles } from '@/shared/ui/glass';
+import { useFocusBorder } from '@/shared/ui/useFocusBorder';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
-  Keyboard,
-  Modal,
+  BackHandler,
   Platform,
   ScrollView,
   StyleSheet,
@@ -13,8 +13,11 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
+import { useKeyboardHeight } from '@/shared/ui/keyboard';
 import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeBottomInset } from '@/hooks/useSafeBottomInset';
 import { Dropdown } from 'react-native-element-dropdown';
 import { ThemedText } from './themed-text';
 
@@ -80,9 +83,12 @@ export function NovedadFormModal({
   const [tipo, setTipo] = useState<number>(1);
   const [prioridad, setPrioridad] = useState<number>(2);
   const [loading, setLoading] = useState(false);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const keyboardHeight = useKeyboardHeight();
   const isKeyboardOpen = keyboardHeight > 0;
   const insets = useSafeAreaInsets();
+  const bottomInset = useSafeBottomInset();
+  const tituloFocus = useFocusBorder();
+  const descripcionFocus = useFocusBorder();
 
   const syncCreateDraft = (partial: Partial<{ titulo: string; descripcion: string; tipo: number; prioridad: number }>) => {
     if (mode !== 'create' || !onDraftChange) return;
@@ -94,20 +100,6 @@ export function NovedadFormModal({
       ...partial,
     });
   };
-
-  useEffect(() => {
-    const onShow = Keyboard.addListener('keyboardDidShow', (event) => {
-      setKeyboardHeight(event.endCoordinates.height);
-    });
-    const onHide = Keyboard.addListener('keyboardDidHide', () => {
-      setKeyboardHeight(0);
-    });
-
-    return () => {
-      onShow.remove();
-      onHide.remove();
-    };
-  }, []);
 
   useEffect(() => {
     if (!visible) return;
@@ -167,26 +159,33 @@ export function NovedadFormModal({
     onMinimize();
   };
 
+  useEffect(() => {
+    if (!visible) return;
+    const handleBackPress = mode === 'create' && onMinimize ? handleMinimize : onClose;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      handleBackPress();
+      return true;
+    });
+    return () => sub.remove();
+  }, [visible, mode, onMinimize, onClose, loading]);
+
+  if (!visible) return null;
+
   return (
-    <Modal
-      visible={visible}
-      transparent={true}
-      animationType="slide"
-      onRequestClose={mode === 'create' && onMinimize ? handleMinimize : onClose}
-    >
-      <View style={styles.overlay}>
+      <FullScreenPortal>
+      <View style={styles.fullScreen}>
         <ModalKeyboardView style={styles.modalKeyboardAvoiding}>
-          <View style={[styles.modalContainer, { paddingBottom: insets.bottom }]}>
-            <View style={styles.modalHeader}>
+          <View style={styles.modalContainer}>
+            <View style={[styles.modalHeader, glassStyles.sheetHeader, { paddingTop: insets.top + 12 }]}>
+              <TouchableOpacity onPress={onClose} style={styles.headerIconButton} disabled={loading}>
+                <Ionicons name="chevron-back" size={24} color="#6b7280" />
+              </TouchableOpacity>
               <View style={styles.modalHeaderActions}>
                 {mode === 'create' && (
                   <TouchableOpacity onPress={handleMinimize} style={styles.headerIconButton} disabled={loading}>
                     <Ionicons name="chevron-down" size={24} color="#6b7280" />
                   </TouchableOpacity>
                 )}
-                <TouchableOpacity onPress={onClose} style={styles.headerIconButton} disabled={loading}>
-                  <Ionicons name="close" size={22} color="#6b7280" />
-                </TouchableOpacity>
               </View>
             </View>
 
@@ -206,12 +205,18 @@ export function NovedadFormModal({
               <View style={styles.fieldContainer}>
                 <Text style={styles.label}>Título</Text>
                 <TextInput
-                  style={styles.input}
+                  style={[
+                    styles.input,
+                    focusBorderStyles.inputNoOutline,
+                    tituloFocus.isFocused && { borderColor: glassColors.link },
+                  ]}
                   value={titulo}
                   onChangeText={(value) => {
                     setTitulo(value);
                     syncCreateDraft({ titulo: value });
                   }}
+                  onFocus={tituloFocus.onFocus}
+                  onBlur={tituloFocus.onBlur}
                   placeholder="Título"
                   placeholderTextColor="#9ca3af"
                 />
@@ -221,12 +226,19 @@ export function NovedadFormModal({
               <View style={styles.fieldContainer}>
                 <Text style={styles.label}>Descripción</Text>
                 <TextInput
-                  style={[styles.input, styles.textArea]}
+                  style={[
+                    styles.input,
+                    styles.textArea,
+                    focusBorderStyles.inputNoOutline,
+                    descripcionFocus.isFocused && { borderColor: glassColors.link },
+                  ]}
                   value={descripcion}
                   onChangeText={(value) => {
                     setDescripcion(value);
                     syncCreateDraft({ descripcion: value });
                   }}
+                  onFocus={descripcionFocus.onFocus}
+                  onBlur={descripcionFocus.onBlur}
                   placeholder="Descripción"
                   placeholderTextColor="#9ca3af"
                   multiline
@@ -271,12 +283,12 @@ export function NovedadFormModal({
 
             </ScrollView>
 
-            <View style={[styles.uploadButtonContainer]}>
+            <View style={[styles.uploadButtonContainer, { paddingBottom: bottomInset }]}>
               <TouchableOpacity
                 onPress={handleSubmit}
-                style={[styles.uploadButton, { backgroundColor: Colors['light'].componentBackground }]}
+                style={[styles.uploadButton, glassStyles.button]}
               >
-                <Ionicons name="cloud-upload" size={20} color={Colors['light'].lightTint} />
+                <Ionicons name="cloud-upload" size={20} color={glassColors.link} />
                 <ThemedText style={styles.uploadButtonText}>{'Crear'}</ThemedText>
 
               </TouchableOpacity>
@@ -284,34 +296,28 @@ export function NovedadFormModal({
           </View>
         </ModalKeyboardView>
       </View>
-    </Modal>
+      </FullScreenPortal>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)' // Sombra de fondo
+  fullScreen: {
+    ...StyleSheet.absoluteFill,
+    ...glassStyles.sheet,
+    zIndex: 1000,
   },
   modalKeyboardAvoiding: {
     flex: 1,
     width: '100%',
   },
   modalContainer: {
-    // Quita el flex: 1, o usa un alto fijo/porcentaje
     flex: 1,
-    marginTop: '10%', // Empuja el modal hacia abajo
-    backgroundColor: Colors['light'].componentBackground,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    overflow: 'hidden',
   },
   modalHeader: {
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderBottomColor: Colors['light'].icon,
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
     alignItems: 'center',
   },
   modalHeaderActions: {
@@ -322,7 +328,7 @@ const styles = StyleSheet.create({
   headerIconButton: {
     padding: 6,
     borderRadius: 16,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: 'rgba(17,24,28,0.06)',
     marginLeft: 8,
   },
   formScroll: {
@@ -349,13 +355,13 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderColor: '#d1d5db',
+    borderColor: 'rgba(17,24,28,0.12)',
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 15,
     color: '#111827',
-    backgroundColor: '#ffffff',
+    backgroundColor: 'rgba(17,24,28,0.03)',
   },
   textArea: {
     minHeight: 80,
@@ -363,19 +369,19 @@ const styles = StyleSheet.create({
   },
   dropdown: {
     height: 50,
-    borderColor: '#d1d5db',
+    borderColor: 'rgba(17,24,28,0.12)',
     borderWidth: 1,
     borderRadius: 8,
     paddingHorizontal: 12,
-    backgroundColor: 'white',
+    backgroundColor: 'rgba(17,24,28,0.03)',
   },
   placeholderStyle: {
     fontSize: 15,
-    color: '#9ca3af',
+    color: glassColors.placeholder,
   },
   selectedTextStyle: {
     fontSize: 15,
-    color: '#111827',
+    color: glassColors.text,
   },
   modalSubmitFab: {
     alignSelf: 'flex-end',
@@ -383,22 +389,21 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   uploadButtonContainer: {
-    backgroundColor: Colors['light'].componentBackground,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: Colors['light'].icon,
+    borderTopColor: 'rgba(17,24,28,0.08)',
     paddingHorizontal: '4%',
-    paddingTop: 10,
+    paddingTop: 14,
   },
   uploadButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
+    paddingVertical: 16,
     borderRadius: 8,
     gap: 8,
   },
   uploadButtonText: {
-    color: Colors['light'].lightTint,
+    color: glassColors.link,
     fontWeight: '600',
     fontSize: 16,
   },

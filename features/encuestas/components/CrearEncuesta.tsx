@@ -3,7 +3,11 @@ import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
 import { UserSelector } from '@/components/UserSelector';
 import { Colors } from '@/constants/theme';
 import { RoleUserSelectionModal } from '@/features/solicitudesActividades/components/RoleUserSelectionModal';
-import { KEYBOARD_BEHAVIOR } from '@/shared/ui/keyboard';
+import { AppBackButton } from '@/shared/ui/AppBackButton';
+import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
+import { glassColors } from '@/shared/ui/glass';
+import { KEYBOARD_BEHAVIOR, useKeyboardHeight } from '@/shared/ui/keyboard';
+import { useSafeBottomInset } from '@/hooks/useSafeBottomInset';
 import { useIdempotencyKey } from '@/shared/useIdempotencyKey';
 import { UserSummary } from '@/shared/users/User';
 import { allRoles } from '@/shared/users/roles';
@@ -22,8 +26,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Encuesta, Pregunta } from '../models/Encuesta';
+import { Encuesta, Pregunta, TIPO_PREGUNTA_META } from '../models/Encuesta';
 import { useCreateEncuestaCompleta } from '../viewmodels/useEncuestas';
 import { styles } from './crearEncuestaStyles';
 import { EncuestasScreenHeader } from './EncuestasScreenHeader';
@@ -37,9 +40,11 @@ interface CrearEncuestaProps {
 const colors = Colors['light'];
 
 export const CrearEncuesta: React.FC<CrearEncuestaProps> = ({ onEncuestaCreada, onVolver }) => {
-  const insets = useSafeAreaInsets();
+  const bottomInset = useSafeBottomInset();
+  const keyboardHeight = useKeyboardHeight();
   const [titulo, setTitulo] = useState('');
   const [descripcion, setDescripcion] = useState('');
+  const [focusedField, setFocusedField] = useState<'titulo' | 'descripcion' | null>(null);
   const [esAnonima, setEsAnonima] = useState(false);
   const [fechaFin, setFechaFin] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -123,6 +128,11 @@ export const CrearEncuesta: React.FC<CrearEncuestaProps> = ({ onEncuestaCreada, 
     setShowRoleModal(true);
   }, []);
 
+  const isFormValid =
+    titulo.trim().length > 0 &&
+    preguntas.length > 0 &&
+    (todosEmpleados || selectedUsers.length > 0);
+
   const validarFormulario = (): boolean => {
     if (!titulo.trim()) {
       Alert.alert('Error', 'El título es obligatorio');
@@ -187,40 +197,39 @@ export const CrearEncuesta: React.FC<CrearEncuestaProps> = ({ onEncuestaCreada, 
   }
 
   return (
+    <FullScreenPortal>
+    <View style={styles.fullScreen}>
     <KeyboardAvoidingView
       style={styles.container}
       behavior={KEYBOARD_BEHAVIOR}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
     >
-      <EncuestasScreenHeader
-        title="Crear Encuesta"
-        left={
-          <TouchableOpacity onPress={onVolver} style={{ width: 40, height: 40, justifyContent: 'center' }}>
-            <Ionicons name="chevron-back" size={24} color={colors.lightTint} />
-          </TouchableOpacity>
-        }
-      />
+      <EncuestasScreenHeader title="Crear Encuesta" left={<AppBackButton onPress={onVolver} />} />
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 + keyboardHeight }}>
 
         {/* Información básica */}
         <View style={styles.section}>
           <TextInput
-            style={styles.input}
+            style={[styles.input, styles.inputNoOutline, focusedField === 'titulo' && styles.inputFocused]}
             placeholder="Título de la encuesta *"
             placeholderTextColor={colors.secondaryText}
             value={titulo}
             onChangeText={setTitulo}
+            onFocus={() => setFocusedField('titulo')}
+            onBlur={() => setFocusedField(null)}
           />
 
           <TextInput
-            style={[styles.input, styles.textArea]}
+            style={[styles.input, styles.textArea, styles.inputNoOutline, focusedField === 'descripcion' && styles.inputFocused]}
             placeholder="Descripción (opcional)"
             placeholderTextColor={colors.secondaryText}
             multiline
             numberOfLines={3}
             value={descripcion}
             onChangeText={setDescripcion}
+            onFocus={() => setFocusedField('descripcion')}
+            onBlur={() => setFocusedField(null)}
           />
 
           <ThemedText style={styles.subLabel}>Fecha de finalización (opcional)</ThemedText>
@@ -321,7 +330,8 @@ export const CrearEncuesta: React.FC<CrearEncuestaProps> = ({ onEncuestaCreada, 
               style={styles.agregarPreguntaButton}
               onPress={() => setFormularioPregunta({ index: null })}
             >
-              <Text style={styles.agregarPreguntaText}>+ Agregar</Text>
+              <Ionicons name="add" size={16} color={glassColors.link} />
+              <Text style={styles.agregarPreguntaText}>Agregar</Text>
             </TouchableOpacity>
           </View>
 
@@ -348,7 +358,10 @@ export const CrearEncuesta: React.FC<CrearEncuestaProps> = ({ onEncuestaCreada, 
                 </View>
                 <Text style={styles.preguntaTitulo}>{pregunta.titulo}</Text>
                 <View style={styles.preguntaInfo}>
-                  <Text style={styles.preguntaTipo}>Tipo: {pregunta.tipo_pregunta}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <Ionicons name={TIPO_PREGUNTA_META[pregunta.tipo_pregunta].icon} size={12} color={colors.secondaryText} />
+                    <Text style={styles.preguntaTipo}>{TIPO_PREGUNTA_META[pregunta.tipo_pregunta].label}</Text>
+                  </View>
                   {pregunta.es_obligatoria && (
                     <Text style={styles.obligatoriaTag}>Obligatoria</Text>
                   )}
@@ -359,11 +372,14 @@ export const CrearEncuesta: React.FC<CrearEncuestaProps> = ({ onEncuestaCreada, 
                       {pregunta.tipo_pregunta === 'horario' ? 'Horarios:' : 'Opciones:'}
                     </Text>
                     {pregunta.opciones.map((opcion, i) => (
-                      <Text key={i} style={styles.opcionText}>
-                        {pregunta.tipo_pregunta === 'horario'
-                          ? `🕐 ${opcion}`
-                          : `• ${opcion}`}
-                      </Text>
+                      <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                        {pregunta.tipo_pregunta === 'horario' && (
+                          <Ionicons name="time-outline" size={11} color={colors.secondaryText} />
+                        )}
+                        <Text style={styles.opcionText}>
+                          {pregunta.tipo_pregunta === 'horario' ? opcion : `• ${opcion}`}
+                        </Text>
+                      </View>
                     ))}
                   </View>
                 )}
@@ -373,17 +389,17 @@ export const CrearEncuesta: React.FC<CrearEncuestaProps> = ({ onEncuestaCreada, 
         </View>
       </ScrollView>
 
-      <View style={[styles.footerDos, { paddingBottom: insets.bottom + 16 }]}>
+      <View style={[styles.footerDos, { paddingBottom: bottomInset }]}>
         <TouchableOpacity style={styles.cancelarButton} onPress={onVolver}>
           <Text style={styles.cancelarButtonText}>Cancelar</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.guardarButton, isPending && styles.crearButtonDisabled]}
+          style={[styles.guardarButton, (isPending || !isFormValid) && styles.crearButtonDisabled]}
           onPress={handleCrearEncuesta}
-          disabled={isPending}
+          disabled={isPending || !isFormValid}
         >
           {isPending ? (
-            <ActivityIndicator color={colors.componentBackground} />
+            <ActivityIndicator color={glassColors.link} />
           ) : (
             <Text style={styles.guardarButtonText}>Crear Encuesta</Text>
           )}
@@ -401,5 +417,7 @@ export const CrearEncuesta: React.FC<CrearEncuestaProps> = ({ onEncuestaCreada, 
         onDeselectAll={handleDeselectAllRoleUsers}
       />
     </KeyboardAvoidingView>
+    </View>
+    </FullScreenPortal>
   );
 };

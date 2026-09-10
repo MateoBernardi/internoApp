@@ -1,6 +1,7 @@
 import { ThemedText } from '@/components/themed-text';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { Colors } from '@/constants/theme';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
@@ -10,31 +11,34 @@ import { useReporteStats } from '../viewmodels/useReportes';
 
 const colors = Colors['light'];
 
+// Fondo del header de zona: tinte translúcido del mismo color semántico que
+// el borde izquierdo, en vez del gris plano que no distinguía una zona de otra.
 const zonaConfig: Record<'rojo' | 'amarillo' | 'verde', { label: string; backgroundColor: string; color: string }> = {
 	rojo: {
 		label: 'Requiere atención',
-		backgroundColor: colors.background,
+		backgroundColor: 'rgba(244,67,54,0.08)',
 		color: colors.error,
 	},
 	amarillo: {
 		label: 'Requiere seguimiento',
-		backgroundColor: colors.background,
+		backgroundColor: 'rgba(255,152,0,0.08)',
 		color: colors.warning,
 	},
 	verde: {
 		label: 'Sin novedades',
-		backgroundColor: colors.background,
+		backgroundColor: 'rgba(46,125,50,0.08)',
 		color: colors.success,
 	},
 };
 
 interface SemaforoProps {
 	query?: string;
+	hasActiveFilter?: boolean;
 	filteredData?: ReporteStats[];
 	comparingWith?: string;
 }
 
-export function Semaforo({ query = '', filteredData, comparingWith }: SemaforoProps = {}) {
+export function Semaforo({ query = '', hasActiveFilter = false, filteredData, comparingWith }: SemaforoProps = {}) {
 	const { data: stats, error, isLoading } = useReporteStats();
 	const [expandedZones, setExpandedZones] = useState<Record<'rojo' | 'amarillo' | 'verde', boolean>>({
 		rojo: true,
@@ -77,16 +81,27 @@ export function Semaforo({ query = '', filteredData, comparingWith }: SemaforoPr
 	if (error) {
 		return (
 			<View style={styles.centerContainer}>
-
+				<ThemedText>No se pudieron cargar los datos.</ThemedText>
 			</View>
 		);
 	}
 
-	// Si hay búsqueda pero no hay resultados
-	if (query && dataToUse.length === 0) {
+	// Si hay un filtro activo (búsqueda y/o rol) pero no hay resultados
+	if (hasActiveFilter && dataToUse.length === 0) {
 		return (
 			<View style={styles.centerContainer}>
-				<ThemedText>No se encontraron resultados para "{query}"</ThemedText>
+				<ThemedText>
+					{query ? `No se encontraron resultados para "${query}"` : 'No se encontraron resultados para ese filtro'}
+				</ThemedText>
+			</View>
+		);
+	}
+
+	// Sin filtros activos y sin reportes registrados en absoluto
+	if (!hasActiveFilter && dataToUse.length === 0) {
+		return (
+			<View style={styles.centerContainer}>
+				<ThemedText>No hay reportes registrados.</ThemedText>
 			</View>
 		);
 	}
@@ -94,8 +109,8 @@ export function Semaforo({ query = '', filteredData, comparingWith }: SemaforoPr
 	return (
 		<View style={styles.container}>
 			{(['rojo', 'amarillo', 'verde'] as const).map((zona) => {
-				// Si hay búsqueda activa, mostrar solo las zonas que tengan items
-				if (query && grouped[zona].length === 0) {
+				// Si hay un filtro activo, mostrar solo las zonas que tengan items
+				if (hasActiveFilter && grouped[zona].length === 0) {
 					return null;
 				}
 				return (
@@ -132,12 +147,12 @@ function ZonaSection({
 	const config = zonaConfig[zona];
 
 	return (
-		<View style={[styles.zonaSectionContainer, { borderLeftColor: config.color }]}>
+		<View style={[glassStyles.card, styles.zonaSectionContainer, { borderLeftColor: config.color }]}>
 			{/* Header collapsible */}
 			<TouchableOpacity style={[styles.zonaHeader, { backgroundColor: config.backgroundColor }]} onPress={onToggle}>
 				<View style={styles.zonaHeaderContent}>
 					<ThemedText style={styles.zonaTitle}>{config.label}</ThemedText>
-					<View style={styles.zonaCount}>
+					<View style={[glassStyles.pill, styles.zonaCount]}>
 						<ThemedText style={styles.countText}>{items.length}</ThemedText>
 					</View>
 				</View>
@@ -151,22 +166,21 @@ function ZonaSection({
 			{/* Contenido expandible */}
 			{isExpanded && (
 				<View style={styles.zonaContent}>
-					{items.length === 0 ? (
-						<ThemedText style={styles.emptyText}>
-							{searchQuery ? '' : ''}
-						</ThemedText>
-					) : (
-						items.map((item) => (
-							<SemaforoItem key={item.usuario_id} item={item} comparingWith={comparingWith} />
-						))
-					)}
+					{items.map((item, idx) => (
+						<SemaforoItem
+							key={item.usuario_id}
+							item={item}
+							comparingWith={comparingWith}
+							isLast={idx === items.length - 1}
+						/>
+					))}
 				</View>
 			)}
 		</View>
 	);
 }
 
-function SemaforoItem({ item, comparingWith }: { item: ReporteStats; comparingWith?: string }) {
+function SemaforoItem({ item, comparingWith, isLast }: { item: ReporteStats; comparingWith?: string; isLast?: boolean }) {
 	const router = useRouter();
 
 	const handlePress = () => {
@@ -206,8 +220,8 @@ function SemaforoItem({ item, comparingWith }: { item: ReporteStats; comparingWi
 		}
 	};
 	return (
-		<View style={styles.itemContainer}>
-			<ThemedText type="defaultSemiBold" onPress={handlePress} style={{ textDecorationLine: 'underline', color: colors.tint }}>
+		<View style={[styles.itemRow, !isLast && styles.itemRowDivider]}>
+			<ThemedText type="defaultSemiBold" onPress={handlePress} style={{ textDecorationLine: 'underline', color: glassColors.link }}>
 				{item.nombre} {item.apellido}
 			</ThemedText>
 			<View style={styles.statsRow}>
@@ -229,21 +243,11 @@ const styles = StyleSheet.create({
 		alignItems: 'center',
 		paddingHorizontal: 16,
 	},
-	errorText: {
-		marginBottom: 8,
-		color: colors.error,
-	},
 	zonaSectionContainer: {
 		marginBottom: 16,
 		borderLeftWidth: 4,
 		borderRadius: 8,
 		overflow: 'hidden',
-		backgroundColor: colors.background,
-		shadowColor: '#000',
-		shadowOffset: { width: 0, height: 2 },
-		shadowOpacity: 0.08,
-		shadowRadius: 3,
-		elevation: 2,
 	},
 	zonaHeader: {
 		flexDirection: 'row',
@@ -264,7 +268,6 @@ const styles = StyleSheet.create({
 		color: colors.text,
 	},
 	zonaCount: {
-		backgroundColor: 'rgba(255, 255, 255, 0.2)',
 		borderRadius: 12,
 		paddingHorizontal: 8,
 		paddingVertical: 4,
@@ -280,28 +283,13 @@ const styles = StyleSheet.create({
 		paddingHorizontal: 8,
 		paddingVertical: 12,
 	},
-	flatListContainer: {
-		minHeight: 40,
+	itemRow: {
+		paddingHorizontal: 8,
+		paddingVertical: 12,
 	},
-	emptyText: {
-		textAlign: 'center',
-		color: colors.secondaryText,
-		fontSize: 14,
-		marginVertical: 16,
-		fontStyle: 'italic',
-	},
-	itemContainer: {
-		marginHorizontal: 8,
-		marginVertical: 6,
-		paddingHorizontal: 12,
-		paddingVertical: 10,
-		borderRadius: 8,
-		backgroundColor: colors.componentBackground,
-		shadowColor: '#000',
-		shadowOffset: { width: 0, height: 1 },
-		shadowOpacity: 0.05,
-		shadowRadius: 2,
-		elevation: 1,
+	itemRowDivider: {
+		borderBottomWidth: StyleSheet.hairlineWidth,
+		borderBottomColor: 'rgba(17,24,28,0.08)',
 	},
 	statsRow: {
 		flexDirection: 'row',

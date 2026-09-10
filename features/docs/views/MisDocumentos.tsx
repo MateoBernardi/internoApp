@@ -216,10 +216,6 @@ export default function MisDocumentos({ query = '', selectedFolderId, listHeader
     />
   );
 
-  const renderSeparator = () => (
-    <View style={[styles.separator, { backgroundColor: colors.secondaryText }]} />
-  );
-
   return (
     <ThemedView style={styles.container}>
       {isLoadingAny ? (
@@ -237,7 +233,7 @@ export default function MisDocumentos({ query = '', selectedFolderId, listHeader
           keyExtractor={(item) => item.id.toString()}
           ListHeaderComponent={listHeader}
           contentContainerStyle={styles.listContent}
-          ItemSeparatorComponent={renderSeparator}
+          showSeparators={false}
           ListEmptyComponent={
             <View style={styles.center}>
               <ThemedText>No hay documentos</ThemedText>
@@ -319,9 +315,5 @@ const styles = StyleSheet.create({
   listContent: {
     paddingBottom: 80,
     flexGrow: 1,
-  },
-  separator: {
-    height: StyleSheet.hairlineWidth,
-    marginHorizontal: '4%',
   },
 });

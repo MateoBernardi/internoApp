@@ -1,6 +1,8 @@
 import { Colors, UI } from '@/constants/theme';
-import React from 'react';
+import { glassStyles } from '@/shared/ui/glass';
+import React, { useMemo } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { AGENDA_COLORS } from '../agenda/agendaColors';
 import { formatDateKey, WEEKDAY_LABELS, type MonthGridCell } from '../agenda/dateUtils';
 import type { Activity } from '../models/activityTypes';
 
@@ -9,7 +11,6 @@ const colors = Colors['light'];
 interface AgendaMonthGridProps {
   monthGridDates: MonthGridCell[];
   selectedDate: string;
-  dayCellHeight: number;
   activitiesByDate: Map<string, Activity[]>;
   onSelectDay: (cell: MonthGridCell) => void;
 }
@@ -17,10 +18,25 @@ interface AgendaMonthGridProps {
 /**
  * Vista mensual de la Agenda: cabecera de días de la semana + grilla 6x7 con
  * marcas semánticas de color (turno=celeste, licencia=morado, actividad=verde).
+ *
+ * La grilla no scrollea: cada fila y cada celda son `flex: 1` dentro de un
+ * contenedor `flex: 1`, así que Yoga reparte el alto disponible (lo que
+ * sobra después del header de días y la leyenda) entre las 6 semanas sin
+ * necesidad de calcular un alto de celda a mano — eso dejaba celdas más
+ * altas que el espacio real disponible y el contenido se cortaba sin forma
+ * de verlo, porque ya no había scroll de respaldo.
  */
 export const AgendaMonthGrid = React.memo(function AgendaMonthGrid({
-  monthGridDates, selectedDate, dayCellHeight, activitiesByDate, onSelectDay,
+  monthGridDates, selectedDate, activitiesByDate, onSelectDay,
 }: AgendaMonthGridProps) {
+  const weeks = useMemo(() => {
+    const rows: MonthGridCell[][] = [];
+    for (let i = 0; i < monthGridDates.length; i += 7) {
+      rows.push(monthGridDates.slice(i, i + 7));
+    }
+    return rows;
+  }, [monthGridDates]);
+
   return (
     <View style={styles.monthViewWrapper}>
       <View style={styles.weekHeaderRow}>
@@ -29,44 +45,44 @@ export const AgendaMonthGrid = React.memo(function AgendaMonthGrid({
         ))}
       </View>
       <View style={styles.monthPage}>
-        <View style={styles.monthPageCard}>
+        <View style={[glassStyles.card, styles.monthPageCard]}>
           <View style={styles.monthGrid}>
-            {monthGridDates.map((cell) => {
-              const key = formatDateKey(cell.date);
-              const isCurrentMonth = cell.esMesActual;
-              const isSelected = key === selectedDate;
-              const dayActivities = activitiesByDate.get(key) ?? [];
-              const hasTurno = dayActivities.some((a) => a.tipo === 'turno');
-              const hasLicencia = dayActivities.some((a) => a.tipo === 'licencia');
-              const hasActividad = dayActivities.some((a) => a.tipo === 'actividad' || !a.tipo);
+            {weeks.map((week, weekIndex) => (
+              <View key={weekIndex} style={styles.monthGridRow}>
+                {week.map((cell) => {
+                  const key = formatDateKey(cell.date);
+                  const isCurrentMonth = cell.esMesActual;
+                  const isSelected = key === selectedDate;
+                  const dayActivities = activitiesByDate.get(key) ?? [];
+                  const hasTurno = dayActivities.some((a) => a.tipo === 'turno');
+                  const hasLicencia = dayActivities.some((a) => a.tipo === 'licencia');
+                  const hasActividad = dayActivities.some((a) => a.tipo === 'actividad' || !a.tipo);
 
-              return (
-                <TouchableOpacity
-                  key={key}
-                  style={[
-                    styles.dayCell,
-                    { height: dayCellHeight },
-                    isSelected && styles.dayCellSelected,
-                  ]}
-                  onPress={() => onSelectDay(cell)}
-                >
-                  <Text style={[
-                    styles.dayCellNumber,
-                    !isCurrentMonth && styles.dayCellTextMuted,
-                    isSelected && styles.dayCellTextSelected,
-                  ]}>
-                    {cell.day}
-                  </Text>
-                  {(hasTurno || hasLicencia || hasActividad) && (
-                    <View style={styles.dayCellMarks}>
-                      {hasTurno && <View style={styles.markTurno} />}
-                      {hasLicencia && <View style={styles.markLicencia} />}
-                      {hasActividad && <View style={styles.markActividad} />}
-                    </View>
-                  )}
-                </TouchableOpacity>
-              );
-            })}
+                  return (
+                    <TouchableOpacity
+                      key={key}
+                      style={[styles.dayCell, isSelected && styles.dayCellSelected]}
+                      onPress={() => onSelectDay(cell)}
+                    >
+                      <Text style={[
+                        styles.dayCellNumber,
+                        !isCurrentMonth && styles.dayCellTextMuted,
+                        isSelected && styles.dayCellTextSelected,
+                      ]}>
+                        {cell.day}
+                      </Text>
+                      {(hasTurno || hasLicencia || hasActividad) && (
+                        <View style={styles.dayCellMarks}>
+                          {hasTurno && <View style={styles.markTurno} />}
+                          {hasLicencia && <View style={styles.markLicencia} />}
+                          {hasActividad && <View style={styles.markActividad} />}
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            ))}
           </View>
         </View>
       </View>
@@ -109,35 +125,36 @@ const styles = StyleSheet.create({
     textTransform: 'lowercase',
   },
   monthGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    width: '100%',
+    flex: 1,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderLeftWidth: StyleSheet.hairlineWidth,
-    borderColor: '#e0e0e0',
+    borderColor: 'rgba(17,24,28,0.08)',
+  },
+  monthGridRow: {
+    flex: 1,
+    flexDirection: 'row',
   },
   monthPage: {
+    flex: 1,
     paddingHorizontal: UI.spacing.md,
   },
   monthPageCard: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#d6d9dd',
+    flex: 1,
     borderRadius: 12,
     overflow: 'hidden',
-    backgroundColor: '#ffffff',
   },
   dayCell: {
-    width: '14.285714%',
+    flex: 1,
     alignItems: 'flex-start',
     justifyContent: 'flex-start',
     borderRightWidth: StyleSheet.hairlineWidth,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderColor: '#e0e0e0',
+    borderColor: 'rgba(17,24,28,0.08)',
     paddingHorizontal: 4,
     paddingTop: 4,
   },
   dayCellSelected: {
-    backgroundColor: colors.lightTint + '1A',
+    backgroundColor: 'rgba(26,115,232,0.1)',
   },
   dayCellNumber: {
     color: colors.text,
@@ -162,19 +179,19 @@ const styles = StyleSheet.create({
     width: 14,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#2f86d6',
+    backgroundColor: AGENDA_COLORS.turno,
   },
   markLicencia: {
     width: 14,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#7b5ce0',
+    backgroundColor: AGENDA_COLORS.licencia,
   },
   markActividad: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#1f9d57',
+    backgroundColor: AGENDA_COLORS.actividad,
   },
   legend: {
     flexDirection: 'row',

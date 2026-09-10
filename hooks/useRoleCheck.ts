@@ -16,7 +16,8 @@ type UserRole =
   | 'encargado'
   | 'estudio-contable'
   | 'readonly'
-  | 'presidencia';
+  | 'presidencia'
+  | 'kiosco';
 
 const PERSONAL_ROLES: UserRole[] = [
   'empleado-limpieza',
@@ -31,6 +32,12 @@ const CONTABLE_ROLES: UserRole[] = ['contable', 'sistemas'];
 
 const isEmployeeRole = (role: UserRole): boolean => PERSONAL_ROLES.includes(role);
 const isContableRole = (role: UserRole): boolean => CONTABLE_ROLES.includes(role);
+
+// Roles habilitados a responder encuestas: empleado-*, encargado, gerencia, presidencia y consejo.
+export const canRoleRespondEncuestas = (role: UserRole | string | null | undefined): boolean => {
+  if (!role) return false;
+  return isEmployeeRole(role as UserRole) || ['encargado', 'gerencia', 'presidencia', 'consejo'].includes(role);
+};
 
 export const ALL_ROLES: UserRole[] = [
   'admin',
@@ -49,6 +56,7 @@ export const ALL_ROLES: UserRole[] = [
   'estudio-contable',
   'readonly',
   'presidencia',
+  'kiosco',
 ];
 
 export function useRoleCheck() {
@@ -103,13 +111,18 @@ export function useRoleCheck() {
     return isEmployee() || hasRole('encargado');
   };
 
-  // Roles habilitados a responder encuestas: empleado-*, encargado, gerencia, presidencia y consejo.
   const canRespondEncuestas = (): boolean => {
-    return isEmployee() || hasRole(['encargado', 'gerencia', 'presidencia', 'consejo']);
+    return canRoleRespondEncuestas(getUserRole());
   };
 
   const isAdmin = (): boolean => {
     return hasRole('admin');
+  };
+
+  // Rol dedicado para dispositivos kiosco (pantalla fullscreen que muestra el
+  // QR rotativo de una sede). No es un empleado ni un rol administrativo.
+  const isKiosk = (): boolean => {
+    return hasRole('kiosco');
   };
 
   return {
@@ -121,5 +134,6 @@ export function useRoleCheck() {
     isEmployeeOrEncargado,
     canRespondEncuestas,
     isAdmin,
+    isKiosk,
   };
 }

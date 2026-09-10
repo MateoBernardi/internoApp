@@ -1,6 +1,7 @@
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import {
@@ -239,7 +240,7 @@ export function ValidacionFechasModal({
                                 </TouchableOpacity>
                                 {showConfirmAction && (
                                     <TouchableOpacity onPress={onConfirm} style={styles.btnConfirm}>
-                                        <ThemedText style={{ color: colors.componentBackground }}>{confirmLabel}</ThemedText>
+                                        <ThemedText style={{ color: glassColors.link, fontWeight: '700' }}>{confirmLabel}</ThemedText>
                                     </TouchableOpacity>
                                 )}
                             </View>
@@ -254,7 +255,7 @@ export function ValidacionFechasModal({
                                 {errorMessage || 'Error al validar las fechas'}
                             </ThemedText>
                             <TouchableOpacity onPress={onCancel} style={[styles.btnConfirm, { marginTop: 16 }]}>
-                                <ThemedText style={{ color: colors.componentBackground }}>Volver</ThemedText>
+                                <ThemedText style={{ color: glassColors.link, fontWeight: '700' }}>Volver</ThemedText>
                             </TouchableOpacity>
                         </View>
                     )}
@@ -266,10 +267,7 @@ export function ValidacionFechasModal({
 
 const styles = StyleSheet.create({
     overlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.6)',
-        justifyContent: 'center',
-        alignItems: 'center',
+        ...glassStyles.modalOverlay,
     },
     overlayWeb: {
         zIndex: 1000,
@@ -279,14 +277,8 @@ const styles = StyleSheet.create({
         width: '85%',
         maxWidth: 400,
         maxHeight: '70%',
-        backgroundColor: colors.componentBackground,
-        borderRadius: 16,
         padding: 24,
-        elevation: 10,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
+        ...glassStyles.modalCard,
     },
     centerContent: {
         alignItems: 'center',
@@ -354,14 +346,21 @@ const styles = StyleSheet.create({
         marginTop: 16,
     },
     btnCancel: {
-        padding: 10,
+        paddingVertical: 10,
+        paddingHorizontal: 16,
         marginRight: 10,
+        borderRadius: 18,
+        borderWidth: 1,
+        borderColor: 'rgba(17,24,28,0.12)',
+        backgroundColor: 'rgba(17,24,28,0.03)',
     },
     btnConfirm: {
-        backgroundColor: colors.lightTint,
         paddingVertical: 10,
         paddingHorizontal: 20,
-        borderRadius: 8,
+        borderRadius: 18,
+        borderWidth: 1,
+        borderColor: 'rgba(26,115,232,0.35)',
+        backgroundColor: 'rgba(26,115,232,0.12)',
     },
     rangosContainer: {
         marginTop: 12,

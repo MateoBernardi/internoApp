@@ -28,6 +28,31 @@ export function addMonths(date: Date, delta: number): Date {
   return new Date(date.getFullYear(), date.getMonth() + delta, 1);
 }
 
+export function addDays(date: Date, delta: number): Date {
+  const result = new Date(date);
+  result.setDate(result.getDate() + delta);
+  return result;
+}
+
+export function formatDayLabelEs(date: Date): string {
+  const label = date.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
+  return label.replace('.', '');
+}
+
+/** Rango lunes-a-domingo (semana de `AgendaSemanal`, ver `dayOfWeek` en ese componente) que contiene `date`. */
+export function formatWeekRangeLabelEs(date: Date): string {
+  const dayOfWeek = date.getDay();
+  const start = new Date(date);
+  start.setDate(start.getDate() - dayOfWeek);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+
+  const sameMonth = start.getMonth() === end.getMonth();
+  const startLabel = start.toLocaleDateString('es-ES', sameMonth ? { day: 'numeric' } : { day: 'numeric', month: 'short' });
+  const endLabel = end.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+  return `${startLabel.replace('.', '')} – ${endLabel.replace('.', '')}`;
+}
+
 export function generarGrillaMes(year: number, month: number): MonthGridCell[] {
   const primerDiaDelMes = new Date(year, month, 1).getDay();
   const primerDiaGrilla = new Date(year, month, 1 - primerDiaDelMes);

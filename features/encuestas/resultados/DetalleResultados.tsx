@@ -1,10 +1,13 @@
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
+import { AppBackButton } from '@/shared/ui/AppBackButton';
+import { GlassButton } from '@/shared/ui/GlassButton';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Opcion, Respuesta } from '../models/Encuesta';
+import { EncuestasScreenHeader } from '../components/EncuestasScreenHeader';
+import { Opcion, Respuesta, TIPO_PREGUNTA_META } from '../models/Encuesta';
 import { useEliminarOpcion } from '../viewmodels/useEncuestas';
 import { ConvocarReunionModal } from './ConvocarReunionModal';
 import { GestionParticipantesModal } from './GestionParticipantesModal';
@@ -102,41 +105,40 @@ export const DetalleResultados: React.FC<DetalleResultadosProps> = ({
 
   return (
     <View style={styles.container}>
-      <View style={[styles.detailHeaderContainer, { paddingTop: insets.top + 16 }]}>
-        <TouchableOpacity onPress={onVolver} style={styles.resultadosButton}>
-          <Text style={styles.resultadosButtonText}>Resultados</Text>
-        </TouchableOpacity>
-        <View style={styles.detailTitleContainer}>
-          <Text style={styles.detailHeaderTitle} numberOfLines={1}>{encuesta.encuestaTitulo}</Text>
-          {encuesta.es_anonima && (
-            <View style={styles.anonimaBadgeSmall}>
-              <Ionicons name="eye-off-outline" size={10} color={colors.secondaryText} />
-              <Text style={styles.anonimaTextSmall}>Anónima</Text>
-            </View>
-          )}
+      <EncuestasScreenHeader
+        title={encuesta.encuestaTitulo}
+        left={<AppBackButton onPress={onVolver} />}
+        right={
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            {puedeGestionarParticipantes && (
+              <TouchableOpacity
+                style={styles.deleteButton}
+                onPress={() => setGestionModalVisible(true)}
+              >
+                <Ionicons name="person-add-outline" size={22} color={colors.lightTint} />
+              </TouchableOpacity>
+            )}
+            {esCreador ? (
+              <TouchableOpacity onPress={onEliminar} style={styles.deleteButton} disabled={isDeleting}>
+                {isDeleting ? (
+                  <ActivityIndicator size="small" color={colors.error} />
+                ) : (
+                  <Ionicons name="trash-outline" size={22} color={colors.error} />
+                )}
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.deleteButton} />
+            )}
+          </View>
+        }
+      />
+
+      {encuesta.es_anonima && (
+        <View style={[styles.anonimaBadgeSmall, { alignSelf: 'center', marginTop: 8 }]}>
+          <Ionicons name="eye-off-outline" size={10} color={colors.secondaryText} />
+          <Text style={styles.anonimaTextSmall}>Anónima</Text>
         </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-          {puedeGestionarParticipantes && (
-            <TouchableOpacity
-              style={styles.deleteButton}
-              onPress={() => setGestionModalVisible(true)}
-            >
-              <Ionicons name="person-add-outline" size={22} color={colors.lightTint} />
-            </TouchableOpacity>
-          )}
-          {esCreador ? (
-            <TouchableOpacity onPress={onEliminar} style={styles.deleteButton} disabled={isDeleting}>
-              {isDeleting ? (
-                <ActivityIndicator size="small" color={colors.error} />
-              ) : (
-                <Ionicons name="trash-outline" size={22} color={colors.error} />
-              )}
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.deleteButton} />
-          )}
-        </View>
-      </View>
+      )}
 
       {encuesta.encuestaDescripcion && (
         <View style={styles.descriptionContainer}>
@@ -146,7 +148,7 @@ export const DetalleResultados: React.FC<DetalleResultadosProps> = ({
 
       {esEncuestaEnProgreso() && (
         <View style={styles.enProgresoCartel}>
-          <Ionicons name="time-outline" size={16} color={colors.componentBackground} />
+          <Ionicons name="time-outline" size={16} color={colors.warning} />
           <Text style={styles.enProgresoText}>En progreso</Text>
         </View>
       )}
@@ -165,9 +167,12 @@ export const DetalleResultados: React.FC<DetalleResultadosProps> = ({
             <View key={index} style={styles.preguntaResultadoCard}>
               <View style={styles.preguntaHeader}>
                 <Text style={styles.preguntaNumero}>Pregunta {index + 1}</Text>
-                <Text style={styles.tipoPreguntaBadge}>
-                  {getTipoPreguntaLabel(item.pregunta.tipo_pregunta)}
-                </Text>
+                <View style={styles.tipoPreguntaBadge}>
+                  <Ionicons name={TIPO_PREGUNTA_META[item.pregunta.tipo_pregunta].icon} size={12} color={colors.secondaryText} />
+                  <Text style={styles.tipoPreguntaBadgeText}>
+                    {getTipoPreguntaLabel(item.pregunta.tipo_pregunta)}
+                  </Text>
+                </View>
               </View>
 
               <Text style={styles.preguntaTitulo}>{item.pregunta.titulo}</Text>
@@ -213,17 +218,13 @@ export const DetalleResultados: React.FC<DetalleResultadosProps> = ({
       </ScrollView>
 
       {selectedCount > 0 && (
-        <TouchableOpacity
-          style={[styles.reunionBar, { paddingBottom: insets.bottom + 14 }]}
-          onPress={() => setReunionModalVisible(true)}
-          activeOpacity={0.85}
-        >
-          <Ionicons name="calendar-outline" size={18} color={colors.componentBackground} />
-          <Text style={styles.reunionBarText}>Solicitar reunión</Text>
-          <View style={styles.reunionBarBadge}>
-            <Text style={styles.reunionBarBadgeText}>{selectedCount}</Text>
-          </View>
-        </TouchableOpacity>
+        <View style={[styles.reunionBar, { paddingBottom: insets.bottom + 14 }]}>
+          <GlassButton
+            label={`Solicitar reunión (${selectedCount})`}
+            onPress={() => setReunionModalVisible(true)}
+            icon={(color) => <Ionicons name="calendar-outline" size={18} color={color} />}
+          />
+        </View>
       )}
 
       <ConvocarReunionModal

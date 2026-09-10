@@ -1,6 +1,8 @@
+import { glassColors } from '@/shared/ui/glass';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { AGENDA_COLORS } from '../agenda/agendaColors';
 import type { Activity } from '../models/activityTypes';
 
 interface AgendaDiariaProps {
@@ -172,7 +174,7 @@ export const AgendaDiaria: React.FC<AgendaDiariaProps> = ({ activities, onDelete
                   const esReunionVacia =
                     activity.tipo_actividad === 'REUNION' &&
                     (activity.participantes?.length ?? 0) <= 1;
-                  const borderColor = esReunionVacia ? '#EF4444' : '#1a73e8';
+                  const borderColor = esReunionVacia ? glassColors.error : glassColors.link;
 
                   if (!isStart) {
                     if (isEnd) {
@@ -196,13 +198,13 @@ export const AgendaDiaria: React.FC<AgendaDiariaProps> = ({ activities, onDelete
                   const esTurno = activity.tipo === 'turno';
                   const esLicencia = activity.tipo === 'licencia';
                   const cardBorderColor = esTurno
-                    ? '#2f86d6'
+                    ? AGENDA_COLORS.turno
                     : esLicencia
-                    ? '#7b5ce0'
+                    ? AGENDA_COLORS.licencia
                     : esReunionVacia
-                    ? '#EF4444'
-                    : '#1a73e8';
-                  const cardBg = esTurno ? '#e7f2fb' : esLicencia ? '#efeafb' : '#FFFFFF';
+                    ? glassColors.error
+                    : glassColors.link;
+                  const cardBg = esTurno ? 'rgba(47,134,214,0.08)' : esLicencia ? 'rgba(123,92,224,0.08)' : '#FFFFFF';
 
                   return (
                     <TouchableOpacity
@@ -237,7 +239,7 @@ export const AgendaDiaria: React.FC<AgendaDiariaProps> = ({ activities, onDelete
                         </View>
 
                         <View style={styles.contentColumn}>
-                          <Text style={[styles.titleText, esReunionVacia && { color: '#EF4444' }, esTurno && { color: '#1a5fa8' }]} numberOfLines={2}>
+                          <Text style={[styles.titleText, esReunionVacia && { color: glassColors.error }, esTurno && { color: '#1a5fa8' }]} numberOfLines={2}>
                             {activity.title}
                           </Text>
                           {esTurno && activity.sede_ingreso && (
@@ -269,7 +271,7 @@ export const AgendaDiaria: React.FC<AgendaDiariaProps> = ({ activities, onDelete
                             }}
                             style={styles.deleteButton}
                           >
-                            <Ionicons name="close-circle" size={24} color="#EF4444" />
+                            <Ionicons name="close-circle" size={20} color={glassColors.error} />
                           </TouchableOpacity>
                         )}
                       </View>
@@ -296,7 +298,7 @@ const styles = StyleSheet.create({
   dayHeaderText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#111827',
+    color: glassColors.text,
   },
   listContent: {
     paddingBottom: 16,
@@ -306,7 +308,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 8,
     minHeight: 56,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e5e7eb',
+    borderBottomColor: 'rgba(17,24,28,0.08)',
   },
   hourLabelColumn: {
     width: 54,
@@ -314,7 +316,7 @@ const styles = StyleSheet.create({
   },
   hourLabelText: {
     fontSize: 12,
-    color: '#6b7280',
+    color: glassColors.textMuted,
     fontWeight: '600',
   },
   hourContentColumn: {
@@ -330,12 +332,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 8,
     borderLeftWidth: 4,
-    borderLeftColor: '#1a73e8',
+    borderLeftColor: glassColors.link,
     paddingHorizontal: 12,
     paddingVertical: 10,
     marginBottom: 4,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: 'rgba(17,24,28,0.08)',
   },
   activityCardConnectBottom: {
     borderBottomLeftRadius: 0,
@@ -371,11 +373,11 @@ const styles = StyleSheet.create({
   timeText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#202124',
+    color: glassColors.text,
   },
   endTimeText: {
     fontSize: 12,
-    color: '#5f6368',
+    color: glassColors.textMuted,
     marginTop: 4,
   },
   contentColumn: {
@@ -384,29 +386,29 @@ const styles = StyleSheet.create({
   titleText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#202124',
+    color: glassColors.text,
   },
   licenseLabel: {
     fontSize: 12,
-    color: '#7b5ce0',
+    color: AGENDA_COLORS.licencia,
     fontWeight: '600',
     marginTop: 4,
   },
   turnoSedeLabel: {
     fontSize: 12,
-    color: '#2f86d6',
+    color: AGENDA_COLORS.turno,
     fontWeight: '500',
     marginTop: 3,
   },
   warningLabel: {
     fontSize: 12,
-    color: '#EF4444',
+    color: glassColors.error,
     fontWeight: '600',
     marginTop: 2,
   },
   descriptionText: {
     fontSize: 13,
-    color: '#5f6368',
+    color: glassColors.textMuted,
     marginTop: 4,
   },
   deleteButton: {

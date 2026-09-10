@@ -13,7 +13,7 @@ export const solicitudesQueryKeys = {
   bitacora: (solicitudId: number, includeSeen = false) => [...solicitudesQueryKeys.all, 'bitacora', solicitudId, includeSeen] as const,
   bitacoraBase: (solicitudId: number) => [...solicitudesQueryKeys.all, 'bitacora', solicitudId] as const,
   chatArchivos: (solicitudId: number) => [...solicitudesQueryKeys.all, 'chatArchivos', solicitudId] as const,
-  unseen: () => [...solicitudesQueryKeys.all, 'unseen'] as const,
+  unseen: (tipoConversacion?: 'CHAT') => [...solicitudesQueryKeys.all, 'unseen', tipoConversacion ?? 'all'] as const,
 };
 
 const BITACORA_PAGE_SIZE = 20;
@@ -82,18 +82,18 @@ export function useChatArchivos(solicitudId: number, enabled: boolean) {
  * Hook para el contador de solicitudes sin ver (badge de "Mensajes").
  * Refresca periódicamente y al volver el foco para mantener el badge al día.
  */
-export function useSolicitudesUnseen(enabled = true) {
+export function useSolicitudesUnseen(enabled = true, tipoConversacion?: 'CHAT') {
   const { tokens } = useAuth();
 
   return useQuery({
-    queryKey: solicitudesQueryKeys.unseen(),
+    queryKey: solicitudesQueryKeys.unseen(tipoConversacion),
     enabled: enabled && !!tokens?.accessToken,
     queryFn: async () => {
       const accessToken = tokens?.accessToken;
       if (!accessToken) {
         throw new Error('No access token available');
       }
-      return solicitudesApi.getSolicitudesUnseen(accessToken);
+      return solicitudesApi.getSolicitudesUnseen(accessToken, tipoConversacion);
     },
     staleTime: 1000 * 45,
     gcTime: 1000 * 60 * 5,
@@ -147,35 +147,6 @@ export function useCancelarSolicitud() {
         queryKey: solicitudesQueryKeys.all,
       });
     },
-  });
-}
-
-/**
- * Hook para reenviar una solicitud a nuevos invitados
- */
-export function useReenviarSolicitud() {
-  const { tokens } = useAuth();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({
-      idempotencyKey,
-      ...data
-    }: solicitudModels.ReenviarSolicitudRequest & { idempotencyKey?: string }) => {
-      const accessToken = tokens?.accessToken;
-      if (!accessToken) {
-        throw new Error('No access token available');
-      }
-      return solicitudesApi.reenviarSolicitud(accessToken, data, idempotencyKey);
-    },
-    onSuccess: () => {
-      // Invalidar las solicitudes creadas
-      queryClient.invalidateQueries({
-        queryKey: solicitudesQueryKeys.all,
-      });
-    },
-    // Reintentos seguros: el mismo X-Idempotency-Key viaja en cada intento.
-    ...IDEMPOTENT_MUTATION_RETRY,
   });
 }
 
@@ -261,6 +232,33 @@ export function useActualizarEstadoInvitacion(opts?: { retry?: number }) {
   });
 }
 
+/**
+ * Hook para marcar una solicitud como vista (acuse de lectura). No pisa el
+ * estado de la invitación: solo registra `solicitudes_bitacora_vistas`.
+ */
+export function useMarcarSolicitudVisto() {
+  const { tokens } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: solicitudModels.MarcarSolicitudVistoRequest) => {
+      const accessToken = tokens?.accessToken;
+      if (!accessToken) {
+        throw new Error('No access token available');
+      }
+      return solicitudesApi.marcarSolicitudVisto(accessToken, data);
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: solicitudesQueryKeys.bitacoraBase(variables.solicitud_id),
+      });
+      queryClient.invalidateQueries({
+        queryKey: solicitudesQueryKeys.all,
+      });
+    },
+  });
+}
+
 export function useBuscarSolicitudes(q: string, tipoConversacion?: 'CHAT') {
   const { tokens } = useAuth();
 
@@ -272,6 +270,30 @@ export function useBuscarSolicitudes(q: string, tipoConversacion?: 'CHAT') {
       if (!token) throw new Error('No access token available');
       return solicitudesApi.buscarSolicitudes(token, q, tipoConversacion);
     },
+    staleTime: 1000 * 30,
+    gcTime: 1000 * 60 * 5,
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+  });
+}
+
+/**
+ * Búsqueda de mensajes en el historial completo de una conversación, vía el
+ * endpoint de búsqueda de bitácora del backend (no se limita a lo ya paginado
+ * en pantalla como hacía el filtro cliente-side anterior).
+ */
+export function useBuscarBitacora(solicitudId: number, q: string) {
+  const { tokens } = useAuth();
+
+  return useQuery({
+    queryKey: [...solicitudesQueryKeys.all, 'bitacoraBuscar', solicitudId, q] as const,
+    enabled: !!solicitudId && q.trim().length > 0,
+    queryFn: async () => {
+      const token = tokens?.accessToken;
+      if (!token) throw new Error('No access token available');
+      return solicitudesApi.buscarBitacora(token, { solicitudId, q });
+    },
+    select: (page) => page.data,
     staleTime: 1000 * 30,
     gcTime: 1000 * 60 * 5,
     retry: 3,

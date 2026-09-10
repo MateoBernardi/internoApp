@@ -1,8 +1,10 @@
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
+import { glassColors, glassStyles } from '@/shared/ui/glass';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Encuesta } from '../models/Encuesta';
 import { useGetEncuestas } from '../viewmodels/useEncuestas';
 
@@ -29,7 +31,7 @@ export function ListaEncuestasPendientes() {
   }
 
   return (
-    <View style={styles.listContent}>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
       {encuestas.map((item: Encuesta) => {
         const fechaFin = new Date(item.fecha_fin);
         const fechaFinFormateada = fechaFin.toLocaleDateString('es-ES', {
@@ -41,7 +43,7 @@ export function ListaEncuestasPendientes() {
         return (
           <TouchableOpacity
             key={item.id.toString()}
-            style={styles.encuestaCard}
+            style={[glassStyles.card, styles.encuestaCard]}
             onPress={() => handleResponderEncuesta(item)}
             activeOpacity={0.7}
           >
@@ -73,11 +75,12 @@ export function ListaEncuestasPendientes() {
 
             <View style={styles.buttonContainer}>
               <Text style={styles.buttonText}>Responder ahora</Text>
+              <Ionicons name="chevron-forward" size={16} color={colors.lightTint} />
             </View>
           </TouchableOpacity>
         );
       })}
-    </View>
+    </ScrollView>
   );
 }
 
@@ -86,15 +89,9 @@ const styles = StyleSheet.create({
     padding: 15,
   },
   encuestaCard: {
-    backgroundColor: colors.componentBackground,
-    borderRadius: 12,
+    borderRadius: 14,
     padding: 16,
     marginBottom: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -102,25 +99,25 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   alertBadge: {
-    backgroundColor: colors.componentBackground,
+    backgroundColor: 'rgba(255,152,0,0.12)',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 6,
   },
   alertText: {
     fontSize: 12,
-    color: colors.text,
+    color: colors.warning,
     fontWeight: '600',
   },
   anonimaBadge: {
-    backgroundColor: colors.componentBackground,
+    backgroundColor: 'rgba(17,24,28,0.03)',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 6,
   },
   anonimaText: {
     fontSize: 12,
-    color: colors.text,
+    color: glassColors.textMuted,
     fontWeight: '600',
   },
   titulo: {
@@ -158,14 +155,14 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   buttonContainer: {
-    backgroundColor: colors.lightTint,
-    paddingVertical: 12,
-    borderRadius: 8,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
   },
   buttonText: {
-    color: colors.componentBackground,
-    fontSize: 16,
+    color: colors.lightTint,
+    fontSize: 15,
     fontWeight: '600',
   },
   errorText: {

@@ -7,19 +7,23 @@ export type SyncDomain =
   | 'licencias'
   | 'documentos';
 
+const BADGES_QUERY_KEY = ['badges', 'prefetch'];
+
 const DOMAIN_QUERY_KEYS: Record<SyncDomain, readonly (readonly unknown[])[]> = {
   solicitudesActividades: [
     ['solicitudes'],
     ['actividades', 'semanales'],
+    BADGES_QUERY_KEY,
   ],
   kanban: [['objetivos']],
-  reportes: [['reportes']],
+  reportes: [['reportes'], BADGES_QUERY_KEY],
   licencias: [
     ['solicitudes-licencias'],
     ['saldos-licencias'],
     ['tipos-licencias'],
+    BADGES_QUERY_KEY,
   ],
-  documentos: [['archivos']],
+  documentos: [['archivos'], BADGES_QUERY_KEY],
 };
 
 // Count-specific query keys invalidated alongside their parent domain keys via DOMAIN_QUERY_KEYS
@@ -34,6 +38,7 @@ const DOMAIN_ALIASES: Record<string, SyncDomain> = {
   solicitudesactividades: 'solicitudesActividades',
   activityrequests: 'solicitudesActividades',
   kanban: 'kanban',
+  objetivo: 'kanban',
   objetivos: 'kanban',
   reportes: 'reportes',
   misreportes: 'reportes',
@@ -51,6 +56,7 @@ const ENDPOINT_HINTS: { includes: string; domain: SyncDomain }[] = [
   { includes: 'actividades', domain: 'solicitudesActividades' },
   { includes: 'kanban', domain: 'kanban' },
   { includes: 'objetivos', domain: 'kanban' },
+  { includes: 'objetivo', domain: 'kanban' },
   { includes: 'reportes', domain: 'reportes' },
   { includes: 'licencias', domain: 'licencias' },
   { includes: 'documentos', domain: 'documentos' },
@@ -232,7 +238,7 @@ export function syncPushPayloadToCache(
       contractIssues: contract.issues,
     });
 
-    const fallbackDomains: SyncDomain[] = ['solicitudesActividades', 'reportes', 'licencias'];
+    const fallbackDomains: SyncDomain[] = ['solicitudesActividades', 'reportes', 'licencias', 'kanban', 'documentos'];
     fallbackDomains.forEach((domain) => {
       DOMAIN_QUERY_KEYS[domain].forEach((queryKey) => {
         queryClient.invalidateQueries({ queryKey });
@@ -251,18 +257,3 @@ export function syncPushPayloadToCache(
   const matched = Array.from(domains);
   return matched;
 }
-
-export const RealtimeQueryKeys = {
-  solicitudesUnseen: ['solicitudes', 'unseen'] as const,
-  actividadesSemanales: ['actividades', 'semanales'] as const,
-  objetivos: ['objetivos'] as const,
-  reportes: (usuarioId?: string) => ['reportes', usuarioId ?? 'all'] as const,
-  reportesPendingCount: ['reportes', 'pending-count'] as const,
-  licenciasAdmin: ['solicitudes-licencias', {}] as const,
-  licenciasUsuario: ['solicitudes-licencias', 'usuario'] as const,
-  licenciasUnseenCount: ['solicitudes-licencias', 'unseen-count'] as const,
-  saldosLicencias: ['saldos-licencias'] as const,
-  tiposLicencias: ['tipos-licencias'] as const,
-  archivosEmpresa: ['archivos', 'list'] as const,
-  archivosUnseenCount: ['archivos', 'unseen-count'] as const,
-};

@@ -27,6 +27,13 @@ interface KioskConfig {
   sedeId: number;
   qrSecret: string;
   step: number;
+  // Desfasaje (ms) entre el reloj del servidor y el del dispositivo al momento
+  // de elegir la sede: `timestamp - Date.now()`. Ausente en configs cacheadas
+  // antes de este cambio o si el backend todavía no manda `timestamp`; en
+  // ambos casos se trata como 0 (comportamiento previo, reloj del dispositivo
+  // tal cual). Ver incidente 2026-09-12: reloj de kiosco ~3h atrás de UTC real
+  // rompía la validación TOTP (tolerancia de sólo ±60s).
+  clockOffsetMs?: number;
 }
 
 function isKioskConfig(value: unknown): value is KioskConfig {
@@ -90,10 +97,12 @@ export default function KioscoQrScreen() {
           setErrorMessage('La sede no tiene un secreto QR configurado.');
           return;
         }
+        const clockOffsetMs = typeof secret.timestamp === 'number' ? secret.timestamp - Date.now() : 0;
         const nextConfig: KioskConfig = {
           sedeId: sede.id,
           qrSecret: secret.qrSecret,
           step: secret.step || QR_STEP_SECONDS,
+          clockOffsetMs,
         };
         await secureStorage.setItem(KIOSK_CONFIG_STORAGE_KEY, JSON.stringify(nextConfig));
         setConfig(nextConfig);
@@ -121,7 +130,8 @@ export default function KioscoQrScreen() {
     }
 
     const tick = () => {
-      const code = deriveQrCode(config.qrSecret, currentCounter());
+      const offset = config.clockOffsetMs ?? 0;
+      const code = deriveQrCode(config.qrSecret, currentCounter(Date.now() + offset));
       setQrValue(JSON.stringify({ s: config.sedeId, c: code }));
     };
 

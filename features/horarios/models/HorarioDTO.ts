@@ -78,6 +78,7 @@ export interface KioskSecretDTO {
   qrSecret: string;
   qrMode: 'ROTATING' | 'STATIC';
   step: number; // segundos, actualmente siempre 30
+  timestamp?: number; // epoch ms del servidor; ausente si el backend es viejo
 }
 
 /** Body de `PUT /horarios/scan`. */

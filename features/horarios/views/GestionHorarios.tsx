@@ -88,9 +88,11 @@ export function GestionHorarios() {
   const [selectedUser, setSelectedUser] = useState<UserSummary | null>(null);
   const [rolFilter, setRolFilter] = useState<string | null>(null);
   const [editingTurno, setEditingTurno] = useState<Turno | null>(null);
+  const [editSession, setEditSession] = useState(0);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [toast, setToast] = useState('');
   const [toastError, setToastError] = useState(false);
+  const [infoBarHeight, setInfoBarHeight] = useState(0);
   const toastAnim = useRef(new Animated.Value(0)).current;
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { tokens } = useAuth();
@@ -176,6 +178,7 @@ export function GestionHorarios() {
 
   const openEdit = useCallback((turno: Turno) => {
     setEditingTurno({ ...turno });
+    setEditSession((s) => s + 1);
   }, []);
 
   const setField = useCallback(<K extends keyof Turno>(key: K, value: Turno[K]) => {
@@ -186,17 +189,16 @@ export function GestionHorarios() {
     setEditingTurno(null);
   }, []);
 
-  const saveEdit = useCallback(() => {
-    if (!editingTurno) return;
+  const saveEdit = useCallback((turno: Turno) => {
     const payload: UpdateHorarioPayload = {
-      id: editingTurno.id,
-      turno: TURNO_LABEL[editingTurno.turno],
-      horario_in: `${editingTurno.fechaISO}T${editingTurno.ingreso}:00`,
-      horario_out: `${editingTurno.fechaISO}T${editingTurno.egreso}:00`,
-      sede_id_in: editingTurno.sedeIdIngreso,
-      sede_id_out: editingTurno.sedeIdEgreso,
-      licencia: editingTurno.licencia ? 1 : 0,
-      feriado: editingTurno.feriado ? 1 : 0,
+      id: turno.id,
+      turno: TURNO_LABEL[turno.turno],
+      horario_in: `${turno.fechaISO}T${turno.ingreso}:00`,
+      horario_out: `${turno.fechaISO}T${turno.egreso}:00`,
+      sede_id_in: turno.sedeIdIngreso,
+      sede_id_out: turno.sedeIdEgreso,
+      licencia: turno.licencia ? 1 : 0,
+      feriado: turno.feriado ? 1 : 0,
     };
     updateShift(payload, {
       onSuccess: () => {
@@ -207,7 +209,7 @@ export function GestionHorarios() {
         showToast('Error al guardar. Intenta de nuevo.', true);
       },
     });
-  }, [editingTurno, updateShift, showToast, closeEdit]);
+  }, [updateShift, showToast, closeEdit]);
 
   const handlePickFile = async () => {
     try {
@@ -539,7 +541,7 @@ export function GestionHorarios() {
       </View>
       <ScrollView
         style={styles.listScroll}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[styles.listContent, { paddingBottom: 16 + infoBarHeight }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
@@ -592,7 +594,7 @@ export function GestionHorarios() {
       </ScrollView>
 
       {/* Info bar */}
-      <View style={styles.infoBar}>
+      <View style={styles.infoBar} onLayout={(e) => setInfoBarHeight(e.nativeEvent.layout.height)}>
         {horariosQuery.isFetching ? (
           <Text style={styles.infoText}>Actualizando…</Text>
         ) : (
@@ -611,6 +613,7 @@ export function GestionHorarios() {
         draft={editingTurno}
         sedes={sedes}
         isSaving={isSaving}
+        editKey={editSession}
         onClose={closeEdit}
         onField={setField}
         onSave={saveEdit}

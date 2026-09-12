@@ -19,6 +19,7 @@ interface FeriadosListProps {
 export function FeriadosList({ filter, onToast }: FeriadosListProps) {
   const [week, setWeek] = useState(() => currentWeek());
   const [editingTurno, setEditingTurno] = useState<Turno | null>(null);
+  const [editSession, setEditSession] = useState(0);
 
   const feriadosQuery = useFeriadosByRange(week.from, week.to, filter);
   const sedesQuery = useSedes();
@@ -37,22 +38,24 @@ export function FeriadosList({ filter, onToast }: FeriadosListProps) {
     return [...map.entries()].sort(([a], [b]) => a.localeCompare(b));
   }, [turnos]);
 
-  const openEdit = useCallback((turno: Turno) => setEditingTurno({ ...turno }), []);
+  const openEdit = useCallback((turno: Turno) => {
+    setEditingTurno({ ...turno });
+    setEditSession((s) => s + 1);
+  }, []);
   const closeEdit = useCallback(() => setEditingTurno(null), []);
   const setField = useCallback(<K extends keyof Turno>(key: K, value: Turno[K]) => {
     setEditingTurno((d) => (d ? { ...d, [key]: value } : d));
   }, []);
-  const saveEdit = useCallback(() => {
-    if (!editingTurno) return;
+  const saveEdit = useCallback((turno: Turno) => {
     const payload: UpdateHorarioPayload = {
-      id: editingTurno.id,
-      turno: TURNO_LABEL[editingTurno.turno],
-      horario_in: `${editingTurno.fechaISO}T${editingTurno.ingreso}:00`,
-      horario_out: `${editingTurno.fechaISO}T${editingTurno.egreso}:00`,
-      sede_id_in: editingTurno.sedeIdIngreso,
-      sede_id_out: editingTurno.sedeIdEgreso,
-      licencia: editingTurno.licencia ? 1 : 0,
-      feriado: editingTurno.feriado ? 1 : 0,
+      id: turno.id,
+      turno: TURNO_LABEL[turno.turno],
+      horario_in: `${turno.fechaISO}T${turno.ingreso}:00`,
+      horario_out: `${turno.fechaISO}T${turno.egreso}:00`,
+      sede_id_in: turno.sedeIdIngreso,
+      sede_id_out: turno.sedeIdEgreso,
+      licencia: turno.licencia ? 1 : 0,
+      feriado: turno.feriado ? 1 : 0,
     };
     updateShift(payload, {
       onSuccess: () => {
@@ -61,7 +64,7 @@ export function FeriadosList({ filter, onToast }: FeriadosListProps) {
       },
       onError: () => onToast('Error al guardar. Intenta de nuevo.', true),
     });
-  }, [editingTurno, updateShift, onToast, closeEdit]);
+  }, [updateShift, onToast, closeEdit]);
 
   return (
     <>
@@ -110,6 +113,7 @@ export function FeriadosList({ filter, onToast }: FeriadosListProps) {
         draft={editingTurno}
         sedes={sedes}
         isSaving={isSaving}
+        editKey={editSession}
         onClose={closeEdit}
         onField={setField}
         onSave={saveEdit}

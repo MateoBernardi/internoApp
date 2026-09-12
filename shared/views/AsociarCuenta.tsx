@@ -29,18 +29,15 @@ import {
 
 import { KEYBOARD_BEHAVIOR } from '@/shared/ui/keyboard';
 import { glassColors, glassStyles } from '@/shared/ui/glass';
+import { computeMaskedChange } from '@/shared/utils/maskedInput';
 const colors = Colors["light"];
 
 type Step = "cuit" | "select-cuenta" | "verify" | "success";
 
-// Función para formatear CUIT como XX-XXXXXXXX-X
-const formatCUIT = (value: string): string => {
-  const numbersOnly = value.replace(/\D/g, "");
-  const trimmed = numbersOnly.slice(0, 11);
-  if (trimmed.length <= 2) return trimmed;
-  if (trimmed.length <= 10) return `${trimmed.slice(0, 2)}-${trimmed.slice(2)}`;
-  return `${trimmed.slice(0, 2)}-${trimmed.slice(2, 10)}-${trimmed.slice(10)}`;
-};
+const CUIT_SEPARATORS = [
+  { afterDigit: 2, char: '-' },
+  { afterDigit: 10, char: '-' },
+];
 
 export default function AsociarCuenta() {
   const router = useRouter();
@@ -49,6 +46,7 @@ export default function AsociarCuenta() {
   // Estado del flujo
   const [step, setStep] = useState<Step>("cuit");
   const [cuit, setCuit] = useState("");
+  const [cuitSelection, setCuitSelection] = useState<{ start: number; end: number } | undefined>();
   const [selectedCuenta, setSelectedCuenta] = useState<CuentaDisponibleDTO | null>(null);
   const [verificationToken, setVerificationToken] = useState("");
   const [entorno] = useState("interno");
@@ -285,10 +283,14 @@ export default function AsociarCuenta() {
                 variant="glass"
                 placeholder="CUIT (ej: 20-12345678-1)"
                 value={cuit}
-                onChangeText={(value) => {
-                  setCuit(formatCUIT(value));
+                selection={cuitSelection}
+                onChangeText={(text) => {
+                  const { formatted, cursor } = computeMaskedChange(cuit, text, 11, CUIT_SEPARATORS);
+                  setCuit(formatted);
                   setNoCuentasFound(false);
+                  setCuitSelection({ start: cursor, end: cursor });
                 }}
+                onSelectionChange={(e) => setCuitSelection(e.nativeEvent.selection)}
                 keyboardType="numeric"
                 hasError={!!obtenerCuentasQuery.isError}
               />

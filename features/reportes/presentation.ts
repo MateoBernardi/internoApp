@@ -36,3 +36,13 @@ export function getReporteEstadoPresentation(estado: EstadoReporte): ReporteEsta
     backgroundColor: 'rgba(104,112,118,0.12)',
   };
 }
+
+/**
+ * Estados filtrables en el Semáforo y en la lista de gestión de reportes.
+ * DESESTIMADO queda afuera a propósito: no forma parte del filtro pedido.
+ */
+export const REPORTE_ESTADO_FILTER_OPTIONS: { value: EstadoReporte; label: string }[] = [
+  { value: 'PENDIENTE', label: ESTADO_PRESENTATION.PENDIENTE.label },
+  { value: 'DISPUTA', label: ESTADO_PRESENTATION.DISPUTA.label },
+  { value: 'ASENTADO', label: ESTADO_PRESENTATION.ASENTADO.label },
+];

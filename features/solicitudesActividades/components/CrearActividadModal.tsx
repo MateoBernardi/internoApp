@@ -3,18 +3,18 @@ import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
 import { Colors, UI } from '@/constants/theme';
 import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   BackHandler,
   Platform,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
+import { IsolatedTextInput, IsolatedTextInputHandle } from '@/shared/ui/IsolatedTextInput';
 import { useKeyboardHeight } from '@/shared/ui/keyboard';
 import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -29,16 +29,14 @@ interface CrearActividadModalProps {
   showEndDateFields: boolean;
   activityDateErrorMessage: string | null;
   isLoading: boolean;
-  onMinimize: () => void;
+  onMinimize: (title: string, description: string) => void;
   onClose: () => void;
   onStartDate: () => void;
   onStartTime: () => void;
   onEndDate: () => void;
   onEndTime: () => void;
   onToggleEndDateFields: () => void;
-  onChangeTitle: (text: string) => void;
-  onChangeDescription: (text: string) => void;
-  onSubmit: () => void;
+  onSubmit: (title: string, description: string) => void;
   // Date picker (iOS se renderiza dentro del modal; Android lo renderiza el padre).
   showDatePicker: boolean;
   datePickerMode: 'date' | 'time';
@@ -66,8 +64,6 @@ export function CrearActividadModal({
   onEndDate,
   onEndTime,
   onToggleEndDateFields,
-  onChangeTitle,
-  onChangeDescription,
   onSubmit,
   showDatePicker,
   datePickerMode,
@@ -80,15 +76,26 @@ export function CrearActividadModal({
   const bottomInset = useSafeBottomInset();
   const [focusedField, setFocusedField] = useState<'titulo' | 'descripcion' | null>(null);
   const keyboardHeight = useKeyboardHeight();
-  const isFormValid = newActivity.title.trim().length > 0 && !activityDateErrorMessage;
+  const tituloRef = useRef<IsolatedTextInputHandle>(null);
+  const descripcionRef = useRef<IsolatedTextInputHandle>(null);
+  const [hasTitleText, setHasTitleText] = useState(newActivity.title.trim().length > 0);
+  const isFormValid = hasTitleText && !activityDateErrorMessage;
+
+  const handleMinimize = () => {
+    onMinimize(tituloRef.current?.getValue() ?? '', descripcionRef.current?.getValue() ?? '');
+  };
+  const handleSubmit = () => {
+    onSubmit(tituloRef.current?.getValue() ?? '', descripcionRef.current?.getValue() ?? '');
+  };
 
   useEffect(() => {
     if (!visible) return;
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      onMinimize();
+      handleMinimize();
       return true;
     });
     return () => sub.remove();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, onMinimize]);
 
   if (!visible) return null;
@@ -103,7 +110,7 @@ export function CrearActividadModal({
                 <Ionicons name="chevron-back" size={24} color={glassColors.textMuted} />
               </TouchableOpacity>
               <View style={styles.modalHeaderActions}>
-                <TouchableOpacity onPress={onMinimize} style={styles.closeButton}>
+                <TouchableOpacity onPress={handleMinimize} style={styles.closeButton}>
                   <Ionicons name="chevron-down" size={24} color={glassColors.textMuted} />
                 </TouchableOpacity>
               </View>
@@ -178,11 +185,12 @@ export function CrearActividadModal({
               {/* Título */}
               <View style={styles.fieldContainer}>
                 <Text style={styles.fieldLabel}>Título</Text>
-                <TextInput
+                <IsolatedTextInput
+                  ref={tituloRef}
                   style={[styles.input, styles.inputNoOutline, focusedField === 'titulo' && styles.inputFocused]}
                   placeholder="Título"
-                  value={newActivity.title}
-                  onChangeText={onChangeTitle}
+                  initialValue={newActivity.title}
+                  onHasTextChange={setHasTitleText}
                   placeholderTextColor={glassColors.placeholder}
                   onFocus={() => setFocusedField('titulo')}
                   onBlur={() => setFocusedField(null)}
@@ -192,11 +200,11 @@ export function CrearActividadModal({
               {/* Descripción */}
               <View style={styles.fieldContainer}>
                 <Text style={styles.fieldLabel}>Descripción</Text>
-                <TextInput
+                <IsolatedTextInput
+                  ref={descripcionRef}
                   style={[styles.input, styles.descriptionInput, styles.inputNoOutline, focusedField === 'descripcion' && styles.inputFocused]}
                   placeholder="Descripción (opcional)"
-                  value={newActivity.description}
-                  onChangeText={onChangeDescription}
+                  initialValue={newActivity.description}
                   placeholderTextColor={glassColors.placeholder}
                   multiline
                   numberOfLines={4}
@@ -208,7 +216,7 @@ export function CrearActividadModal({
 
             <View style={[styles.uploadButtonContainer, { paddingBottom: bottomInset }]}>
               <TouchableOpacity
-                onPress={onSubmit}
+                onPress={handleSubmit}
                 disabled={isLoading || !isFormValid}
                 style={[styles.uploadButton, (isLoading || !isFormValid) && styles.uploadButtonDisabled]}
               >

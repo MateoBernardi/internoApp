@@ -1,13 +1,15 @@
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { BADGES_QUERY_KEY } from '@/shared/badges/useBadges';
 import { IDEMPOTENT_MUTATION_RETRY } from '@/shared/idempotency';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { EstadoReporte } from '../models/Reporte';
 import {
     archivoReporte,
     createReporte,
     fetchReportes,
     getReporteImagenes,
     getReporteStats,
+    getReportesManaged,
     getTopEmployee,
     getUpgradedEmployee,
     unlinkReporteImage,
@@ -18,8 +20,10 @@ import {
 
 const REPORTES_QUERY_KEY = ['reportes'];
 const REPORTES_STATS_QUERY_KEY = ['reportes', 'stats'];
+const REPORTES_MANAGED_QUERY_KEY = ['reportes', 'managed'];
 const TOP_EMPLOYEE_QUERY_KEY = ['reportes', 'top-employee'];
 const UPGRADED_EMPLOYEE_QUERY_KEY = ['reportes', 'upgraded-employee'];
+const REPORTES_MANAGED_PAGE_SIZE = 20;
 
 function normalizeUsuarioId(usuarioId?: string): string | undefined {
     if (typeof usuarioId !== 'string') {
@@ -109,24 +113,52 @@ export function useUpdateReporte() {
 }
 
 /**
- * Hook para obtener las estadísticas de reportes
+ * Hook para obtener las estadísticas de reportes (Semáforo).
+ * @param estado Si se pasa, acota qué usuarios entran en el resultado a los
+ * que tienen al menos un reporte en ese estado (no cambia el cálculo de zona).
  */
-export function useReporteStats() {
+export function useReporteStats(estado?: EstadoReporte) {
     const { tokens } = useAuth();
-    
+
     return useQuery({
-        queryKey: REPORTES_STATS_QUERY_KEY,
+        queryKey: [...REPORTES_STATS_QUERY_KEY, estado ?? 'all'],
         queryFn: async () => {
             const token = tokens?.accessToken;
             if (!token) {
                 throw new Error('No hay token de acceso');
             }
-            const result = await getReporteStats(token);
+            const result = await getReporteStats(token, estado);
             return result;
         },
         staleTime: 1000 * 60 * 10, // 10 minutos
         gcTime: 1000 * 60 * 20, // 20 minutos
         retry: 2,
+    });
+}
+
+/**
+ * Hook para la lista paginada de reportes de gestión (vista Encargado),
+ * respetando la jerarquía del solicitante en el backend.
+ */
+export function useReportesManaged(estado?: EstadoReporte) {
+    const { tokens } = useAuth();
+
+    return useInfiniteQuery({
+        queryKey: [...REPORTES_MANAGED_QUERY_KEY, estado ?? 'all'],
+        initialPageParam: 1,
+        queryFn: async ({ pageParam }) => {
+            const token = tokens?.accessToken;
+            if (!token) {
+                throw new Error('No hay token de acceso');
+            }
+            return getReportesManaged(token, { page: pageParam, pageSize: REPORTES_MANAGED_PAGE_SIZE, estado });
+        },
+        getNextPageParam: (lastPage) => {
+            const loaded = lastPage.page * lastPage.pageSize;
+            return loaded < lastPage.total ? lastPage.page + 1 : undefined;
+        },
+        staleTime: 1000 * 60 * 2,
+        gcTime: 1000 * 60 * 5,
     });
 }
 

@@ -1,14 +1,13 @@
 import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
 import { Colors } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   BackHandler,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -16,6 +15,7 @@ import { AppBackButton } from '@/shared/ui/AppBackButton';
 import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
 import { GlassButton } from '@/shared/ui/GlassButton';
 import { focusBorderStyles, glassColors } from '@/shared/ui/glass';
+import { IsolatedTextInput, IsolatedTextInputHandle } from '@/shared/ui/IsolatedTextInput';
 import { useKeyboardHeight } from '@/shared/ui/keyboard';
 import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { useFocusBorder } from '@/shared/ui/useFocusBorder';
@@ -57,10 +57,11 @@ export const ConvocarReunionModal: React.FC<ConvocarReunionModalProps> = ({
   const keyboardHeight = useKeyboardHeight();
   const { enviar, isPending } = useConvocarReuniones();
 
-  const [titulo, setTitulo] = useState('Reunión de equipo');
+  const tituloRef = useRef<IsolatedTextInputHandle>(null);
+  const notaRef = useRef<IsolatedTextInputHandle>(null);
+  const [hasTituloText, setHasTituloText] = useState(true);
   const tituloFocus = useFocusBorder();
   const notaFocus = useFocusBorder();
-  const [nota, setNota] = useState('');
   const [resultado, setResultado] = useState<ConvocarReunionesResult | null>(null);
 
   // fecha_fin por usuario_id (default: slot + 30min)
@@ -117,6 +118,8 @@ export const ConvocarReunionModal: React.FC<ConvocarReunionModalProps> = ({
   }, [personas]);
 
   const handleEnviar = useCallback(async () => {
+    const titulo = tituloRef.current?.getValue() ?? '';
+    const nota = notaRef.current?.getValue() ?? '';
     if (!titulo.trim()) {
       Alert.alert('Error', 'El título es obligatorio');
       return;
@@ -132,15 +135,13 @@ export const ConvocarReunionModal: React.FC<ConvocarReunionModalProps> = ({
 
     const res = await enviar(encuestaId, requests);
     setResultado(res);
-  }, [titulo, nota, personas, fechasFinMap, enviar]);
+  }, [personas, fechasFinMap, enviar]);
 
   const handleCerrar = () => {
     if (resultado && resultado.exitosas > 0) {
       onSuccess();
     }
     setResultado(null);
-    setTitulo('Reunión de equipo');
-    setNota('');
     onClose();
   };
 
@@ -211,14 +212,15 @@ export const ConvocarReunionModal: React.FC<ConvocarReunionModalProps> = ({
             ) : (
               <>
                 <Text style={styles.convocarFieldLabel}>Título / motivo *</Text>
-                <TextInput
+                <IsolatedTextInput
+                  ref={tituloRef}
                   style={[
                     styles.convocarInput,
                     focusBorderStyles.inputNoOutline,
                     tituloFocus.isFocused && { borderColor: glassColors.link },
                   ]}
-                  value={titulo}
-                  onChangeText={setTitulo}
+                  initialValue="Reunión de equipo"
+                  onHasTextChange={setHasTituloText}
                   onFocus={tituloFocus.onFocus}
                   onBlur={tituloFocus.onBlur}
                   placeholder="Título de la reunión"
@@ -226,15 +228,14 @@ export const ConvocarReunionModal: React.FC<ConvocarReunionModalProps> = ({
                 />
 
                 <Text style={styles.convocarFieldLabel}>Nota para cada persona (opcional)</Text>
-                <TextInput
+                <IsolatedTextInput
+                  ref={notaRef}
                   style={[
                     styles.convocarInput,
                     styles.convocarTextArea,
                     focusBorderStyles.inputNoOutline,
                     notaFocus.isFocused && { borderColor: glassColors.link },
                   ]}
-                  value={nota}
-                  onChangeText={setNota}
                   onFocus={notaFocus.onFocus}
                   onBlur={notaFocus.onBlur}
                   placeholder="Mensaje adicional..."
@@ -296,7 +297,7 @@ export const ConvocarReunionModal: React.FC<ConvocarReunionModalProps> = ({
               <GlassButton
                 label="Enviar"
                 onPress={handleEnviar}
-                disabled={!titulo.trim() || isPending}
+                disabled={!hasTituloText || isPending}
                 loading={isPending}
                 style={localStyles.footerButton}
               />

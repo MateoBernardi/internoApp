@@ -6,6 +6,7 @@ import { RoleUserSelectionModal } from '@/features/solicitudesActividades/compon
 import { AppBackButton } from '@/shared/ui/AppBackButton';
 import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
 import { glassColors } from '@/shared/ui/glass';
+import { IsolatedTextInput, IsolatedTextInputHandle } from '@/shared/ui/IsolatedTextInput';
 import { KEYBOARD_BEHAVIOR, useKeyboardHeight } from '@/shared/ui/keyboard';
 import { useSafeBottomInset } from '@/hooks/useSafeBottomInset';
 import { useIdempotencyKey } from '@/shared/useIdempotencyKey';
@@ -13,7 +14,7 @@ import { UserSummary } from '@/shared/users/User';
 import { allRoles } from '@/shared/users/roles';
 import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -22,7 +23,6 @@ import {
   ScrollView,
   Switch,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -42,8 +42,9 @@ const colors = Colors['light'];
 export const CrearEncuesta: React.FC<CrearEncuestaProps> = ({ onEncuestaCreada, onVolver }) => {
   const bottomInset = useSafeBottomInset();
   const keyboardHeight = useKeyboardHeight();
-  const [titulo, setTitulo] = useState('');
-  const [descripcion, setDescripcion] = useState('');
+  const tituloRef = useRef<IsolatedTextInputHandle>(null);
+  const descripcionRef = useRef<IsolatedTextInputHandle>(null);
+  const [hasTituloText, setHasTituloText] = useState(false);
   const [focusedField, setFocusedField] = useState<'titulo' | 'descripcion' | null>(null);
   const [esAnonima, setEsAnonima] = useState(false);
   const [fechaFin, setFechaFin] = useState<Date | null>(null);
@@ -129,12 +130,12 @@ export const CrearEncuesta: React.FC<CrearEncuestaProps> = ({ onEncuestaCreada, 
   }, []);
 
   const isFormValid =
-    titulo.trim().length > 0 &&
+    hasTituloText &&
     preguntas.length > 0 &&
     (todosEmpleados || selectedUsers.length > 0);
 
   const validarFormulario = (): boolean => {
-    if (!titulo.trim()) {
+    if (!hasTituloText) {
       Alert.alert('Error', 'El título es obligatorio');
       return false;
     }
@@ -153,6 +154,8 @@ export const CrearEncuesta: React.FC<CrearEncuestaProps> = ({ onEncuestaCreada, 
     if (!validarFormulario()) return;
 
     const invitados = todosEmpleados ? [] : selectedUsers.map((u) => u.user_context_id);
+    const titulo = tituloRef.current?.getValue() ?? '';
+    const descripcion = descripcionRef.current?.getValue() ?? '';
 
     const encuestaData: Partial<Encuesta> = {
       titulo,
@@ -210,24 +213,23 @@ export const CrearEncuesta: React.FC<CrearEncuestaProps> = ({ onEncuestaCreada, 
 
         {/* Información básica */}
         <View style={styles.section}>
-          <TextInput
+          <IsolatedTextInput
+            ref={tituloRef}
             style={[styles.input, styles.inputNoOutline, focusedField === 'titulo' && styles.inputFocused]}
             placeholder="Título de la encuesta *"
             placeholderTextColor={colors.secondaryText}
-            value={titulo}
-            onChangeText={setTitulo}
+            onHasTextChange={setHasTituloText}
             onFocus={() => setFocusedField('titulo')}
             onBlur={() => setFocusedField(null)}
           />
 
-          <TextInput
+          <IsolatedTextInput
+            ref={descripcionRef}
             style={[styles.input, styles.textArea, styles.inputNoOutline, focusedField === 'descripcion' && styles.inputFocused]}
             placeholder="Descripción (opcional)"
             placeholderTextColor={colors.secondaryText}
             multiline
             numberOfLines={3}
-            value={descripcion}
-            onChangeText={setDescripcion}
             onFocus={() => setFocusedField('descripcion')}
             onBlur={() => setFocusedField(null)}
           />

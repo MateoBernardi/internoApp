@@ -110,6 +110,7 @@ export default function CrossPlatformDateTimePicker(props: CrossPlatformDateTime
           maximumDate={maximumDate}
           is24Hour={is24Hour}
           display={nativeDisplay}
+          themeVariant="light"
           testID={testID}
           onChange={(event, selectedDate) => {
             if (hasEmitted.current) return;
@@ -142,6 +143,7 @@ export default function CrossPlatformDateTimePicker(props: CrossPlatformDateTime
               maximumDate={maximumDate}
               is24Hour={is24Hour}
               display={nativeDisplay}
+              themeVariant="light"
               testID={testID}
               onChange={(event, selectedDate) => {
                 if (event.type === 'dismissed') {

@@ -10,12 +10,13 @@ import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { generateIdempotencyKey } from '@/shared/idempotency';
 import { GlassButton } from '@/shared/ui/GlassButton';
 import { focusBorderStyles, glassColors } from '@/shared/ui/glass';
+import { IsolatedTextInput, IsolatedTextInputHandle } from '@/shared/ui/IsolatedTextInput';
 import { useFocusBorder } from '@/shared/ui/useFocusBorder';
 import { useSafeBottomInset } from '@/hooks/useSafeBottomInset';
 import { adminRoles, allRoles } from '@/shared/users/roles';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -147,7 +148,8 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
   const [showAddToAgendaModal, setShowAddToAgendaModal] = useState(false);
   const [acceptObservation, setAcceptObservation] = useState('');
   const [rejectObservation, setRejectObservation] = useState('');
-  const [messageDraft, setMessageDraft] = useState('');
+  const composerRef = useRef<IsolatedTextInputHandle>(null);
+  const [hasDraftText, setHasDraftText] = useState(false);
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [replyTarget, setReplyTarget] = useState<BitacoraSolicitud | null>(null);
   const [isModifyMode, setIsModifyMode] = useState(false);
@@ -461,14 +463,14 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
   }, [modStartDate, modEndDate, modNowThreshold]);
 
   const canSubmitModificar = useMemo(
-    () => !modDateErrorMessage && (hasDateChanges || messageDraft.trim().length > 0),
-    [modDateErrorMessage, hasDateChanges, messageDraft],
+    () => !modDateErrorMessage && (hasDateChanges || hasDraftText),
+    [modDateErrorMessage, hasDateChanges, hasDraftText],
   );
 
   const canSendMessage = useMemo(() => {
     if (composerFinalState) return false;
-    return messageDraft.trim().length > 0 || pickedFiles.length > 0;
-  }, [composerFinalState, messageDraft, pickedFiles]);
+    return hasDraftText || pickedFiles.length > 0;
+  }, [composerFinalState, hasDraftText, pickedFiles]);
 
   // En modo modificar, alcanza con cambiar las fechas (sin observación) para habilitar el envío.
   const canSubmitComposer = isModifyMode ? canSubmitModificar : canSendMessage;
@@ -569,7 +571,8 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
         onSuccess: () => {
           closeAcceptModal();
           setLocalEstado('ACCEPTED');
-          setMessageDraft('');
+          composerRef.current?.clear();
+          setHasDraftText(false);
           // Este flujo solo corre para el invitado que acepta (el creador no
           // "acepta" su propia solicitud), por eso alcanza con chequear que
           // la solicitud sea 1 a 1: con más participantes, solo el creador
@@ -627,7 +630,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
     const payload = {
       fecha_inicio_nueva: modStartDate,
       fecha_fin_nueva: modEndDate,
-      observacion: messageDraft.trim() || null,
+      observacion: (composerRef.current?.getValue() ?? '').trim() || null,
     };
     setPendingModificarPayload(payload);
     actualizarEstado(
@@ -645,13 +648,14 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
           }
           setBackendSolicitudRangos([]);
           resetModifyDraft();
-          setMessageDraft('');
+          composerRef.current?.clear();
+          setHasDraftText(false);
           Alert.alert('Éxito', 'Solicitud modificada');
         },
         onError: e => Alert.alert('Error', e instanceof Error ? e.message : 'Intenta nuevamente'),
       },
     );
-  }, [solicitudId, modStartDate, modEndDate, messageDraft, actualizarEstado, isHost, resetModifyDraft]);
+  }, [solicitudId, modStartDate, modEndDate, actualizarEstado, isHost, resetModifyDraft]);
 
   const forceModificarSolicitud = useCallback(() => {
     if (!pendingModificarPayload) return;
@@ -696,7 +700,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
     setIsSendingMessage(true);
     const archivosIds = await uploadPickedFiles();
 
-    const trimmed = messageDraft.trim();
+    const trimmed = (composerRef.current?.getValue() ?? '').trim();
     if (!trimmed && archivosIds.length === 0) { setIsSendingMessage(false); return; }
 
     actualizarEstado(
@@ -708,11 +712,17 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
         reply_to_id: replyTarget?.id ?? null,
       },
       {
-        onSuccess: () => { setMessageDraft(''); setPickedFiles([]); setReplyTarget(null); setIsSendingMessage(false); },
+        onSuccess: () => {
+          composerRef.current?.clear();
+          setHasDraftText(false);
+          setPickedFiles([]);
+          setReplyTarget(null);
+          setIsSendingMessage(false);
+        },
         onError: e => { setIsSendingMessage(false); Alert.alert('Error', e instanceof Error ? e.message : 'Intenta nuevamente'); },
       },
     );
-  }, [canSendMessage, canSubmitModificar, isModifyMode, confirmModificar, uploadPickedFiles, messageDraft, actualizarEstado, solicitudId, isHost, setPickedFiles, replyTarget]);
+  }, [canSendMessage, canSubmitModificar, isModifyMode, confirmModificar, uploadPickedFiles, actualizarEstado, solicitudId, isHost, setPickedFiles, replyTarget]);
 
   // ─── Agenda ───────────────────────────────────────────────────────────────
 
@@ -1058,14 +1068,14 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                     </View>
                   )}
 
-                  <TextInput
+                  <IsolatedTextInput
+                    ref={composerRef}
                     style={[styles.messageComposerInput, focusBorderStyles.inputNoOutline]}
                     placeholder={isModifyMode ? 'Observación (opcional)' : 'Escribir mensaje'}
                     placeholderTextColor={colors.secondaryText}
-                    value={messageDraft}
-                    onChangeText={setMessageDraft}
                     onFocus={composerFocus.onFocus}
                     onBlur={composerFocus.onBlur}
+                    onHasTextChange={setHasDraftText}
                     multiline
                     textAlignVertical="top"
                   />
@@ -1104,7 +1114,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                         {/* Rechazar */}
                         {!isFinalState && (
                           <TouchableOpacity style={styles.messageActionButton} onPress={() => {
-                            setRejectObservation(messageDraft);
+                            setRejectObservation(composerRef.current?.getValue() ?? '');
                             setShowRejectModal(true);
                           }}>
                             <Ionicons name="close" size={20} color={colors.error} />
@@ -1117,7 +1127,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                             style={[styles.messageActionButton, aceptarDeshabilitado && styles.messageActionButtonDisabled]}
                             disabled={aceptarDeshabilitado}
                             onPress={() => {
-                              setAcceptObservation(messageDraft);
+                              setAcceptObservation(composerRef.current?.getValue() ?? '');
                               setShowAcceptModal(true);
                             }}>
                             <Ionicons name="checkmark" size={20} color={colors.success} />

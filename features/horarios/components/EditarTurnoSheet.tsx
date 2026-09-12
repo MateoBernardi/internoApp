@@ -1,5 +1,6 @@
 import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { glassColors, glassStyles } from '@/shared/ui/glass';
+import { computeMaskedChange } from '@/shared/utils/maskedInput';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useRef, useState } from 'react';
 import {
@@ -88,14 +89,11 @@ export function EditarTurnoSheet({
   const insets = useSafeAreaInsets();
   const bottomInset = useSafeBottomInset();
   const [focusedField, setFocusedField] = useState<'ingreso' | 'egreso' | null>(null);
+  const [ingresoSelection, setIngresoSelection] = useState<{ start: number; end: number } | undefined>();
+  const [egresoSelection, setEgresoSelection] = useState<{ start: number; end: number } | undefined>();
 
   // Ref sincrónico: persiste el último draft no-nulo para que el contenido
   // sea visible desde el primer render al abrir, y durante la animación de cierre.
-  const formatTime = (raw: string): string => {
-    const digits = raw.replace(/\D/g, '').slice(0, 4);
-    return digits.length > 2 ? `${digits.slice(0, 2)}:${digits.slice(2)}` : digits;
-  };
-
   const lastDraftRef = useRef<Turno | null>(null);
   if (draft !== null) lastDraftRef.current = draft;
   const displayDraft = lastDraftRef.current;
@@ -163,7 +161,15 @@ export function EditarTurnoSheet({
                         <TextInput
                           style={[styles.fieldInput, styles.inputNoOutline]}
                           value={displayDraft.ingreso}
-                          onChangeText={(v) => onField('ingreso', formatTime(v))}
+                          selection={ingresoSelection}
+                          onChangeText={(text) => {
+                            const { formatted, cursor } = computeMaskedChange(
+                              displayDraft.ingreso, text, 4, [{ afterDigit: 2, char: ':' }],
+                            );
+                            onField('ingreso', formatted);
+                            setIngresoSelection({ start: cursor, end: cursor });
+                          }}
+                          onSelectionChange={(e) => setIngresoSelection(e.nativeEvent.selection)}
                           placeholder="--:--"
                           placeholderTextColor={MUTED}
                           keyboardType="numeric"
@@ -180,7 +186,15 @@ export function EditarTurnoSheet({
                         <TextInput
                           style={[styles.fieldInput, styles.inputNoOutline]}
                           value={displayDraft.egreso}
-                          onChangeText={(v) => onField('egreso', formatTime(v))}
+                          selection={egresoSelection}
+                          onChangeText={(text) => {
+                            const { formatted, cursor } = computeMaskedChange(
+                              displayDraft.egreso, text, 4, [{ afterDigit: 2, char: ':' }],
+                            );
+                            onField('egreso', formatted);
+                            setEgresoSelection({ start: cursor, end: cursor });
+                          }}
+                          onSelectionChange={(e) => setEgresoSelection(e.nativeEvent.selection)}
                           placeholder="--:--"
                           placeholderTextColor={MUTED}
                           keyboardType="numeric"

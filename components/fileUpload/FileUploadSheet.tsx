@@ -132,7 +132,7 @@ export function FileUploadSheet({
 }: FileUploadSheetProps) {
   const insets = useSafeAreaInsets();
   const { tokens } = useAuth();
-  const { alertModal, showModal, closeAlert } = useAlertModal();
+  const { alertModal, showModal, closeAlert, onModalDismiss } = useAlertModal();
 
   const [files, setFiles] = useState<SelFile[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -434,6 +434,7 @@ export function FileUploadSheet({
         message={alertModal.message}
         actions={alertModal.actions}
         onClose={closeAlert}
+        onDismiss={onModalDismiss}
       />
     </Modal>
   );

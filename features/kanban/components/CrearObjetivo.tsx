@@ -7,6 +7,7 @@ import { useUploadArchivo } from '@/features/docs/viewmodels/useArchivos';
 import { useSafeBottomInset } from '@/hooks/useSafeBottomInset';
 import { ApiOperationResult } from '@/shared/types/apiStatus';
 import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
+import { IsolatedTextInput, IsolatedTextInputHandle } from '@/shared/ui/IsolatedTextInput';
 import { useKeyboardHeight } from '@/shared/ui/keyboard';
 import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { UserSummary } from '@/shared/users/User';
@@ -14,7 +15,7 @@ import { adminRoles, allRoles } from '@/shared/users/roles';
 import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
     Alert,
     BackHandler,
@@ -22,7 +23,6 @@ import {
     ScrollView,
     StyleSheet,
     Text,
-    TextInput,
     TouchableOpacity,
     View,
 } from 'react-native';
@@ -64,8 +64,9 @@ export function FormObjetivoModal({
     const tituloFocus = useFocusBorder();
     const descripcionFocus = useFocusBorder();
     const { user } = useAuth();
-    const [titulo, setTitulo] = useState(objetivo?.titulo || '');
-    const [descripcion, setDescripcion] = useState(objetivo?.descripcion || '');
+    const tituloRef = useRef<IsolatedTextInputHandle>(null);
+    const descripcionRef = useRef<IsolatedTextInputHandle>(null);
+    const [hasTituloText, setHasTituloText] = useState((objetivo?.titulo || '').trim().length > 0);
     const [estado, setEstado] = useState<(typeof ESTADOS)[number]>(objetivo?.estado || DEFAULT_OBJETIVO_ESTADO);
     const [selectedUsers, setSelectedUsers] = useState<UserSummary[]>([]);
     const [rolesByUserId, setRolesByUserId] = useState<Record<number, Invitado['rol']>>({});
@@ -100,8 +101,8 @@ export function FormObjetivoModal({
     const syncCreateDraft = (partial: Partial<CreateObjetivo>) => {
         if (isEditing || !onDraftChange) return;
         onDraftChange({
-            titulo,
-            descripcion,
+            titulo: tituloRef.current?.getValue() ?? '',
+            descripcion: descripcionRef.current?.getValue() ?? '',
             estado,
             invitados: buildInvitadosPayload(),
             ...partial,
@@ -215,21 +216,24 @@ export function FormObjetivoModal({
         if (!visible) return;
 
         if (isEditing && objetivo) {
-            setTitulo(objetivo.titulo || '');
-            setDescripcion(objetivo.descripcion || '');
+            tituloRef.current?.setValue(objetivo.titulo || '');
+            descripcionRef.current?.setValue(objetivo.descripcion || '');
+            setHasTituloText((objetivo.titulo || '').trim().length > 0);
             setEstado((objetivo.estado || DEFAULT_OBJETIVO_ESTADO) as (typeof ESTADOS)[number]);
             return;
         }
 
         if (!resumeDraft) {
-            setTitulo(draftValues?.titulo ?? '');
-            setDescripcion(draftValues?.descripcion ?? '');
+            tituloRef.current?.setValue(draftValues?.titulo ?? '');
+            descripcionRef.current?.setValue(draftValues?.descripcion ?? '');
+            setHasTituloText((draftValues?.titulo ?? '').trim().length > 0);
             setEstado((draftValues?.estado ?? DEFAULT_OBJETIVO_ESTADO) as (typeof ESTADOS)[number]);
         }
 
         if (resumeDraft) {
-            setTitulo(draftValues?.titulo ?? '');
-            setDescripcion(draftValues?.descripcion ?? '');
+            tituloRef.current?.setValue(draftValues?.titulo ?? '');
+            descripcionRef.current?.setValue(draftValues?.descripcion ?? '');
+            setHasTituloText((draftValues?.titulo ?? '').trim().length > 0);
             setEstado((draftValues?.estado ?? DEFAULT_OBJETIVO_ESTADO) as (typeof ESTADOS)[number]);
             onResumeDraftHandled?.();
         }
@@ -237,8 +241,9 @@ export function FormObjetivoModal({
 
     useEffect(() => {
         if (resetDraftSignal > 0 && !isEditing) {
-            setTitulo('');
-            setDescripcion('');
+            tituloRef.current?.clear();
+            descripcionRef.current?.clear();
+            setHasTituloText(false);
             setEstado(DEFAULT_OBJETIVO_ESTADO);
             setSelectedUsers([]);
             setRolesByUserId({});
@@ -254,8 +259,9 @@ export function FormObjetivoModal({
 
     const handleClose = () => {
         if (!isEditing) {
-            setTitulo('');
-            setDescripcion('');
+            tituloRef.current?.clear();
+            descripcionRef.current?.clear();
+            setHasTituloText(false);
             setEstado(DEFAULT_OBJETIVO_ESTADO);
             setSelectedUsers([]);
             setRolesByUserId({});
@@ -271,6 +277,8 @@ export function FormObjetivoModal({
         r.status === 'success' && r.data !== undefined;
 
     const handleSubmit = async () => {
+        const titulo = tituloRef.current?.getValue() ?? '';
+        const descripcion = descripcionRef.current?.getValue() ?? '';
         if (!titulo.trim()) {
             Alert.alert('Error', 'El título es requerido');
             return;
@@ -366,6 +374,7 @@ export function FormObjetivoModal({
 
     const handleMinimize = () => {
         if (isEditing || !onMinimize) return;
+        syncCreateDraft({});
         onMinimize();
     };
 
@@ -411,20 +420,18 @@ export function FormObjetivoModal({
                         >
                             <View style={styles.formGroup}>
                                 <Text style={styles.label}>Título</Text>
-                                <TextInput
+                                <IsolatedTextInput
+                                    ref={tituloRef}
                                     style={[
                                         styles.input,
                                         focusBorderStyles.inputNoOutline,
                                         tituloFocus.isFocused && { borderColor: glassColors.link },
                                     ]}
                                     placeholder="Ingresa el título"
-                                    value={titulo}
-                                    onChangeText={(value) => {
-                                        setTitulo(value);
-                                        syncCreateDraft({ titulo: value });
-                                    }}
+                                    initialValue={objetivo?.titulo || draftValues?.titulo || ''}
+                                    onHasTextChange={setHasTituloText}
                                     onFocus={tituloFocus.onFocus}
-                                    onBlur={tituloFocus.onBlur}
+                                    onBlur={() => { tituloFocus.onBlur(); syncCreateDraft({}); }}
                                     editable={!isLoading}
                                     placeholderTextColor="#999"
                                 />
@@ -432,7 +439,8 @@ export function FormObjetivoModal({
 
                             <View style={styles.formGroup}>
                                 <Text style={styles.label}>Descripción (opcional)</Text>
-                                <TextInput
+                                <IsolatedTextInput
+                                    ref={descripcionRef}
                                     style={[
                                         styles.input,
                                         styles.textArea,
@@ -440,13 +448,9 @@ export function FormObjetivoModal({
                                         descripcionFocus.isFocused && { borderColor: glassColors.link },
                                     ]}
                                     placeholder="Ingresa la descripción"
-                                    value={descripcion}
-                                    onChangeText={(value) => {
-                                        setDescripcion(value);
-                                        syncCreateDraft({ descripcion: value });
-                                    }}
+                                    initialValue={objetivo?.descripcion || draftValues?.descripcion || ''}
                                     onFocus={descripcionFocus.onFocus}
-                                    onBlur={descripcionFocus.onBlur}
+                                    onBlur={() => { descripcionFocus.onBlur(); syncCreateDraft({}); }}
                                     editable={!isLoading}
                                     multiline
                                     numberOfLines={4}
@@ -606,8 +610,8 @@ export function FormObjetivoModal({
                     <View style={[styles.uploadButtonContainer, { paddingBottom: bottomInset }]}>
                         <TouchableOpacity
                             onPress={handleSubmit}
-                            disabled={isLoading || !titulo.trim()}
-                            style={[styles.uploadButton, glassStyles.button, (isLoading || !titulo.trim()) && styles.uploadButtonDisabled]}
+                            disabled={isLoading || !hasTituloText}
+                            style={[styles.uploadButton, glassStyles.button, (isLoading || !hasTituloText) && styles.uploadButtonDisabled]}
                         >
                             <Ionicons name="cloud-upload" size={20} color={glassColors.link} />
                             <ThemedText style={styles.uploadButtonText}>{'Crear'}</ThemedText>

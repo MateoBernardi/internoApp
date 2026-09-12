@@ -4,6 +4,7 @@ import { GlassButton } from '@/shared/ui/GlassButton';
 import { GlassTabSelector } from '@/components/ui/GlassTabSelector';
 import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
 import { focusBorderStyles, glassColors, glassStyles } from '@/shared/ui/glass';
+import { IsolatedTextInput, IsolatedTextInputHandle } from '@/shared/ui/IsolatedTextInput';
 import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { useFocusBorder } from '@/shared/ui/useFocusBorder';
 import { useSafeBottomInset } from '@/hooks/useSafeBottomInset';
@@ -19,14 +20,13 @@ import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
 import { ParticipantesBlock } from '@/features/solicitudesActividades/components/ParticipantesBlock';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
     Alert,
     BackHandler,
     ScrollView,
     StyleSheet,
     Text,
-    TextInput,
     TouchableOpacity,
     View,
 } from "react-native";
@@ -77,7 +77,9 @@ export function DetailModal({ visible, objetivo, onClose, onDelete, onMove, curr
     const [isEditingTitle, setIsEditingTitle] = useState(false);
     const [isEditingDescription, setIsEditingDescription] = useState(false);
     const [showCommentComposer, setShowCommentComposer] = useState(false);
-    const [commentText, setCommentText] = useState('');
+    const commentRef = useRef<IsolatedTextInputHandle>(null);
+    const tituloRef = useRef<IsolatedTextInputHandle>(null);
+    const descripcionRef = useRef<IsolatedTextInputHandle>(null);
 
     const [invitedUsers, setInvitedUsers] = useState<Invitado[]>([]);
     const [selectedUsers, setSelectedUsers] = useState<UserSummary[]>([]);
@@ -112,7 +114,6 @@ export function DetailModal({ visible, objetivo, onClose, onDelete, onMove, curr
         setIsEditingTitle(false);
         setIsEditingDescription(false);
         setShowCommentComposer(false);
-        setCommentText('');
         setInvitedUsers([]);
         setSelectedUsers([]);
         setSearchQuery('');
@@ -189,7 +190,7 @@ export function DetailModal({ visible, objetivo, onClose, onDelete, onMove, curr
 
     const handleSaveTitle = () => {
         setIsEditingTitle(false);
-        void helpers.editarTitulo(localObjetivo!.titulo);
+        void helpers.editarTitulo(tituloRef.current?.getValue() ?? '');
     };
 
     const handleCancelDescripcion = () => {
@@ -199,17 +200,16 @@ export function DetailModal({ visible, objetivo, onClose, onDelete, onMove, curr
 
     const handleSaveDescripcion = () => {
         setIsEditingDescription(false);
-        void helpers.editarDescripcion(localObjetivo!.descripcion);
+        void helpers.editarDescripcion(descripcionRef.current?.getValue() ?? '');
     };
 
     // ─── Comentarios (bitácora sin cambio de estado) ───────────────────────────
 
     const handleSubmitComment = async () => {
-        const text = commentText.trim();
+        const text = (commentRef.current?.getValue() ?? '').trim();
         if (!text) return;
         try {
             await commentMutation.mutateAsync({ id: currentObjetivo.id, data: { observacion: text } });
-            setCommentText('');
             setShowCommentComposer(false);
         } catch (err) {
             Alert.alert('Error', err instanceof Error ? err.message : 'No se pudo agregar el comentario');
@@ -452,11 +452,10 @@ export function DetailModal({ visible, objetivo, onClose, onDelete, onMove, curr
 
                         {isEditingTitle ? (
                             <View style={[styles.inlineEditRow, { marginTop: 8 }]}>
-                                <TextInput
-                                    value={currentObjetivo.titulo}
-                                    onChangeText={(text) =>
-                                        setLocalObjetivo((prev) => (prev ? { ...prev, titulo: text } : prev))
-                                    }
+                                <IsolatedTextInput
+                                    ref={tituloRef}
+                                    key={currentObjetivo.id}
+                                    initialValue={currentObjetivo.titulo}
                                     style={[
                                         styles.inlineInput,
                                         focusBorderStyles.inputNoOutline,
@@ -492,11 +491,10 @@ export function DetailModal({ visible, objetivo, onClose, onDelete, onMove, curr
 
                         {isEditingDescription ? (
                             <View style={[styles.inlineEditRow, { marginTop: 14 }]}>
-                                <TextInput
-                                    value={currentObjetivo.descripcion}
-                                    onChangeText={(text) =>
-                                        setLocalObjetivo((prev) => (prev ? { ...prev, descripcion: text } : prev))
-                                    }
+                                <IsolatedTextInput
+                                    ref={descripcionRef}
+                                    key={currentObjetivo.id}
+                                    initialValue={currentObjetivo.descripcion}
                                     style={[
                                         styles.inlineInput,
                                         styles.inlineInputMulti,
@@ -544,9 +542,8 @@ export function DetailModal({ visible, objetivo, onClose, onDelete, onMove, curr
                             <View style={styles.tabSection}>
                                 {showCommentComposer && (
                                     <View style={[styles.inlineEditRow, { marginBottom: 16 }]}>
-                                        <TextInput
-                                            value={commentText}
-                                            onChangeText={setCommentText}
+                                        <IsolatedTextInput
+                                            ref={commentRef}
                                             placeholder="Escribí un comentario..."
                                             placeholderTextColor="#9ca3af"
                                             style={[
@@ -563,7 +560,7 @@ export function DetailModal({ visible, objetivo, onClose, onDelete, onMove, curr
                                         <View style={styles.inlineEditActions}>
                                             <TouchableOpacity
                                                 style={styles.cancelBtn}
-                                                onPress={() => { setShowCommentComposer(false); setCommentText(''); }}
+                                                onPress={() => setShowCommentComposer(false)}
                                             >
                                                 <Text style={styles.cancelBtnText}>Cancelar</Text>
                                             </TouchableOpacity>

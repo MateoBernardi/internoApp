@@ -11,7 +11,7 @@ import { conversacionStyles } from '@/features/solicitudesActividades/conversaci
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   BackHandler,
@@ -20,7 +20,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -28,6 +27,7 @@ import { generateIdempotencyKey } from '@/shared/idempotency';
 import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
 import { GlassButton } from '@/shared/ui/GlassButton';
 import { focusBorderStyles, glassColors, glassStyles } from '@/shared/ui/glass';
+import { IsolatedTextInput, IsolatedTextInputHandle } from '@/shared/ui/IsolatedTextInput';
 import { useFocusBorder } from '@/shared/ui/useFocusBorder';
 import { useSafeBottomInset } from '@/hooks/useSafeBottomInset';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -127,7 +127,7 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
 
   // States
   const [showObservationModal, setShowObservationModal] = useState(false);
-  const [observationText, setObservationText] = useState('');
+  const observationRef = useRef<IsolatedTextInputHandle>(null);
   const observationFocus = useFocusBorder();
   const [actionType, setActionType] = useState<'approve' | 'reject' | null>(null);
   const [selectedArchivoId, setSelectedArchivoId] = useState<number | undefined>();
@@ -164,13 +164,13 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
 
   const handleApprovePress = useCallback(() => {
     setActionType('approve');
-    setObservationText('');
+    observationRef.current?.clear();
     setShowObservationModal(true);
   }, []);
 
   const confirmApprove = useCallback(() => {
     aprobarSolicitud(
-      { solicitudId, observacion: observationText },
+      { solicitudId, observacion: observationRef.current?.getValue() ?? '' },
       {
         onSuccess: () => {
           setShowObservationModal(false);
@@ -183,15 +183,16 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
         },
       }
     );
-  }, [solicitudId, aprobarSolicitud, observationText, handleClose, showModal]);
+  }, [solicitudId, aprobarSolicitud, handleClose, showModal]);
 
   const handleRejectPress = useCallback(() => {
     setActionType('reject');
-    setObservationText('');
+    observationRef.current?.clear();
     setShowObservationModal(true);
   }, []);
 
   const confirmReject = useCallback(() => {
+    const observationText = observationRef.current?.getValue() ?? '';
     if (!observationText.trim()) {
       showModal('Error', 'Debes proporcionar una observación para rechazar');
       return;
@@ -211,7 +212,7 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
         },
       }
     );
-  }, [solicitudId, rechazarSolicitud, observationText, handleClose, showModal]);
+  }, [solicitudId, rechazarSolicitud, handleClose, showModal]);
 
   const handleCancel = useCallback(() => {
     showModal('Cancelar solicitud', '¿Deseas cancelar esta solicitud?', [
@@ -597,13 +598,12 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
                       : 'Agregar observación (obligatorio)'}
                   </ThemedText>
 
-                  <TextInput
+                  <IsolatedTextInput
+                    ref={observationRef}
                     placeholder={actionType === 'approve'
                       ? "Observación..."
                       : "Motivo del rechazo..."}
                     placeholderTextColor={colors.secondaryText}
-                    value={observationText}
-                    onChangeText={setObservationText}
                     onFocus={observationFocus.onFocus}
                     onBlur={observationFocus.onBlur}
                     multiline

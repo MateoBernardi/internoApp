@@ -8,12 +8,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import type * as ImagePickerTypes from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BackHandler, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { deriveIdempotencyKey } from '@/shared/idempotency';
 import { AppBackButton } from '@/shared/ui/AppBackButton';
 import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
 import { GlassButton } from '@/shared/ui/GlassButton';
+import { IsolatedTextInput, IsolatedTextInputHandle } from '@/shared/ui/IsolatedTextInput';
 import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { useKeyboardHeight } from '@/shared/ui/keyboard';
 import { glassColors, glassStyles } from '@/shared/ui/glass';
@@ -78,8 +79,11 @@ export default function CrearReporte(props?: CrearReporteProps) {
 
 	// Form state
 	const [usuarioId, setUsuarioId] = useState(initialUserId);
-	const [titulo, setTitulo] = useState('');
-	const [descripcion, setDescripcion] = useState('');
+	const tituloRef = useRef<IsolatedTextInputHandle>(null);
+	const descripcionRef = useRef<IsolatedTextInputHandle>(null);
+	const [hasTituloText, setHasTituloText] = useState(false);
+	const [hasDescripcionText, setHasDescripcionText] = useState(false);
+	const imageDescRefs = useRef<(IsolatedTextInputHandle | null)[]>([]);
 	const [categoria, setCategoria] = useState<'NEGATIVO' | 'POSITIVO'>('NEGATIVO');
 	const [fechaIncidente, setFechaIncidente] = useState<Date>(new Date());
 	const [showDatePicker, setShowDatePicker] = useState(false);
@@ -103,12 +107,12 @@ export default function CrearReporte(props?: CrearReporteProps) {
 	const isFormValid = useMemo(() => {
 		return (
 			usuarioId.trim().length > 0 &&
-			titulo.trim().length > 0 &&
-			descripcion.trim().length > 0 &&
+			hasTituloText &&
+			hasDescripcionText &&
 			!!categoria &&
 			fechaIncidente instanceof Date
 		);
-	}, [usuarioId, titulo, descripcion, categoria, fechaIncidente]);
+	}, [usuarioId, hasTituloText, hasDescripcionText, categoria, fechaIncidente]);
 
 	const showModal = useCallback((title: string, message?: string, actions?: AlertModalAction[]) => {
 		const normalizedActions: AlertModalAction[] = actions && actions.length > 0
@@ -179,12 +183,6 @@ export default function CrearReporte(props?: CrearReporteProps) {
 		setPendingImages((prev) => prev.filter((_, i) => i !== index));
 	}, []);
 
-	const updateImageDescription = useCallback((index: number, text: string) => {
-		setPendingImages((prev) =>
-			prev.map((img, i) => (i === index ? { ...img, description: text } : img)),
-		);
-	}, []);
-
 	// ── Submit ───────────────────────────────────────────────────────────────────
 
 	const handleCrearReporte = useCallback(async () => {
@@ -202,10 +200,12 @@ export default function CrearReporte(props?: CrearReporteProps) {
 			// La key base queda fijada a ESTE intento de creación: el reporte la usa
 			// directa y cada imagen una sub-key derivada, estables entre reintentos.
 			const baseKey = idempotencyKey;
+			const titulo = (tituloRef.current?.getValue() ?? '').trim();
+			const descripcion = (descripcionRef.current?.getValue() ?? '').trim();
 			const nuevoReporte = await crearReporte({
 				usuario_reportado_id: Number(usuarioId),
-				titulo: titulo.trim(),
-				descripcion: descripcion.trim(),
+				titulo,
+				descripcion,
 				categoria,
 				fecha_incidente: fechaIncidente.toISOString(),
 				idempotencyKey: baseKey,
@@ -237,7 +237,7 @@ export default function CrearReporte(props?: CrearReporteProps) {
 							img.uri,
 							img.name,
 							img.mimeType,
-							img.description || 'Imagen de reporte',
+							imageDescRefs.current[i]?.getValue() || 'Imagen de reporte',
 							i,
 							deriveIdempotencyKey(baseKey, `img-${i}`),
 						);
@@ -269,7 +269,7 @@ export default function CrearReporte(props?: CrearReporteProps) {
 		} catch (error: any) {
 			showModal('Error', error?.message || 'Intenta nuevamente');
 		}
-	}, [isFormValid, tokens, crearReporte, usuarioId, titulo, descripcion, categoria, fechaIncidente, pendingImages, handleClose, showModal, router, idempotencyKey, regenerateIdempotencyKey]);
+	}, [isFormValid, tokens, crearReporte, usuarioId, categoria, fechaIncidente, pendingImages, handleClose, showModal, router, idempotencyKey, regenerateIdempotencyKey]);
 
 	const handleDateConfirm = useCallback((selectedDate: Date) => {
 		setFechaIncidente((prev) => {
@@ -320,12 +320,12 @@ export default function CrearReporte(props?: CrearReporteProps) {
 							</View>
 							{/* Título */}
 							<View style={[glassStyles.fieldGlass, styles.inputSection, focusedField === 'titulo' && styles.inputFocused]}>
-								<TextInput
+								<IsolatedTextInput
+									ref={tituloRef}
 									style={[styles.input, styles.inputNoOutline]}
 									placeholder="Título"
 									placeholderTextColor={colors.secondaryText}
-									value={titulo}
-									onChangeText={setTitulo}
+									onHasTextChange={setHasTituloText}
 									maxLength={100}
 									onFocus={() => setFocusedField('titulo')}
 									onBlur={() => setFocusedField(null)}
@@ -333,12 +333,12 @@ export default function CrearReporte(props?: CrearReporteProps) {
 							</View>
 							{/* Descripción */}
 							<View style={[glassStyles.fieldGlass, styles.messageInputContainer, focusedField === 'descripcion' && styles.inputFocused]}>
-								<TextInput
+								<IsolatedTextInput
+									ref={descripcionRef}
 									style={[styles.messageInput, styles.inputNoOutline]}
 									placeholder="Descripción"
 									placeholderTextColor={colors.secondaryText}
-									value={descripcion}
-									onChangeText={setDescripcion}
+									onHasTextChange={setHasDescripcionText}
 									multiline
 									textAlignVertical="top"
 									onFocus={() => setFocusedField('descripcion')}
@@ -423,12 +423,12 @@ export default function CrearReporte(props?: CrearReporteProps) {
 										/>
 										<View style={styles.pendingImageDetails}>
 											<View style={[glassStyles.fieldGlass, focusedField === `image-${idx}` && styles.inputFocused]}>
-												<TextInput
+												<IsolatedTextInput
+													ref={(el) => { imageDescRefs.current[idx] = el; }}
 													style={[styles.pendingDescInput, styles.inputNoOutline]}
 													placeholder="Descripción (opcional)"
 													placeholderTextColor={colors.secondaryText}
-													value={img.description}
-													onChangeText={(text) => updateImageDescription(idx, text)}
+													initialValue={img.description}
 													maxLength={200}
 													onFocus={() => setFocusedField(`image-${idx}`)}
 													onBlur={() => setFocusedField(null)}

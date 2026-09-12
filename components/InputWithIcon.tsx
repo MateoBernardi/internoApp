@@ -22,6 +22,8 @@ type InputWithIconProps = {
   variant?: 'solid' | 'glass';
   onSubmitEditing?: () => void;
   blurOnSubmit?: boolean;
+  selection?: TextInputProps['selection'];
+  onSelectionChange?: TextInputProps['onSelectionChange'];
 };
 
 export const InputWithIcon = memo(forwardRef<TextInput, InputWithIconProps>(({
@@ -40,6 +42,8 @@ export const InputWithIcon = memo(forwardRef<TextInput, InputWithIconProps>(({
   variant = 'solid',
   onSubmitEditing,
   blurOnSubmit,
+  selection,
+  onSelectionChange,
 }, ref) => {
   const isGlass = variant === 'glass';
   const toggleIconColor = isGlass ? glassColors.text : '#999';
@@ -78,6 +82,8 @@ export const InputWithIcon = memo(forwardRef<TextInput, InputWithIconProps>(({
         onBlur={() => setIsFocused(false)}
         onSubmitEditing={onSubmitEditing}
         blurOnSubmit={blurOnSubmit}
+        selection={selection}
+        onSelectionChange={onSelectionChange}
       />
       {onToggleSecure && (
         <Pressable

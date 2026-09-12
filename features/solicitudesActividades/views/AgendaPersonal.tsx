@@ -311,7 +311,8 @@ const AgendaPersonal: React.FC = () => {
     setIsAddFormMinimized(false);
   };
 
-  const minimizeAddActivityModal = () => {
+  const minimizeAddActivityModal = (title: string, description: string) => {
+    setNewActivity((prev) => ({ ...prev, title, description }));
     setShowDatePicker(false);
     setActiveDateType(null);
     setShowAddForm(false);
@@ -393,8 +394,8 @@ const AgendaPersonal: React.FC = () => {
     }
   }, [crearActividadMutation, closeAddActivityModal, viewMode, selectedDate]);
 
-  const handleAddActivity = async () => {
-    if (!newActivity.title.trim()) {
+  const handleAddActivity = async (title: string, description: string) => {
+    if (!title.trim()) {
       Alert.alert('Error', 'El título es requerido');
       return;
     }
@@ -402,8 +403,8 @@ const AgendaPersonal: React.FC = () => {
     if (activityDateErrorMessage) return;
 
     const payload = {
-      titulo: newActivity.title.trim(),
-      descripcion: newActivity.description,
+      titulo: title.trim(),
+      descripcion: description,
       fecha_inicio: startDateTime,
       ...(showEndDateFields ? { fecha_fin: endDateTime } : {}),
     };
@@ -422,9 +423,6 @@ const AgendaPersonal: React.FC = () => {
       return true;
     });
   };
-
-  const handleChangeTitle = (text: string) => setNewActivity((prev) => ({ ...prev, title: text }));
-  const handleChangeDescription = (text: string) => setNewActivity((prev) => ({ ...prev, description: text }));
 
   // Valor compartido por el picker de iOS (dentro del modal) y el de Android.
   const datePickerValue = activeDateType === 'monthJump'
@@ -546,8 +544,6 @@ const AgendaPersonal: React.FC = () => {
         onEndDate={handleEndDate}
         onEndTime={handleEndTime}
         onToggleEndDateFields={handleToggleEndDateFields}
-        onChangeTitle={handleChangeTitle}
-        onChangeDescription={handleChangeDescription}
         onSubmit={handleAddActivity}
         showDatePicker={showDatePicker}
         datePickerMode={datePickerMode}

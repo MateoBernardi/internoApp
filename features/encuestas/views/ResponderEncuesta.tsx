@@ -2,15 +2,15 @@ import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal
 import { Colors } from '@/constants/theme';
 import { GlassButton } from '@/shared/ui/GlassButton';
 import { glassColors, glassStyles } from '@/shared/ui/glass';
+import { IsolatedTextInput, IsolatedTextInputHandle } from '@/shared/ui/IsolatedTextInput';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
     Alert,
     ScrollView,
     StyleSheet,
     Text,
-    TextInput,
     TouchableOpacity,
     View,
 } from 'react-native';
@@ -33,8 +33,27 @@ export const ResponderEncuesta: React.FC<ResponderEncuestaProps> = ({ encuesta, 
   const esHorario = encuesta.preguntas?.some((p) => p.tipo_pregunta === 'horario') ?? false;
   const [respuestas, setRespuestas] = useState<Map<number, Respuesta>>(new Map());
   const [focusedPreguntaId, setFocusedPreguntaId] = useState<number | null>(null);
+  const textoRefs = useRef<Record<number, IsolatedTextInputHandle | null>>({});
   const { idempotencyKey } = useIdempotencyKey();
   const { mutateAsync: enviarRespuestas, isPending } = useEnviarRespuestasEncuesta();
+
+  // Las respuestas de texto libre NO pasan por `respuestas` en cada tecleo:
+  // viven aisladas en cada IsolatedTextInput (ver comentario en ese archivo)
+  // y se mezclan acá recién al validar/enviar, para no re-renderizar el
+  // listado completo de preguntas en cada letra tipeada.
+  const getRespuestasEfectivas = (): Map<number, Respuesta> => {
+    const map = new Map(respuestas);
+    (encuesta.preguntas ?? []).forEach((pregunta) => {
+      if (pregunta.tipo_pregunta !== 'texto' || !pregunta.id) return;
+      const texto = textoRefs.current[pregunta.id]?.getValue() ?? '';
+      if (texto) {
+        map.set(pregunta.id, { pregunta_id: pregunta.id, respuesta_texto: texto });
+      } else {
+        map.delete(pregunta.id);
+      }
+    });
+    return map;
+  };
 
   const handleRatingChange = (preguntaId: number, valor: number) => {
     setRespuestas((prev) => {
@@ -42,17 +61,6 @@ export const ResponderEncuesta: React.FC<ResponderEncuestaProps> = ({ encuesta, 
       newMap.set(preguntaId, {
         pregunta_id: preguntaId,
         valor_rating: valor,
-      });
-      return newMap;
-    });
-  };
-
-  const handleTextoChange = (preguntaId: number, texto: string) => {
-    setRespuestas((prev) => {
-      const newMap = new Map(prev);
-      newMap.set(preguntaId, {
-        pregunta_id: preguntaId,
-        respuesta_texto: texto,
       });
       return newMap;
     });
@@ -80,12 +88,12 @@ export const ResponderEncuesta: React.FC<ResponderEncuestaProps> = ({ encuesta, 
     });
   };
 
-  const validarRespuestas = (): boolean => {
+  const validarRespuestas = (respuestasEfectivas: Map<number, Respuesta>): boolean => {
     if (!encuesta.preguntas) return false;
 
     for (const pregunta of encuesta.preguntas) {
       if (pregunta.es_obligatoria && pregunta.id) {
-        const respuesta = respuestas.get(pregunta.id);
+        const respuesta = respuestasEfectivas.get(pregunta.id);
         if (!respuesta) {
           Alert.alert('Campo obligatorio', `La pregunta "${pregunta.titulo}" es obligatoria`);
           return false;
@@ -118,10 +126,11 @@ export const ResponderEncuesta: React.FC<ResponderEncuestaProps> = ({ encuesta, 
 
   const handleEnviar = async () => {
     if (isPending) return;
-    if (!validarRespuestas()) return;
+    const respuestasEfectivas = getRespuestasEfectivas();
+    if (!validarRespuestas(respuestasEfectivas)) return;
 
     try {
-      const result = await enviarRespuestas({ respuestas: Array.from(respuestas.values()), idempotencyKey });
+      const result = await enviarRespuestas({ respuestas: Array.from(respuestasEfectivas.values()), idempotencyKey });
       Alert.alert('¡Éxito!', result?.message || 'Tu respuesta ha sido enviada correctamente', [
         {
           text: 'OK',
@@ -176,7 +185,8 @@ export const ResponderEncuesta: React.FC<ResponderEncuestaProps> = ({ encuesta, 
         )}
 
         {pregunta.tipo_pregunta === 'texto' && (
-          <TextInput
+          <IsolatedTextInput
+            ref={(el) => { textoRefs.current[preguntaId] = el; }}
             style={[
               styles.textInput,
               styles.inputNoOutline,
@@ -186,8 +196,6 @@ export const ResponderEncuesta: React.FC<ResponderEncuestaProps> = ({ encuesta, 
             placeholderTextColor={glassColors.placeholder}
             multiline
             numberOfLines={4}
-            value={respuestas.get(preguntaId)?.respuesta_texto || ''}
-            onChangeText={(texto) => handleTextoChange(preguntaId, texto)}
             editable={!isPending}
             onFocus={() => setFocusedPreguntaId(preguntaId)}
             onBlur={() => setFocusedPreguntaId(null)}

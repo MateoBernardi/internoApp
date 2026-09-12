@@ -14,6 +14,7 @@ import {
 	TouchableOpacity,
 	View,
 } from 'react-native';
+import { ReportesManagedList } from '../components/ReportesManagedList';
 
 const colors = Colors['light'];
 
@@ -142,17 +143,22 @@ export default function CrearReporteEncargado() {
 				)}
 
 				{searchQuery.length <= 1 && !isSearching && (
-					<View style={styles.emptyContainer}>
-						<Ionicons name="people-outline" size={48} color={colors.secondaryText} />
-						<ThemedText style={styles.emptyText}>
-							{isComparingMode
-								? `Seleccionados para comparar: ${comparingUsers.length}`
-								: 'Busca un empleado para ver sus reportes'}
-						</ThemedText>
-						<ThemedText style={styles.hintText}>
-							Escribe al menos 2 caracteres para buscar
-						</ThemedText>
-					</View>
+					isComparingMode ? (
+						<View style={styles.emptyContainer}>
+							<Ionicons name="people-outline" size={48} color={colors.secondaryText} />
+							<ThemedText style={styles.emptyText}>
+								Seleccionados para comparar: {comparingUsers.length}
+							</ThemedText>
+							<ThemedText style={styles.hintText}>
+								Escribe al menos 2 caracteres para buscar
+							</ThemedText>
+						</View>
+					) : (
+						// Sin búsqueda activa: en vez de pedir que busquen un empleado,
+						// mostramos directamente todos los reportes (paginados, filtrables
+						// por estado) para no tener que buscar persona por persona.
+						<ReportesManagedList />
+					)
 				)}
 			</View>
 		</View>

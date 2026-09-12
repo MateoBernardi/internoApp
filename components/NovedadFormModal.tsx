@@ -2,18 +2,18 @@ import type { Novedad } from '@/features/novedades/models/Novedades';
 import { focusBorderStyles, glassColors, glassStyles } from '@/shared/ui/glass';
 import { useFocusBorder } from '@/shared/ui/useFocusBorder';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   BackHandler,
   Platform,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
+import { IsolatedTextInput, IsolatedTextInputHandle } from '@/shared/ui/IsolatedTextInput';
 import { useKeyboardHeight } from '@/shared/ui/keyboard';
 import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -78,8 +78,8 @@ export function NovedadFormModal({
   onResumeDraftHandled,
   resetDraftSignal = 0,
 }: NovedadFormModalProps) {
-  const [titulo, setTitulo] = useState('');
-  const [descripcion, setDescripcion] = useState('');
+  const tituloRef = useRef<IsolatedTextInputHandle>(null);
+  const descripcionRef = useRef<IsolatedTextInputHandle>(null);
   const [tipo, setTipo] = useState<number>(1);
   const [prioridad, setPrioridad] = useState<number>(2);
   const [loading, setLoading] = useState(false);
@@ -93,8 +93,8 @@ export function NovedadFormModal({
   const syncCreateDraft = (partial: Partial<{ titulo: string; descripcion: string; tipo: number; prioridad: number }>) => {
     if (mode !== 'create' || !onDraftChange) return;
     onDraftChange({
-      titulo,
-      descripcion,
+      titulo: tituloRef.current?.getValue() ?? '',
+      descripcion: descripcionRef.current?.getValue() ?? '',
       tipo,
       prioridad,
       ...partial,
@@ -105,21 +105,21 @@ export function NovedadFormModal({
     if (!visible) return;
 
     if (mode === 'edit' && novedad) {
-      setTitulo(novedad.titulo);
-      setDescripcion(novedad.descripcion);
+      tituloRef.current?.setValue(novedad.titulo);
+      descripcionRef.current?.setValue(novedad.descripcion);
       setTipo(novedad.id_etiqueta || 1);
       setPrioridad(novedad.prioridad);
       return;
     }
 
     if (!resumeDraft) {
-      setTitulo(draftValues?.titulo ?? '');
-      setDescripcion(draftValues?.descripcion ?? '');
+      tituloRef.current?.setValue(draftValues?.titulo ?? '');
+      descripcionRef.current?.setValue(draftValues?.descripcion ?? '');
       setTipo(draftValues?.tipo ?? 1);
       setPrioridad(draftValues?.prioridad ?? 2);
     } else {
-      setTitulo(draftValues?.titulo ?? '');
-      setDescripcion(draftValues?.descripcion ?? '');
+      tituloRef.current?.setValue(draftValues?.titulo ?? '');
+      descripcionRef.current?.setValue(draftValues?.descripcion ?? '');
       setTipo(draftValues?.tipo ?? 1);
       setPrioridad(draftValues?.prioridad ?? 2);
       onResumeDraftHandled?.();
@@ -128,14 +128,16 @@ export function NovedadFormModal({
 
   useEffect(() => {
     if (resetDraftSignal > 0 && mode === 'create') {
-      setTitulo('');
-      setDescripcion('');
+      tituloRef.current?.clear();
+      descripcionRef.current?.clear();
       setTipo(1);
       setPrioridad(2);
     }
   }, [resetDraftSignal, mode]);
 
   const handleSubmit = async () => {
+    const titulo = tituloRef.current?.getValue() ?? '';
+    const descripcion = descripcionRef.current?.getValue() ?? '';
     if (!titulo.trim()) return;
 
     setLoading(true);
@@ -156,6 +158,7 @@ export function NovedadFormModal({
 
   const handleMinimize = () => {
     if (mode !== 'create' || !onMinimize || loading) return;
+    syncCreateDraft({});
     onMinimize();
   };
 
@@ -204,19 +207,16 @@ export function NovedadFormModal({
               {/* Título */}
               <View style={styles.fieldContainer}>
                 <Text style={styles.label}>Título</Text>
-                <TextInput
+                <IsolatedTextInput
+                  ref={tituloRef}
                   style={[
                     styles.input,
                     focusBorderStyles.inputNoOutline,
                     tituloFocus.isFocused && { borderColor: glassColors.link },
                   ]}
-                  value={titulo}
-                  onChangeText={(value) => {
-                    setTitulo(value);
-                    syncCreateDraft({ titulo: value });
-                  }}
+                  initialValue={novedad?.titulo ?? draftValues?.titulo ?? ''}
                   onFocus={tituloFocus.onFocus}
-                  onBlur={tituloFocus.onBlur}
+                  onBlur={() => { tituloFocus.onBlur(); syncCreateDraft({}); }}
                   placeholder="Título"
                   placeholderTextColor="#9ca3af"
                 />
@@ -225,20 +225,17 @@ export function NovedadFormModal({
               {/* Descripción */}
               <View style={styles.fieldContainer}>
                 <Text style={styles.label}>Descripción</Text>
-                <TextInput
+                <IsolatedTextInput
+                  ref={descripcionRef}
                   style={[
                     styles.input,
                     styles.textArea,
                     focusBorderStyles.inputNoOutline,
                     descripcionFocus.isFocused && { borderColor: glassColors.link },
                   ]}
-                  value={descripcion}
-                  onChangeText={(value) => {
-                    setDescripcion(value);
-                    syncCreateDraft({ descripcion: value });
-                  }}
+                  initialValue={novedad?.descripcion ?? draftValues?.descripcion ?? ''}
                   onFocus={descripcionFocus.onFocus}
-                  onBlur={descripcionFocus.onBlur}
+                  onBlur={() => { descripcionFocus.onBlur(); syncCreateDraft({}); }}
                   placeholder="Descripción"
                   placeholderTextColor="#9ca3af"
                   multiline

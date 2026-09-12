@@ -17,6 +17,8 @@ import {
 	useWindowDimensions,
 	View,
 } from 'react-native';
+import type { EstadoReporte } from '../models/Reporte';
+import { REPORTE_ESTADO_FILTER_OPTIONS } from '../presentation';
 import { Semaforo } from '../components/Semaforo';
 import { TopEmployee } from '../components/TopEmployee';
 import { UpgradedEmployee } from '../components/UpgradedEmployee';
@@ -24,14 +26,19 @@ import { useReporteStats } from '../viewmodels/useReportes';
 
 const colors = Colors['light'];
 const ROLE_LABELS: Record<string, string> = Object.fromEntries(allRoles.map((r) => [r.value, r.label]));
+const ESTADO_LABELS: Record<EstadoReporte, string> = Object.fromEntries(
+	REPORTE_ESTADO_FILTER_OPTIONS.map((o) => [o.value, o.label])
+) as Record<EstadoReporte, string>;
 
 export function Reportes() {
 	const params = useLocalSearchParams<{ comparingWith?: string }>();
 	const { width } = useWindowDimensions();
 	const [searchQuery, setSearchQuery] = useState('');
 	const [rolFilter, setRolFilter] = useState<string | null>(null);
+	const [estadoFilter, setEstadoFilter] = useState<EstadoReporte | null>(null);
 	const [isRolesVisible, setIsRolesVisible] = useState(false);
-	const { data: stats, refetch, isRefetching } = useReporteStats();
+	const [isEstadosVisible, setIsEstadosVisible] = useState(false);
+	const { data: stats, refetch, isRefetching } = useReporteStats(estadoFilter ?? undefined);
 
 	const handleRefresh = useCallback(async () => {
 		await refetch();
@@ -62,7 +69,7 @@ export function Reportes() {
 		return result;
 	}, [stats, searchQuery, rolFilter]);
 
-	const hasActiveFilter = !!searchQuery.trim() || !!rolFilter;
+	const hasActiveFilter = !!searchQuery.trim() || !!rolFilter || !!estadoFilter;
 	const rolesModalWidth = Platform.OS === 'web'
 		? Math.min(560, Math.max(320, width - 48))
 		: Math.min(width - 32, 420);
@@ -78,9 +85,11 @@ export function Reportes() {
 				</View>
 			)}
 
-			{/* Buscador + selector de rol, mismo patrón que UserSelector (usado en
-			    Crear Solicitud/Objetivo/Encuesta, etc.): input + botón "Roles" que
-			    abre un modal, en vez de una fila de chips ad-hoc. */}
+			{/* Buscador + selectores de rol y estado, mismo patrón que UserSelector (usado en
+			    Crear Solicitud/Objetivo/Encuesta, etc.): input + botón que abre un modal,
+			    en vez de una fila de chips ad-hoc. El filtro de estado acota qué usuarios
+			    entran al semáforo (los que tienen algún reporte en ese estado); no cambia
+			    cómo se agrupan/calculan las zonas. */}
 			<View style={styles.searchRow}>
 				<SearchBar
 					placeholder="Buscar usuario..."
@@ -89,6 +98,12 @@ export function Reportes() {
 					onClear={() => setSearchQuery('')}
 					style={styles.searchBar}
 				/>
+				<TouchableOpacity style={styles.rolesButton} onPress={() => setIsEstadosVisible(true)}>
+					<ThemedText style={styles.rolesButtonText}>
+						{estadoFilter ? ESTADO_LABELS[estadoFilter] : 'Estado'}
+					</ThemedText>
+					<Ionicons name="chevron-down" size={16} color={colors.icon} style={{ marginLeft: 4 }} />
+				</TouchableOpacity>
 				{availableRoles.length > 0 && (
 					<TouchableOpacity style={styles.rolesButton} onPress={() => setIsRolesVisible(true)}>
 						<ThemedText style={styles.rolesButtonText}>
@@ -134,6 +149,50 @@ export function Reportes() {
 										>
 											<ThemedText style={styles.roleText}>{ROLE_LABELS[rol] ?? rol}</ThemedText>
 											{rolFilter === rol && <Ionicons name="checkmark" size={20} color={colors.tint} />}
+										</TouchableOpacity>
+									))}
+								</ScrollView>
+							</View>
+						</TouchableWithoutFeedback>
+					</View>
+				</TouchableWithoutFeedback>
+			</Modal>
+
+			<Modal
+				transparent
+				visible={isEstadosVisible}
+				animationType="fade"
+				onRequestClose={() => setIsEstadosVisible(false)}
+			>
+				<TouchableWithoutFeedback onPress={() => setIsEstadosVisible(false)}>
+					<View style={[styles.modalOverlay, Platform.OS === 'web' && styles.modalOverlayWeb]}>
+						<TouchableWithoutFeedback>
+							<View
+								style={[
+									styles.modalContent,
+									{ width: rolesModalWidth },
+									Platform.OS === 'web' && styles.modalContentWeb,
+								]}
+							>
+								<ThemedText type="defaultSemiBold" style={{ marginBottom: 10, textAlign: 'center' }}>
+									Filtrar por estado
+								</ThemedText>
+								<ScrollView style={styles.rolesScroll} contentContainerStyle={styles.rolesScrollContent}>
+									<TouchableOpacity
+										style={styles.modalItem}
+										onPress={() => { setEstadoFilter(null); setIsEstadosVisible(false); }}
+									>
+										<ThemedText style={styles.roleText}>Todos</ThemedText>
+										{estadoFilter === null && <Ionicons name="checkmark" size={20} color={colors.tint} />}
+									</TouchableOpacity>
+									{REPORTE_ESTADO_FILTER_OPTIONS.map((opcion) => (
+										<TouchableOpacity
+											key={opcion.value}
+											style={styles.modalItem}
+											onPress={() => { setEstadoFilter(opcion.value); setIsEstadosVisible(false); }}
+										>
+											<ThemedText style={styles.roleText}>{opcion.label}</ThemedText>
+											{estadoFilter === opcion.value && <Ionicons name="checkmark" size={20} color={colors.tint} />}
 										</TouchableOpacity>
 									))}
 								</ScrollView>

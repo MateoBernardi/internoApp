@@ -19,7 +19,6 @@ import {
     ScrollView,
     StyleSheet,
     Switch,
-    TextInput,
     TouchableOpacity,
     View,
 } from 'react-native';
@@ -27,6 +26,7 @@ import { generateIdempotencyKey } from '@/shared/idempotency';
 import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
 import { GlassButton } from '@/shared/ui/GlassButton';
 import { focusBorderStyles, glassColors, glassStyles } from '@/shared/ui/glass';
+import { IsolatedTextInput, IsolatedTextInputHandle } from '@/shared/ui/IsolatedTextInput';
 import { useKeyboardHeight } from '@/shared/ui/keyboard';
 import { useFocusBorder } from '@/shared/ui/useFocusBorder';
 import { useSafeBottomInset } from '@/hooks/useSafeBottomInset';
@@ -100,7 +100,7 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
     // Modo cantidad (solo visible si !requiere_saldo)
     const [cantidadMode, setCantidadMode] = useState<CantidadMode>('dias');
 
-    const [observacion, setObservacion] = useState('');
+    const observacionRef = useRef<IsolatedTextInputHandle>(null);
     const observacionFocus = useFocusBorder();
     const [archivoAdjunto, setArchivoAdjunto] = useState<{ name: string; uri: string; type: string; size?: number } | null>(null);
     const [isUploadingFile, setIsUploadingFile] = useState(false);
@@ -274,7 +274,7 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
         const payload: CreateSolicitudDTO = {
             tipo_licencia_id: tipoLicenciaId!,
             fecha_inicio: fechaInicio.toISOString(),
-            observacion: observacion.trim() || undefined,
+            observacion: (observacionRef.current?.getValue() ?? '').trim() || undefined,
         };
 
         if (effectiveMode === 'dias') {
@@ -351,7 +351,7 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
                 showModal('Error', err?.message || 'Intenta nuevamente');
             },
         });
-    }, [isPending, crearSolicitud, tipoLicenciaId, fechaInicio, effectiveMode, cantidadDias, horas, observacion, archivoAdjunto, uploadArchivo, adjuntarArchivoMutation, handleClose, showModal]);
+    }, [isPending, crearSolicitud, tipoLicenciaId, fechaInicio, effectiveMode, cantidadDias, horas, archivoAdjunto, uploadArchivo, adjuntarArchivoMutation, handleClose, showModal]);
 
     const handleCrearSolicitud = useCallback(() => {
         if (!isFormValid || isPending) return;
@@ -621,11 +621,10 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
                             {/* ── Observación ── */}
                             <View style={[styles.sectionCard, observacionFocus.isFocused && { borderColor: glassColors.link }]}>
                                 <View style={styles.obsContainer}>
-                                    <TextInput
+                                    <IsolatedTextInput
+                                        ref={observacionRef}
                                         placeholder="Añadir una nota u observación..."
                                         placeholderTextColor={colors.secondaryText}
-                                        value={observacion}
-                                        onChangeText={setObservacion}
                                         onFocus={observacionFocus.onFocus}
                                         onBlur={observacionFocus.onBlur}
                                         multiline

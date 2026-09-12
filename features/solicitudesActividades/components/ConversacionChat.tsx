@@ -7,6 +7,7 @@ import { useAuth } from '@/features/auth/context/AuthContext';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { generateIdempotencyKey } from '@/shared/idempotency';
 import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
+import { IsolatedTextInput, IsolatedTextInputHandle } from '@/shared/ui/IsolatedTextInput';
 import { focusBorderStyles, glassColors, glassStyles } from '@/shared/ui/glass';
 import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { useFocusBorder } from '@/shared/ui/useFocusBorder';
@@ -144,7 +145,8 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
   const [showParticipantesModal, setShowParticipantesModal] = useState(false);
   const { previewFile, openFile, openWithUri, closePreview } = useOpenFilePreview();
   const { data: chatArchivos, isLoading: isLoadingArchivos } = useChatArchivos(solicitudId, showArchivosModal);
-  const [messageDraft, setMessageDraft] = useState('');
+  const composerRef = useRef<IsolatedTextInputHandle>(null);
+  const [hasDraftText, setHasDraftText] = useState(false);
   const [replyTarget, setReplyTarget] = useState<any>(null);
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [pendingMessages, setPendingMessages] = useState<OptimisticMessage[]>([]);
@@ -318,8 +320,8 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
 
   const canSendMessage = useMemo(() => {
     if (isFinalState) return false;
-    return messageDraft.trim().length > 0 || pickedFiles.length > 0;
-  }, [isFinalState, messageDraft, pickedFiles]);
+    return hasDraftText || pickedFiles.length > 0;
+  }, [isFinalState, hasDraftText, pickedFiles]);
 
   // ─── Búsqueda dentro del chat ─────────────────────────────────────────────
 
@@ -377,7 +379,7 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
     setIsSendingMessage(true);
     const archivosIds = pickedFiles.length > 0 ? await uploadPickedFiles() : [];
 
-    const trimmed = messageDraft.trim();
+    const trimmed = (composerRef.current?.getValue() ?? '').trim();
     if (!trimmed && archivosIds.length === 0) { setIsSendingMessage(false); return; }
 
     // Mensaje optimista: lo pintamos al instante y limpiamos el input. El id
@@ -408,13 +410,14 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
       idempotencyKey,
     };
     setPendingMessages(prev => [...prev, optimistic]);
-    setMessageDraft('');
+    composerRef.current?.clear();
+    setHasDraftText(false);
     setPickedFiles([]);
     setReplyTarget(null);
     setIsSendingMessage(false);
 
     attemptSend(tempId, payload, idempotencyKey);
-  }, [canSendMessage, uploadPickedFiles, messageDraft, pickedFiles, attemptSend, solicitudId, isHost, setPickedFiles, user, replyTarget]);
+  }, [canSendMessage, uploadPickedFiles, pickedFiles, attemptSend, solicitudId, isHost, setPickedFiles, user, replyTarget]);
 
   const handleRetryMessage = useCallback((tempId: string) => {
     const pending = pendingMessages.find(m => m.id === tempId);
@@ -739,14 +742,14 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
                       </TouchableOpacity>
                     )}
 
-                    <TextInput
+                    <IsolatedTextInput
+                      ref={composerRef}
                       style={[styles.chatComposerInput, focusBorderStyles.inputNoOutline]}
                       placeholder="Escribir mensaje"
                       placeholderTextColor={colors.secondaryText}
-                      value={messageDraft}
-                      onChangeText={setMessageDraft}
                       onFocus={composerFocus.onFocus}
                       onBlur={composerFocus.onBlur}
+                      onHasTextChange={setHasDraftText}
                       multiline
                       editable={!isFinalState}
                     />

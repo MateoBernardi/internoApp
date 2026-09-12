@@ -109,3 +109,11 @@ export interface TopPositiveUser {
     apellido: string;
     total_positivos: number;          // Total reportes positivos (últimos 6 meses)
 }
+
+/** Respuesta paginada de GET /reportes/managed */
+export interface PaginatedReportes {
+    data: Reporte[];
+    total: number;
+    page: number;
+    pageSize: number;
+}

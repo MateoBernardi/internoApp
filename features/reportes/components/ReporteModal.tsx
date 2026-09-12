@@ -7,13 +7,14 @@ import { generateIdempotencyKey } from '@/shared/idempotency';
 import { AppBackButton } from '@/shared/ui/AppBackButton';
 import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
 import { GlassButton } from '@/shared/ui/GlassButton';
+import { IsolatedTextInput, IsolatedTextInputHandle } from '@/shared/ui/IsolatedTextInput';
 import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 import { Image } from 'expo-image';
 import type * as ImagePickerTypes from 'expo-image-picker';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
 	ActivityIndicator,
 	Alert,
@@ -21,7 +22,6 @@ import {
 	ScrollView,
 	StyleSheet,
 	Text,
-	TextInput,
 	TouchableOpacity,
 	View,
 } from 'react-native';
@@ -69,7 +69,7 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 
 	// ── Estado: formulario de actualización ──────────────────────────────────
 	const [nuevoEstado, setNuevoEstado] = useState<EstadoReporte | null>(null);
-	const [observacion, setObservacion] = useState('');
+	const observacionRef = useRef<IsolatedTextInputHandle>(null);
 	const [isObservationFocused, setIsObservationFocused] = useState(false);
 	const [alertModal, setAlertModal] = useState<{
 		visible: boolean;
@@ -220,6 +220,7 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 			showModal('Selecciona un estado');
 			return;
 		}
+		const observacion = observacionRef.current?.getValue() ?? '';
 		if ((origen === 'mis' && nuevoEstado === 'DISPUTA' && !observacion.trim()) ||
 			(origen === 'empleado' && !observacion.trim())) {
 			showModal('La observación es obligatoria');
@@ -235,7 +236,7 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 							label: 'Aceptar',
 							onPress: () => {
 								setNuevoEstado(null);
-								setObservacion('');
+								observacionRef.current?.clear();
 								onClose();
 							},
 							variant: 'primary',
@@ -289,12 +290,11 @@ export function ReporteModal({ visible, onClose, reporte, origen }: ReporteModal
 						{(isMisReportes && nuevoEstado !== 'DISPUTA') ? 'Observación (opcional)' : 'Observación (obligatoria)'}
 					</ThemedText>
 					<View style={[glassStyles.fieldGlass, styles.input, styles.textArea, isObservationFocused && styles.inputFocused]}>
-						<TextInput
+						<IsolatedTextInput
+							ref={observacionRef}
 							style={[styles.observationInput, styles.inputNoOutline]}
 							placeholder="Escribe aquí tu observación..."
 							placeholderTextColor={glassColors.placeholder}
-							value={observacion}
-							onChangeText={setObservacion}
 							multiline
 							numberOfLines={4}
 							textAlignVertical="top"

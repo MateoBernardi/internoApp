@@ -153,6 +153,7 @@ export function SolicitudesList({ solicitudes, onRefresh, refreshing, isLoading,
     const estadoOptions = useMemo(() => {
         const base = solicitudesDeduplicadas.map(getEstadoRelevante);
         const defaultEstados = [
+            estadoInvitacionMapping.SENT,
             estadoInvitacionMapping.MODIFIED,
             estadoInvitacionMapping.MODIFIED_BY_HOST,
         ];

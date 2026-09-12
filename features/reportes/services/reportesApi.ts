@@ -62,11 +62,12 @@ export async function updateReporte (accessToken: string, payload: reporte.Updat
     return data;
 }
 
-export async function getReporteStats (accessToken: string): Promise<reporte.ReporteStats[]> {    
+export async function getReporteStats (accessToken: string, estado?: reporte.EstadoReporte): Promise<reporte.ReporteStats[]> {
     try {
-        const response = await apiRequest({ 
-            method: 'GET', 
-            endpoint: `/reportes/stats`, 
+        const endpoint = estado ? `/reportes/stats?estado=${encodeURIComponent(estado)}` : '/reportes/stats';
+        const response = await apiRequest({
+            method: 'GET',
+            endpoint,
             token: accessToken
         });
                 
@@ -121,6 +122,27 @@ export async function getUpgradedEmployee (accessToken: string): Promise<reporte
 
     const data: reporte.MostImprovedUser = await response.json();
     return data;
+}
+
+/**
+ * Lista paginada de todos los reportes (vista de gestión: encargado/gerencia/etc.),
+ * respetando la jerarquía del solicitante (solo subordinados).
+ */
+export async function getReportesManaged (
+    accessToken: string,
+    { page, pageSize, estado }: { page: number; pageSize: number; estado?: reporte.EstadoReporte },
+): Promise<reporte.PaginatedReportes> {
+    const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+    if (estado) params.set('estado', estado);
+
+    const response = await apiRequest({ method: 'GET', endpoint: `/reportes/managed?${params.toString()}`, token: accessToken });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        throwApiError(errorText, response);
+    }
+
+    return response.json();
 }
 
 // ─── Reportes Imágenes ────────────────────────────────────────────────────────

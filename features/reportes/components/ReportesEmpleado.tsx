@@ -5,16 +5,11 @@ import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { Colors } from '@/constants/theme';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
 import React, { useCallback, useState } from 'react';
-import { glassStyles } from '@/shared/ui/glass';
-import {
-	StyleSheet,
-	TouchableOpacity,
-	View
-} from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Reporte } from '../models/Reporte';
-import { getReporteEstadoPresentation } from '../presentation';
 import { useReportes } from '../viewmodels/useReportes';
 import CrearReporte from '../views/CrearReporte';
+import { ReporteCard } from './ReporteCard';
 import { ReporteModal } from './ReporteModal';
 
 
@@ -105,8 +100,9 @@ export function ReportesEmpleado({ userId, userNombre = '', userApellido = '' }:
 			<OwnFlatList
 				data={reportes}
 				renderItem={({ item }) => (
-					<MiReporteItem
+					<ReporteCard
 						reporte={item}
+						headerLabel={`Creado por: ${item.creador_nombre ?? ''} ${item.creador_apellido ?? ''}`.trim()}
 						onPress={() => handleOpenReporte(item)}
 					/>
 				)}
@@ -133,47 +129,6 @@ export function ReportesEmpleado({ userId, userNombre = '', userApellido = '' }:
 				/>
 			)}
 		</View>
-	);
-}
-
-interface MiReporteItemProps {
-	reporte: Reporte;
-	onPress: () => void;
-}
-
-function MiReporteItem({ reporte, onPress }: MiReporteItemProps) {
-	const estado = getReporteEstadoPresentation(reporte.estado);
-
-	return (
-		<TouchableOpacity
-			onPress={onPress}
-			style={[glassStyles.card, styles.itemContainer]}
-		>
-			<View style={styles.itemContent}>
-				{/* Nombre y apellido del creador */}
-				<ThemedText type="defaultSemiBold" numberOfLines={1}>
-					Creado por: {reporte.creador_nombre} {reporte.creador_apellido}
-				</ThemedText>
-				{/* Fecha incidente */}
-				<ThemedText style={[styles.description, { color: colors.text }]}>Incidente: {new Date(reporte.fecha_incidente).toLocaleDateString()}</ThemedText>
-				{/* Estado */}
-				<View style={styles.footerContainer}>
-					<View style={[
-						styles.estadoBadge,
-						{ backgroundColor: estado.backgroundColor },
-					]}>
-						<ThemedText style={[styles.estadoText, { color: estado.color }]}>{estado.label}</ThemedText>
-					</View>
-					<ThemedText style={[styles.dateText, { color: colors.text }]}>Creado: {new Date(reporte.created_at).toLocaleDateString()}</ThemedText>
-				</View>
-				{/* Título */}
-				<ThemedText numberOfLines={1} style={{ marginTop: 4 }}>{reporte.titulo}</ThemedText>
-				{/* Descripción */}
-				<ThemedText numberOfLines={2} style={[styles.description, { color: colors.text }]}>{reporte.descripcion}</ThemedText>
-				{/* Categoría */}
-				<ThemedText style={[styles.categoriaText, { color: reporte.categoria === 'POSITIVO' ? colors.success : colors.error }]}>Categoría: {reporte.categoria}</ThemedText>
-			</View>
-		</TouchableOpacity>
 	);
 }
 
@@ -207,49 +162,7 @@ const styles = StyleSheet.create({
 		fontWeight: '700',
 		color: colors.text,
 	},
-	itemContainer: {
-		marginHorizontal: '4%',
-		marginVertical: 4,
-		paddingHorizontal: '3%',
-		paddingVertical: '3%',
-	},
-	itemContent: {
-		flexDirection: 'column',
-	},
-	listScroll: {
-		flex: 1,
-	},
 	listContent: {
 		paddingBottom: 92,
-	},
-	description: {
-		fontSize: 13,
-		marginTop: 4,
-		color: colors.secondaryText,
-	},
-	categoriaText: {
-		fontSize: 12,
-		marginTop: 4,
-		fontWeight: '600',
-	},
-	footerContainer: {
-		flexDirection: 'row',
-		justifyContent: 'space-between',
-		alignItems: 'center',
-		marginTop: 8,
-		gap: 8,
-	},
-	dateText: {
-		fontSize: 12,
-		color: colors.secondaryText,
-	},
-	estadoBadge: {
-		paddingHorizontal: 8,
-		paddingVertical: 4,
-		borderRadius: 4,
-	},
-	estadoText: {
-		fontSize: 11,
-		fontWeight: '600',
 	},
 });

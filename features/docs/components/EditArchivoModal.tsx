@@ -6,19 +6,19 @@ import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
 import { GlassButton } from '@/shared/ui/GlassButton';
 import { focusBorderStyles, glassColors, glassStyles } from '@/shared/ui/glass';
+import { IsolatedTextInput, IsolatedTextInputHandle } from '@/shared/ui/IsolatedTextInput';
 import { useFocusBorder } from '@/shared/ui/useFocusBorder';
 import { showGlobalToast } from '@/shared/ui/toast';
 import { adminRoles, allRoles } from '@/shared/users/roles';
 import { UserSummary } from '@/shared/users/User';
 import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   ScrollView,
   StyleSheet,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -56,8 +56,9 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
     [archivo.nombre, archivo.url]
   );
 
-  const [nombreBase, setNombreBase] = useState(splitName(archivo.nombre).base);
-  const [descripcion, setDescripcion] = useState(archivo.titulo ?? '');
+  const nombreRef = useRef<IsolatedTextInputHandle>(null);
+  const descripcionRef = useRef<IsolatedTextInputHandle>(null);
+  const [hasNombreText, setHasNombreText] = useState(splitName(archivo.nombre).base.trim().length > 0);
   const nombreFocus = useFocusBorder();
   const descripcionFocus = useFocusBorder();
 
@@ -122,8 +123,9 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
   React.useEffect(() => {
     if (!visible) return;
 
-    setNombreBase(splitName(archivo.nombre).base);
-    setDescripcion(archivo.titulo ?? '');
+    nombreRef.current?.setValue(splitName(archivo.nombre).base);
+    descripcionRef.current?.setValue(archivo.titulo ?? '');
+    setHasNombreText(splitName(archivo.nombre).base.trim().length > 0);
     setAllowedRoles(archivo.allowed_roles || []);
     setUsuariosCompartidos(
       (archivo.usuarios_compartidos || []).map((id) => ({
@@ -308,7 +310,7 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
     setUsuariosAsociados((prev) => prev.filter((user) => user.user_context_id !== userId));
   }, []);
 
-  const isFormValid = useMemo(() => nombreBase.trim().length > 0, [nombreBase]);
+  const isFormValid = hasNombreText;
   const selectedRolesForDisplay = useMemo(
     () => allRoles.filter((r) => allowedRoles.includes(r.value)),
     [allowedRoles]
@@ -316,8 +318,9 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
   const isRoleSelected = useMemo(() => allowedRoles.includes(activeRole), [allowedRoles, activeRole]);
 
   const resetForm = useCallback(() => {
-    setNombreBase(splitName(archivo.nombre).base);
-    setDescripcion(archivo.titulo ?? '');
+    nombreRef.current?.setValue(splitName(archivo.nombre).base);
+    descripcionRef.current?.setValue(archivo.titulo ?? '');
+    setHasNombreText(splitName(archivo.nombre).base.trim().length > 0);
     setUsuariosCompartidos(
       (archivo.usuarios_compartidos || []).map((id) => ({
         user_context_id: id,
@@ -354,6 +357,8 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
       Alert.alert('Formulario incompleto', 'Por favor proporciona un título');
       return;
     }
+    const nombreBase = nombreRef.current?.getValue() ?? '';
+    const descripcion = descripcionRef.current?.getValue() ?? '';
     const usuariosCompartidosIds = usuariosCompartidos.map((u) => u.user_context_id);
     const usuariosAsociadosIds = usuariosAsociados.map((u) => u.user_context_id);
 
@@ -383,9 +388,11 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
         },
       }
     );
-  }, [didPartialSuccess, isFormValid, archivo.id, nombreBase, fileExt, descripcion, usuariosCompartidos, usuariosAsociados, allowedRoles, isSupervisor, updateArchivo, onClose, resetForm]);
+  }, [didPartialSuccess, isFormValid, archivo.id, fileExt, usuariosCompartidos, usuariosAsociados, allowedRoles, isSupervisor, updateArchivo, onClose, resetForm]);
 
   const handleCancel = useCallback(() => {
+    const nombreBase = nombreRef.current?.getValue() ?? '';
+    const descripcion = descripcionRef.current?.getValue() ?? '';
     const hasChanges =
       nombreBase !== splitName(archivo.nombre).base ||
       descripcion !== (archivo.titulo ?? '') ||
@@ -398,7 +405,7 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
     } else {
       onClose();
     }
-  }, [nombreBase, descripcion, archivo.nombre, archivo.titulo, usuariosCompartidos, onClose, resetForm]);
+  }, [archivo.nombre, archivo.titulo, usuariosCompartidos, onClose, resetForm]);
 
   if (!visible) return null;
 
@@ -430,7 +437,8 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
               <View style={styles.inputSection}>
                 <ThemedText style={styles.label}>Título del archivo</ThemedText>
                 <View style={styles.nameRow}>
-                  <TextInput
+                  <IsolatedTextInput
+                    ref={nombreRef}
                     style={[
                       styles.input,
                       styles.nameInput,
@@ -440,8 +448,8 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
                     ]}
                     placeholder="Título"
                     placeholderTextColor={colors.secondaryText}
-                    value={nombreBase}
-                    onChangeText={setNombreBase}
+                    initialValue={splitName(archivo.nombre).base}
+                    onHasTextChange={setHasNombreText}
                     onFocus={nombreFocus.onFocus}
                     onBlur={nombreFocus.onBlur}
                     maxLength={100}
@@ -457,7 +465,8 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
                 <ThemedText style={styles.label}>
                   Descripción <ThemedText style={styles.labelOptional}>(opcional)</ThemedText>
                 </ThemedText>
-                <TextInput
+                <IsolatedTextInput
+                  ref={descripcionRef}
                   style={[
                     styles.input,
                     styles.inputMultiline,
@@ -467,8 +476,7 @@ export function EditArchivoModal({ visible, onClose, archivo }: EditArchivoModal
                   ]}
                   placeholder="Agregá una descripción del archivo..."
                   placeholderTextColor={colors.secondaryText}
-                  value={descripcion}
-                  onChangeText={setDescripcion}
+                  initialValue={archivo.titulo ?? ''}
                   onFocus={descripcionFocus.onFocus}
                   onBlur={descripcionFocus.onBlur}
                   maxLength={500}

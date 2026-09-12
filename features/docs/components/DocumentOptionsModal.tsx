@@ -1,8 +1,8 @@
 import { ThemedText } from '@/components/themed-text';
 import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
-import { Modal, Pressable, StyleSheet, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useRef } from 'react';
+import { Modal, Platform, Pressable, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export interface DocumentOptionAction {
@@ -22,8 +22,23 @@ interface DocumentOptionsModalProps {
 }
 
 export function DocumentOptionsModal({ visible, fileName, title = 'Opciones de archivo', actions, onClose }: DocumentOptionsModalProps) {
+  // En iOS, una acción que presenta otro view controller (el document picker)
+  // no puede dispararse en el mismo `onPress` que cierra este <Modal>: si lo
+  // hace mientras el modal todavía está en plena transición de dismiss, UIKit
+  // descarta la nueva presentación en silencio (el picker "no abre"). Por eso
+  // acá se difiere hasta el `onDismiss` nativo del Modal, igual que en
+  // `useAlertModal`/`AlertModal`. Android no tiene `onDismiss` y no sufre esta
+  // condición de carrera, así que ahí la acción sigue corriendo inline.
+  const pendingActionRef = useRef<(() => void) | null>(null);
+
+  const handleModalDismiss = useCallback(() => {
+    const action = pendingActionRef.current;
+    pendingActionRef.current = null;
+    action?.();
+  }, []);
+
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} onDismiss={handleModalDismiss}>
       <SafeAreaView style={styles.safeArea} edges={['bottom']}>
         <Pressable style={styles.overlay} onPress={onClose}>
           <Pressable style={styles.sheet}>
@@ -40,8 +55,13 @@ export function DocumentOptionsModal({ visible, fileName, title = 'Opciones de a
                   key={action.key}
                   style={styles.actionButton}
                   onPress={() => {
-                    onClose();
-                    action.onPress();
+                    if (Platform.OS === 'ios') {
+                      pendingActionRef.current = action.onPress as () => void;
+                      onClose();
+                    } else {
+                      onClose();
+                      action.onPress();
+                    }
                   }}
                 >
                   <Ionicons

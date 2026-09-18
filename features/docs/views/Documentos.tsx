@@ -22,6 +22,7 @@ import { DocumentOptionAction, DocumentOptionsModal } from '../components/Docume
 import { EditCarpetaModal } from '../components/EditCarpetaModal';
 import { Carpeta, UpdateCarpetaPayload } from '../models/Carpeta';
 import { isArchivoInAuditWindow } from '../utils/auditWindow';
+import { captureFromCamera } from '../utils/cameraCapture';
 import { formatPartialWarnings } from '../utils/partialWarnings';
 import { useArchivos, useArchivosPersonales, useCarpetas, useCreateCarpeta, useDeleteCarpeta, useSearchArchivos, useUpdateCarpeta } from '../viewmodels/useArchivos';
 import DocumentosEmpresa from './DocumentosEmpresa';
@@ -254,6 +255,18 @@ export default function Documentos() {
     }
   };
 
+  const handleTakeMedia = async () => {
+    const result = await captureFromCamera();
+    if (result.ok) {
+      setPickedFiles([result.file]);
+      setModalVisible(true);
+    } else if (result.reason === 'permission-denied') {
+      Alert.alert('Permiso denegado', 'Se necesita acceso a la cámara para tomar fotos o videos.');
+    } else if (result.reason === 'unavailable') {
+      Alert.alert('No disponible', 'La cámara no está disponible en este dispositivo.');
+    }
+  };
+
   const handleClearSearch = () => {
     setQuery('');
   };
@@ -457,6 +470,12 @@ export default function Documentos() {
             label: 'Crear carpeta',
             icon: 'folder-outline',
             onPress: openCreateFolderModal,
+          },
+          {
+            key: 'take-media',
+            label: 'Tomar foto o video',
+            icon: 'camera-outline',
+            onPress: handleTakeMedia,
           },
         ]}
         onClose={() => setFabMenuVisible(false)}

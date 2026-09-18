@@ -1,3 +1,4 @@
+import { allRoles } from '@/shared/users/roles';
 import type { EstadoReporte } from './models/Reporte';
 
 export interface ReporteEstadoPresentation {
@@ -46,3 +47,11 @@ export const REPORTE_ESTADO_FILTER_OPTIONS: { value: EstadoReporte; label: strin
   { value: 'DISPUTA', label: ESTADO_PRESENTATION.DISPUTA.label },
   { value: 'ASENTADO', label: ESTADO_PRESENTATION.ASENTADO.label },
 ];
+
+/**
+ * Roles filtrables en la lista de gestión y en el Semáforo: mismo alcance
+ * que EMPLOYEE_ROLE_FILTER en el backend (empleado-* + encargado).
+ */
+export const REPORTE_ROL_FILTER_OPTIONS = allRoles.filter(
+  (r) => r.value === 'encargado' || r.value.startsWith('empleado')
+);

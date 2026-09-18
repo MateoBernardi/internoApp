@@ -311,12 +311,25 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
   const aceptarDeshabilitado =
     (!isHost && efectivoEstado === 'MODIFIED') ||
     (isHost && efectivoEstado === 'MODIFIED_BY_HOST');
+  // El creador no puede aceptar/rechazar su propia solicitud (backend:
+  // ForbiddenError en updateSolicitudInvitadoEstadoHelper). La única acción
+  // de "aceptar" que sí tiene el creador es aceptar la propuesta de fechas
+  // del invitado (ACCEPTED_BY_HOST). Para el invitado, una vez que ya
+  // aceptó/rechazó, repetir la acción vuelve a pegarle al backend
+  // (UnprocessableEntityError "Ya aceptaste/rechazaste esta solicitud").
+  const puedeVerBotonAceptar = isHost
+    ? isAceptarModificacionesFlow
+    : efectivoEstado !== 'ACCEPTED' && efectivoEstado !== 'REJECTED';
+  const puedeVerBotonRechazar = !isHost && efectivoEstado !== 'REJECTED';
 
   // Reglas de creación:
   // - 2 participantes (creador + 1 invitado): ambos pueden crear una vez que el invitado
   //   acepta, salvo que sea REUNION/SOLICITUD con fecha — ahí solo el creador (ver abajo).
   // - Más de 2: solo el creador, habilitado apenas algún invitado aceptó.
   const totalParticipantes = solicitud.invitados.length; // incluye al creador
+  // Regla backend (modificarFechasSolicitudHelper): en solicitudes con más de
+  // 2 invitados (sin contar al creador), sólo el creador puede modificar fechas.
+  const puedeModificarFechas = isHost || totalParticipantes <= 3;
   const esCreacionElegible = solicitud.tipo_actividad !== 'CHAT' && !esActividadCreada;
   const invitadoUnico = totalParticipantes === 2 ? invitadosSinCreador[0] : undefined;
   const algunInvitadoAceptado = invitadosSinCreador.some(inv => inv.estado === 'ACCEPTED');
@@ -1097,7 +1110,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                     {!composerFinalState && (
                       <>
                         {/* Modificar fechas */}
-                        {!isFinalState && (
+                        {!isFinalState && puedeModificarFechas && (
                           <TouchableOpacity
                             style={[styles.messageActionButton, isModifyMode && styles.messageActionButtonActive]}
                             onPress={() => isModifyMode ? resetModifyDraft() : setIsModifyMode(true)}
@@ -1112,7 +1125,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                         </TouchableOpacity>
 
                         {/* Rechazar */}
-                        {!isFinalState && (
+                        {!isFinalState && puedeVerBotonRechazar && (
                           <TouchableOpacity style={styles.messageActionButton} onPress={() => {
                             setRejectObservation(composerRef.current?.getValue() ?? '');
                             setShowRejectModal(true);
@@ -1122,7 +1135,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                         )}
 
                         {/* Aceptar */}
-                        {!isFinalState && (
+                        {!isFinalState && puedeVerBotonAceptar && (
                           <TouchableOpacity
                             style={[styles.messageActionButton, aceptarDeshabilitado && styles.messageActionButtonDisabled]}
                             disabled={aceptarDeshabilitado}

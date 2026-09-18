@@ -30,6 +30,7 @@ import {
   getUrlCargaArchivo,
   uploadArchivoR2,
 } from '../services/archivosApi';
+import { captureFromCamera } from '../utils/cameraCapture';
 import { ARCHIVOS_KEYS } from '../viewmodels/useArchivos';
 
 // ─── Design tokens ─────────────────────────────────────────────────────────────
@@ -95,6 +96,8 @@ const MIME_MAP: Record<string, string> = {
   webp: 'image/webp',
   zip: 'application/zip',
   mp4: 'video/mp4',
+  mov: 'video/quicktime',
+  '3gp': 'video/3gpp',
 };
 
 function resolveMime(type: string | undefined, name: string): string {
@@ -212,6 +215,17 @@ export function CrearDocumento({ visible, onClose, initialFiles, initialFolderId
     } catch (err) {
       console.error('Error seleccionando documento', err);
       Alert.alert('Error', 'No se pudo seleccionar el archivo.');
+    }
+  }, [addFiles]);
+
+  const handleTakeMedia = useCallback(async () => {
+    const result = await captureFromCamera();
+    if (result.ok) {
+      addFiles([result.file]);
+    } else if (result.reason === 'permission-denied') {
+      Alert.alert('Permiso denegado', 'Se necesita acceso a la cámara para tomar fotos o videos.');
+    } else if (result.reason === 'unavailable') {
+      Alert.alert('No disponible', 'La cámara no está disponible en este dispositivo.');
     }
   }, [addFiles]);
 
@@ -366,7 +380,7 @@ export function CrearDocumento({ visible, onClose, initialFiles, initialFolderId
 
             {/* Body */}
             {files.length === 0 ? (
-              <EmptyState onSelect={handleSelectFiles} />
+              <EmptyState onSelect={handleSelectFiles} onTakeMedia={handleTakeMedia} />
             ) : (
               <ScrollView
                 style={s.list}
@@ -379,10 +393,16 @@ export function CrearDocumento({ visible, onClose, initialFiles, initialFolderId
 
                 {/* Add more — available whenever not actively uploading */}
                 {!uploading && (
-                  <TouchableOpacity style={s.addMore} onPress={handleSelectFiles} activeOpacity={0.7}>
-                    <Ionicons name="add" size={18} color={NAVY} />
-                    <Text style={s.addMoreText}>Seleccionar más archivos</Text>
-                  </TouchableOpacity>
+                  <>
+                    <TouchableOpacity style={s.addMore} onPress={handleSelectFiles} activeOpacity={0.7}>
+                      <Ionicons name="add" size={18} color={NAVY} />
+                      <Text style={s.addMoreText}>Seleccionar más archivos</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={s.addMore} onPress={handleTakeMedia} activeOpacity={0.7}>
+                      <Ionicons name="camera-outline" size={18} color={NAVY} />
+                      <Text style={s.addMoreText}>Tomar foto o video</Text>
+                    </TouchableOpacity>
+                  </>
                 )}
               </ScrollView>
             )}
@@ -523,7 +543,7 @@ function FileBadge({ file }: { file: SelFile }) {
 }
 
 // ─── EmptyState ───────────────────────────────────────────────────────────────────
-function EmptyState({ onSelect }: { onSelect: () => void }) {
+function EmptyState({ onSelect, onTakeMedia }: { onSelect: () => void; onTakeMedia: () => void }) {
   return (
     <View style={s.emptyWrap}>
       <View style={s.emptyIcon}>
@@ -536,6 +556,13 @@ function EmptyState({ onSelect }: { onSelect: () => void }) {
         label="Seleccionar archivos"
         onPress={onSelect}
         icon={(color) => <Ionicons name="add" size={18} color={color} />}
+      />
+      <GlassButton
+        variant="secondary"
+        label="Tomar foto o video"
+        onPress={onTakeMedia}
+        icon={(color) => <Ionicons name="camera-outline" size={18} color={color} />}
+        style={s.emptySecondaryBtn}
       />
     </View>
   );
@@ -677,6 +704,7 @@ const s = StyleSheet.create({
   },
   emptyTitle: { fontSize: 17, fontWeight: '700', color: INK, marginBottom: 6 },
   emptySub: { fontSize: 13.5, color: MUTED, textAlign: 'center', maxWidth: 240, marginBottom: 18 },
+  emptySecondaryBtn: { marginTop: 10 },
 
   // Footer
   footer: {

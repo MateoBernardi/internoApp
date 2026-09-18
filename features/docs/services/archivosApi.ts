@@ -143,6 +143,7 @@ const getMimeType = (fileName: string, providedType?: string): string => {
         zip: 'application/zip',
         mp3: 'audio/mpeg',
         mp4: 'video/mp4',
+        mov: 'video/quicktime',
     };
 
     return mimeTypes[extension] || 'application/octet-stream';

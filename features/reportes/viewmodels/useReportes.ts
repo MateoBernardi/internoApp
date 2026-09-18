@@ -140,18 +140,18 @@ export function useReporteStats(estado?: EstadoReporte) {
  * Hook para la lista paginada de reportes de gestión (vista Encargado),
  * respetando la jerarquía del solicitante en el backend.
  */
-export function useReportesManaged(estado?: EstadoReporte) {
+export function useReportesManaged(estado?: EstadoReporte, rol?: string) {
     const { tokens } = useAuth();
 
     return useInfiniteQuery({
-        queryKey: [...REPORTES_MANAGED_QUERY_KEY, estado ?? 'all'],
+        queryKey: [...REPORTES_MANAGED_QUERY_KEY, estado ?? 'all', rol ?? 'all'],
         initialPageParam: 1,
         queryFn: async ({ pageParam }) => {
             const token = tokens?.accessToken;
             if (!token) {
                 throw new Error('No hay token de acceso');
             }
-            return getReportesManaged(token, { page: pageParam, pageSize: REPORTES_MANAGED_PAGE_SIZE, estado });
+            return getReportesManaged(token, { page: pageParam, pageSize: REPORTES_MANAGED_PAGE_SIZE, estado, rol });
         },
         getNextPageParam: (lastPage) => {
             const loaded = lastPage.page * lastPage.pageSize;

@@ -130,10 +130,11 @@ export async function getUpgradedEmployee (accessToken: string): Promise<reporte
  */
 export async function getReportesManaged (
     accessToken: string,
-    { page, pageSize, estado }: { page: number; pageSize: number; estado?: reporte.EstadoReporte },
+    { page, pageSize, estado, rol }: { page: number; pageSize: number; estado?: reporte.EstadoReporte; rol?: string },
 ): Promise<reporte.PaginatedReportes> {
     const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
     if (estado) params.set('estado', estado);
+    if (rol) params.set('rol', rol);
 
     const response = await apiRequest({ method: 'GET', endpoint: `/reportes/managed?${params.toString()}`, token: accessToken });
 

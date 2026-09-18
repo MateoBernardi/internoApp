@@ -1,7 +1,6 @@
 import { ThemedText } from '@/components/themed-text';
 import { SearchBar } from '@/components/ui/SearchBar';
 import { Colors } from '@/constants/theme';
-import { allRoles } from '@/shared/users/roles';
 import { glassStyles } from '@/shared/ui/glass';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams } from 'expo-router';
@@ -18,14 +17,16 @@ import {
 	View,
 } from 'react-native';
 import type { EstadoReporte } from '../models/Reporte';
-import { REPORTE_ESTADO_FILTER_OPTIONS } from '../presentation';
+import { REPORTE_ESTADO_FILTER_OPTIONS, REPORTE_ROL_FILTER_OPTIONS } from '../presentation';
 import { Semaforo } from '../components/Semaforo';
 import { TopEmployee } from '../components/TopEmployee';
 import { UpgradedEmployee } from '../components/UpgradedEmployee';
 import { useReporteStats } from '../viewmodels/useReportes';
 
 const colors = Colors['light'];
-const ROLE_LABELS: Record<string, string> = Object.fromEntries(allRoles.map((r) => [r.value, r.label]));
+const ROLE_LABELS: Record<string, string> = Object.fromEntries(
+	REPORTE_ROL_FILTER_OPTIONS.map((r) => [r.value, r.label])
+);
 const ESTADO_LABELS: Record<EstadoReporte, string> = Object.fromEntries(
 	REPORTE_ESTADO_FILTER_OPTIONS.map((o) => [o.value, o.label])
 ) as Record<EstadoReporte, string>;
@@ -43,14 +44,6 @@ export function Reportes() {
 	const handleRefresh = useCallback(async () => {
 		await refetch();
 	}, [refetch]);
-
-	// Roles presentes en los datos cargados, para no ofrecer chips vacíos.
-	const availableRoles = useMemo(() => {
-		if (!stats) return [];
-		const roles = new Set<string>();
-		stats.forEach((item) => { if (item.rol) roles.add(item.rol); });
-		return Array.from(roles).sort();
-	}, [stats]);
 
 	// Filtrar datos del semáforo por búsqueda + rol
 	const filteredStats = useMemo(() => {
@@ -104,14 +97,12 @@ export function Reportes() {
 					</ThemedText>
 					<Ionicons name="chevron-down" size={16} color={colors.icon} style={{ marginLeft: 4 }} />
 				</TouchableOpacity>
-				{availableRoles.length > 0 && (
-					<TouchableOpacity style={styles.rolesButton} onPress={() => setIsRolesVisible(true)}>
-						<ThemedText style={styles.rolesButtonText}>
-							{rolFilter ? (ROLE_LABELS[rolFilter] ?? rolFilter) : 'Roles'}
-						</ThemedText>
-						<Ionicons name="chevron-down" size={16} color={colors.icon} style={{ marginLeft: 4 }} />
-					</TouchableOpacity>
-				)}
+				<TouchableOpacity style={styles.rolesButton} onPress={() => setIsRolesVisible(true)}>
+					<ThemedText style={styles.rolesButtonText}>
+						{rolFilter ? (ROLE_LABELS[rolFilter] ?? rolFilter) : 'Roles'}
+					</ThemedText>
+					<Ionicons name="chevron-down" size={16} color={colors.icon} style={{ marginLeft: 4 }} />
+				</TouchableOpacity>
 			</View>
 
 			<Modal
@@ -141,14 +132,14 @@ export function Reportes() {
 										<ThemedText style={styles.roleText}>Todos</ThemedText>
 										{rolFilter === null && <Ionicons name="checkmark" size={20} color={colors.tint} />}
 									</TouchableOpacity>
-									{availableRoles.map((rol) => (
+									{REPORTE_ROL_FILTER_OPTIONS.map((opcion) => (
 										<TouchableOpacity
-											key={rol}
+											key={opcion.value}
 											style={styles.modalItem}
-											onPress={() => { setRolFilter(rol); setIsRolesVisible(false); }}
+											onPress={() => { setRolFilter(opcion.value); setIsRolesVisible(false); }}
 										>
-											<ThemedText style={styles.roleText}>{ROLE_LABELS[rol] ?? rol}</ThemedText>
-											{rolFilter === rol && <Ionicons name="checkmark" size={20} color={colors.tint} />}
+											<ThemedText style={styles.roleText}>{opcion.label}</ThemedText>
+											{rolFilter === opcion.value && <Ionicons name="checkmark" size={20} color={colors.tint} />}
 										</TouchableOpacity>
 									))}
 								</ScrollView>

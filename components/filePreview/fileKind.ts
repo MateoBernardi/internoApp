@@ -7,6 +7,7 @@
 const MIME_EXT_MAP: Record<string, string> = {
   jpeg: 'jpg',
   plain: 'txt',
+  quicktime: 'mov',
   'vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
   'vnd.ms-excel': 'xls',
   'vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',

@@ -39,6 +39,7 @@ const getTipoIcon = (nombreArchivo: string): { icon: string; color: string } => 
     'avi': { icon: 'play-circle', color: '#8b5cf6' },
     'mov': { icon: 'play-circle', color: '#8b5cf6' },
     'mkv': { icon: 'play-circle', color: '#8b5cf6' },
+    '3gp': { icon: 'play-circle', color: '#8b5cf6' },
     'mp3': { icon: 'musical-note', color: '#06b6d4' },
     'wav': { icon: 'musical-note', color: '#06b6d4' },
     'flac': { icon: 'musical-note', color: '#06b6d4' },

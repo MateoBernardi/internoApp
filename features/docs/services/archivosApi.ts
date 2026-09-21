@@ -144,6 +144,7 @@ const getMimeType = (fileName: string, providedType?: string): string => {
         mp3: 'audio/mpeg',
         mp4: 'video/mp4',
         mov: 'video/quicktime',
+        '3gp': 'video/3gpp',
     };
 
     return mimeTypes[extension] || 'application/octet-stream';

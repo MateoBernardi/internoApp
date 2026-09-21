@@ -92,7 +92,7 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
   const [isUploadingFile, setIsUploadingFile] = useState(false);
   const { mutateAsync: uploadArchivo } = useUploadArchivo(idempotencyKey);
   const { alertModal, showModal, closeAlert, onModalDismiss } = useAlertModal();
-  const { pickedFiles, setPickedFiles, handleTakePhoto, handleSeleccionarArchivo } = useFilePicker({ showModal });
+  const { pickedFiles, setPickedFiles, handleTakePhoto, handleSeleccionarArchivo, CameraModal } = useFilePicker({ showModal });
 
   const rolesForSelector = useMemo(
     () => (isConsejo ? adminRoles : allRoles),
@@ -685,6 +685,7 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
           onSelectAll={handleSelectAllRoleUsers}
           onDeselectAll={handleDeselectAllRoleUsers}
         />
+        {CameraModal}
     </View>
     </FullScreenPortal>
   );

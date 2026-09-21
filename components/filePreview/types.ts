@@ -1,6 +1,6 @@
 export type FileItem = {
   id: string;
-  kind: 'image' | 'file';
+  kind: 'image' | 'video' | 'file';
   name: string;
   ext: string;
   size?: string;

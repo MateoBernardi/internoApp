@@ -90,6 +90,7 @@ const plugins = [
     }
   ],
   "./plugins/withBlockedAndroidMediaPermissions",
+  "expo-video",
 ];
 
 // La reversed client ID de iOS recién existe una vez creado el cliente OAuth de iOS

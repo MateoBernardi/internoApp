@@ -30,8 +30,8 @@ import {
   getUrlCargaArchivo,
   uploadArchivoR2,
 } from '../services/archivosApi';
-import { captureFromCamera } from '../utils/cameraCapture';
 import { ARCHIVOS_KEYS } from '../viewmodels/useArchivos';
+import { useCameraCapture } from '@/shared/ui/useCameraCapture';
 
 // ─── Design tokens ─────────────────────────────────────────────────────────────
 const INK = glassColors.text;
@@ -129,6 +129,7 @@ export function CrearDocumento({ visible, onClose, initialFiles, initialFolderId
   const bottomInset = useSafeBottomInset();
   const { tokens } = useAuth();
   const queryClient = useQueryClient();
+  const { openCamera, CameraModal } = useCameraCapture();
 
   const [files, setFiles] = useState<SelFile[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -219,15 +220,13 @@ export function CrearDocumento({ visible, onClose, initialFiles, initialFolderId
   }, [addFiles]);
 
   const handleTakeMedia = useCallback(async () => {
-    const result = await captureFromCamera();
+    const result = await openCamera();
     if (result.ok) {
       addFiles([result.file]);
-    } else if (result.reason === 'permission-denied') {
-      Alert.alert('Permiso denegado', 'Se necesita acceso a la cámara para tomar fotos o videos.');
     } else if (result.reason === 'unavailable') {
       Alert.alert('No disponible', 'La cámara no está disponible en este dispositivo.');
     }
-  }, [addFiles]);
+  }, [addFiles, openCamera]);
 
   // ─── Upload ──────────────────────────────────────────────────────────────────
   const stopTimer = useCallback((id: string) => {
@@ -448,6 +447,8 @@ export function CrearDocumento({ visible, onClose, initialFiles, initialFolderId
           </View>
         </ModalKeyboardView>
       </View>
+
+      {CameraModal}
     </FullScreenPortal>
   );
 }

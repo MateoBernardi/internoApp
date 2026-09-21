@@ -15,6 +15,7 @@ const MIME_EXT_MAP: Record<string, string> = {
 
 export const IMAGE_EXTS = new Set(['jpg', 'jpeg', 'png', 'webp', 'gif', 'heic', 'heif', 'bmp']);
 export const TEXT_EXTS = new Set(['txt', 'csv', 'log', 'md', 'json', 'xml', 'yaml', 'yml']);
+export const VIDEO_EXTS = new Set(['mp4', 'mov', '3gp', 'avi', 'mkv']);
 
 function safeStr(v: unknown): string {
   return typeof v === 'string' ? v : '';
@@ -51,6 +52,12 @@ export function getExt(tipo: unknown, nombre: unknown, ruta?: unknown): string {
 export function isImageFile(tipo: unknown, nombre?: unknown, ruta?: unknown): boolean {
   if (safeStr(tipo).toLowerCase().startsWith('image/')) return true;
   return IMAGE_EXTS.has(getExt(tipo, nombre, ruta));
+}
+
+/** True when the archivo should be rendered as a video (MIME or extension based). */
+export function isVideoFile(tipo: unknown, nombre?: unknown, ruta?: unknown): boolean {
+  if (safeStr(tipo).toLowerCase().startsWith('video/')) return true;
+  return VIDEO_EXTS.has(getExt(tipo, nombre, ruta));
 }
 
 /** True when the archivo is a PDF (MIME or extension based). */

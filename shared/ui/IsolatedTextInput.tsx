@@ -28,8 +28,14 @@ export const IsolatedTextInput = memo(forwardRef<IsolatedTextInputHandle, Isolat
     useImperativeHandle(ref, () => ({
       getValue: () => value,
       setValue,
-      clear: () => setValue(''),
-    }), [value]);
+      clear: () => {
+        setValue('');
+        if (hasTextRef.current) {
+          hasTextRef.current = false;
+          onHasTextChange?.(false);
+        }
+      },
+    }), [value, onHasTextChange]);
 
     const handleChangeText = useCallback((text: string) => {
       setValue(text);

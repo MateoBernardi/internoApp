@@ -22,7 +22,7 @@ import { DocumentOptionAction, DocumentOptionsModal } from '../components/Docume
 import { EditCarpetaModal } from '../components/EditCarpetaModal';
 import { Carpeta, UpdateCarpetaPayload } from '../models/Carpeta';
 import { isArchivoInAuditWindow } from '../utils/auditWindow';
-import { captureFromCamera } from '../utils/cameraCapture';
+import { useCameraCapture } from '@/shared/ui/useCameraCapture';
 import { formatPartialWarnings } from '../utils/partialWarnings';
 import { useArchivos, useArchivosPersonales, useCarpetas, useCreateCarpeta, useDeleteCarpeta, useSearchArchivos, useUpdateCarpeta } from '../viewmodels/useArchivos';
 import DocumentosEmpresa from './DocumentosEmpresa';
@@ -59,6 +59,7 @@ export default function Documentos() {
   const [folderEditPartialWarning, setFolderEditPartialWarning] = useState<string | null>(null);
   const [folderDeleteConflictMessage, setFolderDeleteConflictMessage] = useState<string | null>(null);
   const [fabMenuVisible, setFabMenuVisible] = useState(false);
+  const { openCamera, CameraModal } = useCameraCapture();
 
   const navigateToFolder = (
     nextFolderId: number | null,
@@ -256,12 +257,10 @@ export default function Documentos() {
   };
 
   const handleTakeMedia = async () => {
-    const result = await captureFromCamera();
+    const result = await openCamera();
     if (result.ok) {
       setPickedFiles([result.file]);
       setModalVisible(true);
-    } else if (result.reason === 'permission-denied') {
-      Alert.alert('Permiso denegado', 'Se necesita acceso a la cámara para tomar fotos o videos.');
     } else if (result.reason === 'unavailable') {
       Alert.alert('No disponible', 'La cámara no está disponible en este dispositivo.');
     }
@@ -571,6 +570,8 @@ export default function Documentos() {
           </View>
         </View>
       </Modal>
+
+      {CameraModal}
     </ThemedView>
   );
 }

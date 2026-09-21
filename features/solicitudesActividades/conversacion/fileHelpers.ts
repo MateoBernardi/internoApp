@@ -1,5 +1,5 @@
 import type { FileItem } from '@/components/filePreview';
-import { getExt, isImageFile } from '@/components/filePreview';
+import { getExt, isImageFile, isVideoFile } from '@/components/filePreview';
 
 // Stored R2 object key; recovers the real extension when the display name was
 // renamed or stripped. Raw DTOs expose it as `ruta_r2`, mapped models as `url`.
@@ -22,7 +22,7 @@ export function buildArchivoFileItem(archivo: any): FileItem {
   const ruta = rutaR2(archivo);
   return {
     id: String(archivo.id),
-    kind: isImageFile(tipo, nombre, ruta) ? 'image' : 'file',
+    kind: isImageFile(tipo, nombre, ruta) ? 'image' : isVideoFile(tipo, nombre, ruta) ? 'video' : 'file',
     name: nombre,
     ext: getExt(tipo, nombre, ruta),
     size: archivo.tamaño ? formatBytes(archivo.tamaño) : undefined,

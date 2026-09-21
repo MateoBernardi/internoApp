@@ -1,7 +1,7 @@
 import { useGetArchivoUrlFirmada } from '@/features/docs/viewmodels/useArchivos';
 import { useCallback, useState } from 'react';
 import { Alert, Linking, Platform } from 'react-native';
-import { getExt, isImageFile, isPdfFile, isTextFile } from './fileKind';
+import { getExt, isImageFile, isPdfFile, isTextFile, isVideoFile } from './fileKind';
 import type { FileItem } from './types';
 
 const IS_WEB = Platform.OS === 'web';
@@ -42,12 +42,13 @@ export function useOpenFilePreview() {
       const nombre = safeStr(archivo.nombre) || 'Archivo';
       const ext = getExt(tipo, nombre);
       const isImage = isImageFile(tipo, nombre);
+      const isVideo = isVideoFile(tipo, nombre);
       const isText = isTextFile(tipo, nombre);
 
-      // Types we can't render in-app (image / PDF / text) open in the system
-      // browser via the signed URL — the same outcome as the web build, which
-      // opens that URL in a new tab. Avoids the WebView forcing a download.
-      if (!isImage && !isText && !isPdfFile(tipo, nombre)) {
+      // Types we can't render in-app (image / video / PDF / text) open in the
+      // system browser via the signed URL — the same outcome as the web build,
+      // which opens that URL in a new tab. Avoids the WebView forcing a download.
+      if (!isImage && !isVideo && !isText && !isPdfFile(tipo, nombre)) {
         await Linking.openURL(url);
         return;
       }
@@ -66,7 +67,7 @@ export function useOpenFilePreview() {
 
       setPreviewFile({
         id: String(archivo.id),
-        kind: isImage ? 'image' : 'file',
+        kind: isImage ? 'image' : isVideo ? 'video' : 'file',
         name: nombre,
         ext,
         size: typeof archivo.tamaño === 'number' ? formatBytes(archivo.tamaño) : undefined,
@@ -86,6 +87,7 @@ export function useOpenFilePreview() {
     // card, keeping every entry point consistent.
     const renderable =
       item.kind === 'image' ||
+      item.kind === 'video' ||
       !!item.textPreview ||
       isPdfFile(item.ext, item.name) ||
       isTextFile(item.ext, item.name);

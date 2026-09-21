@@ -1,6 +1,6 @@
 export { FileAttachment } from './FileAttachment';
 export { FilePreview } from './FilePreview';
-export { getExt, isImageFile, isPdfFile, isTextFile } from './fileKind';
+export { getExt, isImageFile, isPdfFile, isTextFile, isVideoFile } from './fileKind';
 export { FileTypeBadge, fileTypeColor } from './fileTypeColor';
 export { InlineImageAttachment } from './InlineImageAttachment';
 export { useFileActions } from './useFileActions';

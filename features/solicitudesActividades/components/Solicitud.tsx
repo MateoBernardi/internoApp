@@ -155,7 +155,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
   const [isModifyMode, setIsModifyMode] = useState(false);
   const { alertModal, showModal, closeAlert, onModalDismiss } = useAlertModal();
   const {
-    pickedFiles, setPickedFiles, handleAgregarAdjunto, handleOpenArchivo, uploadPickedFiles,
+    pickedFiles, setPickedFiles, handleAgregarAdjunto, handleOpenArchivo, uploadPickedFiles, CameraModal,
   } = useAdjuntos({ showModal });
   const [localEstado, setLocalEstado] = useState<string | null>(null);
 
@@ -1442,6 +1442,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
       </ModalKeyboardView>
 
       <FilePreview file={previewFile} onClose={closePreview} />
+      {CameraModal}
     </View>
     </FullScreenPortal>
   );

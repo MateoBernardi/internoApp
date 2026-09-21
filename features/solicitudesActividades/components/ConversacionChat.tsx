@@ -153,7 +153,7 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
   const queryClient = useQueryClient();
   const { alertModal, showModal, closeAlert, onModalDismiss } = useAlertModal();
   const {
-    pickedFiles, setPickedFiles, handleAgregarAdjunto, handleOpenArchivo, uploadPickedFiles,
+    pickedFiles, setPickedFiles, handleAgregarAdjunto, handleOpenArchivo, uploadPickedFiles, CameraModal,
   } = useAdjuntos({ showModal });
 
   const [showEditTituloModal, setShowEditTituloModal] = useState(false);
@@ -924,6 +924,7 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
       </ModalKeyboardView>
 
       <FilePreview file={previewFile} onClose={closePreview} />
+      {CameraModal}
     </View>
     </FullScreenPortal>
   );

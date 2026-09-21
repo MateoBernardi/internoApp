@@ -17,7 +17,7 @@ export function useAdjuntos({ showModal }: { showModal: ShowModalFn }) {
   const { mutateAsync: uploadArchivo } = useUploadArchivo();
   const { getArchivoUrlFirmada } = useGetArchivoUrlFirmada();
 
-  const { pickedFiles, setPickedFiles, handleAgregarAdjunto } = useFilePicker({ showModal });
+  const { pickedFiles, setPickedFiles, handleAgregarAdjunto, CameraModal } = useFilePicker({ showModal });
 
   const isSuccess = <T,>(r: ApiOperationResult<T>): r is ApiOperationResult<T> & { data: T } =>
     r.status === 'success' && r.data !== undefined;
@@ -61,5 +61,6 @@ export function useAdjuntos({ showModal }: { showModal: ShowModalFn }) {
     handleAgregarAdjunto,
     handleOpenArchivo,
     uploadPickedFiles,
+    CameraModal,
   };
 }

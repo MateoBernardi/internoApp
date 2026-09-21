@@ -1,7 +1,6 @@
 import * as DocumentPicker from 'expo-document-picker';
-import type * as ImagePickerTypes from 'expo-image-picker';
 import { useCallback, useState } from 'react';
-import { ImagePicker } from '../constants';
+import { useCameraCapture } from '@/shared/ui/useCameraCapture';
 import type { useAlertModal } from './useAlertModal';
 
 export interface PickedFile {
@@ -14,30 +13,22 @@ export interface PickedFile {
 type ShowModalFn = ReturnType<typeof useAlertModal>['showModal'];
 
 /**
- * Selección de archivos adjuntos (documento o foto de cámara) con el menú
- * "Adjuntar archivo". Mantiene la lista `pickedFiles`; la subida la maneja
- * cada consumidor (difiere entre conversación y creación de solicitud).
+ * Selección de archivos adjuntos (documento o foto/video de cámara) con el
+ * menú "Adjuntar archivo". Mantiene la lista `pickedFiles`; la subida la
+ * maneja cada consumidor (difiere entre conversación y creación de solicitud).
  */
 export function useFilePicker({ showModal }: { showModal: ShowModalFn }) {
   const [pickedFiles, setPickedFiles] = useState<PickedFile[]>([]);
-
-  const addImageAsset = useCallback((asset: ImagePickerTypes.ImagePickerAsset) => {
-    const ext = asset.uri.split('.').pop() ?? 'jpg';
-    setPickedFiles(prev => [...prev, {
-      name: asset.fileName ?? `foto_${Date.now()}.${ext}`,
-      uri: asset.uri,
-      type: asset.mimeType ?? `image/${ext}`,
-      size: asset.fileSize,
-    }]);
-  }, []);
+  const { openCamera, CameraModal } = useCameraCapture();
 
   const handleTakePhoto = useCallback(async () => {
-    if (!ImagePicker) { showModal('No disponible', 'Cámara no disponible.'); return; }
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') { showModal('Permiso denegado', 'Se necesita acceso a la cámara.'); return; }
-    const result = await ImagePicker.launchCameraAsync({ mediaTypes: 'images', quality: 0.8 });
-    if (!result.canceled && result.assets.length > 0) addImageAsset(result.assets[0]);
-  }, [addImageAsset, showModal]);
+    const result = await openCamera();
+    if (result.ok) {
+      setPickedFiles(prev => [...prev, result.file]);
+    } else if (result.reason === 'unavailable') {
+      showModal('No disponible', 'Cámara no disponible.');
+    }
+  }, [openCamera, showModal]);
 
   const handleSeleccionarArchivo = useCallback(async () => {
     try {
@@ -60,6 +51,7 @@ export function useFilePicker({ showModal }: { showModal: ShowModalFn }) {
 
   // `handleTakePhoto`/`handleSeleccionarArchivo` se exponen para consumidores
   // que arman su propio menú (con otras etiquetas); `handleAgregarAdjunto` es el
-  // menú por defecto ("Archivo"/"Cámara").
-  return { pickedFiles, setPickedFiles, handleTakePhoto, handleSeleccionarArchivo, handleAgregarAdjunto };
+  // menú por defecto ("Archivo"/"Cámara"). `CameraModal` debe renderizarse una
+  // vez en el árbol del consumidor para que `handleTakePhoto` funcione.
+  return { pickedFiles, setPickedFiles, handleTakePhoto, handleSeleccionarArchivo, handleAgregarAdjunto, CameraModal };
 }

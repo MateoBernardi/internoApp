@@ -2,6 +2,7 @@ import React from 'react';
 import { Modal } from 'react-native';
 import { FileViewer } from './FileViewer';
 import { ImageViewer } from './ImageViewer';
+import { VideoViewer } from './VideoViewer';
 import type { FileItem } from './types';
 
 interface Props {
@@ -20,6 +21,8 @@ export function FilePreview({ file, onClose }: Props) {
       {file !== null && (
         file.kind === 'image'
           ? <ImageViewer file={file} onClose={onClose} />
+          : file.kind === 'video'
+          ? <VideoViewer file={file} onClose={onClose} />
           : <FileViewer file={file} onClose={onClose} />
       )}
     </Modal>

@@ -46,7 +46,7 @@ export function useFileActions(file: FileItem | null) {
     if (!file) return;
     setBusy(true);
     try {
-      if (file.kind === 'image' && Platform.OS === 'ios') {
+      if ((file.kind === 'image' || file.kind === 'video') && Platform.OS === 'ios') {
         const MediaLibrary = await import('expo-media-library');
         const localUri = await ensureLocalUri(file.uri, file.name);
         const { status } = await MediaLibrary.requestPermissionsAsync();

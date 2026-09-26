@@ -5,10 +5,12 @@ import { parseLocal } from '../models/Turno';
 import { toISO } from '../utils/dateRange';
 import { getMisHorarios } from '../services/horariosService';
 
-/** El card de escaneo de entrada aparece 20 min antes del horario esperado. */
+/** El card de escaneo aparece 20 min antes del horario esperado (entrada y salida). */
 const WINDOW_BEFORE_MS = 20 * 60 * 1000;
-/** Pasados 40 min del horario esperado sin marcar, el intento deja de contar (ver reglas abajo). */
-const WINDOW_AFTER_MS = 40 * 60 * 1000;
+/** Fallback si el turno no tiene esperado_out: la entrada vence 40 min tras esperado_in. */
+const IN_WINDOW_FALLBACK_AFTER_MS = 40 * 60 * 1000;
+/** La salida queda habilitada hasta 2h después del horario esperado. */
+const OUT_WINDOW_AFTER_MS = 2 * 60 * 60 * 1000;
 
 export interface TurnoScanActivo {
   visible: true;
@@ -50,13 +52,14 @@ function useMisHorariosHoy(fecha: string) {
  *
  * Reglas (ver plan "Rotating/Static QR + Kiosk + Employee Scan UI"):
  *  - Ventana de entrada: abre en `esperado_in - 20min`, cierra cuando se
- *    marca `marcado_in_at` o pasados `esperado_in + 40min` sin marcar.
- *  - Ventana de salida: abre apenas se marca `marcado_in_at` (sin esperar a
- *    estar cerca de `esperado_out`), cierra cuando se marca `marcado_out_at`
- *    o pasados `esperado_out + 40min` sin marcar.
- *  - Un intento vencido (pasados los 40min) deja de contar: no bloquea el
- *    siguiente turno del día, que pasa a mostrarse en cuanto abre su propia
- *    ventana.
+ *    marca `marcado_in_at` o al llegar a `esperado_out - 20min` sin marcar
+ *    (o, si el turno no tiene `esperado_out`, pasados `esperado_in + 40min`).
+ *  - Ventana de salida: solo puede abrir si ya se marcó `marcado_in_at` (si
+ *    la entrada nunca se marcó, la salida no se ofrece). Abre en
+ *    `esperado_out - 20min`, cierra cuando se marca `marcado_out_at` o
+ *    pasadas `esperado_out + 2h` sin marcar.
+ *  - Un intento vencido deja de contar: no bloquea el siguiente turno del
+ *    día, que pasa a mostrarse en cuanto abre su propia ventana.
  *  - Si hay más de un turno/ventana activa a la vez, se muestra la de
  *    horario esperado más próximo.
  */
@@ -79,22 +82,30 @@ export function computeTurnoScanActivo(
 
     for (const attempt of attempts) {
       if (!attempt.esperado || attempt.marcado) continue;
-      // La salida no tiene ventana previa: está disponible en cuanto se
-      // marca la entrada, sin esperar a estar cerca de esperado_out.
+      // La salida solo puede ofrecerse si ya se marcó la entrada.
       if (attempt.tipo === 'OUT' && !shift.marcado_in_at) continue;
 
       const esperadoDate = parseLocal(attempt.esperado);
       const esperadoMs = esperadoDate.getTime();
       if (Number.isNaN(esperadoMs)) continue;
 
-      // Vencido: más de 40min pasado el horario esperado sin marcar. Deja de
-      // contar como candidato, así no bloquea el siguiente turno del día.
-      if (now > esperadoMs + WINDOW_AFTER_MS) continue;
+      let windowOpensAt: number;
+      let windowClosesAt: number;
 
       if (attempt.tipo === 'IN') {
-        const windowOpensAt = esperadoMs - WINDOW_BEFORE_MS;
-        if (now < windowOpensAt) continue;
+        windowOpensAt = esperadoMs - WINDOW_BEFORE_MS;
+        // La entrada se sigue ofreciendo hasta 20min antes de la salida
+        // esperada (o, si no hay esperado_out, con el fallback de 40min).
+        const esperadoOutMs = shift.esperado_out ? parseLocal(shift.esperado_out).getTime() : NaN;
+        windowClosesAt = !Number.isNaN(esperadoOutMs)
+          ? esperadoOutMs - WINDOW_BEFORE_MS
+          : esperadoMs + IN_WINDOW_FALLBACK_AFTER_MS;
+      } else {
+        windowOpensAt = esperadoMs - WINDOW_BEFORE_MS;
+        windowClosesAt = esperadoMs + OUT_WINDOW_AFTER_MS;
       }
+
+      if (now < windowOpensAt || now > windowClosesAt) continue;
       if (esperadoMs >= bestEsperadoMs) continue;
 
       bestEsperadoMs = esperadoMs;

@@ -15,6 +15,8 @@ import { adminRoles, allRoles } from '@/shared/users/roles';
 import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
+import { pickFromGallery } from '@/shared/ui/pickFromGallery';
+import { useCameraCapture } from '@/shared/ui/useCameraCapture';
 import React, { useEffect, useRef, useState } from 'react';
 import {
     Alert,
@@ -78,6 +80,7 @@ export function FormObjetivoModal({
     const updateMutation = useUpdateObjetivo();
     const [pickedFiles, setPickedFiles] = useState<any[]>([]);
     const [isUploadingFile, setIsUploadingFile] = useState(false);
+    const { openCamera, CameraModal } = useCameraCapture();
     const { mutateAsync: uploadArchivo } = useUploadArchivo();
 
     const { data: searchResults, isLoading: isSearchingUsers } = useSearchUsers(searchQuery);
@@ -207,6 +210,35 @@ export function FormObjetivoModal({
             console.error("Error seleccionando documento", err);
             Alert.alert("Error", "No se pudo seleccionar el documento. Intenta nuevamente.");
         }
+    };
+
+    const handleTakePhoto = async () => {
+        const result = await openCamera();
+        if (result.ok) {
+            setPickedFiles(prevFiles => [...prevFiles, result.file]);
+        } else if (result.reason === 'unavailable') {
+            Alert.alert('No disponible', 'La cámara no está disponible en este dispositivo.');
+        }
+    };
+
+    const handlePickFromGallery = async () => {
+        const result = await pickFromGallery({ allowsMultipleSelection: true });
+        if (result.ok) {
+            setPickedFiles(prevFiles => [...prevFiles, ...result.assets]);
+        } else if (result.reason === 'unavailable') {
+            Alert.alert('No disponible', 'La galería no está disponible en este dispositivo.');
+        } else if (result.reason === 'permission-denied') {
+            Alert.alert('Permiso denegado', 'Se necesita acceso a la galería para adjuntar imágenes o videos.');
+        }
+    };
+
+    const handleAgregarArchivo = () => {
+        Alert.alert('Adjuntar archivo', 'Elegí una opción', [
+            { text: 'Tomar foto', onPress: () => void handleTakePhoto() },
+            { text: 'Elegir de galería', onPress: () => void handlePickFromGallery() },
+            { text: 'Elegir archivo', onPress: () => void handleSeleccionarArchivo() },
+            { text: 'Cancelar', style: 'cancel' },
+        ]);
     };
 
 
@@ -547,9 +579,7 @@ export function FormObjetivoModal({
                                 <View style={styles.sectionHeaderRow}>
                                     <Text style={styles.label}>Archivos enlazados</Text>
                                     <TouchableOpacity style={styles.actionButton}
-                                        onPress={() => {
-                                            handleSeleccionarArchivo();
-                                        }}
+                                        onPress={handleAgregarArchivo}
                                     >
                                         <Ionicons name="add" size={16} color={glassColors.link} />
                                         <Text style={styles.actionButtonText}>Agregar archivos</Text>
@@ -620,6 +650,7 @@ export function FormObjetivoModal({
                     </View>
             </ModalKeyboardView>
         </View>
+        {CameraModal}
         </FullScreenPortal>
     );
 }

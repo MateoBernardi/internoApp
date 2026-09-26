@@ -6,12 +6,14 @@ import type {
   HorarioDTO,
   HorarioUsuarioDTO,
   KioskSecretDTO,
+  ScanEventDTO,
   ScanPayload,
   ScanResultDTO,
   SedeDTO,
   UpdateHorarioPayload,
   UploadShiftsResponse,
 } from '../models/HorarioDTO';
+import { TURNO_LABEL } from '../models/Turno';
 
 const API_BASE_URL: string = Constants.expoConfig?.extra?.API_BASE_URL ?? '';
 
@@ -146,17 +148,19 @@ export async function updateHorario(
   if (!res.ok) throwApiError(await extractError(res), res);
 }
 
-/** Marca (o desmarca) como feriado todos los turnos de un día calendario de una vez. */
+/** Marca (o desmarca) como feriado todos los turnos de un día calendario de una vez,
+ *  o solo los de un turno puntual si se pasa `turno`. */
 export async function marcarFeriadoDia(
   token: string,
   fechaISO: string, // "YYYY-MM-DD"
   feriado: boolean,
+  turno?: 'MANANA' | 'TARDE',
 ): Promise<{ message: string; affected: number }> {
   const res = await apiRequest({
     method: 'PATCH',
     endpoint: '/horarios/dia/feriado',
     token,
-    body: { fecha: fechaISO, feriado },
+    body: { fecha: fechaISO, feriado, turno: turno ? TURNO_LABEL[turno] : undefined },
   });
   if (!res.ok) throwApiError(await extractError(res), res);
   return res.json();
@@ -222,5 +226,16 @@ export async function enviarScan(
     });
     throwApiError(errText, res);
   }
+  return res.json();
+}
+
+/** Historial de escaneos (IN/OUT) de un turno puntual (GET /horarios/:id/scans). */
+export async function getScanHistory(token: string, planificacionId: number): Promise<ScanEventDTO[]> {
+  const res = await apiRequest({
+    method: 'GET',
+    endpoint: `/horarios/${planificacionId}/scans`,
+    token,
+  });
+  if (!res.ok) throwApiError(await extractError(res), res);
   return res.json();
 }

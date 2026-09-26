@@ -22,6 +22,7 @@ export interface HorarioDTO {
   acepted_at?: string | null;
   marcado_in_at?: string | null;
   marcado_out_at?: string | null;
+  reportado_tardanza?: boolean;
 }
 
 export interface SedeDTO {
@@ -96,4 +97,14 @@ export interface ScanPayload {
 export interface ScanResultDTO {
   success: boolean;
   message: string;
+}
+
+export type ScanTipo = 'IN' | 'OUT';
+
+/** Un evento de escaneo, devuelto por `GET /horarios/:id/scans`. */
+export interface ScanEventDTO {
+  tipoScan: ScanTipo;
+  createdAt: string; // ISO datetime
+  latitud: number;
+  longitud: number;
 }

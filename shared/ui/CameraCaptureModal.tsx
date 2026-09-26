@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { CameraMode, CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
+import { CameraMode, CameraType, CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
 import { File } from 'expo-file-system';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -14,6 +14,11 @@ import type { CapturedMediaFile } from './cameraTypes';
 // 1080p30 a bitrate típico (~6-10 Mbps) para 120s. Solo se aplica acá (no en
 // el picker nativo, que en Android ni siquiera ofrece grabar video).
 const RECORDING_MAX_DURATION_SECONDS = 120;
+
+// Umbral para distinguir un tap (foto) de mantener presionado (graba video),
+// igual que Instagram/WhatsApp. Funciona en cualquier modo, además del tab
+// Foto/Video existente.
+const HOLD_TO_RECORD_MS = 300;
 
 const EXT_MIME: Record<string, string> = {
   jpg: 'image/jpeg',
@@ -46,8 +51,12 @@ export function CameraCaptureModal({ visible, onCapture, onCancel }: CameraCaptu
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [microphonePermission, requestMicrophonePermission] = useMicrophonePermissions();
   const [mode, setMode] = useState<CameraMode>('picture');
+  const [facing, setFacing] = useState<CameraType>('back');
   const [isRecording, setIsRecording] = useState(false);
   const [elapsed, setElapsed] = useState(0);
+
+  const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const holdTriggeredRef = useRef(false);
 
   useEffect(() => {
     if (visible && !cameraPermission?.granted && cameraPermission?.canAskAgain !== false) {
@@ -58,9 +67,12 @@ export function CameraCaptureModal({ visible, onCapture, onCancel }: CameraCaptu
   useEffect(() => {
     if (!visible) {
       setMode('picture');
+      setFacing('back');
       setIsRecording(false);
       setElapsed(0);
       if (timerRef.current) clearInterval(timerRef.current);
+      if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
+      holdTriggeredRef.current = false;
     }
   }, [visible]);
 
@@ -115,15 +127,44 @@ export function CameraCaptureModal({ visible, onCapture, onCancel }: CameraCaptu
     }
   }, [microphonePermission, requestMicrophonePermission, finalizeCapture, onCancel]);
 
-  const handleCapturePress = useCallback(() => {
-    if (mode === 'picture') {
-      void handleTakePicture();
-    } else if (isRecording) {
+  const clearHoldTimer = useCallback(() => {
+    if (holdTimerRef.current) {
+      clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+  }, []);
+
+  // Mantener presionado graba video sin importar el modo elegido (además del
+  // tab Foto/Video, que sigue funcionando igual que antes con un tap).
+  const handlePressIn = useCallback(() => {
+    if (isRecording) return;
+    holdTriggeredRef.current = false;
+    holdTimerRef.current = setTimeout(() => {
+      holdTriggeredRef.current = true;
+      void handleStartRecording();
+    }, HOLD_TO_RECORD_MS);
+  }, [isRecording, handleStartRecording]);
+
+  const handlePressOut = useCallback(() => {
+    clearHoldTimer();
+    if (holdTriggeredRef.current) {
+      holdTriggeredRef.current = false;
       cameraRef.current?.stopRecording();
+      return;
+    }
+    // No fue un hold: comportamiento de tap existente, según modo.
+    if (isRecording) {
+      cameraRef.current?.stopRecording();
+    } else if (mode === 'picture') {
+      void handleTakePicture();
     } else {
       void handleStartRecording();
     }
-  }, [mode, isRecording, handleTakePicture, handleStartRecording]);
+  }, [mode, isRecording, handleTakePicture, handleStartRecording, clearHoldTimer]);
+
+  const handleFlipCamera = useCallback(() => {
+    setFacing((prev) => (prev === 'back' ? 'front' : 'back'));
+  }, []);
 
   const handleBack = useCallback(() => {
     if (isRecording) {
@@ -165,10 +206,13 @@ export function CameraCaptureModal({ visible, onCapture, onCancel }: CameraCaptu
           </View>
         ) : (
           <View style={styles.cameraContainer}>
-            <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing="back" mode={mode} />
+            <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing={facing} mode={mode} />
 
             <View style={[styles.headerAbsolute, { paddingTop: insets.top + 12 }]}>
               <AppBackButton onPress={handleBack} iconName="close" />
+              {!isRecording && (
+                <AppBackButton onPress={handleFlipCamera} iconName="camera-reverse-outline" />
+              )}
             </View>
 
             {isRecording && (
@@ -191,9 +235,16 @@ export function CameraCaptureModal({ visible, onCapture, onCancel }: CameraCaptu
 
               <TouchableOpacity
                 style={[styles.captureButton, isRecording && styles.captureButtonRecording]}
-                onPress={handleCapturePress}
+                onPressIn={handlePressIn}
+                onPressOut={handlePressOut}
                 accessibilityRole="button"
-                accessibilityLabel={mode === 'picture' ? 'Tomar foto' : isRecording ? 'Detener grabación' : 'Grabar video'}
+                accessibilityLabel={
+                  isRecording
+                    ? 'Detener grabación'
+                    : mode === 'picture'
+                      ? 'Tomar foto. Mantené presionado para grabar video.'
+                      : 'Grabar video'
+                }
               >
                 {isRecording ? (
                   <View style={styles.stopIcon} />
@@ -230,6 +281,9 @@ const styles = StyleSheet.create({
     right: 0,
     zIndex: 2,
     paddingHorizontal: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   permissionTitle: {
     fontSize: 18,

@@ -14,6 +14,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   BackHandler,
   Linking,
   Modal,
@@ -29,6 +30,8 @@ import { GlassButton } from '@/shared/ui/GlassButton';
 import { focusBorderStyles, glassColors, glassStyles } from '@/shared/ui/glass';
 import { IsolatedTextInput, IsolatedTextInputHandle } from '@/shared/ui/IsolatedTextInput';
 import { useFocusBorder } from '@/shared/ui/useFocusBorder';
+import { pickFromGallery } from '@/shared/ui/pickFromGallery';
+import { useCameraCapture } from '@/shared/ui/useCameraCapture';
 import { useSafeBottomInset } from '@/hooks/useSafeBottomInset';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EstadoSolicitud } from '../models/SolicitudLicencia';
@@ -132,6 +135,7 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
   const [actionType, setActionType] = useState<'approve' | 'reject' | null>(null);
   const [selectedArchivoId, setSelectedArchivoId] = useState<number | undefined>();
   const [isUploadingDoc, setIsUploadingDoc] = useState(false);
+  const { openCamera, CameraModal } = useCameraCapture();
 
   // Get archivo URL
   const { data: archivoUrl, isLoading: isLoadingUrl } = useArchivoUrl(selectedArchivoId);
@@ -237,7 +241,52 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
     ]);
   }, [solicitudId, cancelarSolicitud, handleClose, showModal]);
 
-  const handleUploadDocument = useCallback(async () => {
+  const uploadAndAdjuntarArchivo = useCallback(async (file: { uri: string; name: string; type: string; size?: number }) => {
+    setIsUploadingDoc(true);
+    try {
+      const archivoSubido = await uploadArchivoAsync({
+        item: [
+          {
+            archivo: file,
+            archivoData: {
+              nombre: file.name,
+              tamaño: file.size,
+              tipo: file.type,
+              uso: ArchivoUso.LICENCIA,
+            },
+          },
+        ],
+      });
+      const archivoId = archivoSubido.exitosos?.[0]?.data?.id;
+      if (!archivoId) {
+        throw new Error('No se recibió información del archivo subido');
+      }
+      adjuntarArchivoMutation(
+        {
+          solicitudId,
+          archivoId,
+          // Key por adjunto: vive en las variables de la mutación, así los
+          // reintentos automáticos reusan exactamente la misma.
+          idempotencyKey: generateIdempotencyKey(),
+        },
+        {
+          onSuccess: () => {
+            setIsUploadingDoc(false);
+            showModal('Éxito', 'Documento adjuntado correctamente.');
+          },
+          onError: () => {
+            setIsUploadingDoc(false);
+            showModal('Error', 'No se pudo adjuntar el documento.');
+          },
+        }
+      );
+    } catch {
+      setIsUploadingDoc(false);
+      showModal('Error', 'No se pudo subir el archivo.');
+    }
+  }, [solicitudId, uploadArchivoAsync, adjuntarArchivoMutation, showModal]);
+
+  const handleSeleccionarArchivo = useCallback(async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type: ['application/pdf', 'application/msword',
@@ -247,58 +296,45 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
       });
       if (result.canceled || !result.assets?.[0]) return;
       const asset = result.assets[0];
-
-      setIsUploadingDoc(true);
-      try {
-        const archivoSubido = await uploadArchivoAsync({
-          item: [
-            {
-              archivo: {
-                uri: asset.uri,
-                name: asset.name,
-                type: asset.mimeType ?? 'application/octet-stream',
-                size: asset.size,
-              },
-              archivoData: {
-                nombre: asset.name,
-                tamaño: asset.size,
-                tipo: asset.mimeType ?? 'application/octet-stream',
-                uso: ArchivoUso.LICENCIA,
-              },
-            },
-          ],
-        });
-        const archivoId = archivoSubido.exitosos?.[0]?.data?.id;
-        if (!archivoId) {
-          throw new Error('No se recibió información del archivo subido');
-        }
-        adjuntarArchivoMutation(
-          {
-            solicitudId,
-            archivoId,
-            // Key por adjunto: vive en las variables de la mutación, así los
-            // reintentos automáticos reusan exactamente la misma.
-            idempotencyKey: generateIdempotencyKey(),
-          },
-          {
-            onSuccess: () => {
-              setIsUploadingDoc(false);
-              showModal('Éxito', 'Documento adjuntado correctamente.');
-            },
-            onError: () => {
-              setIsUploadingDoc(false);
-              showModal('Error', 'No se pudo adjuntar el documento.');
-            },
-          }
-        );
-      } catch {
-        setIsUploadingDoc(false);
-        showModal('Error', 'No se pudo subir el archivo.');
-      }
+      void uploadAndAdjuntarArchivo({
+        uri: asset.uri,
+        name: asset.name,
+        type: asset.mimeType ?? 'application/octet-stream',
+        size: asset.size,
+      });
     } catch {
       showModal('Error', 'No se pudo abrir el selector de archivos.');
     }
-  }, [solicitudId, uploadArchivoAsync, adjuntarArchivoMutation, showModal]);
+  }, [uploadAndAdjuntarArchivo, showModal]);
+
+  const handleTomarFoto = useCallback(async () => {
+    const result = await openCamera();
+    if (result.ok) {
+      void uploadAndAdjuntarArchivo(result.file);
+    } else if (result.reason === 'unavailable') {
+      showModal('No disponible', 'La cámara no está disponible en este dispositivo.');
+    }
+  }, [openCamera, uploadAndAdjuntarArchivo, showModal]);
+
+  const handlePickFromGallery = useCallback(async () => {
+    const result = await pickFromGallery();
+    if (result.ok) {
+      void uploadAndAdjuntarArchivo(result.assets[0]);
+    } else if (result.reason === 'unavailable') {
+      showModal('No disponible', 'La galería no está disponible en este dispositivo.');
+    } else if (result.reason === 'permission-denied') {
+      showModal('Permiso denegado', 'Se necesita acceso a la galería para adjuntar imágenes o videos.');
+    }
+  }, [uploadAndAdjuntarArchivo, showModal]);
+
+  const handleUploadDocument = useCallback(() => {
+    Alert.alert('Adjuntar documento', 'Elegí una opción', [
+      { text: 'Tomar foto', onPress: handleTomarFoto },
+      { text: 'Elegir de galería', onPress: handlePickFromGallery },
+      { text: 'Elegir archivo', onPress: handleSeleccionarArchivo },
+      { text: 'Cancelar', style: 'cancel' },
+    ]);
+  }, [handleTomarFoto, handlePickFromGallery, handleSeleccionarArchivo]);
 
   const fechaInicio = solicitud ? new Date(solicitud.fecha_inicio) : new Date();
   const fechaFin = solicitud ? new Date(solicitud.fecha_fin) : new Date();
@@ -639,6 +675,7 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
           </View>
         </View>
       </View>
+      {CameraModal}
     </FullScreenPortal>
   );
 } const styles = StyleSheet.create({

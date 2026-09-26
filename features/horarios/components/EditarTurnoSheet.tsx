@@ -16,8 +16,9 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSafeBottomInset } from '@/hooks/useSafeBottomInset';
 import type { SedeDTO } from '../models/HorarioDTO';
-import { INK, LINE, MUTED, NAVY, TURNO_ACTIVE, TURNO_SOFT } from '../theme';
-import type { Turno } from '../models/Turno';
+import { INK, LINE, MUTED, NAVY, RED_FLASH, TURNO_ACTIVE, TURNO_COLOR, TURNO_SOFT } from '../theme';
+import { parseLocal, type Turno } from '../models/Turno';
+import { useScanHistory } from '../viewmodels/useHorarios';
 
 interface EditarTurnoSheetProps {
   visible: boolean;
@@ -106,6 +107,9 @@ export function EditarTurnoSheet({
   // tiene sentido: el empleado ya fichó ese turno.
   const licenciaBloqueada = entradaBloqueada || salidaBloqueada;
 
+  const scanHistoryQuery = useScanHistory(displayDraft?.id, visible);
+  const scanHistory = scanHistoryQuery.data ?? [];
+
   const handleSave = () => {
     if (!displayDraft) return;
     onSave({
@@ -150,6 +154,15 @@ export function EditarTurnoSheet({
                           : entradaBloqueada
                           ? 'Entrada ya escaneada — el ingreso y la licencia no se pueden modificar'
                           : 'Salida ya escaneada — el egreso y la licencia no se pueden modificar'}
+                      </Text>
+                    </View>
+                  )}
+
+                  {displayDraft.reportadoTardanza && (
+                    <View style={styles.reportadoBanner}>
+                      <Ionicons name="alert-circle" size={14} color={RED_FLASH} />
+                      <Text style={styles.reportadoBannerText}>
+                        Reportado — ya se generó un reporte automático para este turno
                       </Text>
                     </View>
                   )}
@@ -228,7 +241,7 @@ export function EditarTurnoSheet({
                   </View>
 
                   <View style={styles.field}>
-                    <Text style={styles.fieldLabel}>LICENCIA</Text>
+                    <Text style={styles.fieldLabel}>AUSENCIA</Text>
                     <View style={[styles.licenciaRow, licenciaBloqueada && styles.fieldDisabled]}>
                       <TouchableOpacity
                         style={[styles.licenciaBtn, !displayDraft.licencia && styles.licenciaBtnActive]}
@@ -270,6 +283,54 @@ export function EditarTurnoSheet({
                           Sí
                         </Text>
                       </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  <View style={styles.field}>
+                    <Text style={styles.fieldLabel}>HISTORIAL DE MARCADO</Text>
+                    <View style={styles.scanList}>
+                      {scanHistoryQuery.isFetching && !scanHistoryQuery.data ? (
+                        <View style={styles.scanCenterState}>
+                          <ActivityIndicator size="small" color={TURNO_COLOR} />
+                          <Text style={styles.scanStateText}>Cargando historial…</Text>
+                        </View>
+                      ) : scanHistoryQuery.isError ? (
+                        <View style={styles.scanCenterState}>
+                          <Ionicons name="alert-circle-outline" size={24} color={RED_FLASH} style={{ marginBottom: 4 }} />
+                          <Text style={styles.scanStateText}>No se pudo cargar el historial.</Text>
+                          <TouchableOpacity style={styles.scanRetryBtn} onPress={() => scanHistoryQuery.refetch()}>
+                            <Text style={styles.scanRetryBtnText}>Reintentar</Text>
+                          </TouchableOpacity>
+                        </View>
+                      ) : scanHistory.length === 0 ? (
+                        <View style={styles.scanCenterState}>
+                          <Text style={styles.scanStateText}>Sin marcaciones registradas</Text>
+                        </View>
+                      ) : (
+                        scanHistory.map((scan, i) => {
+                          const fecha = parseLocal(scan.createdAt);
+                          const pad2 = (n: number) => String(n).padStart(2, '0');
+                          return (
+                            <View key={`${scan.tipoScan}-${scan.createdAt}-${i}`} style={styles.scanRow}>
+                              <View style={styles.scanRowLeft}>
+                                <Ionicons
+                                  name={scan.tipoScan === 'IN' ? 'log-in-outline' : 'log-out-outline'}
+                                  size={16}
+                                  color={TURNO_COLOR}
+                                />
+                                <Text style={styles.scanTipo}>{scan.tipoScan === 'IN' ? 'Entrada' : 'Salida'}</Text>
+                              </View>
+                              <View style={styles.scanRowRight}>
+                                <Text style={styles.scanTime}>{pad2(fecha.getHours())}:{pad2(fecha.getMinutes())}</Text>
+                                <Text style={styles.scanCoords}>
+                                  {Number.isFinite(Number(scan.latitud)) ? Number(scan.latitud).toFixed(4) : '—'},{' '}
+                                  {Number.isFinite(Number(scan.longitud)) ? Number(scan.longitud).toFixed(4) : '—'}
+                                </Text>
+                              </View>
+                            </View>
+                          );
+                        })
+                      )}
                     </View>
                   </View>
                 </>
@@ -469,6 +530,79 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: MUTED,
+  },
+  reportadoBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    backgroundColor: 'rgba(239,68,68,0.08)',
+  },
+  reportadoBannerText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: RED_FLASH,
+  },
+  scanList: {
+    gap: 8,
+  },
+  scanRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    backgroundColor: 'rgba(17,24,28,0.03)',
+  },
+  scanRowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  scanRowRight: {
+    alignItems: 'flex-end',
+    gap: 2,
+  },
+  scanTipo: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: INK,
+  },
+  scanTime: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: INK,
+    fontVariant: ['tabular-nums'],
+  },
+  scanCoords: {
+    fontSize: 11,
+    color: MUTED,
+  },
+  scanCenterState: {
+    alignItems: 'center',
+    paddingVertical: 18,
+    gap: 6,
+  },
+  scanStateText: {
+    fontSize: 13,
+    color: MUTED,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  scanRetryBtn: {
+    marginTop: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: TURNO_COLOR,
+  },
+  scanRetryBtnText: {
+    color: '#ffffff',
+    fontWeight: '700',
+    fontSize: 13,
   },
   fieldDisabled: {
     opacity: 0.55,

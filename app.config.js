@@ -89,6 +89,14 @@ const plugins = [
       "photoLibraryPermission": "Esta aplicación requiere acceso a tu biblioteca de fotos para que los usuarios puedan seleccionar y subir imágenes de comprobantes, recibos o reportes de daños guardados en el dispositivo hacia el sistema de la empresa.",
     }
   ],
+  [
+    "expo-media-library",
+    {
+      "photosPermission": "Esta aplicación requiere acceso a tu biblioteca de fotos para que los usuarios puedan elegir imágenes de comprobantes, recibos o reportes de daños guardados en el dispositivo hacia el sistema de la empresa.",
+      "savePhotosPermission": "Esta aplicación requiere acceso a tu biblioteca de fotos para guardar archivos descargados en la galería del dispositivo.",
+      "isAccessMediaLocationEnabled": false
+    }
+  ],
   "./plugins/withBlockedAndroidMediaPermissions",
   "expo-video",
 ];

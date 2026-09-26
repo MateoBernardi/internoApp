@@ -92,7 +92,7 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
   const [isUploadingFile, setIsUploadingFile] = useState(false);
   const { mutateAsync: uploadArchivo } = useUploadArchivo(idempotencyKey);
   const { alertModal, showModal, closeAlert, onModalDismiss } = useAlertModal();
-  const { pickedFiles, setPickedFiles, handleTakePhoto, handleSeleccionarArchivo, CameraModal } = useFilePicker({ showModal });
+  const { pickedFiles, setPickedFiles, handleAgregarAdjunto, CameraModal } = useFilePicker({ showModal });
 
   const rolesForSelector = useMemo(
     () => (isConsejo ? adminRoles : allRoles),
@@ -401,27 +401,6 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
 
     ejecutarCreacion(payload);
   }, [isFormValid, hasDates, fechaInicio, fechaFin, allDay, selectedUsers, titulo, descripcion, ejecutarCreacion, showModal, pickedFiles, fromChatsTab, esGrupoChat, enviarPorSeparado]);
-
-  const handleAgregarAdjunto = useCallback(() => {
-    showModal('Adjuntar archivo', 'Elegí una opción', [
-      {
-        key: 'file',
-        label: 'Seleccionar archivo',
-        onPress: handleSeleccionarArchivo,
-      },
-      {
-        key: 'camera',
-        label: 'Crear imagen',
-        onPress: handleTakePhoto,
-      },
-      {
-        key: 'cancel',
-        label: 'Cancelar',
-        onPress: () => { },
-        variant: 'neutral',
-      },
-    ]);
-  }, [handleTakePhoto, handleSeleccionarArchivo, showModal]);
 
   useEffect(() => {
     if (!visible) return;

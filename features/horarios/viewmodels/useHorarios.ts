@@ -5,6 +5,7 @@ import {
   type FeriadosRangeFilter,
   getFeriadosByRange,
   getHorariosByDate,
+  getScanHistory,
   getSedes,
   type HorariosByDateFilter,
   marcarFeriadoDia,
@@ -19,6 +20,7 @@ export const horariosQueryKeys = {
     ['horarios', 'byDate', diaFecha, filter?.key ?? null, filter?.value ?? null] as const,
   feriadosByRange: (fechaInicio: string, fechaFin: string, filter: FeriadosRangeFilter) =>
     ['horarios', 'feriadosByRange', fechaInicio, fechaFin, filter.userContextId ?? null, filter.role ?? null] as const,
+  scanHistory: (planificacionId: number) => ['horarios', 'scanHistory', planificacionId] as const,
 };
 
 export function useSedes() {
@@ -70,6 +72,24 @@ export function useFeriadosByRange(fechaInicio: string, fechaFin: string, filter
   });
 }
 
+export function useScanHistory(planificacionId: number | undefined, enabled: boolean) {
+  const { tokens } = useAuth();
+  return useQuery({
+    queryKey: horariosQueryKeys.scanHistory(planificacionId ?? 0),
+    queryFn: async () => {
+      const token = tokens?.accessToken;
+      if (!token) throw new Error('No access token');
+      return getScanHistory(token, planificacionId!);
+    },
+    enabled: enabled && !!planificacionId,
+    staleTime: 0,
+    gcTime: 1000 * 60 * 10,
+    refetchOnMount: 'always',
+    retry: 3,
+    retryDelay: (i) => Math.min(1000 * 2 ** i, 30000),
+  });
+}
+
 export function useUploadShifts() {
   const { tokens } = useAuth();
   const queryClient = useQueryClient();
@@ -109,10 +129,10 @@ export function useMarcarFeriadoDia() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ fechaISO, feriado }: { fechaISO: string; feriado: boolean }) => {
+    mutationFn: async ({ fechaISO, feriado, turno }: { fechaISO: string; feriado: boolean; turno?: 'MANANA' | 'TARDE' }) => {
       const token = tokens?.accessToken;
       if (!token) throw new Error('No access token');
-      return marcarFeriadoDia(token, fechaISO, feriado);
+      return marcarFeriadoDia(token, fechaISO, feriado, turno);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: horariosQueryKeys.all });

@@ -47,9 +47,11 @@ export function useFileActions(file: FileItem | null) {
     setBusy(true);
     try {
       if ((file.kind === 'image' || file.kind === 'video') && Platform.OS === 'ios') {
-        const MediaLibrary = await import('expo-media-library');
+        const MediaLibrary = await import('expo-media-library/legacy');
         const localUri = await ensureLocalUri(file.uri, file.name);
-        const { status } = await MediaLibrary.requestPermissionsAsync();
+        // Sin `granularPermissions`, pide foto+video+audio por defecto — audio
+        // no está declarado en el manifest (no lo usamos) y la request entera falla.
+        const { status } = await MediaLibrary.requestPermissionsAsync(false, ['photo', 'video']);
         if (status !== 'granted') {
           Alert.alert('Sin permisos', 'Permite el acceso a la galería para guardar la imagen');
           return;

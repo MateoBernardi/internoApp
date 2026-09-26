@@ -9,7 +9,6 @@ import { useAlertModal } from '@/features/solicitudesActividades/conversacion/ho
 import { conversacionStyles } from '@/features/solicitudesActividades/conversacion/styles';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
-import type * as ImagePickerTypes from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -32,6 +31,8 @@ import { useFocusBorder } from '@/shared/ui/useFocusBorder';
 import { useSafeBottomInset } from '@/hooks/useSafeBottomInset';
 import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { pickFromGallery } from '@/shared/ui/pickFromGallery';
+import { useCameraCapture } from '@/shared/ui/useCameraCapture';
 import { CreateSolicitudDTO } from '../models/SolicitudLicencia';
 import {
     useAdjuntarArchivo,
@@ -41,15 +42,6 @@ import {
 } from '../viewmodels/useSolicitudes';
 
 const colors = Colors['light'];
-
-// expo-image-picker se carga de forma perezosa: en algunos entornos (web/SSR)
-// el módulo nativo no está disponible y `require` lanza.
-let ImagePicker: typeof ImagePickerTypes | null = null;
-try {
-    ImagePicker = require('expo-image-picker');
-} catch {
-    console.warn('expo-image-picker no disponible. La cámara estará deshabilitada.');
-}
 
 function normalizeToMinute(date: Date): Date {
     const normalized = new Date(date);
@@ -104,6 +96,7 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
     const observacionFocus = useFocusBorder();
     const [archivoAdjunto, setArchivoAdjunto] = useState<{ name: string; uri: string; type: string; size?: number } | null>(null);
     const [isUploadingFile, setIsUploadingFile] = useState(false);
+    const { openCamera, CameraModal } = useCameraCapture();
     const isSubmittingRef = useRef(false);
     const idempotencyKeyRef = useRef(generateIdempotencyKey());
 
@@ -229,36 +222,36 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
 
     // --- Tomar Foto (cámara) ---
     const handleTomarFoto = useCallback(async () => {
-        if (!ImagePicker) {
+        const result = await openCamera();
+        if (result.ok) {
+            setArchivoAdjunto(result.file);
+        } else if (result.reason === 'unavailable') {
             showModal('No disponible', 'La cámara no está disponible en este dispositivo.');
-            return;
         }
-        const { status } = await ImagePicker.requestCameraPermissionsAsync();
-        if (status !== 'granted') {
-            showModal('Permiso denegado', 'Se necesita acceso a la cámara para tomar fotos.');
-            return;
-        }
-        const result = await ImagePicker.launchCameraAsync({ mediaTypes: 'images', quality: 0.8 });
-        if (!result.canceled && result.assets.length > 0) {
-            const asset = result.assets[0];
-            const ext = asset.uri.split('.').pop() ?? 'jpg';
-            setArchivoAdjunto({
-                name: asset.fileName ?? `foto_${Date.now()}.${ext}`,
-                uri: asset.uri,
-                type: asset.mimeType ?? `image/${ext}`,
-                size: asset.fileSize,
-            });
+    }, [openCamera, showModal]);
+
+    // --- Elegir de galería ---
+    const handlePickFromGallery = useCallback(async () => {
+        const result = await pickFromGallery();
+        if (result.ok) {
+            setArchivoAdjunto(result.assets[0]);
+        } else if (result.reason === 'unavailable') {
+            showModal('No disponible', 'La galería no está disponible en este dispositivo.');
+        } else if (result.reason === 'permission-denied') {
+            showModal('Permiso denegado', 'Se necesita acceso a la galería para adjuntar imágenes o videos.');
         }
     }, [showModal]);
 
-    // --- Menú de adjunto (cámara / archivo), igual que en Chats ---
+    // --- Bandeja de adjunto (cámara / galería / archivo) ---
+    // --- Menú de adjunto (cámara / galería / archivo), igual que en Chats ---
     const handleAgregarAdjunto = useCallback(() => {
         Alert.alert('Adjuntar documentación', 'Elegí una opción', [
             { text: 'Tomar foto', onPress: handleTomarFoto },
+            { text: 'Elegir de galería', onPress: handlePickFromGallery },
             { text: 'Elegir archivo', onPress: handleSeleccionarArchivo },
             { text: 'Cancelar', style: 'cancel' },
         ]);
-    }, [handleTomarFoto, handleSeleccionarArchivo]);
+    }, [handleTomarFoto, handlePickFromGallery, handleSeleccionarArchivo]);
 
     // --- Crear Solicitud ---
     const procederCrearSolicitud = useCallback(() => {
@@ -718,6 +711,7 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
                 <OperacionPendienteModal visible={isPending} />
                 <AlertModal {...alertModal} onClose={closeAlert} onDismiss={onModalDismiss} />
         </View>
+        {CameraModal}
         </FullScreenPortal>
     );
 }

@@ -1,5 +1,6 @@
 import * as DocumentPicker from 'expo-document-picker';
 import { useCallback, useState } from 'react';
+import { pickFromGallery } from '@/shared/ui/pickFromGallery';
 import { useCameraCapture } from '@/shared/ui/useCameraCapture';
 import type { useAlertModal } from './useAlertModal';
 
@@ -41,17 +42,33 @@ export function useFilePicker({ showModal }: { showModal: ShowModalFn }) {
     } catch { showModal('Error', 'No se pudo seleccionar el documento.'); }
   }, [showModal]);
 
+  const handlePickFromGallery = useCallback(async () => {
+    const result = await pickFromGallery({ allowsMultipleSelection: true });
+    if (result.ok) {
+      setPickedFiles(prev => [...prev, ...result.assets]);
+    } else if (result.reason === 'unavailable') {
+      showModal('No disponible', 'La galería no está disponible.');
+    } else if (result.reason === 'permission-denied') {
+      showModal('Permiso denegado', 'Se necesita acceso a la galería para adjuntar imágenes o videos.');
+    }
+  }, [showModal]);
+
   const handleAgregarAdjunto = useCallback(() => {
     showModal('Adjuntar archivo', 'Elegí una opción', [
       { key: 'file', label: 'Archivo', onPress: handleSeleccionarArchivo },
+      { key: 'gallery', label: 'Galería', onPress: handlePickFromGallery },
       { key: 'camera', label: 'Cámara', onPress: handleTakePhoto },
       { key: 'cancel', label: 'Cancelar', onPress: () => { }, variant: 'neutral' },
     ]);
-  }, [handleTakePhoto, handleSeleccionarArchivo, showModal]);
+  }, [handleTakePhoto, handlePickFromGallery, handleSeleccionarArchivo, showModal]);
 
-  // `handleTakePhoto`/`handleSeleccionarArchivo` se exponen para consumidores
-  // que arman su propio menú (con otras etiquetas); `handleAgregarAdjunto` es el
-  // menú por defecto ("Archivo"/"Cámara"). `CameraModal` debe renderizarse una
-  // vez en el árbol del consumidor para que `handleTakePhoto` funcione.
-  return { pickedFiles, setPickedFiles, handleTakePhoto, handleSeleccionarArchivo, handleAgregarAdjunto, CameraModal };
+  // `handleTakePhoto`/`handlePickFromGallery`/`handleSeleccionarArchivo` se
+  // exponen para consumidores que arman su propio menú (con otras etiquetas);
+  // `handleAgregarAdjunto` es el menú por defecto ("Archivo"/"Galería"/"Cámara").
+  // `CameraModal` debe renderizarse una vez en el árbol del consumidor para
+  // que `handleTakePhoto` funcione.
+  return {
+    pickedFiles, setPickedFiles, handleTakePhoto, handlePickFromGallery, handleSeleccionarArchivo,
+    handleAgregarAdjunto, CameraModal,
+  };
 }

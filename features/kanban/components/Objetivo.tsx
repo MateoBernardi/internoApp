@@ -20,6 +20,8 @@ import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
 import { ParticipantesBlock } from '@/features/solicitudesActividades/components/ParticipantesBlock';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
+import { pickFromGallery } from '@/shared/ui/pickFromGallery';
+import { useCameraCapture } from '@/shared/ui/useCameraCapture';
 import React, { useEffect, useRef, useState } from "react";
 import {
     Alert,
@@ -91,6 +93,7 @@ export function DetailModal({ visible, objetivo, onClose, onDelete, onMove, curr
 
     const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
     const [isUploadingFile, setIsUploadingFile] = useState(false);
+    const { openCamera, CameraModal } = useCameraCapture();
 
     const { data: searchResults, isLoading: isSearchingUsers } = useSearchUsers(searchQuery);
     const { data: roleUsersData, isLoading: isLoadingRole } = useGetUserByRole(activeRole);
@@ -301,6 +304,49 @@ export function DetailModal({ visible, objetivo, onClose, onDelete, onMove, curr
     const isSuccess = <T,>(r: ApiOperationResult<T>): r is ApiOperationResult<T> & { data: T } =>
         r.status === 'success' && r.data !== undefined;
 
+    const uploadArchivos = async (nuevosArchivos: PendingFile[]) => {
+        if (nuevosArchivos.length === 0) return;
+
+        setPendingFiles((prev) => [...prev, ...nuevosArchivos]);
+        setIsUploadingFile(true);
+
+        try {
+            const response = await uploadArchivo({
+                item: nuevosArchivos.map((file) => ({
+                    archivo: { uri: file.uri, name: file.name, type: file.type, size: file.size },
+                    archivoData: { nombre: file.name, tamaño: file.size, tipo: file.type, uso: ArchivoUso.TAREA },
+                })),
+            });
+
+            const resultados = response?.exitosos ?? [];
+            const fallidos = response?.fallidos ?? [];
+            const validos = resultados.filter(isSuccess);
+            const nuevosIds = validos.map((r) => r.data.id);
+            const nuevosArchivosData = validos.map((r) => r.data) as Archivo[];
+
+            if (validos.length === 0) {
+                Alert.alert('Error de archivos', 'No se pudo subir ningun archivo.');
+            } else if (fallidos.length > 0) {
+                Alert.alert('Archivos parciales', `Se subieron ${validos.length} de ${nuevosArchivos.length}`);
+            }
+
+            if (nuevosIds.length > 0) {
+                setLocalObjetivo((prev) => {
+                    if (!prev) return prev;
+                    return { ...prev, archivos: [...(prev.archivos ?? []), ...nuevosArchivosData] };
+                });
+                await helpers.agregarArchivos(nuevosIds);
+            }
+        } catch {
+            Alert.alert('Error de archivos', 'No se pudieron subir los archivos.');
+        } finally {
+            setIsUploadingFile(false);
+            setPendingFiles((prev) =>
+                prev.filter((file) => !nuevosArchivos.some((nuevo) => nuevo.uri === file.uri))
+            );
+        }
+    };
+
     const handleSeleccionarArchivo = async () => {
         try {
             const result = await DocumentPicker.getDocumentAsync({
@@ -318,48 +364,40 @@ export function DetailModal({ visible, objetivo, onClose, onDelete, onMove, curr
                 size: asset.size,
             }));
 
-            setPendingFiles((prev) => [...prev, ...nuevosArchivos]);
-            setIsUploadingFile(true);
-
-            try {
-                const response = await uploadArchivo({
-                    item: nuevosArchivos.map((file) => ({
-                        archivo: { uri: file.uri, name: file.name, type: file.type, size: file.size },
-                        archivoData: { nombre: file.name, tamaño: file.size, tipo: file.type, uso: ArchivoUso.TAREA },
-                    })),
-                });
-
-                const resultados = response?.exitosos ?? [];
-                const fallidos = response?.fallidos ?? [];
-                const validos = resultados.filter(isSuccess);
-                const nuevosIds = validos.map((r) => r.data.id);
-                const nuevosArchivosData = validos.map((r) => r.data) as Archivo[];
-
-                if (validos.length === 0) {
-                    Alert.alert('Error de archivos', 'No se pudo subir ningun archivo.');
-                } else if (fallidos.length > 0) {
-                    Alert.alert('Archivos parciales', `Se subieron ${validos.length} de ${nuevosArchivos.length}`);
-                }
-
-                if (nuevosIds.length > 0) {
-                    setLocalObjetivo((prev) => {
-                        if (!prev) return prev;
-                        return { ...prev, archivos: [...(prev.archivos ?? []), ...nuevosArchivosData] };
-                    });
-                    await helpers.agregarArchivos(nuevosIds);
-                }
-            } catch {
-                Alert.alert('Error de archivos', 'No se pudieron subir los archivos.');
-            } finally {
-                setIsUploadingFile(false);
-                setPendingFiles((prev) =>
-                    prev.filter((file) => !nuevosArchivos.some((nuevo) => nuevo.uri === file.uri))
-                );
-            }
+            await uploadArchivos(nuevosArchivos);
         } catch (err) {
             console.error('Error seleccionando documento', err);
             Alert.alert('Error', 'No se pudo seleccionar el documento. Intenta nuevamente.');
         }
+    };
+
+    const handleTakePhoto = async () => {
+        const result = await openCamera();
+        if (result.ok) {
+            await uploadArchivos([result.file]);
+        } else if (result.reason === 'unavailable') {
+            Alert.alert('No disponible', 'La cámara no está disponible en este dispositivo.');
+        }
+    };
+
+    const handlePickFromGallery = async () => {
+        const result = await pickFromGallery({ allowsMultipleSelection: true });
+        if (result.ok) {
+            await uploadArchivos(result.assets);
+        } else if (result.reason === 'unavailable') {
+            Alert.alert('No disponible', 'La galería no está disponible en este dispositivo.');
+        } else if (result.reason === 'permission-denied') {
+            Alert.alert('Permiso denegado', 'Se necesita acceso a la galería para adjuntar imágenes o videos.');
+        }
+    };
+
+    const handleAgregarArchivo = () => {
+        Alert.alert('Adjuntar archivo', 'Elegí una opción', [
+            { text: 'Tomar foto', onPress: () => void handleTakePhoto() },
+            { text: 'Elegir de galería', onPress: () => void handlePickFromGallery() },
+            { text: 'Elegir archivo', onPress: () => void handleSeleccionarArchivo() },
+            { text: 'Cancelar', style: 'cancel' },
+        ]);
     };
 
     const handleOpenArchivo = (archivoId: number) => {
@@ -394,7 +432,7 @@ export function DetailModal({ visible, objetivo, onClose, onDelete, onMove, curr
     const handleTabAddPress = () => {
         if (activeTab === 'historial') setShowCommentComposer((prev) => !prev);
         else if (activeTab === 'participantes') handleAddInvitado();
-        else void handleSeleccionarArchivo();
+        else handleAgregarArchivo();
     };
 
     const tabAddLabel =
@@ -744,6 +782,7 @@ export function DetailModal({ visible, objetivo, onClose, onDelete, onMove, curr
 
             <FilePreview file={previewFile} onClose={closePreview} />
         </View>
+        {CameraModal}
         </FullScreenPortal>
     );
 }

@@ -23,6 +23,7 @@ import { EditCarpetaModal } from '../components/EditCarpetaModal';
 import { Carpeta, UpdateCarpetaPayload } from '../models/Carpeta';
 import { isArchivoInAuditWindow } from '../utils/auditWindow';
 import { useCameraCapture } from '@/shared/ui/useCameraCapture';
+import { pickFromGallery } from '@/shared/ui/pickFromGallery';
 import { formatPartialWarnings } from '../utils/partialWarnings';
 import { useArchivos, useArchivosPersonales, useCarpetas, useCreateCarpeta, useDeleteCarpeta, useSearchArchivos, useUpdateCarpeta } from '../viewmodels/useArchivos';
 import DocumentosEmpresa from './DocumentosEmpresa';
@@ -266,6 +267,18 @@ export default function Documentos() {
     }
   };
 
+  const handlePickFromGallery = async () => {
+    const result = await pickFromGallery({ allowsMultipleSelection: true });
+    if (result.ok) {
+      setPickedFiles(result.assets);
+      setModalVisible(true);
+    } else if (result.reason === 'unavailable') {
+      Alert.alert('No disponible', 'La galería no está disponible en este dispositivo.');
+    } else if (result.reason === 'permission-denied') {
+      Alert.alert('Permiso denegado', 'Se necesita acceso a la galería para adjuntar imágenes o videos.');
+    }
+  };
+
   const handleClearSearch = () => {
     setQuery('');
   };
@@ -469,6 +482,12 @@ export default function Documentos() {
             label: 'Crear carpeta',
             icon: 'folder-outline',
             onPress: openCreateFolderModal,
+          },
+          {
+            key: 'pick-gallery',
+            label: 'Elegir de galería',
+            icon: 'images-outline',
+            onPress: handlePickFromGallery,
           },
           {
             key: 'take-media',

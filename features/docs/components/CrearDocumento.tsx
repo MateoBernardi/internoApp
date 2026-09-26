@@ -32,6 +32,7 @@ import {
 } from '../services/archivosApi';
 import { ARCHIVOS_KEYS } from '../viewmodels/useArchivos';
 import { useCameraCapture } from '@/shared/ui/useCameraCapture';
+import { pickFromGallery } from '@/shared/ui/pickFromGallery';
 
 // ─── Design tokens ─────────────────────────────────────────────────────────────
 const INK = glassColors.text;
@@ -228,6 +229,17 @@ export function CrearDocumento({ visible, onClose, initialFiles, initialFolderId
     }
   }, [addFiles, openCamera]);
 
+  const handlePickFromGallery = useCallback(async () => {
+    const result = await pickFromGallery({ allowsMultipleSelection: true });
+    if (result.ok) {
+      addFiles(result.assets);
+    } else if (result.reason === 'unavailable') {
+      Alert.alert('No disponible', 'La galería no está disponible en este dispositivo.');
+    } else if (result.reason === 'permission-denied') {
+      Alert.alert('Permiso denegado', 'Se necesita acceso a la galería para adjuntar imágenes o videos.');
+    }
+  }, [addFiles]);
+
   // ─── Upload ──────────────────────────────────────────────────────────────────
   const stopTimer = useCallback((id: string) => {
     const t = timersRef.current.get(id);
@@ -379,7 +391,7 @@ export function CrearDocumento({ visible, onClose, initialFiles, initialFolderId
 
             {/* Body */}
             {files.length === 0 ? (
-              <EmptyState onSelect={handleSelectFiles} onTakeMedia={handleTakeMedia} />
+              <EmptyState onSelect={handleSelectFiles} onPickGallery={handlePickFromGallery} onTakeMedia={handleTakeMedia} />
             ) : (
               <ScrollView
                 style={s.list}
@@ -396,6 +408,10 @@ export function CrearDocumento({ visible, onClose, initialFiles, initialFolderId
                     <TouchableOpacity style={s.addMore} onPress={handleSelectFiles} activeOpacity={0.7}>
                       <Ionicons name="add" size={18} color={NAVY} />
                       <Text style={s.addMoreText}>Seleccionar más archivos</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={s.addMore} onPress={handlePickFromGallery} activeOpacity={0.7}>
+                      <Ionicons name="images-outline" size={18} color={NAVY} />
+                      <Text style={s.addMoreText}>Elegir de galería</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={s.addMore} onPress={handleTakeMedia} activeOpacity={0.7}>
                       <Ionicons name="camera-outline" size={18} color={NAVY} />
@@ -544,7 +560,7 @@ function FileBadge({ file }: { file: SelFile }) {
 }
 
 // ─── EmptyState ───────────────────────────────────────────────────────────────────
-function EmptyState({ onSelect, onTakeMedia }: { onSelect: () => void; onTakeMedia: () => void }) {
+function EmptyState({ onSelect, onPickGallery, onTakeMedia }: { onSelect: () => void; onPickGallery: () => void; onTakeMedia: () => void }) {
   return (
     <View style={s.emptyWrap}>
       <View style={s.emptyIcon}>
@@ -557,6 +573,13 @@ function EmptyState({ onSelect, onTakeMedia }: { onSelect: () => void; onTakeMed
         label="Seleccionar archivos"
         onPress={onSelect}
         icon={(color) => <Ionicons name="add" size={18} color={color} />}
+      />
+      <GlassButton
+        variant="secondary"
+        label="Elegir de galería"
+        onPress={onPickGallery}
+        icon={(color) => <Ionicons name="images-outline" size={18} color={color} />}
+        style={s.emptySecondaryBtn}
       />
       <GlassButton
         variant="secondary"

@@ -28,6 +28,7 @@ export interface Turno {
   aceptedAt?: string | null;
   marcadoInAt?: string | null;
   marcadoOutAt?: string | null;
+  reportadoTardanza: boolean;
 }
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -58,5 +59,6 @@ export function mapHorarioDTOToTurno(dto: HorarioDTO): Turno {
     aceptedAt: dto.acepted_at ?? null,
     marcadoInAt: dto.marcado_in_at ?? null,
     marcadoOutAt: dto.marcado_out_at ?? null,
+    reportadoTardanza: dto.reportado_tardanza ?? false,
   };
 }

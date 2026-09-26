@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -25,7 +26,7 @@ import { useSearchUsers } from '@/shared/users/useUser';
 import { EditarTurnoSheet } from '../components/EditarTurnoSheet';
 import { TurnoCard } from '../components/TurnoCard';
 import { HorariosToast } from '../components/HorariosToast';
-import type { UpdateHorarioPayload } from '../models/HorarioDTO';
+import { normalizeTurno, type UpdateHorarioPayload } from '../models/HorarioDTO';
 import { mapHorarioDTOToTurno, TURNO_LABEL, type Turno } from '../models/Turno';
 import { downloadPlantillaShifts, getPlantillaShiftsUrl, type HorariosByDateFilter } from '../services/horariosService';
 import {
@@ -90,6 +91,8 @@ export function GestionHorarios() {
   const [editingTurno, setEditingTurno] = useState<Turno | null>(null);
   const [editSession, setEditSession] = useState(0);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [feriadoMenuOpen, setFeriadoMenuOpen] = useState(false);
+  const [feriadoMenuStep, setFeriadoMenuStep] = useState<'main' | 'turno'>('main');
   const [toast, setToast] = useState('');
   const [toastError, setToastError] = useState(false);
   const [infoBarHeight, setInfoBarHeight] = useState(0);
@@ -144,21 +147,35 @@ export function GestionHorarios() {
   const totalForDay = horariosQuery.data?.length ?? 0;
   const diaEsFeriado = totalForDay > 0 && (horariosQuery.data ?? []).every((d) => d.feriado);
 
-  const handleToggleFeriadoDia = useCallback(() => {
-    const nuevoValor = !diaEsFeriado;
+  const turnoCounts = useMemo(() => {
+    const data = horariosQuery.data ?? [];
+    return {
+      MANANA: data.filter((d) => normalizeTurno(d.turno) === 'MANANA').length,
+      TARDE: data.filter((d) => normalizeTurno(d.turno) === 'TARDE').length,
+    };
+  }, [horariosQuery.data]);
+
+  const confirmAndMarkFeriado = useCallback((turno?: 'MANANA' | 'TARDE') => {
+    const scoped = turno
+      ? (horariosQuery.data ?? []).filter((d) => normalizeTurno(d.turno) === turno)
+      : (horariosQuery.data ?? []);
+    const total = scoped.length;
+    const esFeriado = total > 0 && scoped.every((d) => d.feriado);
+    const nuevoValor = !esFeriado;
     const dayLabel = formatDayLabel(selDateISO);
+    const scopeSuffix = turno ? ` (${TURNO_LABEL[turno]})` : '';
     Alert.alert(
-      nuevoValor ? 'Marcar día como feriado' : 'Quitar feriado del día',
+      nuevoValor ? `Marcar día${scopeSuffix} como feriado` : `Quitar feriado del día${scopeSuffix}`,
       nuevoValor
-        ? `Se marcarán como feriado (×2) los ${totalForDay} turno${totalForDay !== 1 ? 's' : ''} del ${dayLabel}.`
-        : `Se quitará la marca de feriado de los ${totalForDay} turno${totalForDay !== 1 ? 's' : ''} del ${dayLabel}.`,
+        ? `Se marcarán como feriado (×2) los ${total} turno${total !== 1 ? 's' : ''} del ${dayLabel}${scopeSuffix}.`
+        : `Se quitará la marca de feriado de los ${total} turno${total !== 1 ? 's' : ''} del ${dayLabel}${scopeSuffix}.`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
           text: nuevoValor ? 'Marcar feriado' : 'Quitar feriado',
           onPress: () => {
             marcarFeriadoDia(
-              { fechaISO: selDateISO, feriado: nuevoValor },
+              { fechaISO: selDateISO, feriado: nuevoValor, turno },
               {
                 onSuccess: (resp) => {
                   showToast(
@@ -167,14 +184,24 @@ export function GestionHorarios() {
                       : 'No hay turnos cargados para este día',
                   );
                 },
-                onError: () => showToast('Error al actualizar el día. Intenta de nuevo.', true),
+                onError: () => showToast('Error al actualizar. Intenta de nuevo.', true),
               },
             );
           },
         },
       ],
     );
-  }, [diaEsFeriado, totalForDay, selDateISO, marcarFeriadoDia, showToast]);
+  }, [horariosQuery.data, selDateISO, marcarFeriadoDia, showToast]);
+
+  const openFeriadoMenu = useCallback(() => {
+    setFeriadoMenuStep('main');
+    setFeriadoMenuOpen(true);
+  }, []);
+
+  const closeFeriadoMenu = useCallback(() => {
+    setFeriadoMenuOpen(false);
+    setFeriadoMenuStep('main');
+  }, []);
 
   const openEdit = useCallback((turno: Turno) => {
     setEditingTurno({ ...turno });
@@ -401,14 +428,14 @@ export function GestionHorarios() {
           </TouchableOpacity>
         </View>
 
-        {/* Feriado toggle for the whole day */}
+        {/* Feriado: opens a picker to choose the scope (whole day / one shift / per user) */}
         <TouchableOpacity
           style={[
             styles.feriadoToggle,
             diaEsFeriado && styles.feriadoToggleActive,
             (isMarkingFeriado || totalForDay === 0) && styles.feriadoToggleDisabled,
           ]}
-          onPress={handleToggleFeriadoDia}
+          onPress={openFeriadoMenu}
           disabled={isMarkingFeriado || totalForDay === 0}
         >
           {isMarkingFeriado ? (
@@ -417,7 +444,7 @@ export function GestionHorarios() {
             <Ionicons name={diaEsFeriado ? 'checkmark-circle' : 'star-outline'} size={16} color={diaEsFeriado ? '#ffffff' : FERIADO_COLOR} />
           )}
           <Text style={[styles.feriadoToggleText, diaEsFeriado && styles.feriadoToggleTextActive]}>
-            {diaEsFeriado ? 'Día feriado' : 'Marcar día como feriado'}
+            {diaEsFeriado ? 'Día feriado' : 'Marcar como feriado'}
           </Text>
         </TouchableOpacity>
 
@@ -607,6 +634,78 @@ export function GestionHorarios() {
         )}
       </View>
 
+      {/* Feriado scope picker */}
+      <Modal transparent visible={feriadoMenuOpen} animationType="fade" onRequestClose={closeFeriadoMenu}>
+        <TouchableOpacity style={[glassStyles.modalOverlay, styles.feriadoMenuOverlay]} activeOpacity={1} onPress={closeFeriadoMenu}>
+          <View style={[glassStyles.modalCard, styles.feriadoMenu]}>
+            {feriadoMenuStep === 'main' ? (
+              <>
+                <Text style={styles.feriadoMenuTitle}>Marcar como feriado</Text>
+                <TouchableOpacity
+                  style={[styles.feriadoMenuOption, totalForDay === 0 && styles.feriadoMenuOptionDisabled]}
+                  disabled={totalForDay === 0}
+                  onPress={() => { closeFeriadoMenu(); confirmAndMarkFeriado(); }}
+                >
+                  <Ionicons name="calendar-outline" size={18} color={totalForDay === 0 ? MUTED : NAVY} />
+                  <View style={styles.feriadoMenuOptionTextWrap}>
+                    <Text style={styles.feriadoMenuOptionText}>Todo el día</Text>
+                    <Text style={styles.feriadoMenuOptionSub}>Ambos turnos, todos los empleados</Text>
+                  </View>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.feriadoMenuOption, totalForDay === 0 && styles.feriadoMenuOptionDisabled]}
+                  disabled={totalForDay === 0}
+                  onPress={() => setFeriadoMenuStep('turno')}
+                >
+                  <Ionicons name="sunny-outline" size={18} color={totalForDay === 0 ? MUTED : NAVY} />
+                  <View style={styles.feriadoMenuOptionTextWrap}>
+                    <Text style={styles.feriadoMenuOptionText}>Un turno</Text>
+                    <Text style={styles.feriadoMenuOptionSub}>Un solo turno, todos los empleados</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={16} color={MUTED} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.feriadoMenuOption}
+                  onPress={() => {
+                    closeFeriadoMenu();
+                    showToast('Tocá el turno del empleado en la lista para marcarlo como feriado.');
+                  }}
+                >
+                  <Ionicons name="person-outline" size={18} color={NAVY} />
+                  <View style={styles.feriadoMenuOptionTextWrap}>
+                    <Text style={styles.feriadoMenuOptionText}>Por usuario</Text>
+                    <Text style={styles.feriadoMenuOptionSub}>Un turno puntual de un empleado</Text>
+                  </View>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <TouchableOpacity style={styles.feriadoMenuBack} onPress={() => setFeriadoMenuStep('main')}>
+                  <Ionicons name="chevron-back" size={18} color={NAVY} />
+                  <Text style={styles.feriadoMenuTitle}>Elegí el turno</Text>
+                </TouchableOpacity>
+                {(['MANANA', 'TARDE'] as const).map((t) => (
+                  <TouchableOpacity
+                    key={t}
+                    style={[styles.feriadoMenuOption, turnoCounts[t] === 0 && styles.feriadoMenuOptionDisabled]}
+                    disabled={turnoCounts[t] === 0}
+                    onPress={() => { closeFeriadoMenu(); confirmAndMarkFeriado(t); }}
+                  >
+                    <Ionicons name={t === 'MANANA' ? 'sunny-outline' : 'partly-sunny-outline'} size={18} color={turnoCounts[t] === 0 ? MUTED : NAVY} />
+                    <View style={styles.feriadoMenuOptionTextWrap}>
+                      <Text style={styles.feriadoMenuOptionText}>{TURNO_LABEL[t]}</Text>
+                      <Text style={styles.feriadoMenuOptionSub}>
+                        {turnoCounts[t]} turno{turnoCounts[t] !== 1 ? 's' : ''} este día
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </>
+            )}
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
       {/* Edit sheet */}
       <EditarTurnoSheet
         visible={editingTurno !== null}
@@ -735,6 +834,52 @@ const styles = StyleSheet.create({
   },
   feriadoToggleTextActive: {
     color: '#ffffff',
+  },
+  feriadoMenuOverlay: {
+    padding: 24,
+  },
+  feriadoMenu: {
+    paddingVertical: 10,
+    paddingHorizontal: 6,
+    width: '100%',
+    maxWidth: 360,
+  },
+  feriadoMenuTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: INK,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  feriadoMenuBack: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 2,
+  },
+  feriadoMenuOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+  },
+  feriadoMenuOptionDisabled: {
+    opacity: 0.4,
+  },
+  feriadoMenuOptionTextWrap: {
+    flex: 1,
+  },
+  feriadoMenuOptionText: {
+    fontSize: 15,
+    color: INK,
+    fontWeight: '600',
+  },
+  feriadoMenuOptionSub: {
+    fontSize: 12,
+    color: MUTED,
+    marginTop: 2,
   },
   importCard: {
     flexDirection: 'row',

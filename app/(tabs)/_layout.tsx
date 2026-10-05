@@ -1,6 +1,7 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Ionicons } from '@expo/vector-icons';
 import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
+import { HISTORIAS_HABILITADAS } from '@/constants/features';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { useArchivosUnseenCount } from '@/features/docs/viewmodels/useArchivos';
@@ -31,7 +32,7 @@ interface MenuOption {
 
 export default function TabLayout() {
   const { user, signOut, isLoggingOut, isAuthenticated, requiresAssociation, isLoading } = useAuth();
-  const { hasRole, isKnownRole, isEmployee, isContableOrSistemas, isKiosk } = useRoleCheck();
+  const { hasRole, isKnownRole, isEmployee, isContableOrSistemas, isKiosk, canGestionarHorarios, canVerHorasCumplidas } = useRoleCheck();
   const router = useRouter();
   const segments = useSegments();
   const insets = useSafeAreaInsets();
@@ -126,11 +127,12 @@ export default function TabLayout() {
       (canSeeAdminReportesButton && hasReportesPendientesAdmin));
 
   const administrationMenuOptions: MenuOption[] = [
-    {
+    ...(canVerHorasCumplidas() ? [{
       id: 'horarios',
-      label: 'Horarios',
+      // Contable / estudio-contable solo acceden a las horas cumplidas.
+      label: canGestionarHorarios() ? 'Horarios' : 'Horas cumplidas',
       route: '/(extras)/horarios-admin' as Href,
-    },
+    }] : []),
     ...(canSeeAdminReportesButton ? [{
       id: 'reportes',
       label: 'Reportes',
@@ -164,6 +166,11 @@ export default function TabLayout() {
       label: 'Agenda Personal',
       route: '/(extras)/agenda-personal' as Href,
     },
+    ...(HISTORIAS_HABILITADAS ? [{
+      id: 'historias',
+      label: 'Historias',
+      route: '/(extras)/historias' as Href,
+    }] : []),
     ...(!hideMisLicencias ? [{
       id: 'mis-solicitudes',
       label: 'Mis Licencias',

@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { UpdateHorarioPayload } from '../models/HorarioDTO';
-import { mapHorarioDTOToTurno, TURNO_LABEL, type Turno } from '../models/Turno';
+import { buildUpdatePayload, mapHorarioDTOToTurno, type Turno } from '../models/Turno';
 import type { FeriadosRangeFilter } from '../services/horariosService';
 import { currentWeek, dayName, formatDDMM } from '../utils/dateRange';
 import { useFeriadosByRange, useSedes, useUpdateHorario } from '../viewmodels/useHorarios';
@@ -46,23 +46,14 @@ export function FeriadosList({ filter, onToast }: FeriadosListProps) {
   const setField = useCallback(<K extends keyof Turno>(key: K, value: Turno[K]) => {
     setEditingTurno((d) => (d ? { ...d, [key]: value } : d));
   }, []);
-  const saveEdit = useCallback((turno: Turno) => {
-    const payload: UpdateHorarioPayload = {
-      id: turno.id,
-      turno: TURNO_LABEL[turno.turno],
-      horario_in: `${turno.fechaISO}T${turno.ingreso}:00`,
-      horario_out: `${turno.fechaISO}T${turno.egreso}:00`,
-      sede_id_in: turno.sedeIdIngreso,
-      sede_id_out: turno.sedeIdEgreso,
-      licencia: turno.licencia ? 1 : 0,
-      feriado: turno.feriado ? 1 : 0,
-    };
+  const saveEdit = useCallback((turno: Turno, extra?: Pick<UpdateHorarioPayload, 'horario_corrido'>) => {
+    const payload = buildUpdatePayload(turno, extra);
     updateShift(payload, {
       onSuccess: () => {
         onToast('Turno actualizado');
         closeEdit();
       },
-      onError: () => onToast('Error al guardar. Intenta de nuevo.', true),
+      onError: (error) => onToast(error.message || 'Error al guardar. Intentá de nuevo.', true),
     });
   }, [updateShift, onToast, closeEdit]);
 

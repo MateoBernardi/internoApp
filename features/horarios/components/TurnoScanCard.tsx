@@ -13,9 +13,9 @@ const colors = Colors['light'];
 
 /**
  * Card que aparece en el Home cuando corresponde escanear la entrada o
- * salida de un turno (ventana de 20 min antes del horario esperado hasta que
- * se registra el marcado, o hasta 40 min después del horario esperado si
- * nunca se marca — ver reglas en `useTurnoScanActivo`). Se re-tickea cada
+ * salida de un turno (abre 20 min antes del horario esperado y cierra al
+ * registrarse el marcado o al vencer la ventana — ver reglas en
+ * `useTurnoScanActivo`). Se re-tickea cada
  * segundo para reevaluar la ventana activa; no renderiza nada mientras no
  * haya un prompt activo.
  */
@@ -42,7 +42,7 @@ export function TurnoScanCard() {
       // Cast defensivo: expo-router typed routes recién genera el literal
       // para esta pantalla nueva al correr el dev server / build.
       pathname: '/(extras)/escanear-turno' as any,
-      params: { tipo: activo.tipo, turno: activo.turno, fecha: activo.fecha },
+      params: { tipo: activo.tipo, turno: activo.turno, turnoNombre: activo.turnoNombre, fecha: activo.fecha },
     });
   };
 

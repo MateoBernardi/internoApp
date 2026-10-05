@@ -1,4 +1,5 @@
 import { Colors } from '@/constants/theme';
+import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { EncuestasScreenHeader } from '@/features/encuestas/components/EncuestasScreenHeader';
 import { AppBackButton } from '@/shared/ui/AppBackButton';
 import { glassColors, glassStyles } from '@/shared/ui/glass';
@@ -8,13 +9,15 @@ import React, { useEffect, useState } from 'react';
 import { BackHandler, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { GestionHorarios } from './GestionHorarios';
 import { HorasExtras } from './HorasExtras';
+import { PublicarHorarios } from './PublicarHorarios';
 
 import { AMBER } from '../theme';
 const colors = Colors['light'];
 
-type Screen = 'home' | 'turnos' | 'horas';
+type Screen = 'home' | 'publicar' | 'turnos' | 'horas';
 
 export function HorariosHome() {
+  const { canGestionarHorarios } = useRoleCheck();
   const [screen, setScreen] = useState<Screen>('home');
   const goHome = () => setScreen('home');
 
@@ -33,6 +36,26 @@ export function HorariosHome() {
   const headerToggle = <Stack.Screen options={{ headerShown: screen === 'home' }} />;
 
   const backButton = <AppBackButton onPress={goHome} />;
+
+  // Contable / estudio-contable: solo horas cumplidas, sin planilla ni turnos del día.
+  if (!canGestionarHorarios()) {
+    return (
+      <View style={styles.subScreen}>
+        <Stack.Screen options={{ headerShown: true, title: 'Horas cumplidas' }} />
+        <HorasExtras />
+      </View>
+    );
+  }
+
+  if (screen === 'publicar') {
+    return (
+      <View style={styles.subScreen}>
+        {headerToggle}
+        <EncuestasScreenHeader title="Publicar horarios" left={backButton} />
+        <PublicarHorarios onVerTurnos={() => setScreen('turnos')} />
+      </View>
+    );
+  }
 
   if (screen === 'turnos') {
     return (
@@ -59,14 +82,27 @@ export function HorariosHome() {
       {headerToggle}
 
       <View style={styles.menu}>
-        <TouchableOpacity style={[glassStyles.fieldGlass, styles.optionCard]} onPress={() => setScreen('turnos')} activeOpacity={0.75}>
+        <TouchableOpacity style={[glassStyles.fieldGlass, styles.optionCard]} onPress={() => setScreen('publicar')} activeOpacity={0.75}>
           <View style={styles.cardRow}>
             <View style={[glassStyles.button, styles.iconContainer]}>
               <Ionicons name="cloud-upload-outline" size={26} color={colors.lightTint} />
             </View>
             <View style={styles.cardTextContainer}>
+              <Text style={styles.optionTitle}>Publicar horarios</Text>
+              <Text style={styles.optionDescription}>Revisar y publicar los cambios de la planilla de horarios</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={22} color={glassColors.textMuted} />
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={[glassStyles.fieldGlass, styles.optionCard]} onPress={() => setScreen('turnos')} activeOpacity={0.75}>
+          <View style={styles.cardRow}>
+            <View style={[glassStyles.button, styles.iconContainer]}>
+              <Ionicons name="calendar-outline" size={26} color={colors.lightTint} />
+            </View>
+            <View style={styles.cardTextContainer}>
               <Text style={styles.optionTitle}>Turnos del día</Text>
-              <Text style={styles.optionDescription}>Cargar, editar e importar turnos del día</Text>
+              <Text style={styles.optionDescription}>Ver y editar los turnos, y agregar turnos sueltos</Text>
             </View>
             <Ionicons name="chevron-forward" size={22} color={glassColors.textMuted} />
           </View>

@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { AGENDA_COLORS } from '../agenda/agendaColors';
+import { formatHoraFin } from '../agenda/dateUtils';
 import type { Activity } from '../models/activityTypes';
 
 interface AgendaSemanalProps {
@@ -79,22 +80,29 @@ export const AgendaSemanal: React.FC<AgendaSemanalProps> = ({
             <View style={styles.activitiesContainer}>
               {/* Turno chip */}
               {turno ? (
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => onPressActivity?.(turno)}
-                  style={styles.turnoChip}
-                >
-                  <Ionicons name="time-outline" size={13} color={AGENDA_COLORS.turno} />
-                  <Text style={styles.turnoChipText}>
-                    <Text style={styles.turnoChipHora}>{turno.time}–{
-                      turno.fecha_fin
-                        ? (() => { const d = new Date(turno.fecha_fin); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; })()
-                        : '—'
-                    }</Text>
-                    {` · Turno ${turno.turno_code ?? ''}`}
-                    {turno.sede_ingreso ? ` · ${turno.sede_ingreso}` : ''}
-                  </Text>
-                </TouchableOpacity>
+                <>
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    onPress={() => onPressActivity?.(turno)}
+                    style={styles.turnoChip}
+                  >
+                    <Ionicons name="time-outline" size={13} color={AGENDA_COLORS.turno} />
+                    <Text style={styles.turnoChipText}>
+                      <Text style={styles.turnoChipHora}>{turno.time}–{formatHoraFin(turno.fecha_fin)}</Text>
+                      {` · Turno ${turno.turno_code ?? ''}`}
+                    </Text>
+                  </TouchableOpacity>
+                  {turno.sede_ingreso ? (
+                    <View style={styles.turnoSedes}>
+                      <Text style={styles.turnoSedeText}>
+                        Sede de entrada: {turno.sede_ingreso} · {turno.time}
+                      </Text>
+                      <Text style={styles.turnoSedeText}>
+                        Sede de salida: {turno.sede_egreso ?? turno.sede_ingreso} · {formatHoraFin(turno.fecha_fin)}
+                      </Text>
+                    </View>
+                  ) : null}
+                </>
               ) : licencia ? (
                 <View style={styles.licenciaChip}>
                   <Ionicons name="document-text-outline" size={13} color={AGENDA_COLORS.licencia} />
@@ -199,6 +207,17 @@ const styles = StyleSheet.create({
   turnoChipHora: {
     fontWeight: '800',
     fontVariant: ['tabular-nums'],
+  },
+  turnoSedes: {
+    marginTop: -2,
+    marginBottom: 6,
+    paddingLeft: 4,
+    gap: 1,
+  },
+  turnoSedeText: {
+    fontSize: 11,
+    color: glassColors.textMuted,
+    fontWeight: '500',
   },
   licenciaChip: {
     flexDirection: 'row',

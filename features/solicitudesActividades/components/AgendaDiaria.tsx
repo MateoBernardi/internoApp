@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { AGENDA_COLORS } from '../agenda/agendaColors';
+import { formatHoraFin } from '../agenda/dateUtils';
 import type { Activity } from '../models/activityTypes';
 
 interface AgendaDiariaProps {
@@ -243,12 +244,14 @@ export const AgendaDiaria: React.FC<AgendaDiariaProps> = ({ activities, onDelete
                             {activity.title}
                           </Text>
                           {esTurno && activity.sede_ingreso && (
-                            <Text style={styles.turnoSedeLabel}>
-                              {activity.sede_ingreso}
-                              {activity.sede_egreso && activity.sede_egreso !== activity.sede_ingreso
-                                ? ` → ${activity.sede_egreso}`
-                                : ''}
-                            </Text>
+                            <>
+                              <Text style={styles.turnoSedeLabel}>
+                                Sede de entrada: {activity.sede_ingreso} · {activity.time}
+                              </Text>
+                              <Text style={styles.turnoSedeLabel}>
+                                Sede de salida: {activity.sede_egreso ?? activity.sede_ingreso} · {formatHoraFin(activity.fecha_fin)}
+                              </Text>
+                            </>
                           )}
                           {esLicencia && (
                             <Text style={styles.licenseLabel}>Licencia</Text>

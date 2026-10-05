@@ -10,7 +10,7 @@ export interface HorarioDTO {
   user_context_id: number;
   turno: string; // backend devuelve 'Mañana' | 'Tarde'
   esperado_in: string;   // ISO datetime, e.g. "2026-06-16T08:00:00.000Z"
-  esperado_out: string;
+  esperado_out: string | null; // null en horario corrido: la salida se toma del marcado
   sede_id_in: number;
   sede_id_out: number;
   nombre: string;
@@ -23,19 +23,12 @@ export interface HorarioDTO {
   marcado_in_at?: string | null;
   marcado_out_at?: string | null;
   reportado_tardanza?: boolean;
+  horario_corrido?: boolean;
 }
 
 export interface SedeDTO {
   id: number;
   nombre: string;
-}
-
-/** Respuesta de `POST /horarios/plantilla-dia` (subida de turnos de un día puntual). */
-export interface UploadShiftsResponse {
-  success: boolean;
-  message: string;
-  totalInsertados: number;
-  totalOmitidos: number;
 }
 
 /** Valores aceptados por la columna `turno_enum` del backend. */
@@ -45,11 +38,16 @@ export interface UpdateHorarioPayload {
   id: number;            // planificacion_id
   turno: TurnoEnum;
   horario_in: string;    // "YYYY-MM-DDTHH:MM:00"
-  horario_out: string;   // "YYYY-MM-DDTHH:MM:00"
+  horario_out: string | null; // "YYYY-MM-DDTHH:MM:00"; null en horario corrido
   sede_id_in: number;
   sede_id_out: number;
   licencia: 0 | 1;        // marcado manual: 1 si el empleado está de licencia
   feriado: 0 | 1;          // 1 si el turno cae en un feriado (aplica ×2 en el cálculo de horas)
+  /**
+   * Solo se envía cuando el usuario lo cambia explícitamente: `true` deja un único turno en el día
+   * (el primero) y borra el resto; si se omite, el backend conserva el valor actual.
+   */
+  horario_corrido?: boolean;
 }
 
 /**
@@ -70,6 +68,7 @@ export interface HorarioUsuarioDTO {
   acepted_at?: string | null;
   marcado_in_at: string | null;
   marcado_out_at: string | null;
+  horario_corrido?: boolean;
   nombre: string;
   apellido: string;
 }

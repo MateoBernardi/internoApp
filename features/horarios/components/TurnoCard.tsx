@@ -3,9 +3,18 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { SedeDTO } from '../models/HorarioDTO';
-import { TURNO_CODE, TURNO_LABEL, type Turno } from '../models/Turno';
-import { ACEPTADO_COLOR, FERIADO_COLOR, RED_FLASH, TARDE_COLOR, TARDE_SOFT, TURNO_COLOR, TURNO_SOFT } from '../theme';
+import type { TurnoEnum } from '../models/HorarioDTO';
+import type { Turno } from '../models/Turno';
+import { ACEPTADO_COLOR, FERIADO_COLOR, NAVY, NOCHE_COLOR, NOCHE_SOFT, RED_FLASH, ROTATIVO_COLOR, ROTATIVO_SOFT, TARDE_COLOR, TARDE_SOFT, TURNO_COLOR, TURNO_SOFT } from '../theme';
 
+
+// Letra y colores por nombre exacto del turno: Noche y Rotativo ya no se muestran como "Tarde".
+const TURNO_VISUAL: Record<TurnoEnum, { code: string; color: string; soft: string }> = {
+  Mañana: { code: 'M', color: TURNO_COLOR, soft: TURNO_SOFT },
+  Tarde: { code: 'T', color: TARDE_COLOR, soft: TARDE_SOFT },
+  Noche: { code: 'N', color: NOCHE_COLOR, soft: NOCHE_SOFT },
+  Rotativo: { code: 'R', color: ROTATIVO_COLOR, soft: ROTATIVO_SOFT },
+};
 
 interface TurnoCardProps {
   turno: Turno;
@@ -14,9 +23,9 @@ interface TurnoCardProps {
 }
 
 export const TurnoCard = React.memo(function TurnoCard({ turno, sedes, onPress }: TurnoCardProps) {
-  const isManana = turno.turno === 'MANANA';
-  const badgeBg = isManana ? TURNO_SOFT : TARDE_SOFT;
-  const badgeText = isManana ? TURNO_COLOR : TARDE_COLOR;
+  const visual = TURNO_VISUAL[turno.turnoNombre];
+  const badgeBg = visual.soft;
+  const badgeText = visual.color;
 
   const sedesMap = React.useMemo(
     () => Object.fromEntries(sedes.map((s) => [s.id, s.nombre])),
@@ -33,7 +42,7 @@ export const TurnoCard = React.memo(function TurnoCard({ turno, sedes, onPress }
       activeOpacity={0.72}
     >
       <View style={[styles.badge, { backgroundColor: badgeBg }]}>
-        <Text style={[styles.badgeLetter, { color: badgeText }]}>{TURNO_CODE[turno.turno]}</Text>
+        <Text style={[styles.badgeLetter, { color: badgeText }]}>{visual.code}</Text>
       </View>
 
       <View style={styles.mid}>
@@ -49,6 +58,12 @@ export const TurnoCard = React.memo(function TurnoCard({ turno, sedes, onPress }
             <View style={styles.aceptadoPill}>
               <Ionicons name="qr-code" size={11} color={ACEPTADO_COLOR} />
               <Text style={styles.aceptadoText}>Escaneado</Text>
+            </View>
+          )}
+          {turno.horarioCorrido && (
+            <View style={styles.corridoPill}>
+              <Ionicons name="time-outline" size={11} color={NAVY} />
+              <Text style={styles.corridoText}>Corrido</Text>
             </View>
           )}
           {turno.feriado && (
@@ -73,8 +88,8 @@ export const TurnoCard = React.memo(function TurnoCard({ turno, sedes, onPress }
       </View>
 
       <View style={styles.right}>
-        <Text style={styles.horario}>{turno.ingreso}–{turno.egreso}</Text>
-        <Text style={styles.turnoLabel}>{TURNO_LABEL[turno.turno]}</Text>
+        <Text style={styles.horario}>{turno.ingreso}–{turno.egreso || 'a marcar'}</Text>
+        <Text style={styles.turnoLabel}>{turno.turnoNombre}</Text>
       </View>
 
       <Ionicons name="chevron-forward" size={17} color={glassColors.textMuted} />
@@ -153,6 +168,21 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     color: FERIADO_COLOR,
+  },
+  corridoPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    backgroundColor: 'rgba(26,115,232,0.1)',
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    flexShrink: 0,
+  },
+  corridoText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: NAVY,
   },
   reportadoPill: {
     flexDirection: 'row',

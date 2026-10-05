@@ -14,6 +14,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { formatHoraFin } from '@/features/solicitudesActividades/agenda/dateUtils';
 import type { Activity } from '@/features/solicitudesActividades/models/activityTypes';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSafeBottomInset } from '@/hooks/useSafeBottomInset';
@@ -40,13 +41,6 @@ function formatAceptadoLabel(isoDate: string): string {
   const hh = String(date.getHours()).padStart(2, '0');
   const mm = String(date.getMinutes()).padStart(2, '0');
   return `${day}/${month}/${year} ${hh}:${mm}`;
-}
-
-function egresoLabel(activity: Activity): string {
-  if (!activity.fecha_fin) return '—';
-  const d = new Date(activity.fecha_fin);
-  if (Number.isNaN(d.getTime())) return '—';
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
 interface TurnoDetalleProps {
@@ -149,7 +143,7 @@ export function TurnoDetalle({ activity, visible, onClose }: TurnoDetalleProps) 
               </View>
               <View style={styles.dateRow}>
                 <Text style={styles.dateLabelSmall}>Egreso</Text>
-                <ThemedText style={styles.dateValue}>{egresoLabel(activity)}</ThemedText>
+                <ThemedText style={styles.dateValue}>{formatHoraFin(activity.fecha_fin)}</ThemedText>
               </View>
             </View>
 
@@ -160,12 +154,18 @@ export function TurnoDetalle({ activity, visible, onClose }: TurnoDetalleProps) 
                   <Ionicons name="location-outline" size={16} color={glassColors.link} />
                   <ThemedText style={[styles.label, styles.labelInline]}>Sede</ThemedText>
                 </View>
-                <ThemedText style={styles.dateValue}>
-                  {activity.sede_ingreso}
-                  {activity.sede_egreso && activity.sede_egreso !== activity.sede_ingreso
-                    ? ` → ${activity.sede_egreso}`
-                    : ''}
-                </ThemedText>
+                <View style={styles.dateRow}>
+                  <Text style={[styles.dateLabelSmall, styles.sedeLabel]}>Sede de entrada</Text>
+                  <ThemedText style={styles.dateValue}>
+                    {activity.sede_ingreso ?? '—'} · {activity.time || '—'}
+                  </ThemedText>
+                </View>
+                <View style={styles.dateRow}>
+                  <Text style={[styles.dateLabelSmall, styles.sedeLabel]}>Sede de salida</Text>
+                  <ThemedText style={styles.dateValue}>
+                    {activity.sede_egreso ?? activity.sede_ingreso ?? '—'} · {formatHoraFin(activity.fecha_fin)}
+                  </ThemedText>
+                </View>
               </View>
             )}
 
@@ -255,6 +255,9 @@ const styles = StyleSheet.create({
     color: glassColors.placeholder,
     fontWeight: '500',
     width: 60,
+  },
+  sedeLabel: {
+    width: 110,
   },
   dateValue: {
     fontSize: 14,

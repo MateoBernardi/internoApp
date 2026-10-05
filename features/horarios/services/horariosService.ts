@@ -1,7 +1,5 @@
 import { apiRequest, throwApiError } from '@/shared/apiRequest';
 import { idempotencyHeaders } from '@/shared/idempotency';
-import Constants from 'expo-constants';
-import { Platform } from 'react-native';
 import type {
   HorarioDTO,
   HorarioUsuarioDTO,
@@ -11,11 +9,8 @@ import type {
   ScanResultDTO,
   SedeDTO,
   UpdateHorarioPayload,
-  UploadShiftsResponse,
 } from '../models/HorarioDTO';
 import { TURNO_LABEL } from '../models/Turno';
-
-const API_BASE_URL: string = Constants.expoConfig?.extra?.API_BASE_URL ?? '';
 
 async function extractError(res: Response): Promise<string> {
   const text = await res.text();
@@ -82,57 +77,6 @@ export async function getFeriadosByRange(
   });
   if (!res.ok) throwApiError(await extractError(res), res);
   return res.json();
-}
-
-/** Sube la planilla de turnos de un día puntual (POST /horarios/plantilla-dia?fecha=). */
-export async function uploadShiftsFile(
-  token: string,
-  fileUri: string,
-  fileName: string,
-  fechaISO: string, // "YYYY-MM-DD"
-): Promise<UploadShiftsResponse> {
-  const form = new FormData();
-
-  if (Platform.OS === 'web') {
-    // En web, FormData.append no acepta un objeto {uri, name, type} como en
-    // React Native: hay que convertir el uri (blob:/data:) a un Blob real.
-    const fileResponse = await fetch(fileUri);
-    const blob = await fileResponse.blob();
-    form.append('file', blob, fileName);
-  } else {
-    form.append('file', { uri: fileUri, name: fileName, type: 'text/csv' } as any);
-  }
-
-  const res = await fetch(`${API_BASE_URL}/horarios/plantilla-dia?fecha=${fechaISO}`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'x-app-entorno': 'interno',
-    },
-    body: form,
-  });
-
-  if (!res.ok) {
-    const errText = await extractError(res);
-    throw new Error(errText);
-  }
-  return res.json();
-}
-
-/** Descarga la plantilla CSV de un día puntual (GET /horarios/plantilla-dia?fecha=). */
-export async function downloadPlantillaShifts(token: string, fechaISO: string): Promise<Blob> {
-  const res = await apiRequest({
-    method: 'GET',
-    endpoint: `/horarios/plantilla-dia?fecha=${fechaISO}`,
-    token,
-  });
-  if (!res.ok) throwApiError(await extractError(res), res);
-  return res.blob();
-}
-
-/** URL absoluta de la plantilla de un día, para descargas nativas via FileSystem.File.downloadFileAsync. */
-export function getPlantillaShiftsUrl(fechaISO: string): string {
-  return `${API_BASE_URL}/horarios/plantilla-dia?fecha=${fechaISO}`;
 }
 
 export async function updateHorario(

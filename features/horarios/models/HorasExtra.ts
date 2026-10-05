@@ -32,27 +32,16 @@ export interface MovimientoDTO {
 }
 
 /**
- * Objetivo semanal de horas de un usuario (GET/POST/PATCH /horarios/objetivos),
- * en horas reales. Sólo aparece en el GET si el usuario ya tiene objetivo
- * cargado; su ausencia es lo que decide si corresponde POST (alta) o PATCH
- * (modificación).
- */
-export interface ObjetivoHorasDTO {
-  userContextId: number;
-  nombre?: string;
-  apellido?: string;
-  horas: number;
-}
-
-/**
  * Horas trabajadas vs. objetivo semanal de un usuario (GET /horarios/objetivos/semanal),
- * en horas reales. Solo incluye usuarios que ya tienen un objetivo cargado.
+ * en horas reales. Solo incluye usuarios que ya tienen un objetivo cargado. Los objetivos se editan en la planilla de horarios.
  */
 export interface HorasSemanalDTO {
   userContextId: number;
   nombre: string;
   apellido: string;
   horasObjetivo: number;
+  /** Objetivo que rige desde la próxima semana (lo cargó la planilla); null si no hay cambio pendiente. */
+  horasObjetivoPendiente: number | null;
   horasTrabajadas: number;
 }
 

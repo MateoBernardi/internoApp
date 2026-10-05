@@ -1,4 +1,5 @@
 import { useAuth } from '@/features/auth/context/AuthContext';
+import { useRoleCheck } from '@/hooks/useRoleCheck';
 import type { PeriodoVentana } from '@/features/solicitudesActividades/viewmodels/useActividades';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { aceptarTurno, getTurnosPorPeriodo } from '../services/turnosAgendaService';
@@ -10,6 +11,7 @@ export const turnosQueryKeys = {
 
 export function useTurnosPorPeriodo(periodo: PeriodoVentana) {
   const { tokens } = useAuth();
+  const { canTenerHorariosPropios } = useRoleCheck();
 
   return useQuery({
     queryKey: turnosQueryKeys.porPeriodo(periodo.monthKey),
@@ -18,6 +20,7 @@ export function useTurnosPorPeriodo(periodo: PeriodoVentana) {
       if (!token) throw new Error('No access token');
       return getTurnosPorPeriodo(token, periodo.fechaInicio, periodo.fechaFin);
     },
+    enabled: canTenerHorariosPropios(),
     staleTime: 0,
     gcTime: 1000 * 60 * 10,
     refetchOnMount: 'always',

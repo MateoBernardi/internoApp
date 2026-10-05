@@ -101,6 +101,15 @@ export function formatTimeHHMM(date: Date): string {
   return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 }
 
+/**
+ * "HH:MM" de un `fecha_fin` local ("YYYY-MM-DDTHH:MM:SS"). Sin salida prevista (horario corrido)
+ * devuelve 'a marcar': la salida se toma del marcado.
+ */
+export function formatHoraFin(fechaFin?: string): string {
+  const match = fechaFin?.match(/T(\d{2}:\d{2})/);
+  return match ? match[1] : 'a marcar';
+}
+
 export function formatLocalDateTime(date: Date): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');

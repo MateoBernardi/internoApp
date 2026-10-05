@@ -115,7 +115,7 @@ if (process.env.GOOGLE_IOS_URL_SCHEME) {
 module.exports = ({ config }) => ({
   name: "Italo Argentina",
   slug: "internoApp",
-  version: "2.0.2",
+  version: "2.0.3",
   orientation: "portrait",
   icon: "./assets/images/icon-1024.png",
   scheme: "internoapp",

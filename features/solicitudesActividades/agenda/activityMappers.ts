@@ -1,4 +1,5 @@
-import { normalizeTurno, type HorarioDTO } from '@/features/horarios/models/HorarioDTO';
+import { normalizeTurno, type HorarioDTO, type SedeDTO } from '@/features/horarios/models/HorarioDTO';
+import { turnoNombreFromBackend } from '@/features/horarios/models/Turno';
 import type { Actividad, Licencia } from '../models/Actividad';
 import type { Activity } from '../models/activityTypes';
 import { formatDateKey, formatLocalDateTime, formatTimeHHMM } from './dateUtils';
@@ -114,16 +115,21 @@ export function mapLicencias(licencias: Licencia[]): Activity[] {
 /**
  * Convierte HorarioDTO del backend a celdas Activity para la agenda personal.
  */
-export function mapTurnos(horarios: HorarioDTO[]): Activity[] {
+export function mapTurnos(horarios: HorarioDTO[], sedes: SedeDTO[] = []): Activity[] {
+  const sedesMap = new Map(sedes.map((s) => [s.id, s.nombre]));
+  const sedeNombre = (id: number) => sedesMap.get(id) ?? `#${id}`;
+
   return (horarios || []).filter((h) => !(h.licencia ?? h.esta_de_licencia)).map((h) => {
     const inDate = stripTz(h.esperado_in);
-    const outDate = stripTz(h.esperado_out);
+    // Horario corrido: sin salida prevista (se toma del marcado), el turno no tiene fecha_fin.
+    const outDate = h.esperado_out ? stripTz(h.esperado_out) : null;
     const date = `${inDate.getFullYear()}-${pad2(inDate.getMonth() + 1)}-${pad2(inDate.getDate())}`;
     const ingreso = `${pad2(inDate.getHours())}:${pad2(inDate.getMinutes())}`;
-    const egreso = `${pad2(outDate.getHours())}:${pad2(outDate.getMinutes())}`;
+    const egreso = outDate ? `${pad2(outDate.getHours())}:${pad2(outDate.getMinutes())}` : null;
     const turno = normalizeTurno(h.turno);
     const turnoCode: 'M' | 'T' = turno === 'MANANA' ? 'M' : 'T';
-    const turnoLabel = turno === 'MANANA' ? 'Mañana' : 'Tarde';
+    // Nombre real (Rotativo/Noche ya no se muestran como "Tarde"); el código M/T de la agenda no cambia.
+    const turnoLabel = turnoNombreFromBackend(h.turno);
 
     return {
       id: `turno-${h.planificacion_id ?? h.id}`,
@@ -133,9 +139,10 @@ export function mapTurnos(horarios: HorarioDTO[]): Activity[] {
       completed: false,
       tipo: 'turno' as const,
       turno_code: turnoCode,
-      // sede_ingreso/egreso omitidos hasta que la agenda tenga lookup de nombres de sede
+      sede_ingreso: sedeNombre(h.sede_id_in),
+      sede_egreso: sedeNombre(h.sede_id_out),
       fecha_inicio: `${date}T${ingreso}:00`,
-      fecha_fin: `${date}T${egreso}:00`,
+      fecha_fin: egreso ? `${date}T${egreso}:00` : undefined,
       // pd.id es bigint → el backend lo serializa como string; coercionamos a number.
       planificacion_id: Number(h.planificacion_id ?? h.id) || undefined,
       acepted_at: h.acepted_at ?? null,

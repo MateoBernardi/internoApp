@@ -97,6 +97,12 @@ function RootNavigator() {
       return;
     }
 
+    if (domain === 'horarios') {
+      // Turno asignado/modificado o planilla publicada: el empleado ve sus turnos en la agenda.
+      router.push('/(extras)/agenda-personal' as any);
+      return;
+    }
+
     if (eventType !== 'estado_actualizado' && eventType !== 'status_changed') {
       return;
     }

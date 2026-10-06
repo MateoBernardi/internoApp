@@ -5,7 +5,8 @@ export type SyncDomain =
   | 'kanban'
   | 'reportes'
   | 'licencias'
-  | 'documentos';
+  | 'documentos'
+  | 'horarios';
 
 const BADGES_QUERY_KEY = ['badges', 'prefetch'];
 
@@ -24,6 +25,8 @@ const DOMAIN_QUERY_KEYS: Record<SyncDomain, readonly (readonly unknown[])[]> = {
     BADGES_QUERY_KEY,
   ],
   documentos: [['archivos'], BADGES_QUERY_KEY],
+  // Publicación de horarios / cambios de turno: refresca turnos, agenda propia y horas.
+  horarios: [['horarios'], ['horasExtra']],
 };
 
 // Count-specific query keys invalidated alongside their parent domain keys via DOMAIN_QUERY_KEYS
@@ -49,6 +52,11 @@ const DOMAIN_ALIASES: Record<string, SyncDomain> = {
   documentos: 'documentos',
   archivos: 'documentos',
   empresadocumentos: 'documentos',
+  horarios: 'horarios',
+  turnos: 'horarios',
+  turno: 'horarios',
+  turnoactualizado: 'horarios',
+  turnosactualizadosmasivo: 'horarios',
 };
 
 const ENDPOINT_HINTS: { includes: string; domain: SyncDomain }[] = [
@@ -61,6 +69,7 @@ const ENDPOINT_HINTS: { includes: string; domain: SyncDomain }[] = [
   { includes: 'licencias', domain: 'licencias' },
   { includes: 'documentos', domain: 'documentos' },
   { includes: 'archivos', domain: 'documentos' },
+  { includes: 'horarios', domain: 'horarios' },
 ];
 
 type AnyRecord = Record<string, unknown>;

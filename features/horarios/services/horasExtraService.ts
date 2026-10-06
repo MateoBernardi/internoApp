@@ -5,7 +5,6 @@ import type {
   HorasSemanalDTO,
   LiquidarHorasExtraResult,
   MovimientoDTO,
-  ObjetivoHorasDTO,
 } from '../models/HorasExtra';
 
 async function extractError(res: Response): Promise<string> {
@@ -86,7 +85,7 @@ export async function liquidarHorasExtra(
 /**
  * GET /horarios/objetivos/semanal: horas trabajadas vs. objetivo semanal por
  * usuario, para un rango de fechas (semana). Solo incluye usuarios que ya
- * tienen un objetivo cargado (mismo universo que getObjetivosHoras).
+ * tienen un objetivo cargado.
  */
 export async function getHorasSemanalesVsObjetivo(
   token: string,
@@ -101,78 +100,6 @@ export async function getHorasSemanalesVsObjetivo(
   const res = await apiRequest({
     method: 'GET',
     endpoint: `/horarios/objetivos/semanal?${params.toString()}`,
-    token,
-  });
-  if (!res.ok) throwApiError(await extractError(res), res);
-  return res.json();
-}
-
-/**
- * GET /horarios/objetivos: sólo devuelve los usuarios que ya tienen un
- * objetivo semanal de horas cargado (la migración sembró uno para el
- * personal existente; usuarios nuevos no aparecen hasta crearlo con
- * `createObjetivoHoras`). No hay endpoint para consultar uno solo: hay que
- * filtrar esta lista por `userContextId`.
- */
-export async function getObjetivosHoras(token: string): Promise<ObjetivoHorasDTO[]> {
-  const res = await apiRequest({
-    method: 'GET',
-    endpoint: '/horarios/objetivos',
-    token,
-  });
-  if (!res.ok) throwApiError(await extractError(res), res);
-  return res.json();
-}
-
-/**
- * POST /horarios/objetivos: alta del objetivo semanal para un usuario que
- * todavía no tiene uno. 409 si ya existe.
- */
-export async function createObjetivoHoras(
-  token: string,
-  userContextId: number,
-  horas: number,
-): Promise<{ message: string }> {
-  const res = await apiRequest({
-    method: 'POST',
-    endpoint: '/horarios/objetivos',
-    token,
-    body: { userContextId, horas },
-  });
-  if (!res.ok) throwApiError(await extractError(res), res);
-  return res.json();
-}
-
-/**
- * PATCH /horarios/objetivos/:userContextId: modifica el objetivo semanal ya
- * existente de un usuario. 404 si todavía no tiene uno cargado.
- */
-export async function updateObjetivoHoras(
-  token: string,
-  userContextId: number,
-  horas: number,
-): Promise<{ message: string }> {
-  const res = await apiRequest({
-    method: 'PATCH',
-    endpoint: `/horarios/objetivos/${userContextId}`,
-    token,
-    body: { horas },
-  });
-  if (!res.ok) throwApiError(await extractError(res), res);
-  return res.json();
-}
-
-/**
- * DELETE /horarios/objetivos/:userContextId: elimina el objetivo semanal ya
- * existente de un usuario. 404 si todavía no tiene uno cargado.
- */
-export async function deleteObjetivoHoras(
-  token: string,
-  userContextId: number,
-): Promise<{ message: string }> {
-  const res = await apiRequest({
-    method: 'DELETE',
-    endpoint: `/horarios/objetivos/${userContextId}`,
     token,
   });
   if (!res.ok) throwApiError(await extractError(res), res);

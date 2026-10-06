@@ -1,14 +1,13 @@
-import { confirmAction } from '@/shared/ui/confirmAction';
-import { glassColors, glassStyles } from '@/shared/ui/glass';
+import { glassStyles } from '@/shared/ui/glass';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { HorasSemanalDTO } from '../models/HorasExtra';
 import type { HorasExtraFilter } from '../services/horasExtraService';
 import { currentWeek } from '../utils/dateRange';
-import { useDeleteObjetivoHoras, useHorasSemanalesVsObjetivo, useUpsertObjetivoHoras } from '../viewmodels/useHorasExtra';
+import { useHorasSemanalesVsObjetivo } from '../viewmodels/useHorasExtra';
 import { WeekNavigator } from './WeekNavigator';
-import { INK, MUTED, NAVY, RED_FLASH, TURNO_COLOR } from '../theme';
+import { AMBER, INK, MUTED, NAVY, RED_FLASH } from '../theme';
 
 function formatHoras(n: number): string {
   return `${Math.round(n * 10) / 10} hs`;
@@ -39,6 +38,12 @@ export function HorasSemanalesList({ filter }: HorasSemanalesListProps) {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.list}>
+          <View style={styles.nota}>
+            <Ionicons name="information-circle-outline" size={16} color={MUTED} />
+            <Text style={styles.notaTexto}>
+              Los objetivos de horas se editan en la planilla de horarios. Un cambio rige desde la semana próxima.
+            </Text>
+          </View>
           {semanalesQuery.isFetching && !semanalesQuery.data ? (
             <View style={styles.centerState}>
               <ActivityIndicator size="large" color={NAVY} />
@@ -67,41 +72,8 @@ export function HorasSemanalesList({ filter }: HorasSemanalesListProps) {
 }
 
 function HorasSemanalCard({ empleado }: { empleado: HorasSemanalDTO }) {
-  const [editing, setEditing] = useState(false);
-  const [text, setText] = useState('');
-  const [isFocused, setFocused] = useState(false);
-
-  const upsertObjetivo = useUpsertObjetivoHoras();
-  const deleteObjetivo = useDeleteObjetivoHoras();
-
-  function startEditing() {
-    setText(String(empleado.horasObjetivo));
-    upsertObjetivo.reset();
-    setEditing(true);
-  }
-
-  async function removeObjetivo() {
-    const confirmed = await confirmAction({
-      title: 'Quitar objetivo semanal',
-      message: `¿Eliminar el objetivo semanal de ${empleado.nombre} ${empleado.apellido}?`,
-      confirmText: 'Quitar',
-      cancelText: 'Cancelar',
-      destructive: true,
-    });
-    if (!confirmed) return;
-    deleteObjetivo.mutate(empleado.userContextId);
-  }
-
-  const parsed = Number(text.replace(',', '.'));
-  const isValid = text.trim().length > 0 && Number.isFinite(parsed) && parsed > 0;
-
-  function save() {
-    if (!isValid) return;
-    upsertObjetivo.mutate(
-      { userContextId: empleado.userContextId, horas: parsed, exists: true },
-      { onSuccess: () => setEditing(false) },
-    );
-  }
+  const pendiente = empleado.horasObjetivoPendiente;
+  const hayPendiente = pendiente != null && pendiente !== empleado.horasObjetivo;
 
   return (
     <View style={[glassStyles.card, styles.card]}>
@@ -111,82 +83,17 @@ function HorasSemanalCard({ empleado }: { empleado: HorasSemanalDTO }) {
         </View>
         <View style={styles.mid}>
           <Text style={styles.nombre} numberOfLines={1}>{empleado.nombre} {empleado.apellido}</Text>
-          {!editing && (
-            <Text style={styles.horasText}>
-              {formatHoras(empleado.horasTrabajadas)} trabajadas de {formatHoras(empleado.horasObjetivo)} semanales
-            </Text>
-          )}
-        </View>
-        {!editing && (
-          <View style={styles.cardActions}>
-            {deleteObjetivo.isPending ? (
-              <ActivityIndicator size="small" color={RED_FLASH} style={styles.iconBtn} />
-            ) : (
-              <TouchableOpacity style={styles.iconBtn} onPress={removeObjetivo} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Ionicons name="trash-outline" size={16} color={RED_FLASH} />
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity style={styles.iconBtn} onPress={startEditing} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Ionicons name="pencil" size={16} color={TURNO_COLOR} />
-            </TouchableOpacity>
-          </View>
-        )}
-      </View>
-
-      {editing && (
-        <View style={styles.editSection}>
-          <View style={styles.editRow}>
-            <View style={[glassStyles.fieldGlass, styles.editInputRow, isFocused && styles.inputFocused]}>
-              <TextInput
-                style={[styles.editInput, styles.inputNoOutline]}
-                keyboardType="decimal-pad"
-                value={text}
-                onChangeText={setText}
-                placeholder="0.0"
-                placeholderTextColor={MUTED}
-                editable={!upsertObjetivo.isPending}
-                autoFocus
-                onFocus={() => setFocused(true)}
-                onBlur={() => setFocused(false)}
-              />
-              <Text style={styles.editInputSuffix}>hs</Text>
+          <Text style={styles.horasText}>
+            {formatHoras(empleado.horasTrabajadas)} trabajadas de {formatHoras(empleado.horasObjetivo)} semanales
+          </Text>
+          {hayPendiente && (
+            <View style={styles.pendientePill}>
+              <Ionicons name="arrow-forward-circle-outline" size={13} color={AMBER} />
+              <Text style={styles.pendienteText}>Desde el lunes: {formatHoras(pendiente)} semanales</Text>
             </View>
-            <TouchableOpacity
-              style={styles.iconBtn}
-              onPress={() => setEditing(false)}
-              disabled={upsertObjetivo.isPending}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Ionicons name="close" size={18} color={MUTED} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.iconBtn, styles.saveBtn, (!isValid || upsertObjetivo.isPending) && styles.btnDisabled]}
-              onPress={save}
-              disabled={!isValid || upsertObjetivo.isPending}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              {upsertObjetivo.isPending ? (
-                <ActivityIndicator size="small" color="#ffffff" />
-              ) : (
-                <Ionicons name="checkmark" size={18} color="#ffffff" />
-              )}
-            </TouchableOpacity>
-          </View>
-          {text.trim().length > 0 && !isValid && (
-            <Text style={styles.errorText}>Ingresá un valor mayor a 0.</Text>
-          )}
-          {upsertObjetivo.isError && (
-            <Text style={styles.errorText}>
-              {(upsertObjetivo.error as Error)?.message || 'No se pudo guardar el objetivo.'}
-            </Text>
           )}
         </View>
-      )}
-      {!editing && deleteObjetivo.isError && (
-        <Text style={styles.errorText}>
-          {(deleteObjetivo.error as Error)?.message || 'No se pudo quitar el objetivo.'}
-        </Text>
-      )}
+      </View>
     </View>
   );
 }
@@ -267,62 +174,32 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: MUTED,
   },
-  cardActions: {
+  nota: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    flexShrink: 0,
-  },
-  iconBtn: {
-    padding: 6,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  editSection: {
+    alignItems: 'flex-start',
     gap: 6,
+    paddingBottom: 12,
   },
-  editRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  editInputRow: {
+  notaTexto: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    height: 38,
-    gap: 6,
-  },
-  inputFocused: {
-    borderColor: glassColors.link,
-  },
-  editInput: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: '700',
-    color: INK,
-    fontVariant: ['tabular-nums'],
-    paddingVertical: 0,
-  },
-  editInputSuffix: {
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 12.5,
+    lineHeight: 17,
     color: MUTED,
   },
-  saveBtn: {
-    backgroundColor: TURNO_COLOR,
+  pendientePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 4,
+    marginTop: 3,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+    backgroundColor: 'rgba(201,138,26,0.12)',
   },
-  btnDisabled: {
-    opacity: 0.5,
+  pendienteText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: AMBER,
   },
-  errorText: {
-    fontSize: 12,
-    color: RED_FLASH,
-  },
-  inputNoOutline: {
-    outlineStyle: 'none',
-    outlineWidth: 0,
-  } as any,
 });

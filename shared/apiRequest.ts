@@ -170,9 +170,32 @@ export async function apiRequest({
 }
 
 /**
- * Lanza un Error con el mensaje más útil disponible a partir del body de una
+ * Error de una respuesta HTTP fallida. Sigue siendo un `Error` con el mismo `message`
+ * de siempre (los `catch` existentes no cambian), pero además conserva `status`, el
+ * `code` del backend y `details` (p. ej. `details.errores[]` de un 422).
+ */
+export class ApiError extends Error {
+  readonly status: number;
+  readonly code?: string;
+  readonly details?: unknown;
+
+  constructor(message: string, status: number, code?: string, details?: unknown) {
+    super(message);
+    // Con Babel/Hermes, `extends Error` pierde el prototipo: sin esto `instanceof ApiError` falla.
+    Object.setPrototypeOf(this, ApiError.prototype);
+    this.name = 'ApiError';
+    this.status = status;
+    this.code = code;
+    this.details = details;
+  }
+}
+
+/**
+ * Lanza un `ApiError` con el mensaje más útil disponible a partir del body de una
  * respuesta fallida: usa `message`/`error` del JSON si parsea, si no el texto
  * crudo o el statusText. Centraliza el boilerplate repetido en los servicios.
+ * Para conservar `code`/`details` hay que pasar el body crudo (`await res.text()`),
+ * no un mensaje ya extraído.
  */
 export function throwApiError(errorText: string, response: Response): never {
   // `errorText` puede ser el body JSON crudo o un mensaje ya extraído (texto
@@ -180,11 +203,15 @@ export function throwApiError(errorText: string, response: Response): never {
   // propague como si fuera el error de la API (antes se filtraba como
   // "JSON Parse error: ..." en pantalla).
   let message = errorText;
+  let code: string | undefined;
+  let details: unknown;
   try {
     const errData = JSON.parse(errorText);
     message = errData?.message || errData?.error || errorText;
+    code = typeof errData?.code === 'string' ? errData.code : undefined;
+    details = errData?.details;
   } catch {
     // No era JSON: se usa el texto tal cual.
   }
-  throw new Error(message || response.statusText);
+  throw new ApiError(message || response.statusText, response.status, code, details);
 }

@@ -4,6 +4,7 @@ import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { Colors, UI } from '@/constants/theme';
 import { TurnoDetalle } from '@/features/horarios/components/TurnoDetalle';
+import { useSedes } from '@/features/horarios/viewmodels/useHorarios';
 import { useTurnosPorPeriodo } from '@/features/horarios/viewmodels/useTurnosAgenda';
 import { confirmAction } from '@/shared/ui/confirmAction';
 import { glassColors, glassStyles } from '@/shared/ui/glass';
@@ -74,6 +75,7 @@ const AgendaPersonal: React.FC = () => {
   const periodo = useMemo(() => buildPeriodoVentanaFromMonth(activeMonth), [activeMonth]);
   const actividadesPeriodoQuery = useActividadesPorPeriodo(periodo);
   const turnosPeriodoQuery = useTurnosPorPeriodo(periodo);
+  const sedesQuery = useSedes();
 
   const crearActividadMutation = useCrearActividad();
   const cancelarActividadMutation = useCancelarActividad();
@@ -130,9 +132,9 @@ const AgendaPersonal: React.FC = () => {
     return [
       ...mapActivities(actividadesPeriodoQuery.data.actividades || []),
       ...mapLicencias(actividadesPeriodoQuery.data.licencias || []),
-      ...mapTurnos(turnosPeriodoQuery.data || []),
+      ...mapTurnos(turnosPeriodoQuery.data || [], sedesQuery.data ?? []),
     ];
-  }, [actividadesPeriodoQuery.data, turnosPeriodoQuery.data]);
+  }, [actividadesPeriodoQuery.data, turnosPeriodoQuery.data, sedesQuery.data]);
 
   const filteredActivities = useMemo(() => {
     if (viewMode === 'day') {

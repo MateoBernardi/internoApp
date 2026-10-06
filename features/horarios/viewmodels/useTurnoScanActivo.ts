@@ -1,14 +1,13 @@
 import { useAuth } from '@/features/auth/context/AuthContext';
+import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { useQuery } from '@tanstack/react-query';
-import { normalizeTurno, type HorarioUsuarioDTO } from '../models/HorarioDTO';
-import { parseLocal } from '../models/Turno';
+import { normalizeTurno, type HorarioUsuarioDTO, type TurnoEnum } from '../models/HorarioDTO';
+import { parseLocal, turnoNombreFromBackend } from '../models/Turno';
 import { toISO } from '../utils/dateRange';
 import { getMisHorarios } from '../services/horariosService';
 
 /** El card de escaneo aparece 20 min antes del horario esperado (entrada y salida). */
 const WINDOW_BEFORE_MS = 20 * 60 * 1000;
-/** Fallback si el turno no tiene esperado_out: la entrada vence 40 min tras esperado_in. */
-const IN_WINDOW_FALLBACK_AFTER_MS = 40 * 60 * 1000;
 /** La salida queda habilitada hasta 2h después del horario esperado. */
 const OUT_WINDOW_AFTER_MS = 2 * 60 * 60 * 1000;
 
@@ -16,6 +15,8 @@ export interface TurnoScanActivo {
   visible: true;
   tipo: 'IN' | 'OUT';
   turno: 'MANANA' | 'TARDE';
+  /** Nombre exacto del turno (incluye Rotativo y Noche): es el que identifica la planificación al escanear. */
+  turnoNombre: TurnoEnum;
   fecha: string; // "YYYY-MM-DD"
   msLeft: number; // ms hasta esperado_in/esperado_out; negativo si la hora esperada ya pasó
 }
@@ -26,6 +27,7 @@ export const horariosUserQueryKeys = {
 
 function useMisHorariosHoy(fecha: string) {
   const { tokens } = useAuth();
+  const { canTenerHorariosPropios } = useRoleCheck();
   return useQuery({
     queryKey: horariosUserQueryKeys.hoy(fecha),
     queryFn: async () => {
@@ -33,7 +35,7 @@ function useMisHorariosHoy(fecha: string) {
       if (!token) throw new Error('No access token');
       return getMisHorarios(token, fecha, fecha);
     },
-    enabled: !!tokens?.accessToken,
+    enabled: !!tokens?.accessToken && canTenerHorariosPropios(),
     // Corto: marcado_in_at/marcado_out_at cambian tras cada escaneo y el card
     // debe reflejar eso (esconderse / pasar de "entrada" a "salida") pronto.
     staleTime: 1000 * 30,
@@ -53,7 +55,7 @@ function useMisHorariosHoy(fecha: string) {
  * Reglas (ver plan "Rotating/Static QR + Kiosk + Employee Scan UI"):
  *  - Ventana de entrada: abre en `esperado_in - 20min`, cierra cuando se
  *    marca `marcado_in_at` o al llegar a `esperado_out - 20min` sin marcar
- *    (o, si el turno no tiene `esperado_out`, pasados `esperado_in + 40min`).
+ *    (en horario corrido, sin `esperado_out`, al terminar el día del turno).
  *  - Ventana de salida: solo puede abrir si ya se marcó `marcado_in_at` (si
  *    la entrada nunca se marcó, la salida no se ofrece). Abre en
  *    `esperado_out - 20min`, cierra cuando se marca `marcado_out_at` o
@@ -75,6 +77,31 @@ export function computeTurnoScanActivo(
   for (const shift of shifts) {
     if (shift.licencia) continue;
 
+    // Horario corrido: no hay salida esperada (esperado_out null), así que la salida se ofrece desde
+    // que se marcó la entrada hasta el fin del día del turno (más la gracia de la ventana de salida).
+    if (!shift.esperado_out && shift.esperado_in && shift.marcado_in_at && !shift.marcado_out_at) {
+      const marcadoInMs = parseLocal(shift.marcado_in_at).getTime();
+      const inicio = parseLocal(shift.esperado_in);
+      const finDelDia = new Date(inicio.getFullYear(), inicio.getMonth(), inicio.getDate() + 1).getTime();
+      if (
+        !Number.isNaN(marcadoInMs) &&
+        now >= marcadoInMs &&
+        now <= finDelDia + OUT_WINDOW_AFTER_MS &&
+        marcadoInMs < bestEsperadoMs
+      ) {
+        bestEsperadoMs = marcadoInMs;
+        best = {
+          visible: true,
+          tipo: 'OUT',
+          turno: normalizeTurno(shift.turno),
+          turnoNombre: turnoNombreFromBackend(shift.turno),
+          fecha: toISO(inicio),
+          msLeft: 0, // sin hora esperada
+        };
+      }
+      continue;
+    }
+
     const attempts: { tipo: 'IN' | 'OUT'; esperado: string | null; marcado: string | null }[] = [
       { tipo: 'IN', esperado: shift.esperado_in, marcado: shift.marcado_in_at },
       { tipo: 'OUT', esperado: shift.esperado_out, marcado: shift.marcado_out_at },
@@ -95,11 +122,11 @@ export function computeTurnoScanActivo(
       if (attempt.tipo === 'IN') {
         windowOpensAt = esperadoMs - WINDOW_BEFORE_MS;
         // La entrada se sigue ofreciendo hasta 20min antes de la salida
-        // esperada (o, si no hay esperado_out, con el fallback de 40min).
+        // esperada (o, en horario corrido, hasta el fin del día del turno).
         const esperadoOutMs = shift.esperado_out ? parseLocal(shift.esperado_out).getTime() : NaN;
         windowClosesAt = !Number.isNaN(esperadoOutMs)
           ? esperadoOutMs - WINDOW_BEFORE_MS
-          : esperadoMs + IN_WINDOW_FALLBACK_AFTER_MS;
+          : new Date(esperadoDate.getFullYear(), esperadoDate.getMonth(), esperadoDate.getDate() + 1).getTime();
       } else {
         windowOpensAt = esperadoMs - WINDOW_BEFORE_MS;
         windowClosesAt = esperadoMs + OUT_WINDOW_AFTER_MS;
@@ -113,6 +140,7 @@ export function computeTurnoScanActivo(
         visible: true,
         tipo: attempt.tipo,
         turno: normalizeTurno(shift.turno),
+        turnoNombre: turnoNombreFromBackend(shift.turno),
         fecha: toISO(esperadoDate),
         msLeft: esperadoMs - now,
       };

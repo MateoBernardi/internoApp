@@ -10,7 +10,6 @@ import {
   type HorariosByDateFilter,
   marcarFeriadoDia,
   updateHorario,
-  uploadShiftsFile,
 } from '../services/horariosService';
 
 export const horariosQueryKeys = {
@@ -87,22 +86,6 @@ export function useScanHistory(planificacionId: number | undefined, enabled: boo
     refetchOnMount: 'always',
     retry: 3,
     retryDelay: (i) => Math.min(1000 * 2 ** i, 30000),
-  });
-}
-
-export function useUploadShifts() {
-  const { tokens } = useAuth();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({ uri, name, fechaISO }: { uri: string; name: string; fechaISO: string }) => {
-      const token = tokens?.accessToken;
-      if (!token) throw new Error('No access token');
-      return uploadShiftsFile(token, uri, name, fechaISO);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: horariosQueryKeys.all });
-    },
   });
 }
 

@@ -1,7 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system';
-import * as Sharing from 'expo-sharing';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -19,23 +16,24 @@ import DateTimePicker from '@/components/ui/CrossPlatformDateTimePicker';
 import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
 import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { SearchBar } from '@/components/ui/SearchBar';
-import { useAuth } from '@/features/auth/context/AuthContext';
 import { allRoles } from '@/shared/users/roles';
 import type { UserSummary } from '@/shared/users/User';
 import { useSearchUsers } from '@/shared/users/useUser';
+import { CrearTurnoSheet } from '../components/CrearTurnoSheet';
 import { EditarTurnoSheet } from '../components/EditarTurnoSheet';
 import { TurnoCard } from '../components/TurnoCard';
 import { HorariosToast } from '../components/HorariosToast';
 import { normalizeTurno, type UpdateHorarioPayload } from '../models/HorarioDTO';
-import { mapHorarioDTOToTurno, TURNO_LABEL, type Turno } from '../models/Turno';
-import { downloadPlantillaShifts, getPlantillaShiftsUrl, type HorariosByDateFilter } from '../services/horariosService';
+import type { CrearTurnoPayload } from '../models/Planificacion';
+import { buildUpdatePayload, mapHorarioDTOToTurno, TURNO_LABEL, type Turno } from '../models/Turno';
+import type { HorariosByDateFilter } from '../services/horariosService';
 import {
   useHorariosByDate,
   useMarcarFeriadoDia,
   useSedes,
   useUpdateHorario,
-  useUploadShifts,
 } from '../viewmodels/useHorarios';
+import { useCrearTurno } from '../viewmodels/usePlanificacion';
 
 import { CARD, FERIADO_COLOR, INK, LINE, MUTED, NAVY, RED_FLASH } from '../theme';
 
@@ -98,8 +96,9 @@ export function GestionHorarios() {
   const [infoBarHeight, setInfoBarHeight] = useState(0);
   const toastAnim = useRef(new Animated.Value(0)).current;
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const { tokens } = useAuth();
-  const [isDownloadingPlantilla, setIsDownloadingPlantilla] = useState(false);
+  const [crearOpen, setCrearOpen] = useState(false);
+  const [crearSession, setCrearSession] = useState(0);
+  const [crearError, setCrearError] = useState<string | null>(null);
 
   // El backend solo acepta un filtro por request: prioriza el empleado buscado,
   // y si no hay uno, el rol.
@@ -112,7 +111,7 @@ export function GestionHorarios() {
   const horariosQuery = useHorariosByDate(selDateISO, activeFilter);
   const sedesQuery = useSedes();
   const userSearchQuery = useSearchUsers(searchQuery);
-  const { mutate: uploadShifts, isPending: isUploading } = useUploadShifts();
+  const { mutate: crearTurno, isPending: isCreating } = useCrearTurno();
   const { mutate: updateShift, isPending: isSaving } = useUpdateHorario();
   const { mutate: marcarFeriadoDia, isPending: isMarkingFeriado } = useMarcarFeriadoDia();
 
@@ -203,6 +202,14 @@ export function GestionHorarios() {
     setFeriadoMenuStep('main');
   }, []);
 
+  // Otros turnos del mismo empleado ese día: el horario corrido los elimina (se avisa antes de activarlo).
+  const otrosTurnosDelDia = useMemo(() => {
+    if (!editingTurno) return 0;
+    return (horariosQuery.data ?? []).filter(
+      (d) => d.user_context_id === editingTurno.userContextId && (d.planificacion_id ?? d.id) !== editingTurno.id,
+    ).length;
+  }, [horariosQuery.data, editingTurno]);
+
   const openEdit = useCallback((turno: Turno) => {
     setEditingTurno({ ...turno });
     setEditSession((s) => s + 1);
@@ -216,118 +223,36 @@ export function GestionHorarios() {
     setEditingTurno(null);
   }, []);
 
-  const saveEdit = useCallback((turno: Turno) => {
-    const payload: UpdateHorarioPayload = {
-      id: turno.id,
-      turno: TURNO_LABEL[turno.turno],
-      horario_in: `${turno.fechaISO}T${turno.ingreso}:00`,
-      horario_out: `${turno.fechaISO}T${turno.egreso}:00`,
-      sede_id_in: turno.sedeIdIngreso,
-      sede_id_out: turno.sedeIdEgreso,
-      licencia: turno.licencia ? 1 : 0,
-      feriado: turno.feriado ? 1 : 0,
-    };
-    updateShift(payload, {
+  const saveEdit = useCallback((turno: Turno, extra?: Pick<UpdateHorarioPayload, 'horario_corrido'>) => {
+    updateShift(buildUpdatePayload(turno, extra), {
       onSuccess: () => {
         showToast('Turno actualizado');
         closeEdit();
       },
-      onError: () => {
-        showToast('Error al guardar. Intenta de nuevo.', true);
+      onError: (error) => {
+        showToast(error.message || 'Error al guardar. Intentá de nuevo.', true);
       },
     });
   }, [updateShift, showToast, closeEdit]);
 
-  const handlePickFile = async () => {
-    try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: Platform.OS === 'web' ? ['text/csv', 'text/plain'] : '*/*',
-        copyToCacheDirectory: true,
-      });
-      if (result.canceled || !result.assets?.[0]) return;
-      const { uri, name } = result.assets[0];
-      uploadShifts(
-        { uri, name: name ?? 'shifts.csv', fechaISO: selDateISO },
-        {
-          onSuccess: (resp) => {
-            const omitidosSuffix = resp.totalOmitidos > 0 ? ` · ${resp.totalOmitidos} omitido${resp.totalOmitidos !== 1 ? 's' : ''}` : '';
-            showToast(`${resp.totalInsertados} turno${resp.totalInsertados !== 1 ? 's' : ''} importados${omitidosSuffix}`);
-          },
-          onError: (err) => {
-            showToast(err instanceof Error ? err.message : 'Error al importar el archivo', true);
-          },
-        },
-      );
-    } catch {
-      showToast('Error al leer el archivo', true);
-    }
-  };
-
-  const handleShowCsvHelp = useCallback(() => {
-    Alert.alert(
-      'Formato del CSV',
-      'Columnas: user_context_id, nombre_apellido, turno, horario_in, horario_out, sede_in, sede_out.\n\n' +
-        '• La plantilla ya trae, para cada usuario, el turno de este día (o su turno base si el día todavía no tiene uno propio).\n' +
-        '• Editá solo lo que necesites cambiar; el resto de las filas se puede dejar tal cual.\n' +
-        '• Si un usuario no tiene turno ese día ni turno base, sus columnas vienen vacías: completalas para asignarle un turno, o dejalas vacías para que se lo omita.\n' +
-        '• No modifiques la columna user_context_id: es la que identifica al usuario.\n' +
-        '• horario_in y horario_out van en formato HHmm (ej: 0800, 1630).\n' +
-        '• sede_in y sede_out son el ID numérico de la sede.',
-    );
+  const openCrear = useCallback(() => {
+    setCrearError(null);
+    setCrearSession((n) => n + 1);
+    setCrearOpen(true);
   }, []);
 
-  const handleDownloadPlantilla = async () => {
-    if (isDownloadingPlantilla) return;
-    const token = tokens?.accessToken;
-    if (!token) {
-      showToast('No se pudo descargar la plantilla', true);
-      return;
-    }
-    setIsDownloadingPlantilla(true);
-    try {
-      const fileName = `plantilla_turnos_${selDateISO}.csv`;
-
-      if (Platform.OS === 'web') {
-        const blob = await downloadPlantillaShifts(token, selDateISO);
-        const blobUrl = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = blobUrl;
-        link.download = fileName;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        window.URL.revokeObjectURL(blobUrl);
-      } else {
-        const destinationDir = new FileSystem.Directory(FileSystem.Paths.cache, 'Italo-Argentina');
-        const destinationFile = new FileSystem.File(destinationDir, fileName);
-        await destinationDir.create({ idempotent: true, intermediates: true });
-
-        // RN's Blob no implementa .text(); descargamos directo a disco en vez de pasar por blob.
-        await FileSystem.File.downloadFileAsync(getPlantillaShiftsUrl(selDateISO), destinationFile, {
-          idempotent: true,
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'x-app-entorno': 'interno',
-          },
-        });
-
-        const canShare = await Sharing.isAvailableAsync();
-        if (canShare) {
-          await Sharing.shareAsync(destinationFile.uri, {
-            dialogTitle: 'Guardar o compartir plantilla',
-            mimeType: 'text/csv',
-          });
-        } else {
-          Alert.alert('Descarga completada', 'La plantilla se descargó en almacenamiento temporal de la app.');
-        }
-      }
-    } catch (e) {
-      console.error(e);
-      showToast('No se pudo descargar la plantilla', true);
-    } finally {
-      setIsDownloadingPlantilla(false);
-    }
-  };
+  const handleCrearTurno = useCallback((payload: CrearTurnoPayload) => {
+    setCrearError(null);
+    crearTurno(payload, {
+      onSuccess: () => {
+        setCrearOpen(false);
+        showToast('Turno creado');
+        // Si se creó en otro día, el usuario lo ve al navegar a esa fecha.
+        setSelDateISO(payload.horario_in.slice(0, 10));
+      },
+      onError: (error) => setCrearError(error.message || 'No se pudo crear el turno. Intentá de nuevo.'),
+    });
+  }, [crearTurno, showToast]);
 
   const selectUser = useCallback((user: UserSummary) => {
     setSelectedUser(user);
@@ -390,41 +315,17 @@ export function GestionHorarios() {
           </FullScreenPortal>
         )}
 
-        {/* CSV import card */}
-        <View style={styles.importCard}>
-          <View style={styles.importIcon}>
-            {isUploading ? (
-              <ActivityIndicator size="small" color={MUTED} />
-            ) : (
-              <Ionicons name="cloud-upload-outline" size={22} color={MUTED} />
-            )}
+        {/* Alta de turno individual (rotativos / turnos puntuales) */}
+        <View style={styles.addCard}>
+          <View style={styles.addIcon}>
+            <Ionicons name="add-circle-outline" size={22} color={NAVY} />
           </View>
-          <View style={styles.importText}>
-            <Text style={styles.importTitle}>Importar CSV</Text>
-            <Text style={styles.importSub}>
-              {isUploading ? 'Subiendo planilla…' : 'Planilla de turnos (.csv)'}
-            </Text>
+          <View style={styles.addText}>
+            <Text style={styles.addTitle}>Agregar turno</Text>
+            <Text style={styles.addSub}>Para rotativos o un día puntual</Text>
           </View>
-          <TouchableOpacity style={styles.importPlantillaBtn} onPress={handleShowCsvHelp}>
-            <Ionicons name="help-circle-outline" size={20} color={NAVY} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.importPlantillaBtn}
-            onPress={handleDownloadPlantilla}
-            disabled={isDownloadingPlantilla}
-          >
-            {isDownloadingPlantilla ? (
-              <ActivityIndicator size="small" color={NAVY} />
-            ) : (
-              <Ionicons name="download-outline" size={20} color={NAVY} />
-            )}
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.importBtn, isUploading && styles.importBtnDisabled]}
-            onPress={handlePickFile}
-            disabled={isUploading}
-          >
-            <Text style={styles.importBtnText}>Subir</Text>
+          <TouchableOpacity style={styles.addBtn} onPress={openCrear} accessibilityLabel="Agregar turno">
+            <Text style={styles.addBtnText}>Agregar</Text>
           </TouchableOpacity>
         </View>
 
@@ -713,9 +614,21 @@ export function GestionHorarios() {
         sedes={sedes}
         isSaving={isSaving}
         editKey={editSession}
+        otrosTurnosDelDia={otrosTurnosDelDia}
         onClose={closeEdit}
         onField={setField}
         onSave={saveEdit}
+      />
+
+      <CrearTurnoSheet
+        key={crearSession}
+        visible={crearOpen}
+        defaultDateISO={selDateISO}
+        sedes={sedes}
+        isSaving={isCreating}
+        submitError={crearError}
+        onClose={() => setCrearOpen(false)}
+        onSubmit={handleCrearTurno}
       />
 
       {/* Toast */}
@@ -881,7 +794,7 @@ const styles = StyleSheet.create({
     color: MUTED,
     marginTop: 2,
   },
-  importCard: {
+  addCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: CARD,
@@ -892,7 +805,7 @@ const styles = StyleSheet.create({
     borderColor: LINE,
     gap: 10,
   },
-  importIcon: {
+  addIcon: {
     ...glassStyles.fieldGlass,
     width: 38,
     height: 38,
@@ -900,36 +813,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  importText: {
+  addText: {
     flex: 1,
   },
-  importTitle: {
+  addTitle: {
     fontSize: 14,
     fontWeight: '700',
     color: INK,
   },
-  importSub: {
+  addSub: {
     fontSize: 12,
     color: MUTED,
   },
-  importPlantillaBtn: {
-    ...glassStyles.fieldGlass,
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  importBtn: {
+  addBtn: {
     paddingHorizontal: 16,
     paddingVertical: 9,
     borderRadius: 8,
     backgroundColor: NAVY,
   },
-  importBtnDisabled: {
-    opacity: 0.5,
-  },
-  importBtnText: {
+  addBtnText: {
     fontSize: 13,
     fontWeight: '600',
     color: '#ffffff',

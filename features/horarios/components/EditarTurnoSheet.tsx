@@ -1,8 +1,9 @@
+import { confirmAction } from '@/shared/ui/confirmAction';
 import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { IsolatedMaskedInput, IsolatedMaskedInputHandle } from '@/shared/ui/IsolatedMaskedInput';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -15,10 +16,11 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSafeBottomInset } from '@/hooks/useSafeBottomInset';
-import type { SedeDTO } from '../models/HorarioDTO';
+import type { SedeDTO, UpdateHorarioPayload } from '../models/HorarioDTO';
 import { INK, LINE, MUTED, NAVY, RED_FLASH, TURNO_ACTIVE, TURNO_COLOR, TURNO_SOFT } from '../theme';
 import { parseLocal, type Turno } from '../models/Turno';
 import { useScanHistory } from '../viewmodels/useHorarios';
+import { SedeSelect } from './SedeSelect';
 
 interface EditarTurnoSheetProps {
   visible: boolean;
@@ -27,56 +29,15 @@ interface EditarTurnoSheetProps {
   isSaving: boolean;
   editKey: number | string;
   onClose: () => void;
+  /** Otros turnos del mismo empleado ese día: el horario corrido los elimina (se avisa antes de activarlo). */
+  otrosTurnosDelDia?: number;
   onField: <K extends keyof Turno>(key: K, value: Turno[K]) => void;
-  onSave: (turno: Turno) => void;
+  /** `extra.horario_corrido` solo viaja si el usuario cambió ese valor respecto del original. */
+  onSave: (turno: Turno, extra?: Pick<UpdateHorarioPayload, 'horario_corrido'>) => void;
 }
 
+const HORA_REGEX = /^([01]\d|2[0-3]):[0-5]\d$/;
 
-function SedeSelect({
-  value,
-  sedes,
-  onChange,
-  disabled,
-}: {
-  value: number;
-  sedes: SedeDTO[];
-  onChange: (id: number) => void;
-  disabled?: boolean;
-}) {
-  const [open, setOpen] = React.useState(false);
-  const selectedName = sedes.find((s) => s.id === value)?.nombre ?? `Sede ${value}`;
-
-  return (
-    <>
-      <TouchableOpacity
-        style={[glassStyles.fieldGlass, styles.sedeBtn, disabled && styles.fieldDisabled]}
-        onPress={() => setOpen(true)}
-        disabled={disabled}
-      >
-        <Text style={styles.sedeBtnText}>{selectedName}</Text>
-        <Ionicons name="chevron-down" size={16} color={MUTED} />
-      </TouchableOpacity>
-      <Modal transparent visible={open} animationType="fade" onRequestClose={() => setOpen(false)}>
-        <TouchableOpacity style={[glassStyles.modalOverlay, styles.sedeOverlay]} activeOpacity={1} onPress={() => setOpen(false)}>
-          <View style={[glassStyles.modalCard, styles.sedeMenu]}>
-            {sedes.map((s) => (
-              <TouchableOpacity
-                key={s.id}
-                style={[styles.sedeOption, value === s.id && styles.sedeOptionActive]}
-                onPress={() => { onChange(s.id); setOpen(false); }}
-              >
-                <Text style={[styles.sedeOptionText, value === s.id && styles.sedeOptionTextActive]}>
-                  {s.nombre}
-                </Text>
-                {value === s.id && <Ionicons name="checkmark" size={16} color={TURNO_ACTIVE} />}
-              </TouchableOpacity>
-            ))}
-          </View>
-        </TouchableOpacity>
-      </Modal>
-    </>
-  );
-}
 
 export function EditarTurnoSheet({
   visible,
@@ -84,6 +45,7 @@ export function EditarTurnoSheet({
   sedes,
   isSaving,
   editKey,
+  otrosTurnosDelDia = 0,
   onClose,
   onField,
   onSave,
@@ -110,13 +72,57 @@ export function EditarTurnoSheet({
   const scanHistoryQuery = useScanHistory(displayDraft?.id, visible);
   const scanHistory = scanHistoryQuery.data ?? [];
 
+  // Valor de horario corrido al abrir la edición, para enviarlo solo si el usuario lo cambia.
+  const corridoOriginalRef = useRef(false);
+  // El error se asocia a la edición (editKey) en la que ocurrió: al abrir otra, deja de mostrarse sin efectos.
+  const [errorState, setErrorState] = useState<{ key: number | string; mensaje: string } | null>(null);
+  const formError = errorState?.key === editKey ? errorState.mensaje : null;
+  const setFormError = (mensaje: string | null) => setErrorState(mensaje ? { key: editKey, mensaje } : null);
+  useEffect(() => {
+    corridoOriginalRef.current = draft?.horarioCorrido ?? false;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editKey]);
+
+  const corrido = Boolean(displayDraft?.horarioCorrido);
+  // Con licencia o con la salida ya marcada no tiene sentido pasar a horario corrido.
+  const corridoBloqueado = Boolean(displayDraft?.licencia) || salidaBloqueada;
+
+  const handleCorrido = async (value: boolean) => {
+    if (!displayDraft || value === corrido) return;
+    if (value) {
+      const ok = await confirmAction({
+        title: 'Horario corrido',
+        message:
+          otrosTurnosDelDia > 0
+            ? `Se conserva solo el primer turno del día y se eliminan ${otrosTurnosDelDia === 1 ? 'el otro turno' : `los otros ${otrosTurnosDelDia} turnos`} de este empleado. La salida se toma del marcado. No se puede deshacer.`
+            : 'Este turno queda sin hora de egreso: la salida se toma del marcado del empleado.',
+        confirmText: 'Activar',
+        destructive: otrosTurnosDelDia > 0,
+      });
+      if (!ok) return;
+    }
+    setFormError(null);
+    onField('horarioCorrido', value);
+  };
+
   const handleSave = () => {
     if (!displayDraft) return;
-    onSave({
-      ...displayDraft,
-      ingreso: ingresoRef.current?.getValue() ?? displayDraft.ingreso,
-      egreso: egresoRef.current?.getValue() ?? displayDraft.egreso,
-    });
+    const ingreso = ingresoRef.current?.getValue() ?? displayDraft.ingreso;
+    const egreso = corrido ? '' : (egresoRef.current?.getValue() ?? displayDraft.egreso);
+
+    if (!HORA_REGEX.test(ingreso)) {
+      setFormError('Ingresá un horario de ingreso válido (HH:MM).');
+      return;
+    }
+    if (!corrido && !HORA_REGEX.test(egreso)) {
+      setFormError('Ingresá un horario de egreso válido (HH:MM) o activá el horario corrido.');
+      return;
+    }
+    setFormError(null);
+    onSave(
+      { ...displayDraft, ingreso, egreso },
+      corrido !== corridoOriginalRef.current ? { horario_corrido: corrido } : undefined,
+    );
   };
 
   return (
@@ -200,23 +206,29 @@ export function EditarTurnoSheet({
                     </View>
                     <View style={[styles.field, { flex: 1 }]}>
                       <Text style={styles.fieldLabel}>EGRESO</Text>
-                      <View style={[glassStyles.fieldGlass, styles.timeInputContainer, focusedField === 'egreso' && styles.inputFocused, salidaBloqueada && styles.fieldDisabled]}>
-                        <IsolatedMaskedInput
-                          key={editKey}
-                          ref={egresoRef}
-                          style={[styles.fieldInput, styles.inputNoOutline]}
-                          initialValue={displayDraft.egreso}
-                          maxDigits={4}
-                          separators={[{ afterDigit: 2, char: ':' }]}
-                          placeholder="--:--"
-                          placeholderTextColor={MUTED}
-                          keyboardType="numeric"
-                          maxLength={5}
-                          editable={!salidaBloqueada}
-                          onFocus={() => setFocusedField('egreso')}
-                          onBlur={() => setFocusedField(null)}
-                        />
-                      </View>
+                      {corrido ? (
+                        <View style={[glassStyles.fieldGlass, styles.timeInputContainer, styles.egresoCorrido]}>
+                          <Text style={styles.egresoCorridoText}>Al marcar salida</Text>
+                        </View>
+                      ) : (
+                        <View style={[glassStyles.fieldGlass, styles.timeInputContainer, focusedField === 'egreso' && styles.inputFocused, salidaBloqueada && styles.fieldDisabled]}>
+                          <IsolatedMaskedInput
+                            key={editKey}
+                            ref={egresoRef}
+                            style={[styles.fieldInput, styles.inputNoOutline]}
+                            initialValue={displayDraft.egreso}
+                            maxDigits={4}
+                            separators={[{ afterDigit: 2, char: ':' }]}
+                            placeholder="--:--"
+                            placeholderTextColor={MUTED}
+                            keyboardType="numeric"
+                            maxLength={5}
+                            editable={!salidaBloqueada}
+                            onFocus={() => setFocusedField('egreso')}
+                            onBlur={() => setFocusedField(null)}
+                          />
+                        </View>
+                      )}
                     </View>
                   </View>
 
@@ -287,6 +299,31 @@ export function EditarTurnoSheet({
                   </View>
 
                   <View style={styles.field}>
+                    <Text style={styles.fieldLabel}>HORARIO CORRIDO</Text>
+                    <View style={[styles.licenciaRow, corridoBloqueado && styles.fieldDisabled]}>
+                      <TouchableOpacity
+                        style={[styles.licenciaBtn, !corrido && styles.licenciaBtnActive]}
+                        onPress={() => handleCorrido(false)}
+                        disabled={corridoBloqueado}
+                      >
+                        <Text style={[styles.licenciaBtnText, !corrido && styles.licenciaBtnTextActive]}>No</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.licenciaBtn, corrido && styles.licenciaBtnActive]}
+                        onPress={() => handleCorrido(true)}
+                        disabled={corridoBloqueado}
+                      >
+                        <Text style={[styles.licenciaBtnText, corrido && styles.licenciaBtnTextActive]}>Sí</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <Text style={styles.corridoHint}>
+                      {corridoBloqueado
+                        ? 'No disponible con licencia o con la salida ya marcada.'
+                        : 'Deja un único turno en el día; la salida se toma de cuando el empleado marca.'}
+                    </Text>
+                  </View>
+
+                  <View style={styles.field}>
                     <Text style={styles.fieldLabel}>HISTORIAL DE MARCADO</Text>
                     <View style={styles.scanList}>
                       {scanHistoryQuery.isFetching && !scanHistoryQuery.data ? (
@@ -338,6 +375,7 @@ export function EditarTurnoSheet({
             </ScrollView>
 
             <View style={[styles.footer, { paddingBottom: bottomInset }]}>
+              {!!formError && <Text style={styles.formError}>{formError}</Text>}
               <TouchableOpacity
                 style={[styles.btnSave, isSaving && styles.btnSaveDisabled]}
                 onPress={handleSave}
@@ -415,6 +453,28 @@ const styles = StyleSheet.create({
   timeInputContainer: {
     width: '100%',
   },
+  egresoCorrido: {
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  egresoCorridoText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: MUTED,
+  },
+  corridoHint: {
+    marginTop: 6,
+    fontSize: 12,
+    color: MUTED,
+    lineHeight: 16,
+  },
+  formError: {
+    marginBottom: 8,
+    fontSize: 13,
+    fontWeight: '600',
+    color: RED_FLASH,
+  },
   inputFocused: {
     borderColor: glassColors.link,
   },
@@ -452,49 +512,6 @@ const styles = StyleSheet.create({
   },
   licenciaBtnTextActive: {
     color: '#ffffff',
-  },
-  sedeBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-  },
-  sedeBtnText: {
-    fontSize: 15,
-    color: INK,
-    flex: 1,
-  },
-  sedeOverlay: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  sedeMenu: {
-    paddingVertical: 8,
-    width: '100%',
-    maxWidth: 340,
-  },
-  sedeOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 14,
-    paddingHorizontal: 18,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: LINE,
-  },
-  sedeOptionActive: {
-    backgroundColor: TURNO_SOFT,
-  },
-  sedeOptionText: {
-    fontSize: 16,
-    color: INK,
-  },
-  sedeOptionTextActive: {
-    color: TURNO_ACTIVE,
-    fontWeight: '600',
   },
   footer: {
     paddingHorizontal: 20,

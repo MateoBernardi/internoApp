@@ -39,6 +39,21 @@ export const canRoleRespondEncuestas = (role: UserRole | string | null | undefin
   return isEmployeeRole(role as UserRole) || ['encargado', 'gerencia', 'presidencia', 'consejo'].includes(role);
 };
 
+// Roles que gestionan horarios (publicar planilla, editar turnos, ver horas cumplidas).
+const ROLES_GESTION_HORARIOS: UserRole[] = ['gerencia', 'encargado', 'personasRelaciones'];
+export const canRoleGestionarHorarios = (role: UserRole | string | null | undefined): boolean =>
+  !!role && ROLES_GESTION_HORARIOS.includes(role as UserRole);
+
+// Además de quienes gestionan horarios, contable y estudio-contable ven solo las horas cumplidas.
+const ROLES_SOLO_HORAS_CUMPLIDAS: UserRole[] = ['contable', 'estudio-contable'];
+export const canRoleVerHorasCumplidas = (role: UserRole | string | null | undefined): boolean =>
+  canRoleGestionarHorarios(role) || (!!role && ROLES_SOLO_HORAS_CUMPLIDAS.includes(role as UserRole));
+
+// Roles sin horarios propios: no se les ofrece escanear entrada/salida ni ven turnos en su agenda.
+const ROLES_SIN_HORARIOS_PROPIOS: UserRole[] = ['consejo', 'presidencia', 'estudio-contable', 'readonly'];
+export const canRoleTenerHorariosPropios = (role: UserRole | string | null | undefined): boolean =>
+  !!role && !ROLES_SIN_HORARIOS_PROPIOS.includes(role as UserRole);
+
 export const ALL_ROLES: UserRole[] = [
   'admin',
   'contable',
@@ -115,6 +130,18 @@ export function useRoleCheck() {
     return canRoleRespondEncuestas(getUserRole());
   };
 
+  const canGestionarHorarios = (): boolean => {
+    return canRoleGestionarHorarios(getUserRole());
+  };
+
+  const canVerHorasCumplidas = (): boolean => {
+    return canRoleVerHorasCumplidas(getUserRole());
+  };
+
+  const canTenerHorariosPropios = (): boolean => {
+    return canRoleTenerHorariosPropios(getUserRole());
+  };
+
   const isAdmin = (): boolean => {
     return hasRole('admin');
   };
@@ -133,6 +160,9 @@ export function useRoleCheck() {
     isContableOrSistemas,
     isEmployeeOrEncargado,
     canRespondEncuestas,
+    canGestionarHorarios,
+    canVerHorasCumplidas,
+    canTenerHorariosPropios,
     isAdmin,
     isKiosk,
   };

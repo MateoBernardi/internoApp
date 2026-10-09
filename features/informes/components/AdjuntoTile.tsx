@@ -1,0 +1,117 @@
+import { glassColors } from '@/shared/ui/glass';
+import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
+import React from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import type { TipoAdjunto } from '../dto/InformeDTO';
+import { colorExtension, extensionDe, tamanoLegible } from '../utils/format';
+
+interface Props {
+  tipo: TipoAdjunto;
+  nombre: string;
+  tamano: number;
+  uri?: string;
+  size?: number;
+  onPress?: () => void;
+  onRemove?: () => void;
+}
+
+export function AdjuntoTile({ tipo, nombre, tamano, uri, size = 76, onPress, onRemove }: Props) {
+  const esDocumento = tipo === 'documento';
+  const ext = extensionDe(nombre);
+
+  const contenido = esDocumento ? (
+    <View style={styles.chip}>
+      <View style={[styles.badge, { backgroundColor: colorExtension(ext) }]}>
+        <Text style={styles.badgeText}>{(ext || 'doc').toUpperCase().slice(0, 4)}</Text>
+      </View>
+      <Text style={styles.chipName} numberOfLines={1}>
+        {nombre}
+      </Text>
+      <Text style={styles.chipSize}>{tamanoLegible(tamano)}</Text>
+    </View>
+  ) : (
+    <View style={[styles.thumb, { width: size, height: size }]}>
+      {tipo === 'imagen' && uri ? (
+        <Image source={{ uri }} style={StyleSheet.absoluteFill} contentFit="cover" />
+      ) : (
+        <Ionicons name={tipo === 'imagen' ? 'image-outline' : 'videocam-outline'} size={size / 3} color={glassColors.textMuted} />
+      )}
+      {tipo === 'video' && (
+        <View style={styles.play}>
+          <Ionicons name="play" size={14} color="#fff" />
+        </View>
+      )}
+    </View>
+  );
+
+  return (
+    <View>
+      <Pressable
+        onPress={onPress}
+        disabled={!onPress}
+        accessibilityRole="button"
+        accessibilityLabel={`Abrir ${nombre}`}
+        style={({ pressed }) => pressed && onPress && styles.pressed}
+      >
+        {contenido}
+      </Pressable>
+      {onRemove && (
+        <Pressable onPress={onRemove} style={styles.remove} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Quitar ${nombre}`}>
+          <Ionicons name="close" size={12} color="#fff" />
+        </Pressable>
+      )}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  pressed: { opacity: 0.8 },
+  thumb: {
+    borderRadius: 11,
+    borderWidth: 1,
+    borderColor: 'rgba(17,24,28,0.08)',
+    backgroundColor: 'rgba(17,24,28,0.04)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  play: {
+    position: 'absolute',
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(17,21,27,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(17,24,28,0.08)',
+    borderRadius: 10,
+    paddingVertical: 6,
+    paddingLeft: 6,
+    paddingRight: 10,
+    backgroundColor: '#ffffff',
+  },
+  badge: { minWidth: 34, paddingHorizontal: 4, paddingVertical: 4, borderRadius: 6, alignItems: 'center' },
+  badgeText: { color: '#fff', fontSize: 9.5, fontWeight: '800' },
+  chipName: { fontSize: 13, fontWeight: '600', color: glassColors.text, maxWidth: 170, flexShrink: 1 },
+  chipSize: { fontSize: 11.5, color: glassColors.textMuted },
+  remove: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#4a5058',
+    borderWidth: 2,
+    borderColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});

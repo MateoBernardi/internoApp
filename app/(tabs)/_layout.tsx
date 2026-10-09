@@ -1,7 +1,7 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Ionicons } from '@expo/vector-icons';
 import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
-import { HISTORIAS_HABILITADAS } from '@/constants/features';
+import { INFORMES_HABILITADOS } from '@/constants/features';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { useArchivosUnseenCount } from '@/features/docs/viewmodels/useArchivos';
@@ -166,10 +166,10 @@ export default function TabLayout() {
       label: 'Agenda Personal',
       route: '/(extras)/agenda-personal' as Href,
     },
-    ...(HISTORIAS_HABILITADAS ? [{
-      id: 'historias',
-      label: 'Historias',
-      route: '/(extras)/historias' as Href,
+    ...(INFORMES_HABILITADOS ? [{
+      id: 'informes',
+      label: 'Informes',
+      route: '/(extras)/informes' as Href,
     }] : []),
     ...(!hideMisLicencias ? [{
       id: 'mis-solicitudes',

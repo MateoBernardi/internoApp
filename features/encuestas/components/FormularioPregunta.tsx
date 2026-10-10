@@ -16,7 +16,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeBottomInset } from '@/hooks/useSafeBottomInset';
 import { formatHorarioSlot } from '../resultados/utils';
 import { Pregunta, TIPO_PREGUNTA_META, TipoPregunta } from '../models/Encuesta';
 import { styles } from './crearEncuestaStyles';
@@ -37,7 +37,7 @@ export const FormularioPregunta: React.FC<FormularioPreguntaProps> = ({
   onCancelar,
   preguntaInicial,
 }) => {
-  const insets = useSafeAreaInsets();
+  const bottomInset = useSafeBottomInset();
   const esEdicion = !!preguntaInicial;
   const [titulo, setTitulo] = useState(() => preguntaInicial?.titulo ?? '');
   const [tipoPregunta, setTipoPregunta] = useState<TipoPregunta>(
@@ -229,7 +229,7 @@ export const FormularioPregunta: React.FC<FormularioPreguntaProps> = ({
         </View>
       </ScrollView>
 
-      <View style={[styles.footerDos, { paddingBottom: insets.bottom || 16 }]}>
+      <View style={[styles.footerDos, { paddingBottom: bottomInset }]}>
         <TouchableOpacity style={styles.cancelarButton} onPress={onCancelar}>
           <Text style={styles.cancelarButtonText}>Cancelar</Text>
         </TouchableOpacity>

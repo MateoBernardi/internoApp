@@ -277,28 +277,6 @@ export function EditarTurnoSheet({
                   </View>
 
                   <View style={styles.field}>
-                    <Text style={styles.fieldLabel}>FERIADO</Text>
-                    <View style={styles.licenciaRow}>
-                      <TouchableOpacity
-                        style={[styles.licenciaBtn, !displayDraft.feriado && styles.licenciaBtnActive]}
-                        onPress={() => onField('feriado', false)}
-                      >
-                        <Text style={[styles.licenciaBtnText, !displayDraft.feriado && styles.licenciaBtnTextActive]}>
-                          No
-                        </Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[styles.licenciaBtn, displayDraft.feriado && styles.licenciaBtnActive]}
-                        onPress={() => onField('feriado', true)}
-                      >
-                        <Text style={[styles.licenciaBtnText, displayDraft.feriado && styles.licenciaBtnTextActive]}>
-                          Sí
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-
-                  <View style={styles.field}>
                     <Text style={styles.fieldLabel}>HORARIO CORRIDO</Text>
                     <View style={[styles.licenciaRow, corridoBloqueado && styles.fieldDisabled]}>
                       <TouchableOpacity

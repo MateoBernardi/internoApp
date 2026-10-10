@@ -6,7 +6,7 @@ import { TURNO_LABEL, turnoNombreFromBackend } from '@/features/horarios/models/
 import { horariosQueryKeys } from '@/features/horarios/viewmodels/useHorarios';
 import { usePreciseLocation } from '@/features/horarios/viewmodels/usePreciseLocation';
 import { getDeviceIdentifier } from '@/features/horarios/utils/deviceIdentifier';
-import { generateIdempotencyKey } from '@/shared/idempotency';
+import { generateIdempotencyKey, isTransportError } from '@/shared/idempotency';
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera';
 import { GlassButton } from '@/shared/ui/GlassButton';
@@ -21,6 +21,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 const colors = Colors['light'];
 
 type ScanState = 'scanning' | 'processing' | 'result' | 'location-denied' | 'location-imprecise';
+
+/**
+ * - success: el backend confirmó el registro.
+ * - error: el backend (o la validación local) rechazó el escaneo: seguro NO se registró.
+ * - unconfirmed: la respuesta nunca llegó (red): no sabemos si se registró.
+ */
+type ScanResult = { kind: 'success' | 'error' | 'unconfirmed'; message: string };
+
+const WARNING_COLOR = '#F59E0B';
 
 /**
  * Si pasa este tiempo sin leer ningún QR se sugiere alejar el teléfono: desde
@@ -70,8 +79,7 @@ export default function EscanearTurnoScreen() {
 
   const [permission, requestPermission] = useCameraPermissions();
   const [state, setState] = useState<ScanState>('scanning');
-  const [resultMessage, setResultMessage] = useState<string | null>(null);
-  const [resultIsError, setResultIsError] = useState(false);
+  const [result, setResult] = useState<ScanResult | null>(null);
   const [locationCanAskAgain, setLocationCanAskAgain] = useState(true);
   // Permiso de ubicación precisa concedido: recién ahí se enciende el GPS y se habilita el escaneo.
   const [locationReady, setLocationReady] = useState(false);
@@ -129,13 +137,18 @@ export default function EscanearTurnoScreen() {
   }, [cameraGranted, state]);
 
   const finish = useCallback(
-    (message: string, isError: boolean) => {
-      setResultMessage(message);
-      setResultIsError(isError);
+    (kind: ScanResult['kind'], message: string) => {
+      setResult({ kind, message });
       setState('result');
     },
     []
   );
+
+  const retry = useCallback(() => {
+    setResult(null);
+    isProcessingRef.current = false;
+    setState('scanning');
+  }, []);
 
   const accessToken = tokens?.accessToken;
   const handleBarcodeScanned = useCallback(
@@ -148,19 +161,19 @@ export default function EscanearTurnoScreen() {
       try {
         const token = accessToken;
         if (!token) {
-          finish('No se pudo verificar tu sesión. Volvé a iniciar sesión e intentá de nuevo.', true);
+          finish('error', 'No se pudo verificar tu sesión. Volvé a iniciar sesión e intentá de nuevo.');
           return;
         }
         if (!fecha) {
-          finish('Falta información del turno. Volvé al inicio e intentá de nuevo.', true);
+          finish('error', 'Falta información del turno. Volvé al inicio e intentá de nuevo.');
           return;
         }
 
         const { fix: position, accuracy } = await waitForPreciseFix();
         if (!position) {
           finish(
-            `No pudimos obtener una ubicación precisa${formatAccuracy(accuracy)}. Activá el GPS, salí a un lugar abierto e intentá de nuevo.`,
-            true
+            'error',
+            `No pudimos obtener una ubicación precisa${formatAccuracy(accuracy)}. Activá el GPS, salí a un lugar abierto e intentá de nuevo.`
           );
           return;
         }
@@ -181,15 +194,22 @@ export default function EscanearTurnoScreen() {
         const idempotencyKey = generateIdempotencyKey();
         const response = await enviarScan(token, payload, idempotencyKey);
         await queryClient.invalidateQueries({ queryKey: horariosQueryKeys.all });
-        finish(response.message, !response.success);
+        finish(response.success ? 'success' : 'error', response.message);
       } catch (error) {
-        finish(
-          error instanceof Error ? error.message : 'No se pudo registrar el escaneo. Intentá de nuevo.',
-          true
-        );
+        if (isTransportError(error)) {
+          // La respuesta nunca llegó: el backend pudo haberlo procesado. Se refresca el
+          // estado del turno para que el inicio refleje lo que realmente quedó guardado.
+          void queryClient.invalidateQueries({ queryKey: horariosQueryKeys.all });
+          finish(
+            'unconfirmed',
+            `No pudimos confirmar si se registró tu ${tipo === 'IN' ? 'entrada' : 'salida'} por un problema de conexión. Revisá en el inicio si figura marcada; si no, volvé a escanear.`
+          );
+          return;
+        }
+        finish('error', error instanceof Error ? error.message : 'No se pudo registrar el escaneo. Intentá de nuevo.');
       }
     },
-    [accessToken, fecha, finish, queryClient, turnoNombre, waitForPreciseFix]
+    [accessToken, fecha, finish, queryClient, tipo, turnoNombre, waitForPreciseFix]
   );
 
   const screenTitle = tipo === 'IN' ? 'Registrar entrada' : 'Registrar salida';
@@ -274,15 +294,37 @@ export default function EscanearTurnoScreen() {
     );
   }
 
-  if (state === 'result') {
+  if (state === 'result' && result) {
+    const accion = tipo === 'IN' ? 'entrada' : 'salida';
+    const view = {
+      success: {
+        icon: 'checkmark-circle' as const,
+        color: colors.success,
+        title: tipo === 'IN' ? 'Entrada registrada' : 'Salida registrada',
+      },
+      error: {
+        icon: 'close-circle' as const,
+        color: colors.error,
+        title: `No se registró tu ${accion}`,
+      },
+      unconfirmed: {
+        icon: 'alert-circle' as const,
+        color: WARNING_COLOR,
+        title: 'No pudimos confirmar tu marcación',
+      },
+    }[result.kind];
+
     return (
       <View style={styles.root}>
         <ScanHeader title={screenTitle} onBack={goBack} />
         <View style={[glassStyles.sheet, styles.centerContainer]}>
           <View style={[glassStyles.card, styles.resultCard]}>
-          <Text style={[styles.resultText, resultIsError && styles.resultTextError]}>
-            {resultMessage}
-          </Text>
+            <Ionicons name={view.icon} size={64} color={view.color} />
+            <Text style={[styles.resultTitle, { color: view.color }]}>{view.title}</Text>
+            <Text style={styles.resultText}>{result.message}</Text>
+            {result.kind === 'error' && (
+              <GlassButton label="Reintentar" onPress={retry} style={styles.fullWidthButton} />
+            )}
             <GlassButton label="Volver al inicio" onPress={goBack} style={styles.fullWidthButton} />
           </View>
         </View>
@@ -409,15 +451,19 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 20,
   },
+  resultTitle: {
+    marginTop: 12,
+    fontSize: 20,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
   resultText: {
-    fontSize: 16,
-    fontWeight: '600',
+    marginTop: 8,
+    fontSize: 15,
+    fontWeight: '500',
     color: colors.text,
     textAlign: 'center',
-    marginBottom: 24,
-  },
-  resultTextError: {
-    color: colors.error,
+    marginBottom: 12,
   },
   fullWidthButton: {
     width: '100%',

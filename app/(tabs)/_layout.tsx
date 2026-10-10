@@ -56,7 +56,7 @@ export default function TabLayout() {
   const hasSessionContext = isAuthenticated && !requiresAssociation && !!user?.user_context_id;
   const canSeeAdminReportesButton = !isContableOrSistemas();
   const canSeeActivityRequests = isEmployeeUser || isEncargado;
-  const canSeeLicenciasAdmin = hasAdminTab;
+  const canSeeLicenciasAdmin = hasAdminTab && !hasRole('sistemas');
   const canSeeReportesAdmin = hasAdminTab && canSeeAdminReportesButton;
   const canSeeLicenciasPersonal = !hasAdminTab;
   const canSeeReportesPersonal = !hasAdminTab;
@@ -139,7 +139,7 @@ export default function TabLayout() {
       route: isEncargado ? '/(extras)/reportes-encargado' as Href : '/(extras)/reportes' as Href,
       hasBadge: hasReportesPendientesAdmin,
     }] : []),
-    ...(!hasRole(['consejo', 'presidencia']) ? [{
+    ...(!hasRole(['consejo', 'presidencia', 'sistemas']) ? [{
       id: 'solicitudes-licencias',
       label: 'Solicitudes de Licencias',
       route: '/(extras)/solicitudes-licencias' as Href,

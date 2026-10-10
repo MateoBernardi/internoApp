@@ -227,6 +227,13 @@ function SemaforoItem({ item, comparingWith, isLast }: { item: ReporteStats; com
 			<View style={styles.statsRow}>
 				<ThemedText style={[styles.stat, { color: colors.success }]}>+{item.positivos}</ThemedText>
 				<ThemedText style={[styles.stat, { color: colors.error }]}>-{item.negativos}</ThemedText>
+				{item.disputas > 0 && (
+					<View style={[styles.disputaTag, { backgroundColor: '#FACC15' }]}>
+						<ThemedText style={[styles.disputaTagText, { color: '#000000' }]}>
+							{item.disputas} en disputa
+						</ThemedText>
+					</View>
+				)}
 			</View>
 		</View>
 	);
@@ -298,6 +305,15 @@ const styles = StyleSheet.create({
 	},
 	stat: {
 		fontSize: 13,
+		fontWeight: '600',
+	},
+	disputaTag: {
+		borderRadius: 10,
+		paddingHorizontal: 8,
+		paddingVertical: 2,
+	},
+	disputaTagText: {
+		fontSize: 12,
 		fontWeight: '600',
 	},
 });

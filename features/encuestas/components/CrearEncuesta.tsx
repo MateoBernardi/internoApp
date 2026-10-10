@@ -14,10 +14,11 @@ import { UserSummary } from '@/shared/users/User';
 import { allRoles } from '@/shared/users/roles';
 import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  BackHandler,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -189,17 +190,31 @@ export const CrearEncuesta: React.FC<CrearEncuestaProps> = ({ onEncuestaCreada, 
     return `${selectedUsers.length} persona${selectedUsers.length > 1 ? 's' : ''} seleccionada${selectedUsers.length > 1 ? 's' : ''}`;
   }, [todosEmpleados, selectedUsers]);
 
-  if (formularioPregunta) {
-    return (
-      <FormularioPregunta
-        preguntaInicial={formularioPregunta.index !== null ? preguntas[formularioPregunta.index] : undefined}
-        onAgregarPregunta={agregarPregunta}
-        onCancelar={() => setFormularioPregunta(null)}
-      />
-    );
-  }
+  // El formulario de pregunta se superpone en vez de reemplazar a este
+  // componente: si lo desmontáramos, IsolatedTextInput (título/descripción)
+  // perdería su estado interno.
+  useEffect(() => {
+    if (!formularioPregunta) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      setFormularioPregunta(null);
+      return true;
+    });
+    return () => sub.remove();
+  }, [formularioPregunta]);
 
   return (
+    <>
+    {formularioPregunta && (
+      <FullScreenPortal>
+        <View style={styles.fullScreen}>
+          <FormularioPregunta
+            preguntaInicial={formularioPregunta.index !== null ? preguntas[formularioPregunta.index] : undefined}
+            onAgregarPregunta={agregarPregunta}
+            onCancelar={() => setFormularioPregunta(null)}
+          />
+        </View>
+      </FullScreenPortal>
+    )}
     <FullScreenPortal>
     <View style={styles.fullScreen}>
     <KeyboardAvoidingView
@@ -209,7 +224,7 @@ export const CrearEncuesta: React.FC<CrearEncuestaProps> = ({ onEncuestaCreada, 
     >
       <EncuestasScreenHeader title="Crear Encuesta" left={<AppBackButton onPress={onVolver} />} />
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 + keyboardHeight }}>
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 12, paddingBottom: 100 + keyboardHeight }}>
 
         {/* Información básica */}
         <View style={styles.section}>
@@ -421,5 +436,6 @@ export const CrearEncuesta: React.FC<CrearEncuestaProps> = ({ onEncuestaCreada, 
     </KeyboardAvoidingView>
     </View>
     </FullScreenPortal>
+    </>
   );
 };

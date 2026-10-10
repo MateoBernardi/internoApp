@@ -89,6 +89,7 @@ export async function getReporteStats (accessToken: string, estado?: reporte.Est
             total_positivos: item.total_positivos ?? 0,
             total_negativos: item.total_negativos ?? 0,
             puntos: item.cantidad_neta ?? item.puntos ?? 0,
+            disputas: item.disputas ?? 0,
             zona: (item.zona_alerta || item.zona) as 'rojo' | 'amarillo' | 'verde',
         }));
         

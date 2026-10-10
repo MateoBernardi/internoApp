@@ -91,6 +91,8 @@ export interface ReporteStats {
     total_positivos: number;
     total_negativos: number;
     puntos: number;
+    /** Reportes en estado DISPUTA aún sin resolver */
+    disputas: number;
     zona: 'rojo' | 'amarillo' | 'verde';
 }
 

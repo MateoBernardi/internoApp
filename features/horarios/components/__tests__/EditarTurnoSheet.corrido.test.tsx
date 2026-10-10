@@ -50,8 +50,8 @@ function montar(draft: Turno, otrosTurnosDelDia = 1) {
   return { onField, onSave, ...utils };
 }
 
-// Los botones No/Sí de HORARIO CORRIDO son los últimos "No"/"Sí" del formulario (después de AUSENCIA y FERIADO).
-const botonCorrido = (texto: 'No' | 'Sí') => screen.getAllByText(texto)[2];
+// Los botones No/Sí de HORARIO CORRIDO son los últimos "No"/"Sí" del formulario (después de AUSENCIA).
+const botonCorrido = (texto: 'No' | 'Sí') => screen.getAllByText(texto)[1];
 
 beforeEach(() => {
   jest.clearAllMocks();

@@ -92,7 +92,8 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
   const [isUploadingFile, setIsUploadingFile] = useState(false);
   const { mutateAsync: uploadArchivo } = useUploadArchivo(idempotencyKey);
   const { alertModal, showModal, closeAlert, onModalDismiss } = useAlertModal();
-  const { pickedFiles, setPickedFiles, handleAgregarAdjunto, CameraModal } = useFilePicker({ showModal });
+  const { pickedFiles, setPickedFiles, handleAgregarAdjunto, CameraModal, AttachMenu } = useFilePicker({ showModal });
+  const adjuntarRef = useRef<any>(null);
 
   const rolesForSelector = useMemo(
     () => (isConsejo ? adminRoles : allRoles),
@@ -559,7 +560,8 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
                 />
                 <View style={styles.messageFooter}>
                   <TouchableOpacity
-                    onPress={handleAgregarAdjunto}
+                    ref={adjuntarRef}
+                    onPress={() => handleAgregarAdjunto(adjuntarRef)}
                     style={styles.closeButton}
                     activeOpacity={0.7}
                   >
@@ -665,6 +667,7 @@ export function CrearSolicitud({ visible, onClose, fromChatsTab = false }: Crear
           onDeselectAll={handleDeselectAllRoleUsers}
         />
         {CameraModal}
+        {AttachMenu}
     </View>
     </FullScreenPortal>
   );

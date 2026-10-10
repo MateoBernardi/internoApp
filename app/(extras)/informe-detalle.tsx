@@ -4,10 +4,11 @@ import { useLocalSearchParams } from 'expo-router';
 import { StyleSheet } from 'react-native';
 
 export default function InformeDetalleScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, empleado } = useLocalSearchParams<{ id: string; empleado?: string }>();
+  const empleadoId = Number(empleado) > 0 ? Number(empleado) : undefined;
   return (
     <ThemedView style={styles.container}>
-      {id ? <InformeDetalle informeId={id} /> : null}
+      {id ? <InformeDetalle informeId={id} {...(empleadoId !== undefined ? { empleadoId } : null)} /> : null}
     </ThemedView>
   );
 }

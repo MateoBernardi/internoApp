@@ -11,11 +11,16 @@ import { EntradaItem } from '../components/EntradaItem';
 import { VisorAdjunto, type AdjuntoAbierto } from '../components/VisorAdjunto';
 import type { Adjunto, AdjuntoPendiente } from '../dto/InformeDTO';
 import { useInforme, useInformeAcciones } from '../hooks';
+import { abrirDocumentoWeb } from '@/components/filePreview/webFile';
 
-export function InformeDetalle({ informeId }: { informeId: string }) {
+/**
+ * Con `empleadoId` es la vista de solo lectura de management (informes que mencionan al empleado):
+ * quien mira puede no participar del informe, así que no se muestran acciones de escritura.
+ */
+export function InformeDetalle({ informeId, empleadoId }: { informeId: string; empleadoId?: number }) {
   const { user } = useAuth();
   const miId = user?.user_context_id ?? null;
-  const { informe, isLoading, error } = useInforme(informeId);
+  const { informe, isLoading, error } = useInforme(informeId, empleadoId);
   const acciones = useInformeAcciones();
   const scrollRef = useRef<ScrollView>(null);
 
@@ -25,8 +30,18 @@ export function InformeDetalle({ informeId }: { informeId: string }) {
   const [visor, setVisor] = useState<AdjuntoAbierto | null>(null);
 
   const abrirAdjunto = useCallback(
-    (adjunto: Adjunto, autor: string, fecha: string) => setVisor({ informeId, adjunto, autor, fecha }),
-    [informeId],
+    (adjunto: Adjunto, autor: string, fecha: string) => {
+      // En web los documentos (PDF, etc.) se abren en una pestaña aparte, o se descargan si el navegador no la deja abrir.
+      if (Platform.OS === 'web' && adjunto.tipo === 'documento') {
+        abrirDocumentoWeb(
+          async () => (await acciones.obtenerUrlAdjunto(informeId, adjunto.id, empleadoId)).url,
+          adjunto.nombre,
+        ).catch((e) => showGlobalToast(e instanceof Error ? e.message : 'No se pudo abrir el archivo.'));
+        return;
+      }
+      setVisor({ informeId, adjunto, autor, fecha });
+    },
+    [acciones, informeId, empleadoId],
   );
   const cancelarEdicion = useCallback(() => setEditandoId(null), []);
 
@@ -47,7 +62,8 @@ export function InformeDetalle({ informeId }: { informeId: string }) {
     );
   }
 
-  const esCreador = miId !== null && informe.creador === miId;
+  const soloLectura = empleadoId !== undefined;
+  const esCreador = !soloLectura && miId !== null && informe.creador === miId;
   const abierto = !informe.cerrada;
 
   const enviar = async (cuerpo: string, nuevos: AdjuntoPendiente[]) => {
@@ -96,25 +112,30 @@ export function InformeDetalle({ informeId }: { informeId: string }) {
             entrada={e}
             personas={informe.personas}
             miId={miId}
-            editable={abierto}
+            editable={abierto && !soloLectura}
             editando={editandoId === e.id}
             onEditar={setEditandoId}
             onCancelarEdicion={cancelarEdicion}
             onGuardar={guardar}
             onAbrirAdjunto={abrirAdjunto}
+            {...(empleadoId !== undefined ? { empleadoId } : null)}
           />
         ))}
         {!abierto && <Text style={styles.readOnly}>Informe cerrado · solo lectura</Text>}
       </ScrollView>
 
-      {abierto && (
+      {abierto && !soloLectura && (
         <View style={styles.composer}>
           <Editor variante="compositor" placeholder="Escribí una entrada…" submitLabel="Enviar" onSubmit={enviar} />
         </View>
       )}
 
       <CerrarInformeSheet visible={cerrarAbierto} cerrando={cerrando} onCancel={() => setCerrarAbierto(false)} onConfirm={cerrar} />
-      <VisorAdjunto abierto={visor} obtenerUrl={acciones.obtenerUrlAdjunto} onClose={() => setVisor(null)} />
+      <VisorAdjunto
+        abierto={visor}
+        obtenerUrl={(idInforme, idAdjunto) => acciones.obtenerUrlAdjunto(idInforme, idAdjunto, empleadoId)}
+        onClose={() => setVisor(null)}
+      />
     </KeyboardAvoidingView>
   );
 }

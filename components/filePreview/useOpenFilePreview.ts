@@ -4,7 +4,8 @@ import { Alert, Linking, Platform } from 'react-native';
 import { getExt, isImageFile, isPdfFile, isTextFile, isVideoFile } from './fileKind';
 import type { FileItem } from './types';
 
-const IS_WEB = Platform.OS === 'web';
+// Se evalúa al llamar (no al cargar el módulo) para poder simular la plataforma en los tests.
+const isWeb = () => Platform.OS === 'web';
 
 function openInNewTab(url: string) {
   if (url) window.open(url, '_blank', 'noopener,noreferrer');
@@ -36,12 +37,13 @@ export function useOpenFilePreview() {
   const openFile = useCallback(async (archivo: ArchivoAbrirInfo) => {
     try {
       const url = await getArchivoUrlFirmada(archivo.id);
-      // On desktop (web) just open the signed view URL in a new browser tab.
-      if (IS_WEB) { openInNewTab(url); return; }
       const tipo = safeStr(archivo.tipo);
       const nombre = safeStr(archivo.nombre) || 'Archivo';
       const ext = getExt(tipo, nombre);
       const isImage = isImageFile(tipo, nombre);
+      // On desktop (web) images open in the in-page viewer; everything else opens
+      // the signed view URL in a new browser tab.
+      if (isWeb() && !isImage) { openInNewTab(url); return; }
       const isVideo = isVideoFile(tipo, nombre);
       const isText = isTextFile(tipo, nombre);
 
@@ -81,7 +83,7 @@ export function useOpenFilePreview() {
   }, [getArchivoUrlFirmada]);
 
   const openWithUri = useCallback((item: FileItem) => {
-    if (IS_WEB) { openInNewTab(item.uri); return; }
+    if (isWeb() && item.kind !== 'image') { openInNewTab(item.uri); return; }
     // Same fallback as openFile: anything we can't render in-app (image / PDF /
     // text) opens in the system browser via its URL instead of the "no preview"
     // card, keeping every entry point consistent.

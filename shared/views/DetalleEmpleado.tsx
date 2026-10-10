@@ -1,6 +1,7 @@
 import { ThemedText } from '@/components/themed-text';
 import { GlassTabSelector } from '@/components/ui/GlassTabSelector';
 import { Colors } from '@/constants/theme';
+import { InformesEmpleado } from '@/features/informes/components/InformesEmpleado';
 import { ReportesEmpleado } from '@/features/reportes/components/ReportesEmpleado';
 import { FrancosPorEmpleado } from '@/features/solicitudesLicencias/components/FrancosPorEmpleado';
 import { PermisosPorEmpleado } from '@/features/solicitudesLicencias/components/PermisosPorEmpleado';
@@ -12,10 +13,11 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
-type TabType = 'reportes' | 'permisos' | 'francos' | 'vacaciones' | 'rol';
+type TabType = 'reportes' | 'informes' | 'permisos' | 'francos' | 'vacaciones' | 'rol';
 
 const TABS: { key: TabType; label: string }[] = [
 	{ key: 'reportes', label: 'Reportes' },
+	{ key: 'informes', label: 'Informes' },
 	{ key: 'permisos', label: 'Permisos' },
 	{ key: 'francos', label: 'Francos' },
 	{ key: 'vacaciones', label: 'Vacaciones' },
@@ -87,6 +89,8 @@ export function DetalleEmpleado() {
 						userApellido={usuario.apellido}
 					/>
 				);
+			case 'informes':
+				return <InformesEmpleado empleadoId={Number(usuario.id)} />;
 			case 'permisos':
 				return <PermisosPorEmpleado usuarioId={usuario.id} />;
 			case 'francos':

@@ -3,11 +3,12 @@ import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useMemo, useState } from 'react';
-import { Modal, Platform, StyleSheet, Text, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
+import { Modal, StyleSheet, Text, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import { formatDateDDMMYYYY, formatTimeHHMM } from '../conversacion/constants';
 import { buildArchivoFileItem, resolvedArchivoUri, rutaR2 } from '../conversacion/fileHelpers';
 import { conversacionStyles } from '../conversacion/styles';
 import { BitacoraVisto, EstadoInvitacionDB, estadoInvitacionMapping } from '../models/Solicitud';
+import { LinkifiedText } from '@/shared/ui/LinkifiedText';
 
 const colors = Colors['light'];
 
@@ -102,20 +103,24 @@ function MessageBubbleComponent({
           )}
           {!!observacion && (
             <View style={conversacionStyles.bitacoraBubble}>
-              <ThemedText style={[conversacionStyles.bitacoraText, isOwn && conversacionStyles.bitacoraTextOwn]}>{observacion}</ThemedText>
+              <ThemedText style={[conversacionStyles.bitacoraText, isOwn && conversacionStyles.bitacoraTextOwn]}>
+                <LinkifiedText linkStyle={isOwn ? { color: '#ffffff' } : undefined}>{observacion}</LinkifiedText>
+              </ThemedText>
             </View>
           )}
           {archivos.length > 0 && (
             <View style={conversacionStyles.messageAttachments}>
               {archivos.map((a: any) => (
-                isImageFile(a.tipo, a.nombre, rutaR2(a)) && Platform.OS !== 'web' ? (
-                  <InlineImageAttachment
-                    key={`archivo-${a.id}`}
-                    archivoId={a.id}
-                    nombre={typeof a.nombre === 'string' ? a.nombre : 'Imagen'}
-                    uri={resolvedArchivoUri(a)}
-                    onOpen={(uri) => onOpenImage(a, uri)}
-                  />
+                isImageFile(a.tipo, a.nombre, rutaR2(a)) ? (
+                  // Tope de ancho: en web la burbuja puede ser muy ancha y la imagen ocuparía todo.
+                  <View key={`archivo-${a.id}`} style={localStyles.inlineImage}>
+                    <InlineImageAttachment
+                      archivoId={a.id}
+                      nombre={typeof a.nombre === 'string' ? a.nombre : 'Imagen'}
+                      uri={resolvedArchivoUri(a)}
+                      onOpen={(uri) => onOpenImage(a, uri)}
+                    />
+                  </View>
                 ) : (
                   <FileAttachment
                     key={`archivo-${a.id}`}
@@ -227,6 +232,10 @@ function MessageBubbleComponent({
 export const MessageBubble = React.memo(MessageBubbleComponent);
 
 const localStyles = StyleSheet.create({
+  inlineImage: {
+    width: '100%',
+    maxWidth: 320,
+  },
   bitacoraCardHighlighted: {
     borderWidth: 2,
     borderColor: '#FFC107',

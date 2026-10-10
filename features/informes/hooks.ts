@@ -1,1 +1,1 @@
-export { useInformes, useInforme, useInformeAcciones } from './viewmodels';
+export { useInformes, useInforme, useInformeAcciones, useInformesEmpleado, useUrlAdjunto } from './viewmodels';

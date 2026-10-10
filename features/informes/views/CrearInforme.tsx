@@ -19,9 +19,9 @@ export function CrearInforme() {
     <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <Text style={styles.hint}>
-          La primera línea se usa como título en la bandeja. Mencioná con <Text style={styles.bold}>@</Text> a quienes tienen que verlo.
+          Mencioná con <Text style={styles.bold}>@</Text> a quienes tienen que verlo.
         </Text>
-        <Editor variante="nuevo" placeholder="¿Qué pasó? Empezá con un título corto…" submitLabel="Publicar" onSubmit={publicar} />
+        <Editor variante="nuevo" placeholder="Escribí el informe…" submitLabel="Publicar" onSubmit={publicar} />
       </ScrollView>
     </KeyboardAvoidingView>
   );

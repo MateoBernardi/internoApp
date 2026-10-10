@@ -42,8 +42,25 @@ export const listarInformes = (token: string, antes: string | null, signal?: Abo
     { signal },
   );
 
-export const obtenerInforme = (token: string, informeId: string, signal?: AbortSignal) =>
-  request<InformeDetalle>('GET', `/informes/${informeId}/entradas`, token, { signal });
+const conEmpleado = (endpoint: string, empleadoId?: number) =>
+  empleadoId ? `${endpoint}?empleado=${empleadoId}` : endpoint;
+
+/** Con `empleadoId` (vista de management) lee un informe que menciona a ese empleado. */
+export const obtenerInforme = (token: string, informeId: string, signal?: AbortSignal, empleadoId?: number) =>
+  request<InformeDetalle>('GET', conEmpleado(`/informes/${informeId}/entradas`, empleadoId), token, { signal });
+
+export const listarInformesDeEmpleado = (
+  token: string,
+  empleadoId: number,
+  antes: string | null,
+  signal?: AbortSignal,
+) =>
+  request<InformeListado>(
+    'GET',
+    `/informes/empleado/${empleadoId}${antes ? `?antes=${encodeURIComponent(antes)}` : ''}`,
+    token,
+    { signal },
+  );
 
 export const crearInforme = (token: string, cuerpo: string, idempotencyKey: string) =>
   request<InformeCreado>('POST', '/informes', token, { body: { cuerpo }, idempotencyKey });
@@ -59,8 +76,8 @@ export const agregarEntrada = (
 export const editarEntrada = (token: string, informeId: string, entradaId: string, cuerpo: string) =>
   request<Entrada>('PATCH', `/informes/${informeId}/entradas/${entradaId}`, token, { body: { cuerpo } });
 
-export const obtenerUrlAdjunto = (token: string, informeId: string, adjuntoId: string) =>
-  request<UrlAdjunto>('GET', `/informes/${informeId}/adjuntos/${adjuntoId}`, token);
+export const obtenerUrlAdjunto = (token: string, informeId: string, adjuntoId: string, empleadoId?: number) =>
+  request<UrlAdjunto>('GET', conEmpleado(`/informes/${informeId}/adjuntos/${adjuntoId}`, empleadoId), token);
 
 export const eliminarAdjunto = (token: string, informeId: string, entradaId: string, adjuntoId: string) =>
   request<unknown>('DELETE', `/informes/${informeId}/entradas/${entradaId}/adjuntos/${adjuntoId}`, token);
@@ -85,6 +102,7 @@ export async function subirAdjunto(
       uploadType: FileSystem.FileSystemUploadType.MULTIPART,
       fieldName: 'archivo',
       mimeType: adjunto.mime,
+      parameters: { orden: String(adjunto.orden) },
       headers,
     });
     if (result.status < 200 || result.status >= 300) {
@@ -100,6 +118,7 @@ export async function subirAdjunto(
 
   const formData = new FormData();
   formData.append('archivo', blob, adjunto.nombre);
+  formData.append('orden', String(adjunto.orden));
   const response = await fetch(endpoint, { method: 'POST', headers, body: formData });
   if (!response.ok) throwApiError(await response.text(), response);
   return (await response.json()).data as Adjunto;

@@ -13,7 +13,6 @@ import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
-    Alert,
     BackHandler,
     ScrollView,
     StyleSheet,
@@ -31,6 +30,7 @@ import { useFocusBorder } from '@/shared/ui/useFocusBorder';
 import { useSafeBottomInset } from '@/hooks/useSafeBottomInset';
 import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAttachMenu } from '@/shared/ui/AttachMenu';
 import { pickFromGallery } from '@/shared/ui/pickFromGallery';
 import { useCameraCapture } from '@/shared/ui/useCameraCapture';
 import { CreateSolicitudDTO } from '../models/SolicitudLicencia';
@@ -244,14 +244,12 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
 
     // --- Bandeja de adjunto (cámara / galería / archivo) ---
     // --- Menú de adjunto (cámara / galería / archivo), igual que en Chats ---
-    const handleAgregarAdjunto = useCallback(() => {
-        Alert.alert('Adjuntar documentación', 'Elegí una opción', [
-            { text: 'Tomar foto', onPress: handleTomarFoto },
-            { text: 'Elegir de galería', onPress: handlePickFromGallery },
-            { text: 'Elegir archivo', onPress: handleSeleccionarArchivo },
-            { text: 'Cancelar', style: 'cancel' },
-        ]);
-    }, [handleTomarFoto, handlePickFromGallery, handleSeleccionarArchivo]);
+    const { openAttachMenuCentered, AttachMenu } = useAttachMenu({
+        onGallery: handlePickFromGallery,
+        onCamera: handleTomarFoto,
+        onFile: handleSeleccionarArchivo,
+    });
+    const handleAgregarAdjunto = useCallback(() => openAttachMenuCentered(), [openAttachMenuCentered]);
 
     // --- Crear Solicitud ---
     const procederCrearSolicitud = useCallback(() => {
@@ -712,6 +710,7 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
                 <AlertModal {...alertModal} onClose={closeAlert} onDismiss={onModalDismiss} />
         </View>
         {CameraModal}
+        {AttachMenu}
         </FullScreenPortal>
     );
 }

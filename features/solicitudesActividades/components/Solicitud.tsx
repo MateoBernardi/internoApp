@@ -155,8 +155,9 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
   const [isModifyMode, setIsModifyMode] = useState(false);
   const { alertModal, showModal, closeAlert, onModalDismiss } = useAlertModal();
   const {
-    pickedFiles, setPickedFiles, handleAgregarAdjunto, handleOpenArchivo, uploadPickedFiles, CameraModal,
+    pickedFiles, setPickedFiles, handleAgregarAdjunto, handleOpenArchivo, uploadPickedFiles, CameraModal, AttachMenu,
   } = useAdjuntos({ showModal });
+  const adjuntarRef = useRef<any>(null);
   const [localEstado, setLocalEstado] = useState<string | null>(null);
 
   // Modificar fechas
@@ -1120,7 +1121,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
                         )}
 
                         {/* Adjuntar */}
-                        <TouchableOpacity style={styles.messageActionButton} onPress={handleAgregarAdjunto}>
+                        <TouchableOpacity ref={adjuntarRef} style={styles.messageActionButton} onPress={() => handleAgregarAdjunto(adjuntarRef)}>
                           <Ionicons name="attach" size={20} color={colors.lightTint} />
                         </TouchableOpacity>
 
@@ -1443,6 +1444,7 @@ export function Solicitud({ solicitud, visible, onClose }: SolicitudProps) {
 
       <FilePreview file={previewFile} onClose={closePreview} />
       {CameraModal}
+      {AttachMenu}
     </View>
     </FullScreenPortal>
   );

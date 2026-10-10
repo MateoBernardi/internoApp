@@ -30,7 +30,7 @@ export interface InformeAcciones {
     quitarIds: string[],
   ) => Promise<void>;
   cerrarInforme: (informeId: string, texto?: string) => Promise<void>;
-  obtenerUrlAdjunto: (informeId: string, adjuntoId: string) => Promise<UrlAdjunto>;
+  obtenerUrlAdjunto: (informeId: string, adjuntoId: string, empleadoId?: number) => Promise<UrlAdjunto>;
 }
 
 export function useInformeAcciones(): InformeAcciones {
@@ -108,8 +108,8 @@ export function useInformeAcciones(): InformeAcciones {
         invalidar(informeId);
       },
 
-      obtenerUrlAdjunto(informeId, adjuntoId) {
-        return api.obtenerUrlAdjunto(getToken(), informeId, adjuntoId);
+      obtenerUrlAdjunto(informeId, adjuntoId, empleadoId) {
+        return api.obtenerUrlAdjunto(getToken(), informeId, adjuntoId, empleadoId);
       },
     }),
     [getToken, invalidar, subirAdjuntos],

@@ -5,6 +5,7 @@ import { INFORMES_HABILITADOS } from '@/constants/features';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { useArchivosUnseenCount } from '@/features/docs/viewmodels/useArchivos';
+import { useTabTitleBadge } from '@/hooks/useTabTitleBadge';
 import { useSolicitudesUnseen } from '@/features/solicitudesActividades/viewmodels/useSolicitudes';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
@@ -104,6 +105,8 @@ export default function TabLayout() {
   );
   const unseenSolicitudes = unseenSolicitudesNoChat + unseenChats;
   const hasMensajesBadge = unseenSolicitudes > 0;
+  // Web: el mismo total va entre paréntesis en el título de la pestaña, como WhatsApp o Gmail.
+  useTabTitleBadge(unseenSolicitudes);
   const mensajesBadgeLabel = unseenSolicitudes > 99 ? '99+' : String(unseenSolicitudes);
 
   // Contadores "mine"/"managed" de reportes y licencias en un solo request

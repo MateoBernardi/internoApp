@@ -13,6 +13,7 @@ import {
     TouchableWithoutFeedback,
     View,
 } from 'react-native';
+import { LinkifiedText } from '@/shared/ui/LinkifiedText';
 
 interface NovedadModalProps {
   visible: boolean;
@@ -111,7 +112,7 @@ export function NovedadModal({
             <Text style={styles.titulo}>{novedad.titulo}</Text>
 
             {/* Descripción */}
-            <Text style={styles.descripcion}>{novedad.descripcion || 'Sin descripción disponible.'}</Text>
+            <Text style={styles.descripcion}>{novedad.descripcion ? <LinkifiedText>{novedad.descripcion}</LinkifiedText> : 'Sin descripción disponible.'}</Text>
 
             {/* Fecha */}
             <View style={styles.fechaContainer}>

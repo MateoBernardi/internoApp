@@ -39,7 +39,6 @@ export interface InformeResumen {
   entradas: number;
   adjuntos: number;
   ultima_actividad: string;
-  titulo: string;
   preview: string;
   mencionado: boolean;
 }
@@ -73,4 +72,6 @@ export interface AdjuntoPendiente {
   mime: string;
   tamano: number;
   tipo: TipoAdjunto;
+  /** Posición del adjunto en la entrada; el marcador `data-adjunto` del texto la referencia. */
+  orden: number;
 }

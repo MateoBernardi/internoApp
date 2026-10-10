@@ -2,8 +2,10 @@ import { glassColors } from '@/shared/ui/glass';
 import { HTMLElement, NodeType, parse, type Node } from 'node-html-parser';
 import React, { memo, useMemo } from 'react';
 import { Linking, Platform, StyleSheet, Text, TextStyle, View } from 'react-native';
+import type { Adjunto } from '../dto/InformeDTO';
+import { AdjuntoTile } from './AdjuntoTile';
 
-const BLOQUES = new Set(['p', 'h2', 'h3', 'blockquote', 'ul', 'ol', 'li']);
+const BLOQUES = new Set(['p', 'h2', 'h3', 'blockquote', 'ul', 'ol', 'li', 'div']);
 const IGNORADOS = new Set(['script', 'style', 'iframe', 'object', 'embed', 'img', 'svg']);
 
 const esElemento = (n: Node): n is HTMLElement => n.nodeType === NodeType.ELEMENT_NODE;
@@ -11,9 +13,17 @@ const esBloque = (n: Node) => esElemento(n) && BLOQUES.has(n.tagName.toLowerCase
 
 const hrefSeguro = (href?: string) => (href && /^https?:\/\//i.test(href.trim()) ? href.trim() : null);
 
+export interface AdjuntosEnLinea {
+  informeId: string;
+  adjuntos: Adjunto[];
+  empleadoId?: number;
+  onAbrir: (adjunto: Adjunto) => void;
+}
+
 interface Ctx {
   miId: number | null;
   baseStyle: TextStyle;
+  enLinea?: AdjuntosEnLinea | undefined;
 }
 
 function Mencion({ label, mine }: { label: string; mine: boolean }) {
@@ -85,7 +95,27 @@ function bloques(nodes: Node[], ctx: Ctx, keyBase = ''): React.ReactNode[] {
     volcar(key);
     const el = n as HTMLElement;
     const tag = el.tagName.toLowerCase();
-    if (tag === 'p') {
+    if (tag === 'div') {
+      const orden = Number(el.getAttribute('data-adjunto'));
+      const adjunto = ctx.enLinea?.adjuntos.find((a) => a.orden === orden);
+      if (adjunto && ctx.enLinea) {
+        const { informeId, empleadoId, onAbrir } = ctx.enLinea;
+        salida.push(
+          <View key={key} style={styles.adjunto}>
+            <AdjuntoTile
+              tipo={adjunto.tipo}
+              nombre={adjunto.nombre}
+              tamano={adjunto.tamano}
+              informeId={informeId}
+              adjuntoId={adjunto.id}
+              {...(empleadoId !== undefined ? { empleadoId } : null)}
+              grande
+              onPress={() => onAbrir(adjunto)}
+            />
+          </View>,
+        );
+      }
+    } else if (tag === 'p') {
       salida.push(<Text key={key} style={[ctx.baseStyle, styles.p]}>{inline(el.childNodes, ctx)}</Text>);
     } else if (tag === 'h2' || tag === 'h3') {
       salida.push(
@@ -123,17 +153,20 @@ interface Props {
   html: string;
   miId?: number | null;
   style?: TextStyle;
+  /** Adjuntos de la entrada para resolver los marcadores `data-adjunto`. */
+  enLinea?: AdjuntosEnLinea;
 }
 
-export const InformeHtml = memo(({ html, miId = null, style }: Props) => {
+export const InformeHtml = memo(({ html, miId = null, style, enLinea }: Props) => {
   const arbol = useMemo(() => parse(html ?? ''), [html]);
-  return <View>{bloques(arbol.childNodes, { miId, baseStyle: { ...styles.base, ...style } })}</View>;
+  return <View>{bloques(arbol.childNodes, { miId, baseStyle: { ...styles.base, ...style }, enLinea })}</View>;
 });
 InformeHtml.displayName = 'InformeHtml';
 
 const styles = StyleSheet.create({
   base: { fontSize: 15, lineHeight: 22, color: '#2c3035' },
   p: { marginBottom: 4 },
+  adjunto: { marginVertical: 6 },
   h2: { fontSize: 18, fontWeight: '800' },
   h3: { fontSize: 16, fontWeight: '700' },
   bold: { fontWeight: '700' },

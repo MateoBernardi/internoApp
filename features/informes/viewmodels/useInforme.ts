@@ -5,7 +5,7 @@ import type { InformeDetalle } from '../dto/InformeDTO';
 import * as api from '../services/informesApi';
 import { informesKeys } from './keys';
 
-export function useInforme(informeId: string): {
+export function useInforme(informeId: string, empleadoId?: number): {
   informe: InformeDetalle | null;
   isLoading: boolean;
   error: string | null;
@@ -15,10 +15,10 @@ export function useInforme(informeId: string): {
   const token = tokens?.accessToken;
 
   const query = useQuery({
-    queryKey: informesKeys.detalle(informeId),
+    queryKey: [...informesKeys.detalle(informeId), empleadoId ?? null],
     queryFn: ({ signal }) => {
       if (!token) throw new Error('No hay token de acceso');
-      return api.obtenerInforme(token, informeId, signal);
+      return api.obtenerInforme(token, informeId, signal, empleadoId);
     },
     enabled: !!token && !!informeId,
   });

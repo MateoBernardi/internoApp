@@ -96,6 +96,8 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
   const bottomInset = useSafeBottomInset();
   const searchFocus = useFocusBorder();
   const composerFocus = useFocusBorder();
+  // Alto del input en web (el textarea no se autoajusta): crece con el contenido y vuelve a 34 al vaciarse.
+  const [inputHeight, setInputHeight] = useState(34);
   const tituloFocus = useFocusBorder();
   const { user } = useAuth();
   const { hasRole } = useRoleCheck();
@@ -153,8 +155,9 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
   const queryClient = useQueryClient();
   const { alertModal, showModal, closeAlert, onModalDismiss } = useAlertModal();
   const {
-    pickedFiles, setPickedFiles, handleAgregarAdjunto, handleOpenArchivo, uploadPickedFiles, CameraModal,
+    pickedFiles, setPickedFiles, handleAgregarAdjunto, handleOpenArchivo, uploadPickedFiles, CameraModal, AttachMenu,
   } = useAdjuntos({ showModal });
+  const adjuntarRef = useRef<any>(null);
 
   const [showEditTituloModal, setShowEditTituloModal] = useState(false);
   const [tituloDraft, setTituloDraft] = useState('');
@@ -515,8 +518,9 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
           {/* paddingTop con el inset superior: el marginTop '10%' del container antiguo
              resolvía contra el ancho (~39px) y quedaba por debajo del status bar/notch
              de iOS; ahora es full screen, pero el inset sigue siendo necesario para no
-             comerse el touch del botón de cerrar bajo el status bar/notch. */}
-          <View style={[styles.modalHeader, { paddingTop: insets.top + 5 }]}>
+             comerse el touch del botón de cerrar bajo el status bar/notch. En web el inset es 0:
+             se deja más aire para que el header no quede pegado al borde de la ventana. */}
+          <View style={[styles.modalHeader, { paddingTop: insets.top + (Platform.OS === 'web' ? 18 : 5) }]}>
               <TouchableOpacity onPress={handleClose} style={styles.backButton}>
                 <Ionicons name="chevron-back" size={24} color={glassColors.textMuted} />
               </TouchableOpacity>
@@ -737,20 +741,36 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
 
                   <View style={styles.chatComposerRow}>
                     {!isFinalState && (
-                      <TouchableOpacity style={styles.chatActionButton} onPress={handleAgregarAdjunto}>
+                      <TouchableOpacity ref={adjuntarRef} style={styles.chatActionButton} onPress={() => handleAgregarAdjunto(adjuntarRef)}>
                         <Ionicons name="attach" size={20} color={colors.lightTint} />
                       </TouchableOpacity>
                     )}
 
                     <IsolatedTextInput
                       ref={composerRef}
-                      style={[styles.chatComposerInput, focusBorderStyles.inputNoOutline]}
+                      style={[
+                        styles.chatComposerInput,
+                        Platform.OS === 'web' && { height: inputHeight },
+                        focusBorderStyles.inputNoOutline,
+                      ]}
                       placeholder="Escribir mensaje"
                       placeholderTextColor={colors.secondaryText}
                       onFocus={composerFocus.onFocus}
                       onBlur={composerFocus.onBlur}
-                      onHasTextChange={setHasDraftText}
+                      onHasTextChange={(hasText) => {
+                        setHasDraftText(hasText);
+                        if (!hasText) setInputHeight(34);
+                      }}
                       multiline
+                      // En web el textarea multiline arranca con varias filas y deja el texto arriba: se
+                      // fija en una y crece con el contenido (onContentSizeChange) hasta maxHeight.
+                      {...(Platform.OS === 'web'
+                        ? {
+                            numberOfLines: 1,
+                            onContentSizeChange: (e: { nativeEvent: { contentSize: { height: number } } }) =>
+                              setInputHeight(Math.min(Math.max(e.nativeEvent.contentSize.height, 34), 110)),
+                          }
+                        : null)}
                       editable={!isFinalState}
                     />
 
@@ -925,6 +945,7 @@ export function ConversacionChat({ solicitud, visible, onClose }: ConversacionCh
 
       <FilePreview file={previewFile} onClose={closePreview} />
       {CameraModal}
+      {AttachMenu}
     </View>
     </FullScreenPortal>
   );
@@ -952,11 +973,8 @@ function ArchivosModalContent({
   onOpen: (a: any) => void;
   onOpenImage: (a: any, uri: string) => void;
 }) {
-  // En web no usamos el preview inline de imágenes (abre la página de
-  // Cloudflare): se listan como archivos junto al resto.
-  const isWeb = Platform.OS === 'web';
-  const images = isWeb ? [] : archivos.filter(a => isImageFile(a.tipo, a.nombre, rutaR2(a)));
-  const files = isWeb ? archivos : archivos.filter(a => !isImageFile(a.tipo, a.nombre, rutaR2(a)));
+  const images = archivos.filter(a => isImageFile(a.tipo, a.nombre, rutaR2(a)));
+  const files = archivos.filter(a => !isImageFile(a.tipo, a.nombre, rutaR2(a)));
 
   if (archivos.length === 0) {
     return <Text style={localStyles.archivosEmpty}>No hay archivos en esta conversación</Text>;
@@ -1207,21 +1225,24 @@ const localStyles = StyleSheet.create({
   // El borde/fondo/sombra de la píldora ahora los da el `chatComposer` que
   // envuelve todo (ver arriba); esta fila queda como layout puro para no
   // duplicar la caja.
+  // Botones e input miden lo mismo (34) y se anclan abajo: con una línea comparten
+  // centro; si el input crece con varias líneas, los botones quedan abajo.
   chatComposerRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-end',
     gap: 6,
     paddingHorizontal: 6,
-    paddingVertical: 12,
+    paddingVertical: 8,
   },
   chatComposerInput: {
     flex: 1,
-    minHeight: 36,
+    minHeight: 34,
     maxHeight: 110,
-    paddingVertical: Platform.OS === 'web' ? 6 : 8,
+    paddingVertical: 7,
     fontSize: 14,
+    lineHeight: 20,
     color: colors.text,
-    ...(Platform.OS === 'web' ? { lineHeight: 20, textAlignVertical: 'center' as const } : null),
+    textAlignVertical: 'center' as const,
   },
   chatActionButton: {
     width: 34,

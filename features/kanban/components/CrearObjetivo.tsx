@@ -15,6 +15,7 @@ import { adminRoles, allRoles } from '@/shared/users/roles';
 import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
+import { useAttachMenu } from '@/shared/ui/AttachMenu';
 import { pickFromGallery } from '@/shared/ui/pickFromGallery';
 import { useCameraCapture } from '@/shared/ui/useCameraCapture';
 import React, { useEffect, useRef, useState } from 'react';
@@ -232,14 +233,12 @@ export function FormObjetivoModal({
         }
     };
 
-    const handleAgregarArchivo = () => {
-        Alert.alert('Adjuntar archivo', 'Elegí una opción', [
-            { text: 'Tomar foto', onPress: () => void handleTakePhoto() },
-            { text: 'Elegir de galería', onPress: () => void handlePickFromGallery() },
-            { text: 'Elegir archivo', onPress: () => void handleSeleccionarArchivo() },
-            { text: 'Cancelar', style: 'cancel' },
-        ]);
-    };
+    const { openAttachMenuCentered, AttachMenu } = useAttachMenu({
+        onGallery: () => void handlePickFromGallery(),
+        onCamera: () => void handleTakePhoto(),
+        onFile: () => void handleSeleccionarArchivo(),
+    });
+    const handleAgregarArchivo = () => openAttachMenuCentered();
 
 
     // Actualizar estado cuando el modal se abre o el objetivo cambia.
@@ -651,6 +650,7 @@ export function FormObjetivoModal({
             </ModalKeyboardView>
         </View>
         {CameraModal}
+        {AttachMenu}
         </FullScreenPortal>
     );
 }

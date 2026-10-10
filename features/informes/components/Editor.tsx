@@ -1,15 +1,17 @@
 import { useAuth } from '@/features/auth/context/AuthContext';
-import { glassColors, glassStyles } from '@/shared/ui/glass';
+import { glassColors } from '@/shared/ui/glass';
+import { useCameraCapture } from '@/shared/ui/useCameraCapture';
 import { searchUsers } from '@/shared/users/userApi';
 import { showGlobalToast } from '@/shared/ui/toast';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { Adjunto, AdjuntoPendiente } from '../dto/InformeDTO';
-import { elegirDocumentos, elegirMedia } from '../utils/adjuntos';
+import { elegirCamara, elegirDocumentos, elegirMedia, type AdjuntoElegido } from '../utils/adjuntos';
+import { ordenesEnLinea } from '../utils/enLinea';
 import { nombreCompleto } from '../utils/format';
 import { AdjuntoTile } from './AdjuntoTile';
-import EditorDom, { type AltoEditor, type PersonaSugerida } from './editor/EditorDom';
+import EditorDom, { type AdjuntoInfoEditor, type AltoEditor, type OrigenAdjunto, type PersonaSugerida } from './editor/EditorDom';
 
 export type VarianteEditor = 'compositor' | 'edicion' | 'nuevo';
 
@@ -19,6 +21,8 @@ interface Props {
   variante: VarianteEditor;
   initialHtml?: string;
   existentes?: Adjunto[];
+  /** Informe de la entrada que se edita; permite mostrar miniaturas de los adjuntos guardados. */
+  informeId?: string;
   placeholder?: string;
   submitLabel?: string;
   onSubmit: (cuerpo: string, nuevos: AdjuntoPendiente[], quitarIds: string[]) => Promise<void>;
@@ -29,6 +33,7 @@ export function Editor({
   variante,
   initialHtml = '',
   existentes = [],
+  informeId,
   placeholder = 'Escribí una entrada…',
   submitLabel,
   onSubmit,
@@ -39,13 +44,33 @@ export function Editor({
   const [html, setHtml] = useState(initialHtml);
   const [vacio, setVacio] = useState(!initialHtml);
   const [pendientes, setPendientes] = useState<AdjuntoPendiente[]>([]);
-  const [quitados, setQuitados] = useState<string[]>([]);
+  const [bandejaQuitados, setBandejaQuitados] = useState<string[]>([]);
   const [resetNonce, setResetNonce] = useState(0);
-  const [menuAbierto, setMenuAbierto] = useState(false);
+  const [insercion, setInsercion] = useState<{ nonce: number; ordenes: number[] } | null>(null);
   const [enviando, setEnviando] = useState(false);
+  const { openCamera, CameraModal } = useCameraCapture();
 
-  const visibles = existentes.filter((a) => !quitados.includes(a.id));
-  const puedeEnviar = (!vacio || pendientes.length > 0 || visibles.length > 0) && !enviando;
+  // Adjuntos que ya estaban dentro del texto al abrir la edición; el resto (entradas viejas) va en una bandeja.
+  const enLineaInicial = useMemo(() => ordenesEnLinea(initialHtml), [initialHtml]);
+  const bandeja = existentes.filter((a) => !enLineaInicial.has(a.orden) && !bandejaQuitados.includes(a.id));
+  // El orden de un adjunto nunca se reutiliza: se parte del máximo existente.
+  const siguienteOrden = useRef(existentes.reduce((max, a) => Math.max(max, a.orden), -1) + 1);
+
+  const adjuntosInfo = useMemo(() => {
+    const info: Record<string, AdjuntoInfoEditor> = {};
+    for (const a of existentes) info[String(a.orden)] = { nombre: a.nombre, tipo: a.tipo, tamano: a.tamano };
+    for (const p of pendientes) {
+      info[String(p.orden)] = {
+        nombre: p.nombre,
+        tipo: p.tipo,
+        tamano: p.tamano,
+        ...(Platform.OS === 'web' ? { uri: p.uri } : null),
+      };
+    }
+    return info;
+  }, [existentes, pendientes]);
+
+  const puedeEnviar = !vacio && !enviando;
 
   const onChange = useCallback(async (nuevo: string, esVacio: boolean) => {
     setHtml(nuevo);
@@ -69,7 +94,14 @@ export function Editor({
     if (!puedeEnviar) return;
     setEnviando(true);
     try {
-      await onSubmit(html, pendientes, quitados);
+      // Lo que no quedó referenciado en el texto (porque se borró el bloque) no se sube / se elimina.
+      const enTexto = ordenesEnLinea(html);
+      const nuevos = pendientes.filter((p) => enTexto.has(p.orden));
+      const quitar = [
+        ...bandejaQuitados,
+        ...existentes.filter((a) => enLineaInicial.has(a.orden) && !enTexto.has(a.orden)).map((a) => a.id),
+      ];
+      await onSubmit(html, nuevos, quitar);
       if (variante !== 'edicion') {
         setHtml('');
         setVacio(true);
@@ -89,51 +121,48 @@ export function Editor({
     await enviarRef.current();
   }, []);
 
-  const onAdjuntar = useCallback(async () => {
-    setMenuAbierto(true);
-  }, []);
-
-  const agregar = async (origen: 'media' | 'doc') => {
-    setMenuAbierto(false);
-    try {
-      if (origen === 'media') {
-        const { adjuntos, error } = await elegirMedia();
-        if (error) showGlobalToast(error);
-        setPendientes((p) => [...p, ...adjuntos]);
-      } else {
-        const adjuntos = await elegirDocumentos();
-        setPendientes((p) => [...p, ...adjuntos]);
-      }
-    } catch {
-      showGlobalToast('No se pudo adjuntar el archivo.');
-    }
+  const insertar = (elegidos: AdjuntoElegido[]) => {
+    if (elegidos.length === 0) return;
+    const nuevos = elegidos.map((a) => ({ ...a, orden: siguienteOrden.current++ }));
+    setPendientes((p) => [...p, ...nuevos]);
+    setInsercion((i) => ({ nonce: (i?.nonce ?? 0) + 1, ordenes: nuevos.map((n) => n.orden) }));
   };
+
+  // El menú (galería / cámara / documento) se despliega desde el botón de adjuntar, dentro del editor.
+  const onAdjuntar = useCallback(
+    async (origen: OrigenAdjunto) => {
+      try {
+        if (origen === 'documento') {
+          insertar(await elegirDocumentos());
+          return;
+        }
+        const { adjuntos, error } = origen === 'camara' ? await elegirCamara(openCamera) : await elegirMedia();
+        if (error) showGlobalToast(error);
+        insertar(adjuntos);
+      } catch {
+        showGlobalToast('No se pudo adjuntar el archivo.');
+      }
+    },
+    // `insertar` solo usa setters y refs estables.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [openCamera],
+  );
 
   const dom = useMemo(() => ({ matchContents: true, scrollEnabled: false, hideKeyboardAccessoryView: true }), []);
 
   return (
     <View>
-      {(visibles.length > 0 || pendientes.length > 0) && (
+      {bandeja.length > 0 && (
         <View style={styles.tray}>
-          {visibles.map((a) => (
+          {bandeja.map((a) => (
             <AdjuntoTile
               key={a.id}
               tipo={a.tipo}
               nombre={a.nombre}
               tamano={a.tamano}
               size={56}
-              onRemove={() => setQuitados((q) => [...q, a.id])}
-            />
-          ))}
-          {pendientes.map((a, i) => (
-            <AdjuntoTile
-              key={`${a.uri}-${i}`}
-              tipo={a.tipo}
-              nombre={a.nombre}
-              tamano={a.tamano}
-              uri={a.uri}
-              size={56}
-              onRemove={() => setPendientes((p) => p.filter((_, j) => j !== i))}
+              {...(informeId ? { informeId, adjuntoId: a.id } : null)}
+              onRemove={() => setBandejaQuitados((q) => [...q, a.id])}
             />
           ))}
         </View>
@@ -144,7 +173,8 @@ export function Editor({
         initialHtml={initialHtml}
         placeholder={placeholder}
         alto={ALTO[variante]}
-        popoverArriba={variante !== 'edicion'}
+        adjuntosInfo={adjuntosInfo}
+        insercion={insercion}
         miId={user?.user_context_id ?? null}
         resetNonce={resetNonce}
         autoFocus={variante !== 'compositor'}
@@ -179,20 +209,7 @@ export function Editor({
         </Pressable>
       </View>
 
-      <Modal visible={menuAbierto} transparent animationType="fade" onRequestClose={() => setMenuAbierto(false)}>
-        <Pressable style={glassStyles.modalOverlay} onPress={() => setMenuAbierto(false)}>
-          <View style={[glassStyles.modalCard, styles.menu]}>
-            <Pressable style={styles.menuItem} onPress={() => agregar('media')} accessibilityRole="button">
-              <Ionicons name="image-outline" size={20} color={glassColors.text} />
-              <Text style={styles.menuText}>Foto o video</Text>
-            </Pressable>
-            <Pressable style={styles.menuItem} onPress={() => agregar('doc')} accessibilityRole="button">
-              <Ionicons name="document-outline" size={20} color={glassColors.text} />
-              <Text style={styles.menuText}>Documento</Text>
-            </Pressable>
-          </View>
-        </Pressable>
-      </Modal>
+      {CameraModal}
     </View>
   );
 }
@@ -214,7 +231,4 @@ const styles = StyleSheet.create({
   },
   sendDisabled: { backgroundColor: '#c9d7ee' },
   sendText: { color: '#fff', fontSize: 14, fontWeight: '700' },
-  menu: { width: 260, padding: 6 },
-  menuItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingHorizontal: 14 },
-  menuText: { fontSize: 15, fontWeight: '600', color: glassColors.text },
 });

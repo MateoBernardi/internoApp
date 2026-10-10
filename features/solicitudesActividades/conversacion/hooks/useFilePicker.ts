@@ -1,6 +1,7 @@
 import * as DocumentPicker from 'expo-document-picker';
-import { useCallback, useState } from 'react';
+import { useCallback, useState, type RefObject } from 'react';
 import { pickFromGallery } from '@/shared/ui/pickFromGallery';
+import { useAttachMenu } from '@/shared/ui/AttachMenu';
 import { useCameraCapture } from '@/shared/ui/useCameraCapture';
 import type { useAlertModal } from './useAlertModal';
 
@@ -53,14 +54,26 @@ export function useFilePicker({ showModal }: { showModal: ShowModalFn }) {
     }
   }, [showModal]);
 
-  const handleAgregarAdjunto = useCallback(() => {
+  const { openAttachMenu, AttachMenu } = useAttachMenu({
+    onGallery: handlePickFromGallery,
+    onCamera: handleTakePhoto,
+    onFile: handleSeleccionarArchivo,
+  });
+
+  // Con `anchorRef` (el botón de adjuntar) el menú se despliega desde ese botón; sin él se usa el
+  // diálogo centrado de siempre. `AttachMenu` debe renderizarse una vez en el árbol del consumidor.
+  const handleAgregarAdjunto = useCallback((anchorRef?: RefObject<any>) => {
+    if (anchorRef) {
+      openAttachMenu(anchorRef);
+      return;
+    }
     showModal('Adjuntar archivo', 'Elegí una opción', [
       { key: 'file', label: 'Archivo', onPress: handleSeleccionarArchivo },
       { key: 'gallery', label: 'Galería', onPress: handlePickFromGallery },
       { key: 'camera', label: 'Cámara', onPress: handleTakePhoto },
       { key: 'cancel', label: 'Cancelar', onPress: () => { }, variant: 'neutral' },
     ]);
-  }, [handleTakePhoto, handlePickFromGallery, handleSeleccionarArchivo, showModal]);
+  }, [handleTakePhoto, handlePickFromGallery, handleSeleccionarArchivo, showModal, openAttachMenu]);
 
   // `handleTakePhoto`/`handlePickFromGallery`/`handleSeleccionarArchivo` se
   // exponen para consumidores que arman su propio menú (con otras etiquetas);
@@ -69,6 +82,6 @@ export function useFilePicker({ showModal }: { showModal: ShowModalFn }) {
   // que `handleTakePhoto` funcione.
   return {
     pickedFiles, setPickedFiles, handleTakePhoto, handlePickFromGallery, handleSeleccionarArchivo,
-    handleAgregarAdjunto, CameraModal,
+    handleAgregarAdjunto, CameraModal, AttachMenu,
   };
 }

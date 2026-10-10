@@ -8,6 +8,7 @@ import { AdjuntoTile } from './AdjuntoTile';
 import { Editor } from './Editor';
 import { InformeHtml } from './InformeHtml';
 import type { AdjuntoPendiente } from '../dto/InformeDTO';
+import { ordenesEnLinea } from '../utils/enLinea';
 
 interface Props {
   entrada: Entrada;
@@ -19,10 +20,12 @@ interface Props {
   onCancelarEdicion: () => void;
   onGuardar: (entradaId: string, cuerpo: string, nuevos: AdjuntoPendiente[], quitarIds: string[]) => Promise<void>;
   onAbrirAdjunto: (adjunto: Adjunto, autor: string, fecha: string) => void;
+  /** Vista de management de un empleado: las URLs de adjuntos se piden con su id. */
+  empleadoId?: number;
 }
 
 export const EntradaItem = memo(
-  ({ entrada, personas, miId, editable, editando, onEditar, onCancelarEdicion, onGuardar, onAbrirAdjunto }: Props) => {
+  ({ entrada, personas, miId, editable, editando, onEditar, onCancelarEdicion, onGuardar, onAbrirAdjunto, empleadoId }: Props) => {
     const autor = nombreCompleto(personas[entrada.autor_id]) || 'Usuario';
     const fecha = formatFechaHora(entrada.creado_en);
 
@@ -45,6 +48,14 @@ export const EntradaItem = memo(
     const inicial = entrada.tipo === 'relato';
     const mencionaAMi = miId !== null && entrada.autor_id !== miId && entrada.menciones.includes(miId);
     const puedeEditar = editable && miId !== null && entrada.autor_id === miId;
+    const enLinea = ordenesEnLinea(entrada.cuerpo);
+    const sueltos = entrada.adjuntos.filter((a) => !enLinea.has(a.orden));
+    const adjuntosEnLinea = {
+      informeId: entrada.informe_id,
+      adjuntos: entrada.adjuntos,
+      ...(empleadoId !== undefined ? { empleadoId } : null),
+      onAbrir: (a: Adjunto) => onAbrirAdjunto(a, autor, fecha),
+    };
 
     return (
       <View style={inicial ? styles.initial : styles.entry}>
@@ -81,6 +92,7 @@ export const EntradaItem = memo(
               variante="edicion"
               initialHtml={entrada.cuerpo}
               existentes={entrada.adjuntos}
+              informeId={entrada.informe_id}
               submitLabel="Guardar"
               onSubmit={(cuerpo, nuevos, quitar) => onGuardar(entrada.id, cuerpo, nuevos, quitar)}
               onCancel={onCancelarEdicion}
@@ -88,15 +100,18 @@ export const EntradaItem = memo(
           </View>
         ) : (
           <View style={inicial ? styles.bodyInitial : styles.body}>
-            <InformeHtml html={entrada.cuerpo} miId={miId} />
-            {entrada.adjuntos.length > 0 && (
+            <InformeHtml html={entrada.cuerpo} miId={miId} enLinea={adjuntosEnLinea} />
+            {sueltos.length > 0 && (
               <View style={styles.attachments}>
-                {entrada.adjuntos.map((a) => (
+                {sueltos.map((a) => (
                   <AdjuntoTile
                     key={a.id}
                     tipo={a.tipo}
                     nombre={a.nombre}
                     tamano={a.tamano}
+                    informeId={entrada.informe_id}
+                    adjuntoId={a.id}
+                    {...(empleadoId !== undefined ? { empleadoId } : null)}
                     onPress={() => onAbrirAdjunto(a, autor, fecha)}
                   />
                 ))}

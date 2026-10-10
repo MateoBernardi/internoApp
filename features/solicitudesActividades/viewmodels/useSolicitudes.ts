@@ -1,6 +1,7 @@
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { IDEMPOTENT_MUTATION_RETRY } from '@/shared/idempotency';
 import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Platform } from 'react-native';
 import * as solicitudModels from '../models/Solicitud';
 import * as solicitudesApi from '../services/solicitudesApi';
 
@@ -97,6 +98,9 @@ export function useSolicitudesUnseen(enabled = true, tipoConversacion?: 'CHAT') 
     },
     staleTime: 1000 * 45,
     gcTime: 1000 * 60 * 5,
+    // Web: el total también se ve en el título de la pestaña, así que se sondea aunque esté en segundo
+    // plano (respaldo cuando el usuario no tiene push; con push la caché se invalida al instante).
+    ...(Platform.OS === 'web' ? { refetchInterval: 60_000, refetchIntervalInBackground: true } : null),
   });
 }
 

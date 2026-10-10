@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import React from 'react';
 import {
+  Alert,
   Platform,
   StyleSheet,
   Text,
@@ -12,6 +13,7 @@ import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-g
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFileActions } from './useFileActions';
+import { descargarWeb } from './webFile';
 import type { FileItem } from './types';
 
 interface Props {
@@ -97,9 +99,25 @@ function ZoomableImage({ uri }: { uri: string }) {
   );
 }
 
+const IS_WEB = Platform.OS === 'web';
+
 export function ImageViewer({ file, onClose }: Props) {
   const { share, download, print, busy } = useFileActions(file);
   const { top, bottom } = useSafeAreaInsets();
+  const [descargando, setDescargando] = React.useState(false);
+
+  // En web no existen expo-file-system/sharing/print: se descarga por blob o se abre en otra pestaña.
+  const descargarEnWeb = async () => {
+    setDescargando(true);
+    try {
+      await descargarWeb(file.uri, file.name.includes('.') || !file.ext ? file.name : `${file.name}.${file.ext}`);
+    } catch {
+      Alert.alert('Error', 'No se pudo descargar la imagen');
+    } finally {
+      setDescargando(false);
+    }
+  };
+  const abrirEnPestana = () => window.open(file.uri, '_blank', 'noopener,noreferrer');
 
   const subtitle = [file.sender, file.date].filter(Boolean).join(' · ');
 
@@ -123,16 +141,25 @@ export function ImageViewer({ file, onClose }: Props) {
         <ZoomableImage uri={file.uri} />
         <View style={[styles.captionChip, { pointerEvents: 'none' }]}>
           <Text style={styles.captionText}>
-            {file.ext.toUpperCase()}{file.size ? ` · ${file.size}` : ''} · pellizcá o tocá 2× para zoom
+            {file.ext.toUpperCase()}{file.size ? ` · ${file.size}` : ''} · {IS_WEB ? 'doble clic para ampliar' : 'pellizcá o tocá 2× para zoom'}
           </Text>
         </View>
       </View>
 
       {/* Action bar */}
       <View style={[styles.actionBar, { paddingBottom: Math.max(bottom, 16) }]}>
-        <ActionBtn icon="share-outline" label="Compartir" onPress={share} disabled={busy} />
-        <ActionBtn icon="download-outline" label="Descargar" onPress={download} disabled={busy} />
-        <ActionBtn icon="print-outline" label="Imprimir" onPress={print} disabled={busy} />
+        {IS_WEB ? (
+          <>
+            <ActionBtn icon="download-outline" label="Descargar" onPress={descargarEnWeb} disabled={descargando} />
+            <ActionBtn icon="open-outline" label="Abrir en pestaña" onPress={abrirEnPestana} disabled={false} />
+          </>
+        ) : (
+          <>
+            <ActionBtn icon="share-outline" label="Compartir" onPress={share} disabled={busy} />
+            <ActionBtn icon="download-outline" label="Descargar" onPress={download} disabled={busy} />
+            <ActionBtn icon="print-outline" label="Imprimir" onPress={print} disabled={busy} />
+          </>
+        )}
       </View>
     </GestureHandlerRootView>
   );

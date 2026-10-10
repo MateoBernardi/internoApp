@@ -39,6 +39,7 @@ const adjunto = (nombre: string): AdjuntoPendiente => ({
   mime: 'image/jpeg',
   tamano: 10,
   tipo: 'imagen',
+  orden: 0,
 });
 
 function setup() {

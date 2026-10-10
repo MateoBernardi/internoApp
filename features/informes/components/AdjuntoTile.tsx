@@ -1,9 +1,10 @@
 import { glassColors } from '@/shared/ui/glass';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { TipoAdjunto } from '../dto/InformeDTO';
+import { useUrlAdjunto } from '../viewmodels/useUrlAdjunto';
 import { colorExtension, extensionDe, tamanoLegible } from '../utils/format';
 
 interface Props {
@@ -11,12 +12,47 @@ interface Props {
   nombre: string;
   tamano: number;
   uri?: string;
+  /** Adjunto ya guardado: con estos ids se pide la URL firmada para mostrar la miniatura. */
+  informeId?: string;
+  adjuntoId?: string;
+  empleadoId?: number;
+  /** Versión grande para adjuntos dentro del texto. */
+  grande?: boolean;
   size?: number;
   onPress?: () => void;
   onRemove?: () => void;
 }
 
-export function AdjuntoTile({ tipo, nombre, tamano, uri, size = 76, onPress, onRemove }: Props) {
+export function AdjuntoTile({
+  tipo,
+  nombre,
+  tamano,
+  uri,
+  informeId,
+  adjuntoId,
+  empleadoId,
+  grande = false,
+  size = 76,
+  onPress,
+  onRemove,
+}: Props) {
+  const { url: urlFirmada, isLoading, isError, error } = useUrlAdjunto(
+    informeId ?? '',
+    adjuntoId ?? '',
+    empleadoId,
+    tipo === 'imagen' && !uri && !!informeId && !!adjuntoId,
+  );
+  const fuente = uri ?? urlFirmada;
+  const [imagenRota, setImagenRota] = useState(false);
+  const fallo = imagenRota || isError;
+
+  useEffect(() => {
+    setImagenRota(false);
+  }, [fuente]);
+
+  useEffect(() => {
+    if (isError) console.warn('[informes] no se pudo obtener la URL del adjunto', adjuntoId, error);
+  }, [isError, adjuntoId, error]);
   const esDocumento = tipo === 'documento';
   const ext = extensionDe(nombre);
 
@@ -31,11 +67,26 @@ export function AdjuntoTile({ tipo, nombre, tamano, uri, size = 76, onPress, onR
       <Text style={styles.chipSize}>{tamanoLegible(tamano)}</Text>
     </View>
   ) : (
-    <View style={[styles.thumb, { width: size, height: size }]}>
-      {tipo === 'imagen' && uri ? (
-        <Image source={{ uri }} style={StyleSheet.absoluteFill} contentFit="cover" />
+    <View style={[styles.thumb, grande ? styles.thumbGrande : { width: size, height: size }]}>
+      {tipo === 'imagen' && fuente && !fallo ? (
+        <Image
+          source={{ uri: fuente }}
+          style={StyleSheet.absoluteFill}
+          contentFit={grande ? 'contain' : 'cover'}
+          onError={() => {
+            console.warn('[informes] no se pudo cargar la imagen del adjunto', adjuntoId);
+            setImagenRota(true);
+          }}
+        />
+      ) : tipo === 'imagen' && isLoading ? (
+        <ActivityIndicator color={glassColors.textMuted} />
       ) : (
-        <Ionicons name={tipo === 'imagen' ? 'image-outline' : 'videocam-outline'} size={size / 3} color={glassColors.textMuted} />
+        <Ionicons
+          name={tipo === 'imagen' ? (fallo ? 'alert-circle-outline' : 'image-outline') : 'videocam-outline'}
+          size={grande ? 40 : size / 3}
+          color={glassColors.textMuted}
+          style={fallo ? styles.fallo : undefined}
+        />
       )}
       {tipo === 'video' && (
         <View style={styles.play}>
@@ -76,6 +127,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     overflow: 'hidden',
   },
+  // Ancho fijo: un porcentaje colapsa a 0 dentro de un contenedor que se ajusta al contenido.
+  thumbGrande: { width: 320, maxWidth: '100%', height: 220 },
+  fallo: { opacity: 0.5 },
   play: {
     position: 'absolute',
     width: 30,

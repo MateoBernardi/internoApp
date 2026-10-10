@@ -1,5 +1,6 @@
 import { AlertModal } from '@/components/AlertModal';
 import { ThemedText } from '@/components/themed-text';
+import { FilePreview, getExt, InlineImageAttachment, isImageFile, useOpenFilePreview } from '@/components/filePreview';
 import { OperacionPendienteModal } from '@/components/ui/OperacionPendienteModal';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/features/auth/context/AuthContext';
@@ -14,10 +15,10 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   BackHandler,
   Linking,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -30,6 +31,7 @@ import { GlassButton } from '@/shared/ui/GlassButton';
 import { focusBorderStyles, glassColors, glassStyles } from '@/shared/ui/glass';
 import { IsolatedTextInput, IsolatedTextInputHandle } from '@/shared/ui/IsolatedTextInput';
 import { useFocusBorder } from '@/shared/ui/useFocusBorder';
+import { useAttachMenu } from '@/shared/ui/AttachMenu';
 import { pickFromGallery } from '@/shared/ui/pickFromGallery';
 import { useCameraCapture } from '@/shared/ui/useCameraCapture';
 import { useSafeBottomInset } from '@/hooks/useSafeBottomInset';
@@ -136,6 +138,8 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
   const [selectedArchivoId, setSelectedArchivoId] = useState<number | undefined>();
   const [isUploadingDoc, setIsUploadingDoc] = useState(false);
   const { openCamera, CameraModal } = useCameraCapture();
+  // En web las imágenes se ven como miniatura y se abren en el visor de la página.
+  const { previewFile, openWithUri, closePreview } = useOpenFilePreview();
 
   // Get archivo URL
   const { data: archivoUrl, isLoading: isLoadingUrl } = useArchivoUrl(selectedArchivoId);
@@ -145,6 +149,16 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
   const solicitud = useMemo(
     () => solicitudes?.find((s) => s.id === solicitudId),
     [solicitudes, solicitudId]
+  );
+
+  // En web, las imágenes salen de la lista de archivos y se muestran como miniaturas.
+  const imagenesWeb = useMemo(
+    () => (Platform.OS === 'web' ? (solicitud?.archivos ?? []).filter((a) => isImageFile(a.tipo, a.nombre, a.ruta_r2)) : []),
+    [solicitud?.archivos],
+  );
+  const archivosLista = useMemo(
+    () => (solicitud?.archivos ?? []).filter((a) => !imagenesWeb.includes(a)),
+    [solicitud?.archivos, imagenesWeb],
   );
 
   const isFromReceivedView = resolvedType === 'recibida';
@@ -327,14 +341,12 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
     }
   }, [uploadAndAdjuntarArchivo, showModal]);
 
-  const handleUploadDocument = useCallback(() => {
-    Alert.alert('Adjuntar documento', 'Elegí una opción', [
-      { text: 'Tomar foto', onPress: handleTomarFoto },
-      { text: 'Elegir de galería', onPress: handlePickFromGallery },
-      { text: 'Elegir archivo', onPress: handleSeleccionarArchivo },
-      { text: 'Cancelar', style: 'cancel' },
-    ]);
-  }, [handleTomarFoto, handlePickFromGallery, handleSeleccionarArchivo]);
+  const { openAttachMenuCentered, AttachMenu } = useAttachMenu({
+    onGallery: handlePickFromGallery,
+    onCamera: handleTomarFoto,
+    onFile: handleSeleccionarArchivo,
+  });
+  const handleUploadDocument = useCallback(() => openAttachMenuCentered(), [openAttachMenuCentered]);
 
   const fechaInicio = solicitud ? new Date(solicitud.fecha_inicio) : new Date();
   const fechaFin = solicitud ? new Date(solicitud.fecha_fin) : new Date();
@@ -539,10 +551,30 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
                     <ThemedText style={styles.sectionTitle}>Archivos Adjuntos</ThemedText>
                   </View>
                   <View style={styles.filesContainer}>
-                    <DocsList
-                      archivos={solicitud.archivos}
-                      onOpen={handleOpenFile}
-                    />
+                    {imagenesWeb.length > 0 && (
+                      <View style={styles.imageGrid}>
+                        {imagenesWeb.map((a) => (
+                          <View key={a.id} style={styles.imageGridItem}>
+                            <InlineImageAttachment
+                              archivoId={a.id}
+                              nombre={a.nombre}
+                              onOpen={(uri) =>
+                                openWithUri({
+                                  id: String(a.id),
+                                  kind: 'image',
+                                  name: a.nombre,
+                                  ext: getExt(a.tipo, a.nombre, a.ruta_r2),
+                                  uri,
+                                })
+                              }
+                            />
+                          </View>
+                        ))}
+                      </View>
+                    )}
+                    {archivosLista.length > 0 && (
+                      <DocsList archivos={archivosLista} onOpen={handleOpenFile} />
+                    )}
                   </View>
                 </>
               )}
@@ -676,6 +708,8 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
         </View>
       </View>
       {CameraModal}
+      {AttachMenu}
+      <FilePreview file={previewFile} onClose={closePreview} />
     </FullScreenPortal>
   );
 } const styles = StyleSheet.create({
@@ -838,6 +872,16 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
   },
   filesContainer: {
     padding: 16,
+    gap: 12,
+  },
+  imageGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  imageGridItem: {
+    width: 220,
+    maxWidth: '100%',
   },
   smallText: {
     fontSize: 11,

@@ -27,7 +27,9 @@ export default function Root({ children }: PropsWithChildren) {
           - unsafe-inline en script-src/style-src: necesario por los bloques inline (SW registration + estilos)
           - static.cloudflareinsights.com: script inyectado por Cloudflare Browser Insights (si esta habilitado)
           - connect-src: API backend + Firebase Cloud Messaging endpoints + blob: para fetch(blob:...)
-          - agregar dominios R2 si cambia la infraestructura de uploads firmados
+          - R2 (URLs firmadas): connect-src para fetch, img-src para imágenes y media-src para videos;
+          - imagedelivery.net (Cloudflare Images): miniaturas de reportes en img-src;
+            agregar dominios R2 si cambia la infraestructura de uploads firmados
           - worker-src blob: requerido por algunos bundlers para web workers
           - Actualizar la IP/dominio de connect-src si cambia API_BASE_URL
         */}
@@ -37,7 +39,8 @@ export default function Root({ children }: PropsWithChildren) {
             default-src 'self';
             script-src 'self' 'unsafe-inline' https://www.gstatic.com https://static.cloudflareinsights.com https://accounts.google.com;
             style-src 'self' 'unsafe-inline';
-            img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com;
+            img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com https://*.r2.cloudflarestorage.com https://imagedelivery.net;
+            media-src 'self' blob: https://*.r2.cloudflarestorage.com;
             font-src 'self' https://fonts.gstatic.com;
             connect-src 'self'
               blob:

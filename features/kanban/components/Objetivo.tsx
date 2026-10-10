@@ -20,6 +20,7 @@ import { useGetUserByRole, useSearchUsers } from '@/shared/users/useUser';
 import { ParticipantesBlock } from '@/features/solicitudesActividades/components/ParticipantesBlock';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
+import { useAttachMenu } from '@/shared/ui/AttachMenu';
 import { pickFromGallery } from '@/shared/ui/pickFromGallery';
 import { useCameraCapture } from '@/shared/ui/useCameraCapture';
 import React, { useEffect, useRef, useState } from "react";
@@ -42,6 +43,7 @@ import {
     useUpdateObjetivo,
 } from '../hooks/useObjetivos';
 import { Bitacora, Invitado, Objetivo } from "../models/Objetivo";
+import { LinkifiedText } from '@/shared/ui/LinkifiedText';
 
 interface DetailModalProps {
     visible: boolean;
@@ -94,6 +96,9 @@ export function DetailModal({ visible, objetivo, onClose, onDelete, onMove, curr
     const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
     const [isUploadingFile, setIsUploadingFile] = useState(false);
     const { openCamera, CameraModal } = useCameraCapture();
+    // Menú de adjuntar centrado (en web el Alert de varias opciones se reducía a un confirm() del
+    // navegador). Los handlers se definen más abajo (después del `return null`), así que se pasan al abrir.
+    const { openAttachMenuCentered, AttachMenu } = useAttachMenu();
 
     const { data: searchResults, isLoading: isSearchingUsers } = useSearchUsers(searchQuery);
     const { data: roleUsersData, isLoading: isLoadingRole } = useGetUserByRole(activeRole);
@@ -391,14 +396,12 @@ export function DetailModal({ visible, objetivo, onClose, onDelete, onMove, curr
         }
     };
 
-    const handleAgregarArchivo = () => {
-        Alert.alert('Adjuntar archivo', 'Elegí una opción', [
-            { text: 'Tomar foto', onPress: () => void handleTakePhoto() },
-            { text: 'Elegir de galería', onPress: () => void handlePickFromGallery() },
-            { text: 'Elegir archivo', onPress: () => void handleSeleccionarArchivo() },
-            { text: 'Cancelar', style: 'cancel' },
-        ]);
-    };
+    const handleAgregarArchivo = () =>
+        openAttachMenuCentered({
+            onGallery: () => void handlePickFromGallery(),
+            onCamera: () => void handleTakePhoto(),
+            onFile: () => void handleSeleccionarArchivo(),
+        });
 
     const handleOpenArchivo = (archivoId: number) => {
         const archivo = (currentObjetivo.archivos ?? []).find(a => a.id === archivoId);
@@ -557,7 +560,7 @@ export function DetailModal({ visible, objetivo, onClose, onDelete, onMove, curr
                             <TouchableOpacity onPress={() => setIsEditingDescription(true)} activeOpacity={0.6} style={{ marginTop: 14 }}>
                                 <View style={styles.inlineValueRow}>
                                     <Text style={currentObjetivo.descripcion ? styles.description : styles.descriptionEmpty}>
-                                        {currentObjetivo.descripcion || 'Sin descripción'}
+                                        {currentObjetivo.descripcion ? <LinkifiedText>{currentObjetivo.descripcion}</LinkifiedText> : 'Sin descripción'}
                                     </Text>
                                     <Text style={styles.editHint}>✎</Text>
                                 </View>
@@ -669,7 +672,7 @@ export function DetailModal({ visible, objetivo, onClose, onDelete, onMove, curr
                                                         ) : null}
 
                                                         {entry.observacion ? (
-                                                            <Text style={styles.observacionText}>{entry.observacion}</Text>
+                                                            <Text style={styles.observacionText}><LinkifiedText>{entry.observacion}</LinkifiedText></Text>
                                                         ) : null}
                                                     </View>
                                                 </View>
@@ -783,6 +786,7 @@ export function DetailModal({ visible, objetivo, onClose, onDelete, onMove, curr
             <FilePreview file={previewFile} onClose={closePreview} />
         </View>
         {CameraModal}
+        {AttachMenu}
         </FullScreenPortal>
     );
 }

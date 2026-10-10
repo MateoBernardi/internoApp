@@ -8,4 +8,4 @@
  * Pasar a `true` cuando se publique; con `false` no aparece en el menú.
  * Ojo: las rutas (`/(extras)/informes`, etc.) siguen existiendo y se pueden abrir por link directo.
  */
-export const INFORMES_HABILITADOS = false;
+export const INFORMES_HABILITADOS = true;

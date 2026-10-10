@@ -18,7 +18,7 @@ export const InformeCard = memo(({ informe, onPress }: Props) => {
       onPress={() => onPress(informe.informe_id)}
       style={({ pressed }) => [styles.card, pressed && styles.pressed]}
       accessibilityRole="button"
-      accessibilityLabel={`Abrir informe ${informe.titulo}`}
+      accessibilityLabel={`Abrir informe de ${creador}`}
     >
       <View style={styles.status}>
         {informe.cerrada ? (
@@ -32,7 +32,7 @@ export const InformeCard = memo(({ informe, onPress }: Props) => {
       <View style={styles.body}>
         <View style={styles.titleRow}>
           <Text style={[styles.title, informe.cerrada && styles.titleClosed]} numberOfLines={1}>
-            {informe.titulo || 'Sin título'}
+            {creador}
           </Text>
           {informe.cerrada && (
             <View style={styles.closedTag}>
@@ -42,7 +42,7 @@ export const InformeCard = memo(({ informe, onPress }: Props) => {
         </View>
         <View style={styles.metaRow}>
           <Text style={styles.meta} numberOfLines={1}>
-            {creador} · {tiempoRelativo(informe.ultima_actividad)} · {n} {n === 1 ? 'entrada' : 'entradas'}
+            {tiempoRelativo(informe.ultima_actividad)} · {n} {n === 1 ? 'entrada' : 'entradas'}
           </Text>
           {informe.adjuntos > 0 && (
             <View style={styles.clip}>
@@ -52,7 +52,7 @@ export const InformeCard = memo(({ informe, onPress }: Props) => {
           )}
         </View>
         {!!informe.preview && (
-          <Text style={styles.preview} numberOfLines={2}>
+          <Text style={styles.preview} numberOfLines={3}>
             {informe.preview}
           </Text>
         )}

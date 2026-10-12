@@ -173,6 +173,7 @@ export function DetalleEmpleado() {
 					tabs={TABS}
 					activeKey={activeTab}
 					onChange={(key) => setActiveTab(key as TabType)}
+					fontSize={12}
 				/>
 			</View>
 

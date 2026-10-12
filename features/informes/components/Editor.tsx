@@ -17,8 +17,11 @@ export type VarianteEditor = 'compositor' | 'edicion' | 'nuevo';
 
 const ALTO: Record<VarianteEditor, AltoEditor> = { compositor: 'compacto', edicion: 'libre', nuevo: 'alto' };
 
+
 interface Props {
   variante: VarianteEditor;
+  /** Compositor a pantalla completa (teclado abierto): el área de texto se agranda. */
+  expandido?: boolean;
   initialHtml?: string;
   existentes?: Adjunto[];
   /** Informe de la entrada que se edita; permite mostrar miniaturas de los adjuntos guardados. */
@@ -31,6 +34,7 @@ interface Props {
 
 export function Editor({
   variante,
+  expandido = false,
   initialHtml = '',
   existentes = [],
   informeId,
@@ -148,7 +152,18 @@ export function Editor({
     [openCamera],
   );
 
-  const dom = useMemo(() => ({ matchContents: true, scrollEnabled: false, hideKeyboardAccessoryView: true }), []);
+  // El contenedor del WebView trae `flex: 1`, cuya base 0 pisa el alto de matchContents cuando el padre tiene
+  // alto definido (el compositor al pie de InformeDetalle; dentro de un ScrollView no pasa): `flex: 0` deja que
+  // mande el contenido. El ancho lo da el contenedor.
+  const dom = useMemo(
+    () => ({
+      matchContents: true,
+      scrollEnabled: false,
+      hideKeyboardAccessoryView: true,
+      containerStyle: { flex: 0, width: '100%' as const },
+    }),
+    [],
+  );
 
   return (
     <View>
@@ -172,13 +187,12 @@ export function Editor({
         dom={dom}
         initialHtml={initialHtml}
         placeholder={placeholder}
-        alto={ALTO[variante]}
+        alto={expandido ? 'expandido' : ALTO[variante]}
         adjuntosInfo={adjuntosInfo}
         insercion={insercion}
         miId={user?.user_context_id ?? null}
         resetNonce={resetNonce}
         autoFocus={variante !== 'compositor'}
-        deshabilitado={enviando}
         onChange={onChange}
         onBuscar={onBuscar}
         onAdjuntar={onAdjuntar}

@@ -1,11 +1,11 @@
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { useAuth } from '@/features/auth/context/AuthContext';
+import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { glassColors } from '@/shared/ui/glass';
+import { KEYBOARD_BEHAVIOR, useKeyboardVisible } from '@/shared/ui/keyboard';
 import { showGlobalToast } from '@/shared/ui/toast';
-import { Ionicons } from '@expo/vector-icons';
-import React, { useCallback, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { CerrarInformeSheet } from '../components/CerrarInformeSheet';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Keyboard, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Editor } from '../components/Editor';
 import { EntradaItem } from '../components/EntradaItem';
 import { VisorAdjunto, type AdjuntoAbierto } from '../components/VisorAdjunto';
@@ -14,20 +14,28 @@ import { useInforme, useInformeAcciones } from '../hooks';
 import { abrirDocumentoWeb } from '@/components/filePreview/webFile';
 
 /**
- * Con `empleadoId` es la vista de solo lectura de management (informes que mencionan al empleado):
- * quien mira puede no participar del informe, así que no se muestran acciones de escritura.
+ * Con `empleadoId` es la vista de management (informes que mencionan al empleado): quien mira puede no
+ * participar del informe. Gerencia siempre puede escribir; el resto solo si es autor o fue mencionado.
  */
 export function InformeDetalle({ informeId, empleadoId }: { informeId: string; empleadoId?: number }) {
   const { user } = useAuth();
+  const { hasRole } = useRoleCheck();
   const miId = user?.user_context_id ?? null;
   const { informe, isLoading, error } = useInforme(informeId, empleadoId);
   const acciones = useInformeAcciones();
   const scrollRef = useRef<ScrollView>(null);
 
   const [editandoId, setEditandoId] = useState<string | null>(null);
-  const [cerrarAbierto, setCerrarAbierto] = useState(false);
-  const [cerrando, setCerrando] = useState(false);
   const [visor, setVisor] = useState<AdjuntoAbierto | null>(null);
+  const teclado = useKeyboardVisible();
+
+  // Al cerrar el teclado vuelve el hilo: se lo deja en la última entrada una vez que el layout se asentó.
+  useEffect(() => {
+    const alOcultar = Keyboard.addListener('keyboardDidHide', () => {
+      requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: false }));
+    });
+    return () => alOcultar.remove();
+  }, []);
 
   const abrirAdjunto = useCallback(
     (adjunto: Adjunto, autor: string, fecha: string) => {
@@ -62,57 +70,34 @@ export function InformeDetalle({ informeId, empleadoId }: { informeId: string; e
     );
   }
 
-  const soloLectura = empleadoId !== undefined;
-  const esCreador = !soloLectura && miId !== null && informe.creador === miId;
-  const abierto = !informe.cerrada;
+  const participa = miId !== null && informe.entradas.some((e) => e.autor_id === miId || e.menciones.includes(miId));
+  const puedeEscribir = empleadoId === undefined || hasRole('gerencia') || participa;
+  // Con el teclado abierto en el compositor se muestra solo el editor. Se ocultan con estilos (sin desmontar):
+  // si el Editor se remontara, el WebView perdería el foco y se cerraría el teclado.
+  const soloEditor = teclado && puedeEscribir && editandoId === null;
 
   const enviar = async (cuerpo: string, nuevos: AdjuntoPendiente[]) => {
     await acciones.agregarEntrada(informeId, cuerpo, nuevos);
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 150);
   };
 
-  const cerrar = async (texto: string) => {
-    setCerrando(true);
-    try {
-      await acciones.cerrarInforme(informeId, texto || undefined);
-      setCerrarAbierto(false);
-      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 150);
-    } catch (e) {
-      showGlobalToast(e instanceof Error ? e.message : 'No se pudo cerrar el informe.');
-    } finally {
-      setCerrando(false);
-    }
-  };
-
   return (
-    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <View style={styles.topBar}>
-        {abierto ? (
-          <View style={[styles.status, styles.statusOpen]}>
-            <View style={styles.dot} />
-            <Text style={[styles.statusText, { color: '#1558b0' }]}>Abierto</Text>
-          </View>
-        ) : (
-          <View style={[styles.status, styles.statusClosed]}>
-            <Ionicons name="lock-closed" size={12} color="#5a6068" />
-            <Text style={[styles.statusText, { color: '#5a6068' }]}>Cerrado</Text>
-          </View>
-        )}
-        {esCreador && abierto && (
-          <Pressable onPress={() => setCerrarAbierto(true)} style={styles.closeButton} accessibilityRole="button">
-            <Text style={styles.closeText}>Cerrar</Text>
-          </Pressable>
-        )}
-      </View>
-
-      <ScrollView ref={scrollRef} style={styles.flex} contentContainerStyle={styles.thread} keyboardShouldPersistTaps="handled">
+    <KeyboardAvoidingView
+      style={styles.flex}
+      behavior={KEYBOARD_BEHAVIOR}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
+    >
+      <ScrollView
+        ref={scrollRef}
+        style={[styles.flex, soloEditor && styles.oculto]}
+        contentContainerStyle={styles.thread} keyboardShouldPersistTaps="handled">
         {informe.entradas.map((e) => (
           <EntradaItem
             key={e.id}
             entrada={e}
             personas={informe.personas}
             miId={miId}
-            editable={abierto && !soloLectura}
+            editable={puedeEscribir}
             editando={editandoId === e.id}
             onEditar={setEditandoId}
             onCancelarEdicion={cancelarEdicion}
@@ -121,16 +106,27 @@ export function InformeDetalle({ informeId, empleadoId }: { informeId: string; e
             {...(empleadoId !== undefined ? { empleadoId } : null)}
           />
         ))}
-        {!abierto && <Text style={styles.readOnly}>Informe cerrado · solo lectura</Text>}
       </ScrollView>
 
-      {abierto && !soloLectura && (
-        <View style={styles.composer}>
-          <Editor variante="compositor" placeholder="Escribí una entrada…" submitLabel="Enviar" onSubmit={enviar} />
-        </View>
+      {puedeEscribir && (
+        // Siempre un ScrollView (cambiar el tipo de contenedor remontaría el editor y cerraría el teclado):
+        // con el teclado abierto, si el editor y Enviar no entran, se llega a ellos scrolleando.
+        <ScrollView
+          style={soloEditor ? styles.composerExpandido : styles.composerFijo}
+          contentContainerStyle={[styles.composer, soloEditor && styles.composerSinBorde]}
+          keyboardShouldPersistTaps="handled"
+          nestedScrollEnabled
+        >
+          <Editor
+            variante="compositor"
+            expandido={soloEditor}
+            placeholder="Escribí una entrada…"
+            submitLabel="Enviar"
+            onSubmit={enviar}
+          />
+        </ScrollView>
       )}
 
-      <CerrarInformeSheet visible={cerrarAbierto} cerrando={cerrando} onCancel={() => setCerrarAbierto(false)} onConfirm={cerrar} />
       <VisorAdjunto
         abierto={visor}
         obtenerUrl={(idInforme, idAdjunto) => acciones.obtenerUrlAdjunto(idInforme, idAdjunto, empleadoId)}
@@ -144,15 +140,10 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
   error: { color: glassColors.error, textAlign: 'center' },
-  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(17,24,28,0.08)' },
-  status: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 5, paddingHorizontal: 10, borderRadius: 999 },
-  statusOpen: { backgroundColor: 'rgba(26,115,232,0.12)' },
-  statusClosed: { backgroundColor: '#eef0f2' },
-  statusText: { fontSize: 12.5, fontWeight: '700' },
-  dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: glassColors.link },
-  closeButton: { paddingVertical: 6, paddingHorizontal: 14, borderRadius: 999, backgroundColor: '#ffffff', borderWidth: 1, borderColor: 'rgba(17,24,28,0.15)' },
-  closeText: { fontSize: 13.5, fontWeight: '700', color: glassColors.text },
   thread: { paddingTop: 12, paddingBottom: 18 },
-  readOnly: { textAlign: 'center', fontSize: 12.5, color: '#9aa3ab', marginTop: 16 },
+  oculto: { display: 'none' },
   composer: { paddingTop: 10, paddingHorizontal: 12, paddingBottom: 12, borderTopWidth: 1, borderTopColor: 'rgba(17,24,28,0.08)', backgroundColor: '#ffffff' },
+  composerFijo: { flexGrow: 0 },
+  composerExpandido: { flex: 1 },
+  composerSinBorde: { borderTopWidth: 0 },
 });

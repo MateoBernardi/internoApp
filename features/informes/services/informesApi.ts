@@ -69,9 +69,9 @@ export const agregarEntrada = (
   token: string,
   informeId: string,
   idempotencyKey: string,
-  opts: { cuerpo?: string; tipo?: 'cierre' } = {},
+  cuerpo: string,
 ) =>
-  request<Entrada>('POST', `/informes/${informeId}/entradas`, token, { body: opts, idempotencyKey });
+  request<Entrada>('POST', `/informes/${informeId}/entradas`, token, { body: { cuerpo }, idempotencyKey });
 
 export const editarEntrada = (token: string, informeId: string, entradaId: string, cuerpo: string) =>
   request<Entrada>('PATCH', `/informes/${informeId}/entradas/${entradaId}`, token, { body: { cuerpo } });

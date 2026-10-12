@@ -171,7 +171,7 @@ export default function TabLayout() {
     },
     ...(INFORMES_HABILITADOS ? [{
       id: 'informes',
-      label: 'Informes',
+      label: 'Mis Informes',
       route: '/(extras)/informes' as Href,
     }] : []),
     ...(!hideMisLicencias ? [{

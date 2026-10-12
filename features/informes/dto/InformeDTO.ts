@@ -1,4 +1,4 @@
-export type TipoEntrada = 'relato' | 'mensaje' | 'cierre';
+export type TipoEntrada = 'relato' | 'mensaje';
 export type TipoAdjunto = 'imagen' | 'video' | 'documento';
 
 export interface Adjunto {
@@ -35,7 +35,6 @@ export interface InformeResumen {
   creador_nombre: string | null;
   creador_apellido: string | null;
   creada_en: string;
-  cerrada: boolean;
   entradas: number;
   adjuntos: number;
   ultima_actividad: string;
@@ -51,7 +50,6 @@ export interface InformeListado {
 export interface InformeDetalle {
   informe_id: string;
   creador: number;
-  cerrada: boolean;
   entradas: Entrada[];
   personas: Record<number, Persona>;
 }

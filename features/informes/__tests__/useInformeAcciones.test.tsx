@@ -101,17 +101,6 @@ describe('useInformeAcciones', () => {
     expect(subirMock).toHaveBeenCalledTimes(1);
   });
 
-  it('cerrarInforme: POST de tipo cierre con texto opcional', async () => {
-    apiRequestMock.mockResolvedValue(ok({ id: 'c1' }, 201));
-    const { acciones } = setup();
-
-    await acciones.cerrarInforme('inf1', '<p>fin</p>');
-    await acciones.cerrarInforme('inf1');
-
-    expect(apiRequestMock.mock.calls[0]![0].body).toEqual({ cuerpo: '<p>fin</p>', tipo: 'cierre' });
-    expect(apiRequestMock.mock.calls[1]![0].body).toEqual({ tipo: 'cierre' });
-  });
-
   it('reintenta ante error de transporte con la misma X-Idempotency-Key', async () => {
     jest.useFakeTimers();
     apiRequestMock

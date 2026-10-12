@@ -20,25 +20,11 @@ export const InformeCard = memo(({ informe, onPress }: Props) => {
       accessibilityRole="button"
       accessibilityLabel={`Abrir informe de ${creador}`}
     >
-      <View style={styles.status}>
-        {informe.cerrada ? (
-          <View style={styles.closedDot}>
-            <Ionicons name="checkmark" size={11} color="#7a8087" />
-          </View>
-        ) : (
-          <View style={styles.openDot} />
-        )}
-      </View>
       <View style={styles.body}>
         <View style={styles.titleRow}>
-          <Text style={[styles.title, informe.cerrada && styles.titleClosed]} numberOfLines={1}>
+          <Text style={styles.title} numberOfLines={1}>
             {creador}
           </Text>
-          {informe.cerrada && (
-            <View style={styles.closedTag}>
-              <Text style={styles.closedTagText}>cerrado</Text>
-            </View>
-          )}
         </View>
         <View style={styles.metaRow}>
           <Text style={styles.meta} numberOfLines={1}>
@@ -70,15 +56,9 @@ InformeCard.displayName = 'InformeCard';
 const styles = StyleSheet.create({
   card: { ...glassStyles.card, flexDirection: 'row', gap: 10, padding: 14, marginBottom: 10 },
   pressed: { opacity: 0.85 },
-  status: { width: 18, paddingTop: 5, alignItems: 'center' },
-  openDot: { width: 9, height: 9, borderRadius: 5, backgroundColor: glassColors.link },
-  closedDot: { width: 17, height: 17, borderRadius: 9, backgroundColor: '#e4e7eb', alignItems: 'center', justifyContent: 'center' },
   body: { flex: 1, gap: 3 },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   title: { flexShrink: 1, fontSize: 15.5, fontWeight: '700', color: glassColors.text },
-  titleClosed: { color: '#4a5058' },
-  closedTag: { backgroundColor: '#eef0f2', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2 },
-  closedTagText: { fontSize: 11.5, fontWeight: '600', color: glassColors.textMuted },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   meta: { flexShrink: 1, fontSize: 12.5, color: glassColors.textMuted },
   clip: { flexDirection: 'row', alignItems: 'center' },

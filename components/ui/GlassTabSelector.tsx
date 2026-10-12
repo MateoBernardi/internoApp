@@ -19,6 +19,8 @@ interface GlassTabSelectorProps {
   tabs: GlassTab[];
   activeKey: string;
   onChange: (key: string) => void;
+  /** Tamaño del texto de las pestañas; achicarlo cuando hay muchas y no entran. */
+  fontSize?: number;
 }
 
 /**
@@ -26,7 +28,7 @@ interface GlassTabSelectorProps {
  * any number of tabs — the indicator width/position is derived from the
  * measured container width, not hardcoded to two tabs.
  */
-export const GlassTabSelector = memo(({ tabs, activeKey, onChange }: GlassTabSelectorProps) => {
+export const GlassTabSelector = memo(({ tabs, activeKey, onChange, fontSize }: GlassTabSelectorProps) => {
   const [containerWidth, setContainerWidth] = useState(0);
   const activeIndex = Math.max(0, tabs.findIndex((t) => t.key === activeKey));
   const indexAnim = useRef(new Animated.Value(activeIndex)).current;
@@ -73,7 +75,14 @@ export const GlassTabSelector = memo(({ tabs, activeKey, onChange }: GlassTabSel
             accessibilityState={{ selected: isActive }}
           >
             <View style={styles.tabLabelRow}>
-              <Text style={[styles.tabText, isActive ? styles.tabTextActive : styles.tabTextInactive]}>
+              <Text
+                numberOfLines={1}
+                style={[
+                  styles.tabText,
+                  fontSize !== undefined && { fontSize },
+                  isActive ? styles.tabTextActive : styles.tabTextInactive,
+                ]}
+              >
                 {tab.label}
               </Text>
               {tab.showBadge && <View style={styles.badgeDot} />}

@@ -29,7 +29,6 @@ export interface InformeAcciones {
     nuevos: AdjuntoPendiente[],
     quitarIds: string[],
   ) => Promise<void>;
-  cerrarInforme: (informeId: string, texto?: string) => Promise<void>;
   obtenerUrlAdjunto: (informeId: string, adjuntoId: string, empleadoId?: number) => Promise<UrlAdjunto>;
 }
 
@@ -78,7 +77,7 @@ export function useInformeAcciones(): InformeAcciones {
       async agregarEntrada(informeId, cuerpo, adjuntos) {
         const token = getToken();
         const key = generateIdempotencyKey();
-        const entrada = await conReintentos(() => api.agregarEntrada(token, informeId, key, { cuerpo }));
+        const entrada = await conReintentos(() => api.agregarEntrada(token, informeId, key, cuerpo));
         try {
           await subirAdjuntos(token, informeId, entrada.id, adjuntos, key);
         } finally {
@@ -98,14 +97,6 @@ export function useInformeAcciones(): InformeAcciones {
         } finally {
           invalidar(informeId);
         }
-      },
-
-      async cerrarInforme(informeId, texto) {
-        const token = getToken();
-        const key = generateIdempotencyKey();
-        const opts = texto ? { cuerpo: texto, tipo: 'cierre' as const } : { tipo: 'cierre' as const };
-        await conReintentos(() => api.agregarEntrada(token, informeId, key, opts));
-        invalidar(informeId);
       },
 
       obtenerUrlAdjunto(informeId, adjuntoId, empleadoId) {

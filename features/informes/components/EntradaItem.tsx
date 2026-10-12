@@ -29,22 +29,6 @@ export const EntradaItem = memo(
     const autor = nombreCompleto(personas[entrada.autor_id]) || 'Usuario';
     const fecha = formatFechaHora(entrada.creado_en);
 
-    if (entrada.tipo === 'cierre') {
-      return (
-        <View style={styles.closure}>
-          <View style={styles.closureIcon}>
-            <Ionicons name="lock-closed" size={14} color="#fff" />
-          </View>
-          <View style={styles.closureBody}>
-            <Text style={styles.closureTitle}>
-              <Text style={styles.bold}>{autor}</Text> cerró el informe · {fecha}
-            </Text>
-            {!!entrada.cuerpo && <InformeHtml html={entrada.cuerpo} miId={miId} />}
-          </View>
-        </View>
-      );
-    }
-
     const inicial = entrada.tipo === 'relato';
     const mencionaAMi = miId !== null && entrada.autor_id !== miId && entrada.menciones.includes(miId);
     const puedeEditar = editable && miId !== null && entrada.autor_id === miId;
@@ -170,19 +154,4 @@ const styles = StyleSheet.create({
   bodyInitial: {},
   editor: { marginTop: 2 },
   attachments: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 11 },
-  closure: {
-    flexDirection: 'row',
-    gap: 10,
-    marginHorizontal: 18,
-    marginTop: 14,
-    padding: 12,
-    backgroundColor: 'rgba(17,24,28,0.03)',
-    borderWidth: 1,
-    borderColor: 'rgba(17,24,28,0.08)',
-    borderRadius: 14,
-  },
-  closureIcon: { width: 30, height: 30, borderRadius: 15, backgroundColor: glassColors.text, alignItems: 'center', justifyContent: 'center' },
-  closureBody: { flex: 1, gap: 4, justifyContent: 'center' },
-  closureTitle: { fontSize: 13.5, color: glassColors.text },
-  bold: { fontWeight: '700' },
 });

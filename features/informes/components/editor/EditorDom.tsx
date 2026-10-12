@@ -17,7 +17,7 @@ export interface PersonaSugerida {
   rol: string;
 }
 
-export type AltoEditor = 'compacto' | 'libre' | 'alto';
+export type AltoEditor = 'compacto' | 'libre' | 'alto' | 'expandido';
 
 /** Opciones del menú de adjuntar, las mismas que en el resto de los módulos. */
 export type OrigenAdjunto = 'galeria' | 'camara' | 'documento';
@@ -42,7 +42,6 @@ interface Props {
   insercion: { nonce: number; ordenes: number[] } | null;
   resetNonce: number;
   autoFocus?: boolean;
-  deshabilitado?: boolean;
   onChange: (html: string, vacio: boolean) => Promise<void>;
   onBuscar: (consulta: string) => Promise<PersonaSugerida[]>;
   onAdjuntar: (origen: OrigenAdjunto) => Promise<void>;
@@ -226,11 +225,10 @@ const ESTILOS = `
 html, body { margin: 0; padding: 0; background: transparent; }
 body { font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; color: #11181c; -webkit-text-size-adjust: 100%; }
 * { box-sizing: border-box; }
-.ed { border: 1px solid rgba(17,24,28,0.12); border-radius: 14px; background: rgba(255,255,255,0.6); overflow: hidden; }
+.ed { max-width: 100%; border: 1px solid rgba(17,24,28,0.12); border-radius: 14px; background: rgba(255,255,255,0.6); overflow: hidden; }
 .ed.focus { border-color: #1a73e8; box-shadow: 0 0 0 3px rgba(26,115,232,0.1); }
-.ed.off { opacity: .6; pointer-events: none; }
-.bar { display: flex; align-items: center; gap: 2px; padding: 5px 6px; border-bottom: 1px solid rgba(17,24,28,0.08); }
-.btn { width: 32px; height: 30px; border: 0; border-radius: 7px; background: transparent; color: #4a5058; font-size: 15px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; padding: 0; font-family: inherit; }
+.bar { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; padding: 5px 6px; border-bottom: 1px solid rgba(17,24,28,0.08); }
+.btn { flex-shrink: 0; width: 32px; height: 30px; border: 0; border-radius: 7px; background: transparent; color: #4a5058; font-size: 15px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; padding: 0; font-family: inherit; }
 .btn:hover { background: rgba(17,24,28,0.06); }
 .btn.on { background: rgba(26,115,232,0.14); color: #1558b0; }
 .sep { width: 1px; height: 18px; background: rgba(17,24,28,0.1); margin: 0 4px; }
@@ -238,6 +236,7 @@ body { font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, 
 .area.compacto { min-height: 24px; max-height: 110px; }
 .area.libre { min-height: 24px; }
 .area.alto { min-height: 220px; }
+.area.expandido { min-height: 160px; max-height: 260px; }
 .ProseMirror { outline: none; min-height: inherit; word-break: break-word; }
 .ProseMirror p { margin: 0; }
 .ProseMirror p + p { margin-top: 4px; }
@@ -262,8 +261,8 @@ body { font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, 
 .linkbar input:focus { border-color: #1a73e8; }
 .linkbar button { border: 0; border-radius: 8px; padding: 0 12px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; background: #1a73e8; color: #fff; }
 .linkbar button.sec { background: transparent; color: #4a5058; }
-.wrap { position: relative; }
-.pop { position: absolute; z-index: 50; background: #fff; border: 1px solid rgba(17,24,28,0.08); border-radius: 14px; box-shadow: 0 12px 32px rgba(20,24,30,.18); overflow: hidden; }
+.wrap { position: relative; flex: 1; min-width: 0; width: 100%; }
+.pop { position: absolute; z-index: 50; max-width: 100%; background: #fff; border: 1px solid rgba(17,24,28,0.08); border-radius: 14px; box-shadow: 0 12px 32px rgba(20,24,30,.18); overflow: hidden; }
 .pop-h { padding: 8px 14px 4px; font-size: 11px; font-weight: 700; letter-spacing: .06em; color: #687076; }
 .pop-row { display: flex; align-items: center; gap: 10px; width: 100%; border: 0; background: transparent; padding: 8px 14px; text-align: left; cursor: pointer; font-family: inherit; }
 .pop-row.sel, .pop-row:hover { background: rgba(26,115,232,0.08); }
@@ -336,7 +335,6 @@ export default function EditorDom({
   insercion,
   resetNonce,
   autoFocus,
-  deshabilitado,
   onChange,
   onBuscar,
   onAdjuntar,
@@ -469,10 +467,6 @@ export default function EditorDom({
     onFocus: () => setEnfocado(true),
     onBlur: () => setEnfocado(false),
   });
-
-  useEffect(() => {
-    editor?.setEditable(!deshabilitado);
-  }, [editor, deshabilitado]);
 
   const primerReset = useRef(true);
   useEffect(() => {
@@ -652,7 +646,7 @@ export default function EditorDom({
     <EditorCtx.Provider value={{ info: adjuntosInfo, miId }}>
       <div className="wrap" ref={contenedor} style={esNativo && (mostrarPopover || menuAdjuntar) ? { paddingBottom: Math.max(ALTO_POPOVER, ALTO_MENU_ADJUNTAR) } : undefined}>
         <style>{ESTILOS}</style>
-        <div className={`ed${enfocado ? ' focus' : ''}${deshabilitado ? ' off' : ''}`}>
+        <div className={`ed${enfocado ? ' focus' : ''}`}>
           <div className="bar">
             {btn(activo?.b ?? false, 'Negrita (*texto*)', () => editor?.chain().focus().toggleBold().run(), <b>B</b>)}
             {btn(activo?.i ?? false, 'Cursiva (_texto_)', () => editor?.chain().focus().toggleItalic().run(), <i>I</i>)}

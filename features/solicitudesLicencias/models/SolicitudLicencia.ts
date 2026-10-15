@@ -60,7 +60,6 @@ export interface SolicitudLicencia {
   usuario_nombre?: string;
   usuario_apellido?: string;
   tipo_nombre?: string;
-  archivos_adjuntos?: boolean;    // true si tiene archivos
   archivos?: ArchivoAdjunto[];     // Array de archivos adjuntos
   aprobador_nombre?: string;       // Nombre completo del aprobador
   aprobador_apellido?: string;     // Apellido del aprobador

@@ -5,6 +5,10 @@ const AUTH_RETRY_EXCLUDED_ENDPOINTS = new Set([
   '/auth/login',
   '/auth/refresh',
   '/auth/logout',
+  // Asociación: usa el token readonly (sin refresh token). Un 401 acá puede ser un código
+  // inválido; refrescar cerraría la sesión y reintentar gastaría otro intento del código.
+  '/asociar',
+  '/asociar/verify',
 ]);
 
 let reactiveRefreshPromise: Promise<void> | null = null;

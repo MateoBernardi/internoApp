@@ -16,31 +16,11 @@ export interface UsuarioEntidadDTO {
     rol_nombre: string;
 }
 
-export interface CuentaDisponibleDTO {
-    id: number;
-    id_entidad_tipo: number;
-    id_entidad: number;
-    tabla_origen: 'cliente' | 'personal';
-    entorno: 'web' | 'mayorista' | 'interno';
-    contact: string;
-    nombre?: string;
-    apellido?: string;
-    cuit?: string;
-}
-
-export interface ObtenerCuentasResponse {
-    success: boolean;
-    entorno: string;
-    cuit: string;
-    total: number;
-    cuentas: CuentaDisponibleDTO[];
-}
-
 export interface RequestVerificationTokenResponse {
     success: boolean;
     message: string;
-    expiresAt: string;
-    contact: string;
+    /** Emails enmascarados a los que se mandó un código (uno por cuenta del CUIT) */
+    destinos: string[];
 }
 
 export interface VerifyAndAssociateResponse {

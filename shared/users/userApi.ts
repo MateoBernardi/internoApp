@@ -1,6 +1,6 @@
-import { apiRequest } from "../apiRequest";
+import { ApiError, apiRequest } from "../apiRequest";
 import { UpdateUserRequest } from "./User";
-import type { CuentaDisponibleDTO, ObtenerCuentasResponse, RequestVerificationTokenResponse, VerifyAndAssociateResponse } from "./UserDTO";
+import type { RequestVerificationTokenResponse, VerifyAndAssociateResponse } from "./UserDTO";
 
 export async function searchUsers(accessToken: string, query: string, signal?: AbortSignal) {
   const response = await apiRequest({method: "GET", endpoint: `/usuarios/search?q=${encodeURIComponent(query)}`, token: accessToken, signal: signal});
@@ -87,59 +87,67 @@ export async function bajaUsuario(accessToken: string, userId: number) {
   return data;
 }
 
+/** Mensajes de 401 que manda el middleware de auth cuando la sesión readonly no sirve */
+const SESION_INVALIDA_RE = /no autorizado|acceso inválido|sesión inválida|iniciá sesión/i;
+
 /**
- * Obtener cuentas disponibles para asociar
- * Requiere accessToken con rol readonly y requiresAssociation=true
+ * Indica si un error de la asociación corresponde a la sesión readonly vencida/inválida
+ * (y no a un código incorrecto).
  */
-export async function obtenerCuentasDisponibles(accessToken: string, cuit: string, entorno: string): Promise<ObtenerCuentasResponse> {
-  const response = await apiRequest({
-    method: "GET",
-    endpoint: `/asociar?cuit=${encodeURIComponent(cuit)}`,
-    token: accessToken,
-    entorno: entorno,
-  });
-
-  if (!response.ok) {
-    const textResponse = await response.text();
-    console.error("obtenerCuentasDisponibles - Status:", response.statusText, "Response:", textResponse);
-    try {
-      const error = JSON.parse(textResponse);
-      throw new Error(error.error || 'Intenta nuevamente');
-    } catch (e) {
-      throw new Error(textResponse || 'Intenta nuevamente');
-    }
-  }
-
-  const data = await response.json();
-  return data;
+export function isAsociacionSesionExpirada(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 401 && error.code === "SESION_EXPIRADA";
 }
 
 /**
- * Solicitar token de verificación para asociar cuenta
- * PASO 1 del flujo de asociación
+ * Lanza un ApiError con un mensaje claro para el flujo de asociación.
+ * El backend responde `{ error }` en JSON, salvo el rate limit (429) que llega como texto plano.
+ */
+async function throwAsociacionError(response: Response, paso: "solicitar" | "verificar"): Promise<never> {
+  const text = await response.text();
+  let mensaje = text;
+  try {
+    const data = JSON.parse(text);
+    mensaje = data?.error || "";
+  } catch {
+    // No era JSON (p. ej. el 429 del rate limit): se usa el texto tal cual.
+  }
+  console.error(`asociar (${paso}) - Status:`, response.status, "Response:", text);
+
+  if (response.status === 429) {
+    throw new ApiError("Pediste demasiados códigos. Esperá unos minutos y volvé a intentar.", 429);
+  }
+  if (response.status === 401) {
+    if (paso === "solicitar" || SESION_INVALIDA_RE.test(mensaje)) {
+      throw new ApiError("Tu sesión expiró. Iniciá sesión nuevamente.", 401, "SESION_EXPIRADA");
+    }
+    if (/agotaron/i.test(mensaje)) {
+      throw new ApiError("Se agotaron los intentos. Pedí un código nuevo.", 401, "CODIGO_INVALIDO");
+    }
+    throw new ApiError("Código incorrecto o vencido. Revisá el email o pedí un código nuevo.", 401, "CODIGO_INVALIDO");
+  }
+  throw new ApiError(mensaje || "Intenta nuevamente", response.status);
+}
+
+/**
+ * Solicitar códigos de verificación para asociar cuenta
+ * PASO 1 del flujo de asociación: solo se manda el CUIT; el servidor busca las cuentas
+ * y manda un código distinto al email registrado de cada una.
  */
 export async function requestVerificationToken(
   accessToken: string,
-  cuenta: CuentaDisponibleDTO,
+  cuit: string,
   entorno: string
 ): Promise<RequestVerificationTokenResponse> {
   const response = await apiRequest({
     method: "POST",
     endpoint: `/asociar`,
     token: accessToken,
-    body: { cuenta },
+    body: { cuit },
     entorno: entorno,
   });
 
   if (!response.ok) {
-    const textResponse = await response.text();
-    console.error("requestVerificationToken - Status:", response.statusText, "Response:", textResponse);
-    try {
-      const error = JSON.parse(textResponse);
-      throw new Error(error.error || 'Intenta nuevamente');
-    } catch (e) {
-      throw new Error(textResponse || 'Intenta nuevamente');
-    }
+    await throwAsociacionError(response, "solicitar");
   }
 
   const data = await response.json();
@@ -147,12 +155,11 @@ export async function requestVerificationToken(
 }
 
 /**
- * Verificar token y completar asociación
- * PASO 2 del flujo de asociación
+ * Verificar código y completar asociación
+ * PASO 2 del flujo de asociación: el servidor asocia la cuenta a la que se envió ese código.
  */
 export async function verifyAndAssociateAccount(
   accessToken: string,
-  cuenta: CuentaDisponibleDTO,
   token: string,
   entorno: string
 ): Promise<VerifyAndAssociateResponse> {
@@ -160,19 +167,12 @@ export async function verifyAndAssociateAccount(
     method: "POST",
     endpoint: `/asociar/verify`,
     token: accessToken,
-    body: { cuenta, token },
+    body: { token },
     entorno: entorno,
   });
 
   if (!response.ok) {
-    const textResponse = await response.text();
-    console.error("verifyAndAssociateAccount - Status:", response.statusText, "Response:", textResponse);
-    try {
-      const error = JSON.parse(textResponse);
-      throw new Error(error.message || error.error || 'Intenta nuevamente');
-    } catch (e) {
-      throw new Error(textResponse || 'Intenta nuevamente');
-    }
+    await throwAsociacionError(response, "verificar");
   }
 
   const data = await response.json();

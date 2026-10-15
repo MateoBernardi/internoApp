@@ -1,23 +1,20 @@
 import { InputWithIcon } from "@/components/InputWithIcon";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { ScreenSkeleton } from "@/components/ui/ScreenSkeleton";
 import { Colors } from "@/constants/theme";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { authSessionService } from "@/features/auth/services/AuthSessionService";
 import {
-  useObtenerCuentasDisponibles,
   useRequestVerificationToken,
   useVerifyAndAssociate,
 } from "@/shared/users/useAsociarCuenta";
-import type { CuentaDisponibleDTO } from "@/shared/users/UserDTO";
+import { isAsociacionSesionExpirada } from "@/shared/users/userApi";
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  FlatList,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -32,7 +29,10 @@ import { glassColors, glassStyles } from '@/shared/ui/glass';
 import { computeMaskedChange } from '@/shared/utils/maskedInput';
 const colors = Colors["light"];
 
-type Step = "cuit" | "select-cuenta" | "verify" | "success";
+type Step = "cuit" | "verify" | "success";
+
+/** El backend vence el código a los 30 minutos */
+const CODE_TTL_SECONDS = 30 * 60;
 
 const CUIT_SEPARATORS = [
   { afterDigit: 2, char: '-' },
@@ -47,22 +47,17 @@ export default function AsociarCuenta() {
   const [step, setStep] = useState<Step>("cuit");
   const [cuit, setCuit] = useState("");
   const [cuitSelection, setCuitSelection] = useState<{ start: number; end: number } | undefined>();
-  const [selectedCuenta, setSelectedCuenta] = useState<CuentaDisponibleDTO | null>(null);
+  const [destinos, setDestinos] = useState<string[]>([]);
   const [verificationToken, setVerificationToken] = useState("");
   const [entorno] = useState("interno");
-  const [noCuentasFound, setNoCuentasFound] = useState(false);
 
   // Timers y contadores
-  const [timeRemaining, setTimeRemaining] = useState(300);
+  const [timeRemaining, setTimeRemaining] = useState(CODE_TTL_SECONDS);
   const [tokenSentAt, setTokenSentAt] = useState<number | null>(null);
 
-  // Queries y Mutations
-  const obtenerCuentasQuery = useObtenerCuentasDisponibles(cuit, entorno);
+  // Mutations
   const requestVerificationMutation = useRequestVerificationToken();
   const verifyAndAssociateMutation = useVerifyAndAssociate();
-
-  // Helper para saber si realmente está buscando
-  const isSearching = obtenerCuentasQuery.fetchStatus === "fetching";
 
   // Timer para el contador de tiempo
   useEffect(() => {
@@ -71,19 +66,19 @@ export default function AsociarCuenta() {
     if (tokenSentAt && step === "verify") {
       interval = setInterval(() => {
         const elapsed = Math.floor((Date.now() - tokenSentAt) / 1000);
-        const remaining = 300 - elapsed;
+        const remaining = CODE_TTL_SECONDS - elapsed;
 
         if (remaining <= 0) {
           setTimeRemaining(0);
           if (interval) clearInterval(interval);
           Alert.alert(
             "Tiempo expirado",
-            "El token de verificación ha expirado. Por favor intenta de nuevo.",
+            "El código de verificación venció. Pedí uno nuevo.",
             [
               {
                 text: "OK",
                 onPress: () => {
-                  setStep("select-cuenta");
+                  setStep("cuit");
                   setVerificationToken("");
                   setTokenSentAt(null);
                 },
@@ -101,53 +96,39 @@ export default function AsociarCuenta() {
     };
   }, [tokenSentAt, step]);
 
-  // Manejo de búsqueda de CUIT
-  const handleSearchCuit = async () => {
+  // Sesión readonly vencida: no hay refresh token, hay que volver a iniciar sesión.
+  const handleSesionExpirada = () => {
+    Alert.alert("Sesión expirada", "Tu sesión expiró. Iniciá sesión nuevamente.");
+    void signOut();
+    // El RootNavigator redirige automáticamente al login
+  };
+
+  // Manejo de solicitud de códigos: solo se manda el CUIT. El servidor busca las cuentas
+  // y manda un código distinto al email registrado de cada una.
+  const handleRequestToken = async () => {
     if (!cuit || cuit.trim().length === 0) {
       Alert.alert("Error", "Por favor ingresa un CUIT válido");
       return;
     }
     Keyboard.dismiss();
-    setNoCuentasFound(false);
-    obtenerCuentasQuery.refetch();
-  };
-
-  // Cuando se cargan las cuentas
-  useEffect(() => {
-    if (obtenerCuentasQuery.isSuccess && obtenerCuentasQuery.data?.cuentas && step === "cuit") {
-      if (obtenerCuentasQuery.data.cuentas.length > 0) {
-        setNoCuentasFound(false);
-        setStep("select-cuenta");
-      } else {
-        setNoCuentasFound(true);
-      }
-    }
-  }, [obtenerCuentasQuery.isSuccess, obtenerCuentasQuery.data, step]);
-
-  // Manejo de solicitud de token
-  const handleRequestToken = async () => {
-    if (!selectedCuenta) {
-      Alert.alert("Error", "Por favor selecciona una cuenta");
-      return;
-    }
 
     try {
       const data = await requestVerificationMutation.mutateAsync({
-        cuenta: selectedCuenta,
+        cuit: cuit.trim(),
         entorno,
       });
 
+      setDestinos(data.destinos ?? []);
       setTokenSentAt(Date.now());
-      setTimeRemaining(1500);
+      setTimeRemaining(CODE_TTL_SECONDS);
       setVerificationToken("");
+      verifyAndAssociateMutation.reset();
       setStep("verify");
-
-      Alert.alert(
-        "Token enviado",
-        `Se ha enviado un código de verificación a: ${data.contact}`
-      );
-    } catch (error: any) {
-      Alert.alert("Error", error.message || "Intenta nuevamente");
+    } catch (error) {
+      if (isAsociacionSesionExpirada(error)) {
+        handleSesionExpirada();
+      }
+      // El resto de los errores se muestra en pantalla (requestVerificationMutation.error)
     }
   };
 
@@ -160,14 +141,8 @@ export default function AsociarCuenta() {
       return;
     }
 
-    if (!selectedCuenta) {
-      Alert.alert("Error", "No se encontró la cuenta seleccionada");
-      return;
-    }
-
     try {
       const response = await verifyAndAssociateMutation.mutateAsync({
-        cuenta: selectedCuenta,
         token: tokenToSend,
         entorno,
       });
@@ -197,14 +172,13 @@ export default function AsociarCuenta() {
       }
 
       router.replace("/(tabs)");
-    } catch (error: any) {
-      if (error?.message === "Inicia sesion nuevamente") {
-        Alert.alert("Inicia sesion nuevamente");
-        router.replace("/login");
+    } catch (error) {
+      if (isAsociacionSesionExpirada(error)) {
+        handleSesionExpirada();
         return;
       }
-
-      Alert.alert("Error", error.message || "Intenta nuevamente");
+      // Código inválido/vencido u otro error: se muestra debajo (verifyAndAssociateMutation.error)
+      setVerificationToken("");
     }
   };
 
@@ -214,48 +188,11 @@ export default function AsociarCuenta() {
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
-  const maskContact = (contact: string) => {
-    if (contact.includes("@")) {
-      return contact.replace(/(.{2})(.*)(@.*)/, "$1***$3");
-    }
-    return contact.replace(/(.{3})(.*)(.{2})$/, "$1***$3");
-  };
-
   const getTimerColor = () => {
-    if (timeRemaining > 180) return colors.lightTint;
+    if (timeRemaining > 300) return colors.lightTint;
     if (timeRemaining > 60) return colors.warning;
     return colors.error;
   };
-
-  // Error content memoizado
-  const cuitErrorContent = useMemo(() => {
-    if (!obtenerCuentasQuery.isError) return null;
-    return (
-      <View style={styles.errorContainer}>
-        <Feather name="alert-circle" size={16} color={colors.error} style={{ marginRight: 8 }} />
-        <ThemedText style={styles.errorText}>
-          {obtenerCuentasQuery.error instanceof Error
-            ? obtenerCuentasQuery.error.message
-            : "Intenta nuevamente"}
-        </ThemedText>
-      </View>
-    );
-  }, [obtenerCuentasQuery.isError, obtenerCuentasQuery.error]);
-
-  // Si hay loading activo, mostrar skeleton
-  if (isSearching) {
-    return <ScreenSkeleton rows={4} />;
-  }
-
-  const isSelectionStep = step === "select-cuenta";
-  const StepContainer = (isSelectionStep ? View : ScrollView) as React.ComponentType<any>;
-  const stepContainerProps = isSelectionStep
-    ? {}
-    : {
-        contentContainerStyle: styles.scrollContent,
-        keyboardShouldPersistTaps: "handled",
-        showsVerticalScrollIndicator: false,
-      };
 
   return (
     <KeyboardAvoidingView
@@ -263,14 +200,18 @@ export default function AsociarCuenta() {
       behavior={KEYBOARD_BEHAVIOR}
       keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
     >
-      <StepContainer style={styles.scrollView} {...stepContainerProps}>
-        <ThemedView style={[styles.formSection, isSelectionStep && styles.selectionScreen]}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <ThemedView style={styles.formSection}>
           {/* Header */}
           <View style={styles.headerContainer}>
             <ThemedText style={styles.title}>Asociar Cuenta</ThemedText>
             <ThemedText style={styles.subtitle}>
-              {step === "cuit" && "Ingresa tu CUIT para buscar cuentas disponibles"}
-              {step === "select-cuenta" && "Selecciona la cuenta a asociar"}
+              {step === "cuit" && "Ingresa tu CUIT y te enviaremos un código al email registrado"}
               {step === "verify" && "Ingresa el código de verificación"}
               {step === "success" && "¡Cuenta asociada correctamente!"}
             </ThemedText>
@@ -287,26 +228,22 @@ export default function AsociarCuenta() {
                 onChangeText={(text) => {
                   const { formatted, cursor } = computeMaskedChange(cuit, text, 11, CUIT_SEPARATORS);
                   setCuit(formatted);
-                  setNoCuentasFound(false);
+                  requestVerificationMutation.reset();
                   setCuitSelection({ start: cursor, end: cursor });
                 }}
                 onSelectionChange={(e) => setCuitSelection(e.nativeEvent.selection)}
                 keyboardType="numeric"
-                hasError={!!obtenerCuentasQuery.isError}
+                hasError={!!requestVerificationMutation.isError}
               />
 
-              {cuitErrorContent}
-
-              {/* Mensaje cuando no se encontraron cuentas */}
-              {noCuentasFound && (
-                <View style={styles.warningContainer}>
-                  <Feather name="alert-triangle" size={18} color={colors.warning} style={{ marginRight: 8 }} />
-                  <View style={{ flex: 1 }}>
-                    <ThemedText style={styles.warningTitle}>No se encontraron cuentas</ThemedText>
-                    <ThemedText style={styles.warningText}>
-                      No hay cuentas disponibles para el CUIT ingresado. Verifica que el número sea correcto e intenta nuevamente.
-                    </ThemedText>
-                  </View>
+              {requestVerificationMutation.isError && (
+                <View style={styles.errorContainer}>
+                  <Feather name="alert-circle" size={16} color={colors.error} style={{ marginRight: 8 }} />
+                  <ThemedText style={styles.errorText}>
+                    {requestVerificationMutation.error instanceof Error
+                      ? requestVerificationMutation.error.message
+                      : "Intenta nuevamente"}
+                  </ThemedText>
                 </View>
               )}
 
@@ -314,13 +251,19 @@ export default function AsociarCuenta() {
                 style={[
                   styles.button,
                   glassStyles.button,
-                  (!cuit || cuit.length === 0) && styles.buttonDisabled,
+                  (!cuit || cuit.length === 0 || requestVerificationMutation.isPending) && styles.buttonDisabled,
                 ]}
-                onPress={handleSearchCuit}
-                disabled={isSearching || cuit.length === 0}
+                onPress={handleRequestToken}
+                disabled={requestVerificationMutation.isPending || cuit.length === 0}
               >
-                <Feather name="search" size={18} color={glassColors.text} style={{ marginRight: 8 }} />
-                <ThemedText style={styles.buttonText}>Buscar Cuentas</ThemedText>
+                {requestVerificationMutation.isPending ? (
+                  <ActivityIndicator color={glassColors.text} size="small" />
+                ) : (
+                  <>
+                    <Feather name="send" size={18} color={glassColors.text} style={{ marginRight: 8 }} />
+                    <ThemedText style={styles.buttonText}>Enviar Código</ThemedText>
+                  </>
+                )}
               </Pressable>
 
               <Pressable
@@ -333,111 +276,6 @@ export default function AsociarCuenta() {
                 <Feather name="log-out" size={18} color={colors.error} style={{ marginRight: 8 }} />
                 <ThemedText style={styles.buttonDangerText}>Cerrar Sesión</ThemedText>
               </Pressable>
-            </ThemedView>
-          )}
-
-          {/* Step: Select Cuenta */}
-          {step === "select-cuenta" && (
-            <ThemedView style={[glassStyles.card, styles.formContainer, styles.selectionCard]}>
-              <View style={styles.sectionHeader}>
-                <Feather name="users" size={18} color={colors.lightTint} style={{ marginRight: 8 }} />
-                <ThemedText style={styles.sectionTitle}>Cuentas Disponibles</ThemedText>
-              </View>
-
-              {obtenerCuentasQuery.data?.cuentas && obtenerCuentasQuery.data.cuentas.length > 0 ? (
-                <FlatList
-                  data={obtenerCuentasQuery.data.cuentas}
-                  keyExtractor={(item) => item.id.toString()}
-                  style={styles.cuentasList}
-                  contentContainerStyle={styles.cuentasListContent}
-                  renderItem={({ item }) => (
-                    <Pressable
-                      style={[
-                        glassStyles.card,
-                        styles.cuentaCard,
-                        selectedCuenta?.id === item.id && styles.selectedCard,
-                      ]}
-                      onPress={() => setSelectedCuenta(item)}
-                    >
-                      <View style={styles.cuentaContent}>
-                        <ThemedText style={styles.cuentaName}>
-                          {item.nombre || "Cuenta"} {item.apellido || ""}
-                        </ThemedText>
-                        <ThemedText style={styles.cuentaDetail}>
-                          CUIT: {item.cuit || "N/A"}
-                        </ThemedText>
-                        <ThemedText style={styles.cuentaDetail}>
-                          Tipo: {item.tabla_origen}
-                        </ThemedText>
-                        <ThemedText style={styles.cuentaDetail}>
-                          Entorno: {item.entorno}
-                        </ThemedText>
-                        <ThemedText style={styles.cuentaDetail}>
-                          Contacto: {maskContact(item.contact)}
-                        </ThemedText>
-                      </View>
-                      {selectedCuenta?.id === item.id && (
-                        <Feather name="check-circle" size={24} color={colors.lightTint} />
-                      )}
-                    </Pressable>
-                  )}
-                />
-              ) : (
-                <View style={styles.warningContainer}>
-                  <Feather name="alert-triangle" size={18} color={colors.warning} style={{ marginRight: 8 }} />
-                  <View style={{ flex: 1 }}>
-                    <ThemedText style={styles.warningTitle}>Sin cuentas disponibles</ThemedText>
-                    <ThemedText style={styles.warningText}>
-                      No se encontraron cuentas para este CUIT. Verifica el número e intenta nuevamente.
-                    </ThemedText>
-                  </View>
-                </View>
-              )}
-
-              {obtenerCuentasQuery.data?.cuentas && obtenerCuentasQuery.data.cuentas.length > 0 && (
-                <Pressable
-                  style={[
-                    styles.button,
-                    glassStyles.button,
-                    (!selectedCuenta || requestVerificationMutation.isPending) && styles.buttonDisabled,
-                  ]}
-                  onPress={handleRequestToken}
-                  disabled={!selectedCuenta || requestVerificationMutation.isPending}
-                >
-                  {requestVerificationMutation.isPending ? (
-                    <ActivityIndicator color={glassColors.text} size="small" />
-                  ) : (
-                    <>
-                      <Feather name="send" size={18} color={glassColors.text} style={{ marginRight: 8 }} />
-                      <ThemedText style={styles.buttonText}>Enviar Código</ThemedText>
-                    </>
-                  )}
-                </Pressable>
-              )}
-
-              <Pressable
-                style={[glassStyles.buttonSecondary, styles.buttonSecondary]}
-                onPress={() => {
-                  setStep("cuit");
-                  setCuit("");
-                  setSelectedCuenta(null);
-                  setNoCuentasFound(false);
-                }}
-              >
-                <Feather name="arrow-left" size={18} color={colors.tint} style={{ marginRight: 8 }} />
-                <ThemedText style={styles.buttonTextSecondary}>Volver</ThemedText>
-              </Pressable>
-
-              {requestVerificationMutation.isError && (
-                <View style={styles.errorContainer}>
-                  <Feather name="alert-circle" size={16} color={colors.error} style={{ marginRight: 8 }} />
-                  <ThemedText style={styles.errorText}>
-                    {requestVerificationMutation.error instanceof Error
-                      ? requestVerificationMutation.error.message
-                      : "Intenta nuevamente"}
-                  </ThemedText>
-                </View>
-              )}
             </ThemedView>
           )}
 
@@ -456,8 +294,11 @@ export default function AsociarCuenta() {
                 <ThemedText style={styles.sectionTitle}>Código de Verificación</ThemedText>
               </View>
               <ThemedText style={styles.verifyHint}>
-                Se ha enviado un código a{" "}
-                {selectedCuenta && maskContact(selectedCuenta.contact)}
+                {destinos.length > 1
+                  ? "Enviamos un código distinto a cada email registrado de las cuentas de ese CUIT. Ingresá el que recibiste:\n"
+                  : "Se ha enviado un código a "}
+                {destinos.join("\n")}
+                {"\nEl código vence en 30 minutos."}
               </ThemedText>
 
               <InputWithIcon
@@ -489,16 +330,48 @@ export default function AsociarCuenta() {
               </Pressable>
 
               <Pressable
+                style={[
+                  glassStyles.buttonSecondary,
+                  styles.buttonSecondary,
+                  requestVerificationMutation.isPending && styles.buttonDisabled,
+                ]}
+                onPress={handleRequestToken}
+                disabled={requestVerificationMutation.isPending}
+              >
+                {requestVerificationMutation.isPending ? (
+                  <ActivityIndicator color={glassColors.text} size="small" />
+                ) : (
+                  <>
+                    <Feather name="refresh-cw" size={18} color={colors.tint} style={{ marginRight: 8 }} />
+                    <ThemedText style={styles.buttonTextSecondary}>Pedir código nuevo</ThemedText>
+                  </>
+                )}
+              </Pressable>
+
+              <Pressable
                 style={[glassStyles.buttonSecondary, styles.buttonSecondary]}
                 onPress={() => {
-                  setStep("select-cuenta");
+                  requestVerificationMutation.reset();
+                  verifyAndAssociateMutation.reset();
+                  setStep("cuit");
                   setVerificationToken("");
                   setTokenSentAt(null);
                 }}
               >
                 <Feather name="arrow-left" size={18} color={colors.tint} style={{ marginRight: 8 }} />
-                <ThemedText style={styles.buttonTextSecondary}>Cambiar Cuenta</ThemedText>
+                <ThemedText style={styles.buttonTextSecondary}>Cambiar CUIT</ThemedText>
               </Pressable>
+
+              {requestVerificationMutation.isError && (
+                <View style={styles.errorContainer}>
+                  <Feather name="alert-circle" size={16} color={colors.error} style={{ marginRight: 8 }} />
+                  <ThemedText style={styles.errorText}>
+                    {requestVerificationMutation.error instanceof Error
+                      ? requestVerificationMutation.error.message
+                      : "Intenta nuevamente"}
+                  </ThemedText>
+                </View>
+              )}
 
               {verifyAndAssociateMutation.isError && (
                 <View style={styles.errorContainer}>
@@ -530,7 +403,7 @@ export default function AsociarCuenta() {
             </ThemedView>
           )}
         </ThemedView>
-      </StepContainer>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
@@ -555,21 +428,6 @@ const styles = StyleSheet.create({
   headerContainer: {
     marginBottom: 32,
     alignItems: "center",
-  },
-  selectionScreen: {
-    paddingVertical: "5%",
-    minHeight: 0,
-  },
-  selectionCard: {
-    flex: 1,
-    minHeight: 0,
-  },
-  cuentasList: {
-    flex: 1,
-    minHeight: 0,
-  },
-  cuentasListContent: {
-    paddingBottom: 4,
   },
   title: {
     fontSize: 28,
@@ -627,32 +485,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     letterSpacing: 0.3,
   },
-  cuentaCard: {
-    padding: 16,
-    marginBottom: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  selectedCard: {
-    borderColor: colors.lightTint,
-    borderWidth: 2,
-    backgroundColor: "rgba(26,115,232,0.08)",
-  },
-  cuentaContent: {
-    flex: 1,
-  },
-  cuentaName: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: colors.text,
-    marginBottom: 4,
-  },
-  cuentaDetail: {
-    fontSize: 13,
-    color: colors.secondaryText,
-    marginBottom: 2,
-  },
   timerContainer: {
     padding: 20,
     alignItems: "center",
@@ -685,26 +517,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "500",
     flex: 1,
-  },
-  warningContainer: {
-    backgroundColor: "#FFF8E1",
-    borderRadius: 8,
-    padding: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.warning,
-    flexDirection: "row",
-    alignItems: "flex-start",
-  },
-  warningTitle: {
-    color: "#E65100",
-    fontSize: 14,
-    fontWeight: "600",
-    marginBottom: 4,
-  },
-  warningText: {
-    color: "#BF360C",
-    fontSize: 13,
-    lineHeight: 18,
   },
   successContainer: {
     alignItems: "center",

@@ -384,7 +384,7 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
     ['PENDIENTE', 'PENDIENTE_APROBACION', 'PENDIENTE_DOCUMENTACION', 'EXPIRADA'].includes(solicitud.estado);
   const tipoLicencia = tiposLicencias?.find((t) => t.id === solicitud.tipo_licencia_id);
   const requiresDocs = !!tipoLicencia?.requiere_adjunto;
-  const isMissingRequiredDocs = requiresDocs && !solicitud.archivos_adjuntos;
+  const isMissingRequiredDocs = requiresDocs && !solicitud.archivos?.length;
   const isExpired = solicitud.fecha_fin ? new Date(solicitud.fecha_fin) < new Date() : false;
   const hasStarted = (() => {
     if (!solicitud.fecha_inicio) return false;

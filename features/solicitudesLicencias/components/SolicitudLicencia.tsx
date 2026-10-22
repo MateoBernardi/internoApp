@@ -489,7 +489,7 @@ export function SolicitudLicencia(props?: SolicitudLicenciaProps) {
               <View style={styles.inputSection}>
                 <ThemedText style={styles.label}>Cantidad</ThemedText>
                 <ThemedText style={styles.valueText}>
-                  {formatCantidadLicencia(solicitud.cantidad_dias, solicitud.cantidad_horas)}
+                  {formatCantidadLicencia(solicitud.cantidad_dias, solicitud.cantidad_horas, solicitud.cantidad_minutos)}
                 </ThemedText>
               </View>
 

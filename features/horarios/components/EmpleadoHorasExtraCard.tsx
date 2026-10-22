@@ -1,4 +1,5 @@
 import { glassStyles } from '@/shared/ui/glass';
+import { formatMinutos, minutosDe } from '@/shared/utils/duracion';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -8,10 +9,6 @@ import { AMBER, CARD, INK, MUTED, NAVY } from '../theme';
 
 function initials(nombre: string, apellido: string): string {
   return `${nombre?.[0] ?? ''}${apellido?.[0] ?? ''}`.toUpperCase();
-}
-
-function formatHoras(n: number): string {
-  return `${Math.round(n * 10) / 10} hs`;
 }
 
 interface EmpleadoHorasExtraCardProps {
@@ -40,7 +37,7 @@ export const EmpleadoHorasExtraCard = React.memo(function EmpleadoHorasExtraCard
       </View>
 
       <View style={styles.right}>
-        <Text style={styles.horas}>{formatHoras(empleado.horas)}</Text>
+        <Text style={styles.horas}>{formatMinutos(minutosDe(empleado.minutos, empleado.horas) ?? 0)}</Text>
         <Text style={styles.label}>extra</Text>
       </View>
 

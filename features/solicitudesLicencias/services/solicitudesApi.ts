@@ -67,7 +67,13 @@ export const getSaldosLicencia = async (accessToken: string): Promise<solicitudL
         francos = Number.isFinite(francosVal) ? Math.max(0, francosVal) : null;
     }
 
-    return { ausencias, francos };
+    // `francosMinutos`: el mismo saldo en minutos exactos (backend con migración a minutos).
+    let francosMinutos: number | null = null;
+    if (raw?.francosMinutos != null && Number.isFinite(Number(raw.francosMinutos))) {
+        francosMinutos = Math.max(0, Number(raw.francosMinutos));
+    }
+
+    return { ausencias, francos, francosMinutos };
 };
 
 export const getSolicitudesLicencias = async (accessToken: string, filters?: solicitudLicencia.GetSolicitudesFilters): Promise<solicitudLicencia.SolicitudLicencia[]> => {

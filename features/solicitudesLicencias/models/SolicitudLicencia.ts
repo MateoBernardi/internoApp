@@ -33,11 +33,12 @@ export interface SaldoLicencia {
 }
 
 // Respuesta del endpoint /licencias/saldos (shape objeto).
-// `francos` es el saldo neto de Franco Compensatorio en horas reales
-// (horas_disponibles − horas_consumidas, ya dividido por 10 por el backend).
+// Saldo neto de Franco Compensatorio: `francosMinutos` es el exacto; `francos` (horas,
+// 2 decimales) es lo único que manda un backend anterior a la migración a minutos.
 export interface SaldosResponse {
   ausencias: SaldoLicencia[];
   francos: number | null;
+  francosMinutos?: number | null;
 }
 
 // Solicitud de Ausencia (SolicitudAusenciaDTO según API)
@@ -48,7 +49,8 @@ export interface SolicitudLicencia {
   fecha_inicio: string;           // YYYY-MM-DD
   fecha_fin: string;              // YYYY-MM-DD
   cantidad_dias: number | null;   // Días ×10 (dividir por 10 para mostrar)
-  cantidad_horas: number | null;  // Horas ×10 (dividir por 10 para mostrar)
+  cantidad_horas: number | null;  // Horas ×10 (compatibilidad; preferir cantidad_minutos)
+  cantidad_minutos?: number | null; // Minutos exactos (backend con migración a minutos)
   estado: EstadoSolicitud;
   aprobador_id?: number;
   fecha_respuesta?: string;       // ISO 8601

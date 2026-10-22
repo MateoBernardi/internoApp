@@ -1,17 +1,14 @@
 import { glassStyles } from '@/shared/ui/glass';
+import { formatMinutos } from '@/shared/utils/duracion';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import type { HorasSemanalDTO } from '../models/HorasExtra';
+import type { EstadoTurnoProyeccion, HorasSemanaProyeccionDTO } from '../models/HorasExtra';
 import type { HorasExtraFilter } from '../services/horasExtraService';
 import { currentWeek } from '../utils/dateRange';
-import { useHorasSemanalesVsObjetivo } from '../viewmodels/useHorasExtra';
+import { useHorasSemanaProyeccion } from '../viewmodels/useHorasExtra';
 import { WeekNavigator } from './WeekNavigator';
-import { AMBER, INK, MUTED, NAVY, RED_FLASH } from '../theme';
-
-function formatHoras(n: number): string {
-  return `${Math.round(n * 10) / 10} hs`;
-}
+import { ACEPTADO_COLOR, AMBER, INK, LINE, MUTED, NAVY, RED_FLASH } from '../theme';
 
 function initials(nombre: string, apellido: string): string {
   return `${nombre.charAt(0)}${apellido.charAt(0)}`.toUpperCase();
@@ -23,7 +20,7 @@ interface HorasSemanalesListProps {
 
 export function HorasSemanalesList({ filter }: HorasSemanalesListProps) {
   const [week, setWeek] = useState(() => currentWeek());
-  const semanalesQuery = useHorasSemanalesVsObjetivo(week.from, week.to, filter);
+  const semanalesQuery = useHorasSemanaProyeccion(week.from, week.to, filter);
   const empleados = semanalesQuery.data ?? [];
 
   return (
@@ -38,12 +35,6 @@ export function HorasSemanalesList({ filter }: HorasSemanalesListProps) {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.list}>
-          <View style={styles.nota}>
-            <Ionicons name="information-circle-outline" size={16} color={MUTED} />
-            <Text style={styles.notaTexto}>
-              Los objetivos de horas se editan en la planilla de horarios. Un cambio rige desde la semana próxima.
-            </Text>
-          </View>
           {semanalesQuery.isFetching && !semanalesQuery.data ? (
             <View style={styles.centerState}>
               <ActivityIndicator size="large" color={NAVY} />
@@ -71,9 +62,30 @@ export function HorasSemanalesList({ filter }: HorasSemanalesListProps) {
   );
 }
 
-function HorasSemanalCard({ empleado }: { empleado: HorasSemanalDTO }) {
-  const pendiente = empleado.horasObjetivoPendiente;
-  const hayPendiente = pendiente != null && pendiente !== empleado.horasObjetivo;
+const ESTADO_LABEL: Record<EstadoTurnoProyeccion, string> = {
+  realizado: 'Realizado',
+  en_curso: 'En curso',
+  proyectado: 'Planificado',
+  ausente: 'Ausente',
+  licencia: 'Licencia',
+};
+
+const DIAS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+
+/** 'YYYY-MM-DD' → 'Lun 19/10' (fecha local, sin pasar por UTC). */
+function formatDia(fecha: string): string {
+  const [y, m, d] = fecha.split('-').map(Number);
+  const dia = new Date(y, m - 1, d);
+  return `${DIAS[dia.getDay()]} ${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}`;
+}
+
+export function HorasSemanalCard({ empleado }: { empleado: HorasSemanaProyeccionDTO }) {
+  const [abierto, setAbierto] = useState(false);
+  const objetivo = empleado.minutosObjetivo;
+  const pendiente = empleado.minutosObjetivoPendiente;
+  const hayPendiente = pendiente != null && pendiente !== objetivo;
+  const diferencia = empleado.minutosProyectados - objetivo;
+  const cubre = diferencia >= 0;
 
   return (
     <View style={[glassStyles.card, styles.card]}>
@@ -84,16 +96,47 @@ function HorasSemanalCard({ empleado }: { empleado: HorasSemanalDTO }) {
         <View style={styles.mid}>
           <Text style={styles.nombre} numberOfLines={1}>{empleado.nombre} {empleado.apellido}</Text>
           <Text style={styles.horasText}>
-            {formatHoras(empleado.horasTrabajadas)} trabajadas de {formatHoras(empleado.horasObjetivo)} semanales
+            Lleva <Text style={styles.valor}>{formatMinutos(empleado.minutosRealizados)}</Text>
+          </Text>
+          <Text style={styles.horasText}>
+            Proyección <Text style={styles.valor}>{formatMinutos(empleado.minutosProyectados)}</Text> de {formatMinutos(objetivo)} semanales
+          </Text>
+          <Text style={[styles.diferencia, { color: cubre ? ACEPTADO_COLOR : AMBER }]}>
+            {cubre
+              ? diferencia > 0 ? `Supera el objetivo por ${formatMinutos(diferencia)}` : 'Cubre el objetivo'
+              : `Le faltan ${formatMinutos(-diferencia)}`}
+          </Text>
+          <Text style={styles.horasText}>
+            Saldo de francos: <Text style={styles.valor}>{formatMinutos(empleado.minutosSaldoFrancos)}</Text>
           </Text>
           {hayPendiente && (
             <View style={styles.pendientePill}>
               <Ionicons name="arrow-forward-circle-outline" size={13} color={AMBER} />
-              <Text style={styles.pendienteText}>Desde el lunes: {formatHoras(pendiente)} semanales</Text>
+              <Text style={styles.pendienteText}>Desde el lunes: {formatMinutos(pendiente)} semanales</Text>
             </View>
           )}
         </View>
       </View>
+
+      {empleado.turnos.length > 0 && (
+        <TouchableOpacity style={styles.toggle} onPress={() => setAbierto(v => !v)} activeOpacity={0.7}>
+          <Text style={styles.toggleText}>{abierto ? 'Ocultar días' : 'Ver días'}</Text>
+          <Ionicons name={abierto ? 'chevron-up' : 'chevron-down'} size={14} color={NAVY} />
+        </TouchableOpacity>
+      )}
+
+      {abierto && (
+        <View style={styles.dias}>
+          {empleado.turnos.map((t, i) => (
+            <View key={`${t.fecha}-${t.turno}-${i}`} style={styles.diaRow}>
+              <Text style={styles.diaFecha}>{formatDia(t.fecha)} · {t.turno}</Text>
+              <Text style={styles.diaValor}>
+                {formatMinutos(t.minutos)} <Text style={styles.diaEstado}>({ESTADO_LABEL[t.estado]})</Text>
+              </Text>
+            </View>
+          ))}
+        </View>
+      )}
     </View>
   );
 }
@@ -174,16 +217,47 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: MUTED,
   },
-  nota: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 6,
-    paddingBottom: 12,
+  valor: {
+    fontWeight: '700',
+    color: INK,
   },
-  notaTexto: {
-    flex: 1,
-    fontSize: 12.5,
-    lineHeight: 17,
+  diferencia: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  toggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 4,
+  },
+  toggleText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: NAVY,
+  },
+  dias: {
+    borderTopWidth: 1,
+    borderTopColor: LINE,
+    paddingTop: 8,
+    gap: 6,
+  },
+  diaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  diaFecha: {
+    fontSize: 12,
+    color: INK,
+  },
+  diaValor: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: INK,
+  },
+  diaEstado: {
+    fontWeight: '400',
     color: MUTED,
   },
   pendientePill: {

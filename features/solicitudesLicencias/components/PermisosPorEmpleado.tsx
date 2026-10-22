@@ -115,7 +115,7 @@ function PermisoItem({ item, estadoUI, onPress }: PermisoItemProps) {
 					{item.tipo_nombre || 'Permiso'}
 				</ThemedText>
 				<ThemedText numberOfLines={2} style={{ color: colors.icon, fontSize: 13, marginTop: 4 }}>
-					{formatCantidadLicencia(item.cantidad_dias, item.cantidad_horas)}{fechaInicioStr && fechaFinStr ? ` | ${fechaInicioStr} a ${fechaFinStr}` : ''}
+					{formatCantidadLicencia(item.cantidad_dias, item.cantidad_horas, item.cantidad_minutos)}{fechaInicioStr && fechaFinStr ? ` | ${fechaInicioStr} a ${fechaFinStr}` : ''}
 				</ThemedText>
 				<View style={styles.footerContainer}>
 					<ThemedText style={styles.dateText}>

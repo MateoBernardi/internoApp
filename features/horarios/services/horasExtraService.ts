@@ -3,6 +3,7 @@ import { idempotencyHeaders } from '@/shared/idempotency';
 import type {
   HorasExtraDTO,
   HorasSemanalDTO,
+  HorasSemanaProyeccionDTO,
   LiquidarHorasExtraResult,
   MovimientoDTO,
 } from '../models/HorasExtra';
@@ -65,13 +66,15 @@ export async function getMovimientos(
 export async function liquidarHorasExtra(
   token: string,
   userContextId: number,
-  horas: number,
+  minutos: number,
   idempotencyKey?: string,
 ): Promise<LiquidarHorasExtraResult> {
-  // El backend lee `horas` de la query string, no del body, y no implementa
+  // El backend lee la cantidad de la query string, no del body, y no implementa
   // idempotencia en este endpoint (el header se manda igual por consistencia
   // con el resto de las mutaciones, pero el servidor lo ignora).
-  const params = new URLSearchParams({ horas: String(horas) });
+  // `minutos` es el valor exacto; `horas` va por compatibilidad con un backend anterior
+  // a la migración a minutos, que solo lee ese parámetro.
+  const params = new URLSearchParams({ minutos: String(minutos), horas: String(minutos / 60) });
   const res = await apiRequest({
     method: 'POST',
     endpoint: `/horarios/liquidar/${userContextId}?${params.toString()}`,
@@ -105,3 +108,28 @@ export async function getHorasSemanalesVsObjetivo(
   if (!res.ok) throwApiError(await extractError(res), res);
   return res.json();
 }
+
+/**
+ * GET /horarios/semana/proyeccion: por empleado con objetivo, lo que lleva en la semana (turnos
+ * terminados, según marcas), la proyección (más los turnos en curso y futuros al horario esperado),
+ * el objetivo y el saldo de francos. Todo en minutos.
+ */
+export async function getHorasSemanaProyeccion(
+  token: string,
+  fechaInicio: string,
+  fechaFin: string,
+  filter: HorasExtraFilter = {},
+): Promise<HorasSemanaProyeccionDTO[]> {
+  const params = new URLSearchParams({ fechaInicio, fechaFin });
+  if (filter.userContextId != null) params.set('user_context_id', String(filter.userContextId));
+  if (filter.role) params.set('role', filter.role);
+
+  const res = await apiRequest({
+    method: 'GET',
+    endpoint: `/horarios/semana/proyeccion?${params.toString()}`,
+    token,
+  });
+  if (!res.ok) throwApiError(await extractError(res), res);
+  return res.json();
+}
+

@@ -33,6 +33,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAttachMenu } from '@/shared/ui/AttachMenu';
 import { pickFromGallery } from '@/shared/ui/pickFromGallery';
 import { useCameraCapture } from '@/shared/ui/useCameraCapture';
+import { formatMinutos, minutosDe } from '@/shared/utils/duracion';
 import { CreateSolicitudDTO } from '../models/SolicitudLicencia';
 import {
     useAdjuntarArchivo,
@@ -135,7 +136,7 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
     }, [tipoLicenciaId, saldosLicencias]);
 
     // Franco Compensatorio: saldo puramente informativo (no restringe la creación).
-    const franco = saldosLicencias?.francos;
+    const francoMinutos = minutosDe(saldosLicencias?.francosMinutos, saldosLicencias?.francos);
     const esFranco = selectedTipo?.codigo === 'FRANCO';
 
     const saldoDisponible = useMemo(() => {
@@ -600,7 +601,7 @@ export function CrearSolicitudesLicencias(props?: CrearSolicitudesLicenciasProps
                                     <View style={{ flex: 1 }}>
                                         <ThemedText style={styles.saldoTitle}>Saldo de Franco Compensatorio</ThemedText>
                                         <ThemedText style={styles.saldoSubtitle}>
-                                            {isLoadingSaldos ? '...' : `${franco ?? 0} horas disponibles`}
+                                            {isLoadingSaldos ? '...' : `${formatMinutos(francoMinutos ?? 0)} disponibles`}
                                         </ThemedText>
                                         <ThemedText style={styles.infoText}>
                                             Este dato es sólo informativo. No restringe la creación de la solicitud.

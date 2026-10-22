@@ -2,6 +2,7 @@ import { ModalKeyboardView } from '@/shared/ui/ModalKeyboardView';
 import { FullScreenPortal } from '@/shared/ui/FullScreenPortal';
 import { AppBackButton } from '@/shared/ui/AppBackButton';
 import { glassStyles } from '@/shared/ui/glass';
+import { formatMinutos, minutosDe } from '@/shared/utils/duracion';
 import { Colors } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef, useState } from 'react';
@@ -27,10 +28,6 @@ import { useMovimientos } from '../viewmodels/useHorasExtra';
 
 import { AMBER, CARD, INK, LINE, MUTED, RED_FLASH, TURNO_COLOR, TURNO_SOFT } from '../theme';
 const colors = Colors['light'];
-
-function formatHoras(n: number): string {
-  return `${Math.round(n * 10) / 10} hs`;
-}
 
 interface DetalleHorasExtraSheetProps {
   visible: boolean;
@@ -94,7 +91,7 @@ export function DetalleHorasExtraSheet({
               {displayEmpleado && (
                 <View style={styles.totalLine}>
                   <Text style={styles.totalLineText}>
-                    <Text style={styles.totalLineBold}>{formatHoras(displayEmpleado.horas)}</Text>
+                    <Text style={styles.totalLineBold}>{formatMinutos(minutosDe(displayEmpleado.minutos, displayEmpleado.horas) ?? 0)}</Text>
                     {' horas extra · saldo actual'}
                   </Text>
                 </View>
@@ -173,10 +170,10 @@ export function DetalleHorasExtraSheet({
                         <View style={styles.movRowRight}>
                           <Text style={[styles.movCantidad, isNegative && styles.movCantidadNegative]}>
                             {info.sign}
-                            {formatHoras(mov.cantidad)}
+                            {formatMinutos(minutosDe(mov.cantidadMinutos, mov.cantidad) ?? 0)}
                           </Text>
                           {mov.saldoResultante !== null && (
-                            <Text style={styles.movSaldo}>saldo {formatHoras(mov.saldoResultante)}</Text>
+                            <Text style={styles.movSaldo}>saldo {formatMinutos(minutosDe(mov.saldoResultanteMinutos, mov.saldoResultante) ?? 0)}</Text>
                           )}
                         </View>
                       </View>

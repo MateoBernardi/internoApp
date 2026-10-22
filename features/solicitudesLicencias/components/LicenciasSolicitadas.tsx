@@ -295,7 +295,7 @@ function LicenciaSolicitadaItem({ solicitud, estadoUI, onPress }: LicenciaSolici
       <View style={styles.itemContent}>
         <ThemedText type="defaultSemiBold">{solicitud.tipo_nombre || 'Licencia'}</ThemedText>
         <ThemedText style={{ color: colors.icon, fontSize: 13 }}>
-          {solicitud.usuario_nombre} {solicitud.usuario_apellido} • {formatCantidadLicencia(solicitud.cantidad_dias, solicitud.cantidad_horas)}
+          {solicitud.usuario_nombre} {solicitud.usuario_apellido} • {formatCantidadLicencia(solicitud.cantidad_dias, solicitud.cantidad_horas, solicitud.cantidad_minutos)}
         </ThemedText>
         <View style={styles.footerContainer}>
           <ThemedText style={styles.dateText}>{solicitud.fecha_inicio ? new Date(solicitud.fecha_inicio).toLocaleDateString() : 'Sin fecha'}</ThemedText>

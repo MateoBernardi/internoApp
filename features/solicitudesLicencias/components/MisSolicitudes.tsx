@@ -210,7 +210,7 @@ function MiSolicitudItem({ solicitud, estadoUI, onPress }: MiSolicitudItemProps)
           numberOfLines={2}
           style={[styles.description, { color: colors.icon }]}
         >
-          {formatCantidadLicencia(solicitud.cantidad_dias, solicitud.cantidad_horas)}{fechaInicioStr && fechaFinStr ? ` | ${fechaInicioStr} a ${fechaFinStr}` : ''}
+          {formatCantidadLicencia(solicitud.cantidad_dias, solicitud.cantidad_horas, solicitud.cantidad_minutos)}{fechaInicioStr && fechaFinStr ? ` | ${fechaInicioStr} a ${fechaFinStr}` : ''}
         </ThemedText>
 
         {/* Footer: Fecha creación + Badge de Estado */}

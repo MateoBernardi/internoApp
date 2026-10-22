@@ -13,26 +13,30 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { formatMinutos, minutosDe } from '@/shared/utils/duracion';
 import type { HorasExtraDTO } from '../models/HorasExtra';
 import { AMBER, INK, LINE, MUTED, RED_FLASH } from '../theme';
-
-function formatHoras(n: number): string {
-  return `${Math.round(n * 10) / 10} hs`;
-}
 
 interface LiquidarAmountModalProps {
   visible: boolean;
   empleado: HorasExtraDTO | null;
   isLiquidando: boolean;
-  onConfirm: (horas: number) => void;
+  onConfirm: (minutos: number) => void;
   onClose: () => void;
 }
 
+/** Entero >= 0 a partir del texto del input ('' cuenta como 0); NaN si no es un entero. */
+function parseEntero(text: string): number {
+  const t = text.trim();
+  if (t === '') return 0;
+  return /^\d+$/.test(t) ? Number(t) : NaN;
+}
+
 /**
- * Modal compartido entre la card de la lista y el sheet de detalle: pide una
- * cantidad de horas a liquidar, prellenada con el disponible y topeada en él.
- * El backend igual valida el tope server-side (422 si se excede), pero acá se
- * evita el viaje de red en el caso común.
+ * Modal compartido entre la card de la lista y el sheet de detalle: pide horas y
+ * minutos a liquidar (enteros, para que el monto sea exacto), prellenados con el
+ * disponible y topeados en él. El backend igual valida el tope server-side (422 si
+ * se excede), pero acá se evita el viaje de red en el caso común.
  */
 export function LiquidarAmountModal({
   visible,
@@ -42,19 +46,25 @@ export function LiquidarAmountModal({
   onClose,
 }: LiquidarAmountModalProps) {
   const insets = useSafeAreaInsets();
-  const disponible = empleado && empleado.horas > 0 ? empleado.horas : 0;
-  const [text, setText] = useState('');
-  const [isInputFocused, setInputFocused] = useState(false);
+  const saldo = empleado ? minutosDe(empleado.minutos, empleado.horas) ?? 0 : 0;
+  const disponible = Math.max(0, saldo);
+  const [horasText, setHorasText] = useState('');
+  const [minutosText, setMinutosText] = useState('');
+  const [focused, setFocused] = useState<'horas' | 'minutos' | null>(null);
 
-  // Reset del input cada vez que se abre para un nuevo empleado.
+  // Reset de los inputs cada vez que se abre para un nuevo empleado.
   useEffect(() => {
     if (visible) {
-      setText(disponible > 0 ? String(disponible) : '');
+      setHorasText(disponible > 0 ? String(Math.floor(disponible / 60)) : '');
+      setMinutosText(disponible > 0 ? String(disponible % 60) : '');
     }
   }, [visible, empleado?.userContextId, disponible]);
 
-  const parsed = Number(text.replace(',', '.'));
-  const isValid = text.trim().length > 0 && Number.isFinite(parsed) && parsed > 0 && parsed <= disponible;
+  const horas = parseEntero(horasText);
+  const minutos = parseEntero(minutosText);
+  const total = horas * 60 + minutos;
+  const hayTexto = horasText.trim().length > 0 || minutosText.trim().length > 0;
+  const isValid = hayTexto && Number.isFinite(total) && minutos < 60 && total > 0 && total <= disponible;
 
   return (
     <Modal
@@ -80,29 +90,45 @@ export function LiquidarAmountModal({
 
             {empleado && (
               <Text style={styles.subtitle}>
-                {empleado.nombre} {empleado.apellido} · disponible {formatHoras(disponible)}
+                {empleado.nombre} {empleado.apellido} · disponible {formatMinutos(disponible)}
               </Text>
             )}
 
-            <View style={[glassStyles.fieldGlass, styles.inputRow, isInputFocused && styles.inputFocused]}>
-              <TextInput
-                style={[styles.input, styles.inputNoOutline]}
-                keyboardType="decimal-pad"
-                value={text}
-                onChangeText={setText}
-                placeholder="0.0"
-                placeholderTextColor={MUTED}
-                editable={!isLiquidando}
-                onFocus={() => setInputFocused(true)}
-                onBlur={() => setInputFocused(false)}
-                autoFocus
-              />
-              <Text style={styles.inputSuffix}>hs</Text>
+            <View style={styles.inputsRow}>
+              <View style={[glassStyles.fieldGlass, styles.inputRow, styles.inputHalf, focused === 'horas' && styles.inputFocused]}>
+                <TextInput
+                  style={[styles.input, styles.inputNoOutline]}
+                  keyboardType="number-pad"
+                  value={horasText}
+                  onChangeText={setHorasText}
+                  placeholder="0"
+                  placeholderTextColor={MUTED}
+                  editable={!isLiquidando}
+                  onFocus={() => setFocused('horas')}
+                  onBlur={() => setFocused(null)}
+                  autoFocus
+                />
+                <Text style={styles.inputSuffix}>h</Text>
+              </View>
+              <View style={[glassStyles.fieldGlass, styles.inputRow, styles.inputHalf, focused === 'minutos' && styles.inputFocused]}>
+                <TextInput
+                  style={[styles.input, styles.inputNoOutline]}
+                  keyboardType="number-pad"
+                  value={minutosText}
+                  onChangeText={setMinutosText}
+                  placeholder="0"
+                  placeholderTextColor={MUTED}
+                  editable={!isLiquidando}
+                  onFocus={() => setFocused('minutos')}
+                  onBlur={() => setFocused(null)}
+                />
+                <Text style={styles.inputSuffix}>min</Text>
+              </View>
             </View>
 
-            {text.trim().length > 0 && !isValid && (
+            {hayTexto && !isValid && (
               <Text style={styles.errorText}>
-                Ingresá un valor mayor a 0 y hasta {formatHoras(disponible)}.
+                Ingresá un valor mayor a 0 y hasta {formatMinutos(disponible)} (minutos de 0 a 59).
               </Text>
             )}
 
@@ -116,7 +142,7 @@ export function LiquidarAmountModal({
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.btnConfirm, (!isValid || isLiquidando) && styles.btnDisabled]}
-                onPress={() => isValid && onConfirm(parsed)}
+                onPress={() => isValid && onConfirm(total)}
                 disabled={!isValid || isLiquidando}
               >
                 {isLiquidando ? (
@@ -168,12 +194,19 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginTop: -8,
   },
+  inputsRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
   inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,
     height: 52,
     gap: 8,
+  },
+  inputHalf: {
+    flex: 1,
   },
   input: {
     flex: 1,

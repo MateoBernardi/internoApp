@@ -2,6 +2,7 @@ import { useAuth } from '@/features/auth/context/AuthContext';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   getHorasExtra,
+  getHorasSemanaProyeccion,
   getHorasSemanalesVsObjetivo,
   getMovimientos,
   liquidarHorasExtra,
@@ -21,6 +22,8 @@ export const horasExtraQueryKeys = {
     ['horasExtra', 'movimientos', userContextId, mes] as const,
   semanales: (fechaInicio: string, fechaFin: string, filter: HorasExtraFilter) =>
     ['horasExtra', 'semanales', fechaInicio, fechaFin, filter.userContextId ?? null, filter.role ?? null] as const,
+  proyeccion: (fechaInicio: string, fechaFin: string, filter: HorasExtraFilter) =>
+    ['horasExtra', 'proyeccion', fechaInicio, fechaFin, filter.userContextId ?? null, filter.role ?? null] as const,
 };
 
 export function useHorasExtra(filter: HorasExtraFilter) {
@@ -91,16 +94,16 @@ export function useLiquidarHorasExtra() {
   return useMutation({
     mutationFn: async ({
       userContextId,
-      horas,
+      minutos,
       idempotencyKey,
     }: {
       userContextId: number;
-      horas: number;
+      minutos: number;
       idempotencyKey?: string;
     }) => {
       const token = tokens?.accessToken;
       if (!token) throw new Error('No access token');
-      return liquidarHorasExtra(token, userContextId, horas, idempotencyKey);
+      return liquidarHorasExtra(token, userContextId, minutos, idempotencyKey);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: horasExtraQueryKeys.all });
@@ -109,3 +112,26 @@ export function useLiquidarHorasExtra() {
     retryDelay: (i) => Math.min(1000 * 2 ** i, 8000),
   });
 }
+
+/** Se refresca seguido: la proyección cambia a medida que entran las marcas. */
+const PROYECCION_REFETCH_MS = 5 * 60 * 1000;
+
+export function useHorasSemanaProyeccion(fechaInicio: string, fechaFin: string, filter: HorasExtraFilter = {}) {
+  const { tokens } = useAuth();
+  return useQuery({
+    queryKey: horasExtraQueryKeys.proyeccion(fechaInicio, fechaFin, filter),
+    queryFn: async () => {
+      const token = tokens?.accessToken;
+      if (!token) throw new Error('No access token');
+      return getHorasSemanaProyeccion(token, fechaInicio, fechaFin, filter);
+    },
+    staleTime: 0,
+    gcTime: 1000 * 60 * 10,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+    refetchInterval: PROYECCION_REFETCH_MS,
+    retry: 3,
+    retryDelay: (i) => Math.min(1000 * 2 ** i, 30000),
+  });
+}
+

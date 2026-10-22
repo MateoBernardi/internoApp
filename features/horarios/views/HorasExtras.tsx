@@ -2,6 +2,7 @@ import { GlassTabSelector } from '@/components/ui/GlassTabSelector';
 import { SearchBar } from '@/components/ui/SearchBar';
 import { useIdempotencyKey } from '@/shared/useIdempotencyKey';
 import { glassColors, glassStyles } from '@/shared/ui/glass';
+import { formatMinutos, minutosDe } from '@/shared/utils/duracion';
 import type { UserSummary } from '@/shared/users/User';
 import { useSearchUsers } from '@/shared/users/useUser';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,10 +26,6 @@ import { useLiquidarHorasExtra } from '../viewmodels/useHorasExtra';
 import { SHIFT_ROLES } from './GestionHorarios';
 
 import { INK, LINE, MUTED } from '../theme';
-
-function formatHoras(n: number): string {
-  return `${Math.round(n * 10) / 10} hs`;
-}
 
 type HorasExtrasTab = 'liquidacion' | 'feriados' | 'semanales';
 
@@ -107,16 +104,16 @@ export function HorasExtras() {
   const closeLiquidarModal = useCallback(() => setLiquidarTarget(null), []);
 
   const confirmLiquidar = useCallback(
-    (horas: number) => {
+    (minutos: number) => {
       if (!liquidarTarget) return;
       setLiquidandoId(liquidarTarget.userContextId);
       liquidar(
-        { userContextId: liquidarTarget.userContextId, horas, idempotencyKey },
+        { userContextId: liquidarTarget.userContextId, minutos, idempotencyKey },
         {
           onSuccess: (result) => {
             regenerateIdempotencyKey();
             showToast(
-              `Liquidado. Disponible: ${formatHoras(result.horasDisponibles)}`,
+              `Liquidado. Disponible: ${formatMinutos(minutosDe(result.minutosDisponibles, result.horasDisponibles) ?? 0)}`,
             );
             closeDetail();
             closeLiquidarModal();
